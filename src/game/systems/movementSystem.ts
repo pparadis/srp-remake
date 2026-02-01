@@ -1,4 +1,5 @@
 import type { TrackCell, TrackData } from "../types/track";
+import type { CarSetup } from "../types/car";
 
 export interface TargetInfo {
   distance: number;
@@ -18,12 +19,44 @@ export interface MovementOptions {
   disallowPitBoxTargets?: boolean;
 }
 
+export interface MovementCostRates {
+  tireRate: number;
+  fuelRate: number;
+}
+
+export interface MovementCostContext extends MovementCostRates {
+  setup: CarSetup;
+}
+
+function laneFactor(laneIndex: number, factors: { lane0: number; lane1: number; lane2: number }): number {
+  if (laneIndex === 0) return factors.lane0;
+  if (laneIndex === 1) return factors.lane1;
+  if (laneIndex === 2) return factors.lane2;
+  return 1;
+}
+
+function computeCosts(distance: number, laneIndex: number, costs: MovementCostContext): { tireCost: number; fuelCost: number } {
+  const aeroFactor = 1 + (costs.setup.wingFrontDeg + costs.setup.wingRearDeg) * 0.01;
+  const psi = costs.setup.psi;
+  const psiFactor =
+    1 +
+    (Math.abs(psi.fl - 32) + Math.abs(psi.fr - 32) + Math.abs(psi.rl - 32) + Math.abs(psi.rr - 32)) * 0.002;
+  const tireLaneFactor = laneFactor(laneIndex, { lane0: 1.05, lane1: 1.0, lane2: 0.98 });
+  const fuelLaneFactor = laneFactor(laneIndex, { lane0: 0.98, lane1: 1.0, lane2: 1.03 });
+
+  const tireCost = Math.round(distance * costs.tireRate * aeroFactor * psiFactor * tireLaneFactor);
+  const fuelCost = Math.round(distance * costs.fuelRate * aeroFactor * fuelLaneFactor);
+
+  return { tireCost, fuelCost };
+}
+
 export function computeValidTargets(
   track: TrackData,
   startCellId: string,
   occupied: Set<string>,
   maxSteps: number,
-  options: MovementOptions = {}
+  options: MovementOptions = {},
+  costs: MovementCostContext
 ): Map<string, TargetInfo> {
   const cellMap = buildCellMap(track);
   const startCell = cellMap.get(startCellId);
@@ -45,7 +78,6 @@ export function computeValidTargets(
     const current = cellMap.get(currentId);
     if (!current) continue;
     const currentIsPitLane = current.laneIndex === 3;
-    if (currentIsPitLane && currentDist > 0) continue;
 
     for (const nextId of current.next) {
       const nextCell = cellMap.get(nextId);
@@ -70,10 +102,11 @@ export function computeValidTargets(
     if (!cell) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
+    const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
     targets.set(cellId, {
       distance: d,
-      tireCost: d,
-      fuelCost: d,
+      tireCost,
+      fuelCost,
       isPitTrigger: (cell.tags ?? []).includes("PIT_BOX")
     });
   }
@@ -87,10 +120,12 @@ export function computeValidTargets(
     if (exitCellId && !occupied.has(exitCellId)) {
       const exitCell = cellMap.get(exitCellId);
       if (exitCell) {
+        const distance = Math.max(1, exitZone - startCell.zoneIndex);
+        const { tireCost, fuelCost } = computeCosts(distance, exitCell.laneIndex, costs);
         targets.set(exitCellId, {
-          distance: exitZone - startCell.zoneIndex,
-          tireCost: 0,
-          fuelCost: 0,
+          distance,
+          tireCost,
+          fuelCost,
           isPitTrigger: false
         });
       }

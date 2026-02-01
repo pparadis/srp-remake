@@ -271,9 +271,15 @@ export class RaceScene extends Phaser.Scene {
   private recomputeTargets() {
     const occupied = new Set(this.cars.map((c) => c.cellId));
     const maxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0 ? 4 : 9;
+    const tireRate = this.activeCar.setup.compound === "soft" ? 0.5 : 0.35;
+    const fuelRate = 0.45;
     this.validTargets = computeValidTargets(this.track, this.activeCar.cellId, occupied, maxSteps, {
       allowPitExitSkip: this.activeCar.pitExitBoost,
       disallowPitBoxTargets: this.activeCar.pitServiced
+    }, {
+      tireRate,
+      fuelRate,
+      setup: this.activeCar.setup
     });
   }
 
@@ -575,8 +581,8 @@ export class RaceScene extends Phaser.Scene {
     for (let z = 1; z <= this.track.zones; z++) {
       const arr = byZone.get(z);
       if (!arr) continue;
-      const midLane = arr.find((c) => c.laneIndex === 1) ?? arr[0];
-      this.add.text(midLane.pos.x + 10, midLane.pos.y - 10, `${z}`, {
+      const labelCell = arr.find((c) => c.laneIndex === 0) ?? arr.find((c) => c.laneIndex === 1) ?? arr[0];
+      this.add.text(labelCell.pos.x + 10, labelCell.pos.y - 10, `${z}`, {
         fontFamily: "monospace",
         fontSize: "12px",
         color: "#9fb0bf"
@@ -613,8 +619,12 @@ export class RaceScene extends Phaser.Scene {
 
     const tags = (cell.tags ?? []).join(", ") || "none";
     const targetInfo = this.validTargets.get(cell.id);
+    const factors = targetInfo ? this.computeCostFactors(cell.laneIndex) : null;
     const targetLine = targetInfo
       ? `target: d${targetInfo.distance}  tire-${targetInfo.tireCost}  fuel-${targetInfo.fuelCost}${targetInfo.isPitTrigger ? "  PIT" : ""}`
+      : null;
+    const factorLine = factors
+      ? `factors: aero x${factors.aero.toFixed(2)}  psi x${factors.psi.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
       : null;
     return [
       `cell: ${cell.id}`,
@@ -622,7 +632,23 @@ export class RaceScene extends Phaser.Scene {
       `tags: ${tags}`,
       `next: ${cell.next.length}`,
       ...(targetLine ? [targetLine] : []),
+      ...(factorLine ? [factorLine] : []),
       `valid targets: ${this.validTargets.size}`
     ].join("\n");
+  }
+
+  private computeCostFactors(laneIndex: number) {
+    const setup = this.activeCar.setup;
+    const aero = 1 + (setup.wingFrontDeg + setup.wingRearDeg) * 0.01;
+    const psi =
+      1 +
+      (Math.abs(setup.psi.fl - 32) +
+        Math.abs(setup.psi.fr - 32) +
+        Math.abs(setup.psi.rl - 32) +
+        Math.abs(setup.psi.rr - 32)) *
+        0.002;
+    const laneT = laneIndex === 0 ? 1.05 : laneIndex === 2 ? 0.98 : 1.0;
+    const laneF = laneIndex === 0 ? 0.98 : laneIndex === 2 ? 1.03 : 1.0;
+    return { aero, psi, laneT, laneF };
   }
 }
