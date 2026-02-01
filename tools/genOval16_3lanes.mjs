@@ -57,6 +57,7 @@ const cells = [];
 const laneSequences = new Map();
 const laneAngleByZone = new Map();
 const laneLengths = new Map();
+let startLineRef = null;
 
 for (const lane of mainLanes) {
   const seq = [];
@@ -70,9 +71,30 @@ for (const lane of mainLanes) {
   addStraight(points, straightCount, rightCx, yBottom, leftCx, yBottom);
   addArc(points, cornerCounts[lane], leftCx, cy, radius, Math.PI / 2, (Math.PI * 3) / 2);
 
-  for (let i = 0; i < points.length; i += 1) {
-    const p = points[i];
-    const zoneIndex = ((i + startZoneOffset) % points.length) + 1;
+  const len = points.length;
+  const startIndex0 = lane === 0 ? (len - startZoneOffset) % len : null;
+  if (lane === 0) {
+    const p = points[startIndex0];
+    startLineRef = { x: p.x, y: p.y };
+  }
+  let startIndex = startIndex0 ?? 0;
+  if (lane !== 0 && startLineRef) {
+    let bestIdx = 0;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < len; i += 1) {
+      const p = points[i];
+      const score = Math.abs(p.x - startLineRef.x) + Math.abs(p.y - startLineRef.y);
+      if (score < bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+    startIndex = bestIdx;
+  }
+
+  for (let k = 0; k < len; k += 1) {
+    const p = points[(startIndex + k) % len];
+    const zoneIndex = k + 1;
     const cell = {
       id: id(zoneIndex, lane),
       zoneIndex,
@@ -81,14 +103,14 @@ for (const lane of mainLanes) {
       next: [],
       tags: []
     };
-    if (lane === 0 && zoneIndex >= 1 && zoneIndex <= 3) cell.tags.push("START_FINISH");
+    if (lane !== pitLane && zoneIndex === 1) cell.tags.push("START_FINISH");
     cells.push(cell);
-    seq.push({ cell, progress: i / points.length, nx: p.nx, ny: p.ny });
+    seq.push({ cell, progress: k / len, nx: p.nx, ny: p.ny });
     angleByZone.set(zoneIndex, { nx: p.nx, ny: p.ny, x: p.x, y: p.y });
   }
   laneSequences.set(lane, seq);
   laneAngleByZone.set(lane, angleByZone);
-  laneLengths.set(lane, points.length);
+  laneLengths.set(lane, len);
 }
 
 const maxZones = Math.max(...Array.from(laneLengths.values()));
