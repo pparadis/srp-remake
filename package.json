@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node tools/validateTrack.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
