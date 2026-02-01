@@ -12,6 +12,8 @@ export interface CarSetup {
   wingRearDeg: number;
 }
 
+import type { MoveCycle } from "../systems/moveBudgetSystem";
+
 export interface Car {
   carId: number;
   ownerId: string;
@@ -23,8 +25,5 @@ export interface Car {
   pitTurnsRemaining: number;
   pitExitBoost: boolean;
   pitServiced: boolean;
-  moveCycle: {
-    index: number;
-    spent: number[];
-  };
+  moveCycle: MoveCycle;
 }

@@ -85,6 +85,44 @@ function validateTrack(track) {
     if (pitNext.length > 1) errors.push(`pit cell ${id} has multiple pit next links`);
   }
 
+  // Pit lane length and connectivity (entry -> exit).
+  if (pitEntry.length === 1 && pitExit.length === 1) {
+    const entryId = pitEntry[0].id;
+    const exitId = pitExit[0].id;
+    const visited = new Set();
+    let current = entryId;
+    let steps = 0;
+    while (!visited.has(current) && pitSet.has(current)) {
+      visited.add(current);
+      steps += 1;
+      if (current === exitId) break;
+      const cell = byId.get(current);
+      const nextPit = (cell.next ?? []).find((n) => pitSet.has(n));
+      if (!nextPit) break;
+      current = nextPit;
+    }
+    if (current !== exitId) {
+      errors.push(`pit chain does not reach PIT_EXIT from PIT_ENTRY`);
+    } else if (steps !== pitCells.length) {
+      errors.push(`pit lane length mismatch: chain has ${steps}, pit lane has ${pitCells.length}`);
+    }
+  }
+
+  // Lane change constraints for main lanes.
+  const mainLanes = new Set([0, 1, 2]);
+  for (const cell of cells) {
+    if (!mainLanes.has(cell.laneIndex)) continue;
+    for (const nextId of cell.next ?? []) {
+      const nextCell = byId.get(nextId);
+      if (!nextCell) continue;
+      if (nextCell.laneIndex === 3) continue;
+      const diff = Math.abs(nextCell.laneIndex - cell.laneIndex);
+      if (diff > 1) {
+        errors.push(`invalid lane change from ${cell.id} to ${nextId}`);
+      }
+    }
+  }
+
   return errors;
 }
 
