@@ -621,14 +621,10 @@ export class RaceScene extends Phaser.Scene {
 
   private makeHudText(cell: TrackCell | null): string {
     if (!cell) {
-      const activeStatus = `active: Car ${this.activeCar.carId}  tire ${this.activeCar.tire}%  fuel ${this.activeCar.fuel}%`;
+      const activeStatus = `Active: Car ${this.activeCar.carId}\nTire: ${this.activeCar.tire}% \nFuel: ${this.activeCar.fuel}%`;
       return [
         activeStatus,
-        `track: ${this.track.trackId}`,
-        `zones: ${this.track.zones}  lanes: ${this.track.lanes}`,
-        `hover a cell to inspect it`,
-        `click a cell to log next[]`,
-        `valid targets: ${this.validTargets.size}`
+        `Valid targets: ${this.validTargets.size}`
       ].join("\n");
     }
 
@@ -676,7 +672,7 @@ export class RaceScene extends Phaser.Scene {
     const cycle = this.activeCar.moveCycle;
     const parts = cycle.spent.map((v, i) => (i === cycle.index ? `[${v}]` : `${v}`));
     const remaining = this.getRemainingBudget(this.activeCar);
-    this.txtCycle.setText(`Move budget: ${parts.join("-")}  remaining ${remaining}/40`);
+    this.txtCycle.setText(`Move budget: ${parts.join("-")}  Remaining ${remaining}/40`);
   }
 
   private computeCostFactors(laneIndex: number) {

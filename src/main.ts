@@ -1,3 +1,4 @@
+import "./style.css";
 import { startGame } from "./game";
 
 const app = document.getElementById("app")!;
