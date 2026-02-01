@@ -23,4 +23,8 @@ export interface Car {
   pitTurnsRemaining: number;
   pitExitBoost: boolean;
   pitServiced: boolean;
+  moveCycle: {
+    index: number;
+    spent: number[];
+  };
 }

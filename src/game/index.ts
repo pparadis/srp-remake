@@ -2,7 +2,11 @@ import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { RaceScene } from "./scenes/RaceScene";
 
-export function startGame(parent: HTMLElement) {
+export interface GameOptions {
+  playerCount?: number;
+}
+
+export function startGame(parent: HTMLElement, options: GameOptions = {}) {
   const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
     parent,
@@ -16,5 +20,7 @@ export function startGame(parent: HTMLElement) {
     }
   };
 
-  return new Phaser.Game(config);
+  const game = new Phaser.Game(config);
+  game.registry.set("playerCount", options.playerCount ?? 1);
+  return game;
 }

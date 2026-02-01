@@ -15,13 +15,16 @@ export class RaceScene extends Phaser.Scene {
   private gTargets!: Phaser.GameObjects.Graphics;
   private gUI!: Phaser.GameObjects.Graphics;
   private txtInfo!: Phaser.GameObjects.Text;
+  private txtCycle!: Phaser.GameObjects.Text;
   private txtLog!: Phaser.GameObjects.Text;
   private cars: Car[] = [];
   private activeCar!: Car;
   private carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
   private validTargets: Map<string, TargetInfo> = new Map();
   private dragOrigin: { x: number; y: number } | null = null;
-  private pendingPit: { cell: TrackCell; origin: { x: number; y: number }; originCellId: string } | null = null;
+  private pendingPit:
+    | { cell: TrackCell; origin: { x: number; y: number }; originCellId: string; distance: number }
+    | null = null;
   private turn!: TurnState;
   private logLines: string[] = [];
   private modal!: Phaser.GameObjects.Container;
@@ -32,6 +35,7 @@ export class RaceScene extends Phaser.Scene {
   private modalCancel!: Phaser.GameObjects.Text;
   private modalSetup: Car["setup"] | null = null;
   private modalValueTexts: Record<string, Phaser.GameObjects.Text> = {};
+  private playerCount = 1;
 
   constructor() {
     super("RaceScene");
@@ -50,6 +54,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.track = parsed.data as TrackData;
     this.cellMap = new Map(this.track.cells.map((c) => [c.id, c]));
+    this.playerCount = Number(this.registry.get("playerCount") ?? 1);
 
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
@@ -59,6 +64,12 @@ export class RaceScene extends Phaser.Scene {
       fontSize: "14px",
       color: "#c7d1db"
     });
+    this.txtCycle = this.add.text(550, 10, "", {
+      fontFamily: "monospace",
+      fontSize: "14px",
+      color: "#c7d1db"
+    });
+    this.txtCycle.setOrigin(0.5, 0);
     this.txtLog = this.add.text(820, 20, "", {
       fontFamily: "monospace",
       fontSize: "13px",
@@ -74,6 +85,7 @@ export class RaceScene extends Phaser.Scene {
     this.drawTargets();
     this.drawLogPanel();
     this.createPitModal();
+    this.updateCycleHud();
 
     this.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
       if (this.modalActive) return;
@@ -106,10 +118,12 @@ export class RaceScene extends Phaser.Scene {
         if (cell.laneIndex !== 3) {
           this.activeCar.pitServiced = false;
         }
-        if ((cell.tags ?? []).includes("PIT_BOX")) {
-          this.openPitModal(cell, origin, prevCellId);
+        const moveSpend = this.computeMoveSpend(info.distance, cell);
+        if ((cell.tags ?? []).includes("PIT_BOX") && !this.activeCar.pitServiced) {
+          this.openPitModal(cell, origin, prevCellId, moveSpend);
         } else {
           this.applyMoveCosts(info);
+          this.recordMove(this.activeCar, moveSpend);
           this.addLog(`Car ${this.activeCar.carId} moved to ${cell.id}.`);
           this.advanceTurnAndRefresh();
         }
@@ -141,62 +155,53 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private initCars() {
-    const startCell =
-      this.track.cells.find((c) => (c.tags ?? []).includes("START_FINISH")) ??
-      this.track.cells[0];
-    const secondaryCell =
-      this.track.cells.find((c) => c.zoneIndex === startCell.zoneIndex && c.laneIndex !== startCell.laneIndex) ??
-      this.track.cells.find((c) => c.zoneIndex !== startCell.zoneIndex) ??
-      this.track.cells[1];
+    const mainLanes = [0, 1, 2];
+    const slots: TrackCell[] = [];
+    for (let z = 1; z <= this.track.zones; z += 1) {
+      for (const lane of mainLanes) {
+        const cell = this.track.cells.find((c) => c.zoneIndex === z && c.laneIndex === lane);
+        if (cell) slots.push(cell);
+      }
+    }
 
-    const car1: Car = {
-      carId: 1,
-      ownerId: "P1",
-      cellId: startCell.id,
-      tire: 100,
-      fuel: 100,
-      setup: {
-        compound: "soft",
-        psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-        wingFrontDeg: 6,
-        wingRearDeg: 12
-      },
-      state: "ACTIVE",
-      pitTurnsRemaining: 0,
-      pitExitBoost: false,
-      pitServiced: false
-    };
+    const count = Math.max(1, Math.min(this.playerCount, slots.length));
+    const colors = [0xe94cff, 0x35d0c7, 0xffc857, 0xff6b6b];
+    const setups = [
+      { compound: "soft", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 },
+      { compound: "hard", psi: { fl: 24, fr: 24, rl: 22, rr: 22 }, wingFrontDeg: 5, wingRearDeg: 11 },
+      { compound: "soft", psi: { fl: 25, fr: 25, rl: 23, rr: 23 }, wingFrontDeg: 7, wingRearDeg: 13 },
+      { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wingFrontDeg: 4, wingRearDeg: 10 }
+    ];
 
-    const car2: Car = {
-      carId: 2,
-      ownerId: "P2",
-      cellId: secondaryCell.id,
-      tire: 100,
-      fuel: 100,
-      setup: {
-        compound: "hard",
-        psi: { fl: 24, fr: 24, rl: 22, rr: 22 },
-        wingFrontDeg: 5,
-        wingRearDeg: 11
-      },
-      state: "ACTIVE",
-      pitTurnsRemaining: 0,
-      pitExitBoost: false,
-      pitServiced: false
-    };
+    this.cars = [];
+    for (let i = 0; i < count; i += 1) {
+      const cell = slots[i];
+      const setup = setups[i % setups.length];
+      const car: Car = {
+        carId: i + 1,
+        ownerId: `P${i + 1}`,
+        cellId: cell.id,
+        tire: 100,
+        fuel: 100,
+        setup: structuredClone(setup),
+        state: "ACTIVE",
+        pitTurnsRemaining: 0,
+        pitExitBoost: false,
+        pitServiced: false,
+        moveCycle: { index: 0, spent: [0, 0, 0, 0, 0] }
+      };
+      this.cars.push(car);
+      this.spawnCarToken(car, colors[i % colors.length]);
+    }
 
-    this.cars = [car1, car2];
-    this.activeCar = car1;
-
-    this.spawnCarToken(car1, 0xe94cff);
-    this.spawnCarToken(car2, 0x35d0c7);
+    this.activeCar = this.cars[0];
   }
 
   private spawnCarToken(car: Car, color: number) {
     const cell = this.cellMap.get(car.cellId);
     if (!cell) return;
-    const circle = this.add.circle(0, 0, 11, color, 1);
-    circle.setStrokeStyle(2, 0x1a1a1a, 1);
+    const body = this.add.rectangle(0, 0, 26, 16, color, 1);
+    body.setStrokeStyle(2, 0x1a1a1a, 1);
 
     const label = this.add.text(0, 0, String(car.carId), {
       fontFamily: "monospace",
@@ -205,9 +210,9 @@ export class RaceScene extends Phaser.Scene {
     });
     label.setOrigin(0.5, 0.5);
 
-    const token = this.add.container(cell.pos.x, cell.pos.y, [circle, label]);
+    const token = this.add.container(cell.pos.x, cell.pos.y, [body, label]);
     token.setDepth(10);
-    token.setSize(24, 24);
+    token.setSize(28, 18);
     token.setInteractive({ useHandCursor: true });
     this.carTokens.set(car.carId, token);
   }
@@ -225,6 +230,7 @@ export class RaceScene extends Phaser.Scene {
     this.selectNextPlayable();
     this.recomputeTargets();
     this.drawTargets();
+    this.updateCycleHud();
   }
 
   private selectNextPlayable() {
@@ -238,6 +244,7 @@ export class RaceScene extends Phaser.Scene {
         if (car.pitTurnsRemaining === 0) {
           car.pitExitBoost = true;
         }
+        this.recordMove(car, 0);
         this.addLog(`Car ${car.carId} pit penalty (remaining ${car.pitTurnsRemaining}).`);
         advanceTurn(this.turn);
         continue;
@@ -252,6 +259,7 @@ export class RaceScene extends Phaser.Scene {
     this.activeCar = this.cars.find((c) => c.carId === currentId) ?? this.cars[0];
     this.addLog(`Car ${this.activeCar.carId} to play.`);
     this.updateActiveCarVisuals();
+    this.updateCycleHud();
   }
 
   private updateActiveCarVisuals() {
@@ -270,12 +278,16 @@ export class RaceScene extends Phaser.Scene {
 
   private recomputeTargets() {
     const occupied = new Set(this.cars.map((c) => c.cellId));
-    const maxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0 ? 4 : 9;
+    const baseMaxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0 ? 4 : 9;
+    const remainingBudget = this.getRemainingBudget(this.activeCar);
+    const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
     const tireRate = this.activeCar.setup.compound === "soft" ? 0.5 : 0.35;
     const fuelRate = 0.45;
+    const activeCell = this.cellMap.get(this.activeCar.cellId);
+    const inPitLane = activeCell?.laneIndex === 3;
     this.validTargets = computeValidTargets(this.track, this.activeCar.cellId, occupied, maxSteps, {
       allowPitExitSkip: this.activeCar.pitExitBoost,
-      disallowPitBoxTargets: this.activeCar.pitServiced
+      disallowPitBoxTargets: this.activeCar.pitServiced && !inPitLane
     }, {
       tireRate,
       fuelRate,
@@ -432,8 +444,8 @@ export class RaceScene extends Phaser.Scene {
     return txt;
   }
 
-  private openPitModal(cell: TrackCell, origin: { x: number; y: number }, originCellId: string) {
-    this.pendingPit = { cell, origin, originCellId };
+  private openPitModal(cell: TrackCell, origin: { x: number; y: number }, originCellId: string, distance: number) {
+    this.pendingPit = { cell, origin, originCellId, distance };
     this.modalSetup = structuredClone(this.activeCar.setup);
     this.modalBody.setText(
       [
@@ -455,6 +467,7 @@ export class RaceScene extends Phaser.Scene {
     this.modalConfirm.once("pointerdown", () => {
       if (!this.pendingPit) return;
       this.applyPitStop(this.pendingPit.cell);
+      this.recordMove(this.activeCar, this.pendingPit.distance);
       this.closePitModal();
       this.advanceTurnAndRefresh();
     });
@@ -608,7 +621,9 @@ export class RaceScene extends Phaser.Scene {
 
   private makeHudText(cell: TrackCell | null): string {
     if (!cell) {
+      const activeStatus = `active: Car ${this.activeCar.carId}  tire ${this.activeCar.tire}%  fuel ${this.activeCar.fuel}%`;
       return [
+        activeStatus,
         `track: ${this.track.trackId}`,
         `zones: ${this.track.zones}  lanes: ${this.track.lanes}`,
         `hover a cell to inspect it`,
@@ -635,6 +650,33 @@ export class RaceScene extends Phaser.Scene {
       ...(factorLine ? [factorLine] : []),
       `valid targets: ${this.validTargets.size}`
     ].join("\n");
+  }
+
+  private recordMove(car: Car, distance: number) {
+    const cycle = car.moveCycle;
+    cycle.spent[cycle.index] = distance;
+    cycle.index += 1;
+    if (cycle.index >= cycle.spent.length) {
+      cycle.index = 0;
+      cycle.spent.fill(0);
+    }
+  }
+
+  private computeMoveSpend(distance: number, targetCell: TrackCell) {
+    if (targetCell.laneIndex === 3) return 1;
+    return distance;
+  }
+
+  private getRemainingBudget(car: Car) {
+    const spent = car.moveCycle.spent.reduce((sum, v) => sum + v, 0);
+    return Math.max(0, 40 - spent);
+  }
+
+  private updateCycleHud() {
+    const cycle = this.activeCar.moveCycle;
+    const parts = cycle.spent.map((v, i) => (i === cycle.index ? `[${v}]` : `${v}`));
+    const remaining = this.getRemainingBudget(this.activeCar);
+    this.txtCycle.setText(`Move budget: ${parts.join("-")}  remaining ${remaining}/40`);
   }
 
   private computeCostFactors(laneIndex: number) {
