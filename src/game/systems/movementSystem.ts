@@ -100,6 +100,7 @@ export function computeValidTargets(
     if (occupied.has(cellId)) continue;
     const cell = cellMap.get(cellId);
     if (!cell) continue;
+    if (Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
