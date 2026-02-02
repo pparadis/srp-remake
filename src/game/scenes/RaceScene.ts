@@ -42,6 +42,7 @@ export class RaceScene extends Phaser.Scene {
   private modalSetup: Car["setup"] | null = null;
   private modalValueTexts: Record<string, Phaser.GameObjects.Text> = {};
   private playerCount = 1;
+  private skipButton!: Phaser.GameObjects.Text;
 
   constructor() {
     super("RaceScene");
@@ -61,7 +62,7 @@ export class RaceScene extends Phaser.Scene {
     this.track = parsed.data as TrackData;
     this.cellMap = new Map(this.track.cells.map((c) => [c.id, c]));
     const rawCount = Number(this.registry.get(REG_PLAYER_COUNT) ?? 1);
-    this.playerCount = Number.isNaN(rawCount) ? 1 : Math.max(1, Math.min(4, rawCount));
+    this.playerCount = Number.isNaN(rawCount) ? 1 : Math.max(1, Math.min(11, rawCount));
 
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
@@ -92,6 +93,7 @@ export class RaceScene extends Phaser.Scene {
     this.drawTargets();
     this.drawLogPanel();
     this.createPitModal();
+    this.createSkipButton();
     this.updateCycleHud();
 
     this.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
@@ -202,6 +204,7 @@ export class RaceScene extends Phaser.Scene {
     this.selectNextPlayable();
     this.recomputeTargets();
     this.drawTargets();
+    this.updateSkipButtonState();
     this.updateCycleHud();
   }
 
@@ -260,6 +263,7 @@ export class RaceScene extends Phaser.Scene {
       fuelRate,
       setup: this.activeCar.setup
     });
+    this.updateSkipButtonState();
   }
 
   private drawTargets() {
@@ -409,6 +413,40 @@ export class RaceScene extends Phaser.Scene {
     txt.on("pointerover", () => txt.setStyle({ backgroundColor: "#e6edf3" }));
     txt.on("pointerout", () => txt.setStyle({ backgroundColor: "#c7d1db" }));
     return txt;
+  }
+
+  private createSkipButton() {
+    this.skipButton = this.add.text(550, 670, "Skip turn", {
+      fontFamily: "monospace",
+      fontSize: "14px",
+      color: "#0b0f14",
+      backgroundColor: "#c7d1db",
+      padding: { x: 10, y: 6 }
+    });
+    this.skipButton.setOrigin(0.5, 1);
+    this.skipButton.setInteractive({ useHandCursor: true });
+    this.skipButton.on("pointerover", () => this.skipButton.setStyle({ backgroundColor: "#e6edf3" }));
+    this.skipButton.on("pointerout", () => this.skipButton.setStyle({ backgroundColor: "#c7d1db" }));
+    this.skipButton.on("pointerdown", () => this.skipTurn());
+    this.updateSkipButtonState();
+  }
+
+  private updateSkipButtonState() {
+    if (!this.skipButton) return;
+    const canSkip = this.validTargets.size === 0 && this.activeCar.state === "ACTIVE";
+    this.skipButton.setAlpha(canSkip ? 1 : 0.4);
+    if (canSkip) {
+      this.skipButton.setInteractive({ useHandCursor: true });
+    } else {
+      this.skipButton.disableInteractive();
+    }
+  }
+
+  private skipTurn() {
+    if (this.validTargets.size !== 0 || this.activeCar.state !== "ACTIVE") return;
+    recordMove(this.activeCar.moveCycle, 0);
+    this.addLog(`Car ${this.activeCar.carId} skipped (no moves).`);
+    this.advanceTurnAndRefresh();
   }
 
   private openPitModal(cell: TrackCell, origin: { x: number; y: number }, originCellId: string, distance: number) {

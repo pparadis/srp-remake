@@ -16,10 +16,44 @@ const DEFAULT_SETUPS: Car["setup"][] = [
 
 export function buildSpawnSlots(track: TrackData): TrackCell[] {
   const mainLanes = [0, 1, 2];
+  const byZoneLane = new Map<string, TrackCell>();
+  const byId = new Map<string, TrackCell>();
+  for (const cell of track.cells) {
+    if (cell.laneIndex === 3) continue;
+    byZoneLane.set(`${cell.zoneIndex}:${cell.laneIndex}`, cell);
+    byId.set(cell.id, cell);
+  }
+
+  const lane0Start = byZoneLane.get("1:0");
+  const zoneOrder: number[] = [];
+  if (lane0Start) {
+    const seq: TrackCell[] = [];
+    const visited = new Set<string>();
+    let current: TrackCell | undefined = lane0Start;
+    while (current && !visited.has(current.id) && seq.length < track.zones) {
+      visited.add(current.id);
+      seq.push(current);
+      const nextSameId = current.next.find((id) => {
+        const nextCell = byId.get(id);
+        return nextCell && nextCell.laneIndex === 0;
+      });
+      current = nextSameId ? byId.get(nextSameId) : undefined;
+    }
+    if (seq.length > 0) {
+      zoneOrder.push(seq[0].zoneIndex, ...seq.slice(1).reverse().map((c) => c.zoneIndex));
+    }
+  }
+  if (zoneOrder.length === 0) {
+    zoneOrder.push(1);
+    for (let z = track.zones; z >= 2; z -= 1) {
+      zoneOrder.push(z);
+    }
+  }
+
   const slots: TrackCell[] = [];
-  for (let z = 1; z <= track.zones; z += 1) {
+  for (const z of zoneOrder) {
     for (const lane of mainLanes) {
-      const cell = track.cells.find((c) => c.zoneIndex === z && c.laneIndex === lane);
+      const cell = byZoneLane.get(`${z}:${lane}`);
       if (cell) slots.push(cell);
     }
   }
@@ -30,11 +64,13 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
   const slots = buildSpawnSlots(track);
   const count = Math.max(1, Math.min(options.playerCount, slots.length));
 
+  const orderedSlots = slots;
+
   const cars: Car[] = [];
   const tokens: Array<{ car: Car; color: number }> = [];
 
   for (let i = 0; i < count; i += 1) {
-    const cell = slots[i];
+    const cell = orderedSlots[i];
     const setup = DEFAULT_SETUPS[i % DEFAULT_SETUPS.length];
     const car: Car = {
       carId: i + 1,

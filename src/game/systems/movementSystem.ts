@@ -94,13 +94,40 @@ export function computeValidTargets(
     }
   }
 
+  const getNextSameLane = (cell: TrackCell | undefined) => {
+    if (!cell) return null;
+    for (const nextId of cell.next) {
+      const nextCell = cellMap.get(nextId);
+      if (!nextCell) continue;
+      if (nextCell.laneIndex === cell.laneIndex) return nextCell;
+    }
+    return null;
+  };
+  let startLaneBlockDist: number | null = null;
+  if (startCell.laneIndex !== 3) {
+    let currentId = startCellId;
+    let steps = 0;
+    while (steps <= effectiveMaxSteps) {
+      if (steps > 0 && occupied.has(currentId)) {
+        startLaneBlockDist = steps;
+        break;
+      }
+      const nextCell = getNextSameLane(cellMap.get(currentId));
+      if (!nextCell) break;
+      currentId = nextCell.id;
+      steps += 1;
+    }
+  }
+  const cappedMaxSteps =
+    startLaneBlockDist == null ? effectiveMaxSteps : Math.max(0, Math.min(effectiveMaxSteps, startLaneBlockDist - 1));
+
   const targets = new Map<string, TargetInfo>();
   for (const [cellId, d] of dist.entries()) {
-    if (d <= 0 || d > effectiveMaxSteps) continue;
+    if (d <= 0 || d > cappedMaxSteps) continue;
     if (occupied.has(cellId)) continue;
     const cell = cellMap.get(cellId);
     if (!cell) continue;
-    if (Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
+    if (cell.laneIndex !== 3 && Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
