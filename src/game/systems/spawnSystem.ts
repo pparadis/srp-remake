@@ -16,44 +16,70 @@ const DEFAULT_SETUPS: Car["setup"][] = [
 
 export function buildSpawnSlots(track: TrackData): TrackCell[] {
   const mainLanes = [0, 1, 2];
-  const byZoneLane = new Map<string, TrackCell>();
   const byId = new Map<string, TrackCell>();
   for (const cell of track.cells) {
     if (cell.laneIndex === 3) continue;
-    byZoneLane.set(`${cell.zoneIndex}:${cell.laneIndex}`, cell);
     byId.set(cell.id, cell);
   }
 
-  const lane0Start = byZoneLane.get("1:0");
-  const zoneOrder: number[] = [];
-  if (lane0Start) {
+  const buildLaneSequence = (laneIndex: number): TrackCell[] => {
+    const laneCells = track.cells.filter((c) => c.laneIndex === laneIndex);
+    if (laneCells.length === 0) return [];
+    const start =
+      laneCells.find((c) => (c.tags ?? []).includes("START_FINISH")) ??
+      laneCells.reduce((best, c) => (c.forwardIndex < best.forwardIndex ? c : best), laneCells[0]);
     const seq: TrackCell[] = [];
     const visited = new Set<string>();
-    let current: TrackCell | undefined = lane0Start;
-    while (current && !visited.has(current.id) && seq.length < track.zones) {
+    let current: TrackCell | undefined = start;
+    while (current && !visited.has(current.id) && seq.length < laneCells.length) {
       visited.add(current.id);
       seq.push(current);
-      const nextSameId = current.next.find((id) => {
+      const nextSameId: string | undefined = current.next.find((id) => {
         const nextCell = byId.get(id);
-        return nextCell && nextCell.laneIndex === 0;
+        return nextCell && nextCell.laneIndex === laneIndex;
       });
       current = nextSameId ? byId.get(nextSameId) : undefined;
     }
-    if (seq.length > 0) {
-      zoneOrder.push(seq[0].zoneIndex, ...seq.slice(1).reverse().map((c) => c.zoneIndex));
+    if (seq.length < laneCells.length) {
+      const remaining = laneCells
+        .filter((c) => !visited.has(c.id))
+        .sort((a, b) => a.forwardIndex - b.forwardIndex);
+      seq.push(...remaining);
     }
-  }
-  if (zoneOrder.length === 0) {
-    zoneOrder.push(1);
-    for (let z = track.zones; z >= 2; z -= 1) {
-      zoneOrder.push(z);
+    return seq;
+  };
+
+  const spineLane = 1;
+  const spineSeq = buildLaneSequence(spineLane);
+  const spineLen = spineSeq.length;
+  const spineStartIdx = spineSeq.findIndex((c) => (c.tags ?? []).includes("START_FINISH"));
+  const spineStart = spineStartIdx >= 0 ? spineStartIdx : 0;
+
+  const lanePickByForwardIndex = new Map<number, Map<number, TrackCell>>();
+  for (const lane of mainLanes) {
+    const seq = buildLaneSequence(lane);
+    if (seq.length === 0) continue;
+    const startIdx = seq.findIndex((c) => (c.tags ?? []).includes("START_FINISH"));
+    const start = startIdx >= 0 ? startIdx : 0;
+    const picks = new Map<number, TrackCell>();
+    for (let offset = 0; offset < seq.length; offset += 1) {
+      const idx = ((start - offset) % seq.length + seq.length) % seq.length;
+      const cell = seq[idx];
+      if (!picks.has(cell.forwardIndex)) {
+        picks.set(cell.forwardIndex, cell);
+      }
     }
+    lanePickByForwardIndex.set(lane, picks);
   }
 
   const slots: TrackCell[] = [];
-  for (const z of zoneOrder) {
+  const rowCount = spineLen > 0 ? spineLen : 0;
+  for (let row = 0; row < rowCount; row += 1) {
+    const spineIdx = ((spineStart - row) % spineLen + spineLen) % spineLen;
+    const targetForwardIndex = spineSeq[spineIdx].forwardIndex;
     for (const lane of mainLanes) {
-      const cell = byZoneLane.get(`${z}:${lane}`);
+      const picks = lanePickByForwardIndex.get(lane);
+      const cell = picks?.get(targetForwardIndex);
       if (cell) slots.push(cell);
     }
   }
@@ -76,6 +102,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
       carId: i + 1,
       ownerId: `P${i + 1}`,
       cellId: cell.id,
+      lapCount: 0,
       tire: 100,
       fuel: 100,
       setup: structuredClone(setup),

@@ -9,6 +9,7 @@ export interface TrackCell {
   id: string;
   zoneIndex: number;  // 1..N
   laneIndex: number;  // 0..3
+  forwardIndex: number; // 0..M-1 (spine-mapped)
   pos: Vec2;
   next: string[];
   tags?: TrackTag[];

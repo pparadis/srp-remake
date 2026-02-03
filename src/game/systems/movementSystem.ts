@@ -50,6 +50,13 @@ function computeCosts(distance: number, laneIndex: number, costs: MovementCostCo
   return { tireCost, fuelCost };
 }
 
+function getSpineLength(track: TrackData): number {
+  const spineCells = track.cells.filter((c) => c.laneIndex === 1);
+  if (spineCells.length > 0) return spineCells.length;
+  const maxForward = Math.max(0, ...track.cells.map((c) => c.forwardIndex ?? 0));
+  return maxForward + 1;
+}
+
 export function computeValidTargets(
   track: TrackData,
   startCellId: string,
@@ -63,6 +70,7 @@ export function computeValidTargets(
   if (!startCell) return new Map();
   const startIsPitLane = startCell.laneIndex === 3;
   const effectiveMaxSteps = startIsPitLane ? 1 : maxSteps;
+  const spineLen = getSpineLength(track);
 
   const dist = new Map<string, number>();
   const queue: string[] = [];
@@ -77,8 +85,6 @@ export function computeValidTargets(
 
     const current = cellMap.get(currentId);
     if (!current) continue;
-    const currentIsPitLane = current.laneIndex === 3;
-
     for (const nextId of current.next) {
       const nextCell = cellMap.get(nextId);
       if (!nextCell) continue;
@@ -94,40 +100,33 @@ export function computeValidTargets(
     }
   }
 
-  const getNextSameLane = (cell: TrackCell | undefined) => {
-    if (!cell) return null;
-    for (const nextId of cell.next) {
-      const nextCell = cellMap.get(nextId);
-      if (!nextCell) continue;
-      if (nextCell.laneIndex === cell.laneIndex) return nextCell;
-    }
-    return null;
-  };
-  let startLaneBlockDist: number | null = null;
-  if (startCell.laneIndex !== 3) {
-    let currentId = startCellId;
-    let steps = 0;
-    while (steps <= effectiveMaxSteps) {
-      if (steps > 0 && occupied.has(currentId)) {
-        startLaneBlockDist = steps;
-        break;
-      }
-      const nextCell = getNextSameLane(cellMap.get(currentId));
-      if (!nextCell) break;
-      currentId = nextCell.id;
-      steps += 1;
+  const minDeltaByLane = new Map<number, number>();
+  if (!startIsPitLane) {
+    for (const occId of occupied) {
+      if (occId === startCellId) continue;
+      const occ = cellMap.get(occId);
+      if (!occ || occ.laneIndex === 3) continue;
+      const delta = (occ.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
+      if (delta <= 0) continue;
+      const prev = minDeltaByLane.get(occ.laneIndex);
+      if (prev == null || delta < prev) minDeltaByLane.set(occ.laneIndex, delta);
     }
   }
-  const cappedMaxSteps =
-    startLaneBlockDist == null ? effectiveMaxSteps : Math.max(0, Math.min(effectiveMaxSteps, startLaneBlockDist - 1));
 
   const targets = new Map<string, TargetInfo>();
   for (const [cellId, d] of dist.entries()) {
-    if (d <= 0 || d > cappedMaxSteps) continue;
+    if (d <= 0 || d > effectiveMaxSteps) continue;
     if (occupied.has(cellId)) continue;
     const cell = cellMap.get(cellId);
     if (!cell) continue;
     if (cell.laneIndex !== 3 && Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
+    if (!startIsPitLane && cell.laneIndex !== 3) {
+      const blockDelta = minDeltaByLane.get(cell.laneIndex);
+      if (blockDelta != null) {
+        const targetDelta = (cell.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
+        if (targetDelta > blockDelta) continue;
+      }
+    }
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);

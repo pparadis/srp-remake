@@ -18,6 +18,7 @@ export interface Car {
   carId: number;
   ownerId: string;
   cellId: string;
+  lapCount?: number;
   tire: number;
   fuel: number;
   setup: CarSetup;

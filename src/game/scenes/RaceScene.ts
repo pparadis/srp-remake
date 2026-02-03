@@ -23,6 +23,11 @@ export class RaceScene extends Phaser.Scene {
   private txtInfo!: Phaser.GameObjects.Text;
   private txtCycle!: Phaser.GameObjects.Text;
   private txtLog!: Phaser.GameObjects.Text;
+  private txtStandings!: Phaser.GameObjects.Text;
+  private txtStandingsHeader!: Phaser.GameObjects.Text;
+  private standingsCollapsed = false;
+  private showForwardIndex = false;
+  private forwardIndexLabels: Phaser.GameObjects.Text[] = [];
   private cars: Car[] = [];
   private activeCar!: Car;
   private carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
@@ -43,6 +48,7 @@ export class RaceScene extends Phaser.Scene {
   private modalValueTexts: Record<string, Phaser.GameObjects.Text> = {};
   private playerCount = 1;
   private skipButton!: Phaser.GameObjects.Text;
+  private copyDebugButton!: Phaser.GameObjects.Text;
 
   constructor() {
     super("RaceScene");
@@ -85,15 +91,37 @@ export class RaceScene extends Phaser.Scene {
       lineSpacing: 4,
       wordWrap: { width: 260 }
     });
+    this.txtStandingsHeader = this.add.text(18, 505, "Standings [-]", {
+      fontFamily: "monospace",
+      fontSize: "12px",
+      color: "#e6edf3"
+    });
+    this.txtStandingsHeader.setInteractive({ useHandCursor: true });
+    this.txtStandingsHeader.on("pointerdown", () => {
+      this.standingsCollapsed = !this.standingsCollapsed;
+      this.updateStandingsPanel();
+      this.updateStandings();
+    });
+
+    this.txtStandings = this.add.text(14, 525, "", {
+      fontFamily: "monospace",
+      fontSize: "12px",
+      color: "#c7d1db",
+      lineSpacing: 4,
+      wordWrap: { width: 220 }
+    });
 
     this.drawTrack();
     this.initCars();
     this.initTurn();
+    this.updateStandings();
     this.recomputeTargets();
     this.drawTargets();
     this.drawLogPanel();
+    this.updateStandingsPanel();
     this.createPitModal();
     this.createSkipButton();
+    this.createCopyDebugButton();
     this.updateCycleHud();
 
     this.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
@@ -159,6 +187,10 @@ export class RaceScene extends Phaser.Scene {
       this.drawTargets();
     });
 
+    this.input.keyboard?.on("keydown-F", () => {
+      this.toggleForwardIndexOverlay();
+    });
+
     this.txtInfo.setText(this.makeHudText(null));
   }
 
@@ -169,6 +201,7 @@ export class RaceScene extends Phaser.Scene {
       this.spawnCarToken(entry.car, entry.color);
     }
     this.activeCar = this.cars[0];
+    this.updateStandings();
   }
 
   private spawnCarToken(car: Car, color: number) {
@@ -206,6 +239,7 @@ export class RaceScene extends Phaser.Scene {
     this.drawTargets();
     this.updateSkipButtonState();
     this.updateCycleHud();
+    this.updateStandings();
   }
 
   private selectNextPlayable() {
@@ -283,7 +317,7 @@ export class RaceScene extends Phaser.Scene {
 
   private drawLogPanel() {
     this.gUI.clear();
-    this.gUI.fillStyle(0x0f141b, 0.9);
+    this.gUI.fillStyle(0x0f141b, 0.95);
     this.gUI.fillRoundedRect(800, 10, 290, 180, 8);
     this.gUI.lineStyle(1, 0x2a3642, 1);
     this.gUI.strokeRoundedRect(800, 10, 290, 180, 8);
@@ -293,6 +327,64 @@ export class RaceScene extends Phaser.Scene {
     this.logLines.push(line);
     if (this.logLines.length > 8) this.logLines.shift();
     this.txtLog.setText(this.logLines.join("\n"));
+  }
+
+  private toggleForwardIndexOverlay() {
+    this.showForwardIndex = !this.showForwardIndex;
+    this.renderForwardIndexOverlay();
+  }
+
+  private renderForwardIndexOverlay() {
+    for (const label of this.forwardIndexLabels) {
+      label.destroy();
+    }
+    this.forwardIndexLabels = [];
+    if (!this.showForwardIndex) return;
+    for (const cell of this.track.cells) {
+      const label = this.add.text(cell.pos.x + 8, cell.pos.y + 6, String(cell.forwardIndex), {
+        fontFamily: "monospace",
+        fontSize: "10px",
+        color: "#e6edf3"
+      });
+      label.setDepth(20);
+      this.forwardIndexLabels.push(label);
+    }
+  }
+
+  private updateStandingsPanel() {
+    this.drawLogPanel();
+    if (this.standingsCollapsed) {
+      this.txtStandingsHeader.setText("Standings [+]");
+      this.txtStandings.setVisible(false);
+      return;
+    }
+    const panelX = 10;
+    const panelY = 500;
+    const panelW = 250;
+    const panelH = 160;
+
+    this.gUI.fillStyle(0x0f141b, 0.97);
+    this.gUI.fillRoundedRect(panelX, panelY, panelW, panelH, 8);
+    this.gUI.lineStyle(1, 0x2a3642, 1);
+    this.gUI.strokeRoundedRect(panelX, panelY, panelW, panelH, 8);
+
+    this.txtStandingsHeader.setText("Standings [-]");
+    this.txtStandings.setVisible(!this.standingsCollapsed);
+  }
+
+  private updateStandings() {
+    if (this.standingsCollapsed) {
+      this.txtStandings.setText("");
+      return;
+    }
+    const ordered = [...this.cars].sort((a, b) => a.carId - b.carId);
+    const lines = ordered.map((car, index) => {
+      const cell = this.cellMap.get(car.cellId);
+      const fwd = cell?.forwardIndex ?? -1;
+      const lap = car.lapCount ?? 0;
+      return `${index + 1}. Car ${car.carId}  lap ${lap}  fwd ${fwd}`;
+    });
+    this.txtStandings.setText(lines.join("\n"));
   }
 
   private createPitModal() {
@@ -431,6 +523,21 @@ export class RaceScene extends Phaser.Scene {
     this.updateSkipButtonState();
   }
 
+  private createCopyDebugButton() {
+    this.copyDebugButton = this.add.text(140, 670, "Copy debug", {
+      fontFamily: "monospace",
+      fontSize: "14px",
+      color: "#0b0f14",
+      backgroundColor: "#c7d1db",
+      padding: { x: 10, y: 6 }
+    });
+    this.copyDebugButton.setOrigin(0, 1);
+    this.copyDebugButton.setInteractive({ useHandCursor: true });
+    this.copyDebugButton.on("pointerover", () => this.copyDebugButton.setStyle({ backgroundColor: "#e6edf3" }));
+    this.copyDebugButton.on("pointerout", () => this.copyDebugButton.setStyle({ backgroundColor: "#c7d1db" }));
+    this.copyDebugButton.on("pointerdown", () => this.copyDebugSnapshot());
+  }
+
   private updateSkipButtonState() {
     if (!this.skipButton) return;
     const canSkip = this.validTargets.size === 0 && this.activeCar.state === "ACTIVE";
@@ -439,6 +546,38 @@ export class RaceScene extends Phaser.Scene {
       this.skipButton.setInteractive({ useHandCursor: true });
     } else {
       this.skipButton.disableInteractive();
+    }
+  }
+
+  private buildDebugSnapshot() {
+    const cars = this.cars
+      .map((car) => {
+        const cell = this.cellMap.get(car.cellId);
+        return {
+          carId: car.carId,
+          cellId: car.cellId,
+          zoneIndex: cell?.zoneIndex ?? null,
+          laneIndex: cell?.laneIndex ?? null,
+          forwardIndex: cell?.forwardIndex ?? null,
+          pos: cell?.pos ?? null
+        };
+      })
+      .sort((a, b) => a.carId - b.carId);
+    return {
+      trackId: this.track.trackId,
+      cars
+    };
+  }
+
+  private async copyDebugSnapshot() {
+    const snapshot = this.buildDebugSnapshot();
+    const payload = JSON.stringify(snapshot, null, 2);
+    try {
+      await navigator.clipboard.writeText(payload);
+      this.addLog("Copied debug snapshot to clipboard.");
+    } catch {
+      this.addLog("Clipboard failed. Check console for snapshot.");
+      console.log("Debug snapshot:", payload);
     }
   }
 
@@ -586,6 +725,8 @@ export class RaceScene extends Phaser.Scene {
         color: "#9fb0bf"
       });
     }
+
+    this.renderForwardIndexOverlay();
   }
 
   private findNearestCell(x: number, y: number, maxDist: number): TrackCell | null {

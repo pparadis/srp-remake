@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets, shouldOpenPitModal } from "./pitSystem";
 import type { Car } from "../types/car";
-import type { TrackCell } from "../types/track";
+import type { TrackCell, TrackTag } from "../types/track";
 
 function makeCar(): Car {
   return {
@@ -24,11 +24,12 @@ function makeCar(): Car {
   };
 }
 
-function pitCell(tags: string[]): TrackCell {
+function pitCell(tags: TrackTag[]): TrackCell {
   return {
     id: "Z02_L3_00",
     zoneIndex: 2,
     laneIndex: 3,
+    forwardIndex: 1,
     pos: { x: 0, y: 0 },
     next: [],
     tags

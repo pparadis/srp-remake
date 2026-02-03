@@ -41,6 +41,9 @@ function validateTrack(track) {
       errors.push(`invalid laneIndex ${cell.laneIndex} on ${cell.id}`);
     }
     if (cell.zoneIndex < 1) errors.push(`invalid zoneIndex ${cell.zoneIndex} on ${cell.id}`);
+    if (!Number.isInteger(cell.forwardIndex) || cell.forwardIndex < 0) {
+      errors.push(`invalid forwardIndex ${cell.forwardIndex} on ${cell.id}`);
+    }
     for (const nextId of cell.next ?? []) {
       if (!byId.has(nextId)) errors.push(`missing next cell ${nextId} referenced by ${cell.id}`);
     }

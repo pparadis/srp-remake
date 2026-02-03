@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateMoveAttempt } from "./moveValidationSystem";
 import type { Car } from "../types/car";
-import type { TrackCell } from "../types/track";
+import type { TrackCell, TrackTag } from "../types/track";
 
 function makeCar(): Car {
   return {
@@ -24,11 +24,12 @@ function makeCar(): Car {
   };
 }
 
-function makeCell(id: string, laneIndex: number, tags: string[] = []): TrackCell {
+function makeCell(id: string, laneIndex: number, tags: TrackTag[] = []): TrackCell {
   return {
     id,
     zoneIndex: 1,
     laneIndex,
+    forwardIndex: 0,
     pos: { x: 0, y: 0 },
     next: [],
     tags

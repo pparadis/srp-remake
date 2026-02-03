@@ -63,6 +63,7 @@ for (const lane of mainLanes) {
       id: id(zoneIndex, lane),
       zoneIndex,
       laneIndex: lane,
+      forwardIndex: 0,
       pos: { x: Math.round(p.x), y: Math.round(p.y) },
       next: [],
       tags: []
@@ -97,6 +98,7 @@ for (const z of pitZones) {
     id: id(z, pitLane),
     zoneIndex: z,
     laneIndex: pitLane,
+    forwardIndex: 0,
     pos: { x: Math.round(pitX), y: Math.round(pitY) },
     next: [],
     tags: []
@@ -110,6 +112,38 @@ for (const z of pitZones) {
 }
 
 const cellById = new Map(cells.map((c) => [c.id, c]));
+
+const spineLane = 1;
+const spineSeq = laneSequences.get(spineLane);
+if (!spineSeq) {
+  throw new Error(`Missing spine lane sequence for lane ${spineLane}`);
+}
+const spineLen = spineSeq.length;
+for (let i = 0; i < spineLen; i += 1) {
+  spineSeq[i].cell.forwardIndex = i;
+}
+
+for (const lane of mainLanes) {
+  if (lane === spineLane) continue;
+  const seq = laneSequences.get(lane);
+  if (!seq) continue;
+  const len = seq.length;
+  const denom = Math.max(1, len - 1);
+  for (let k = 0; k < len; k += 1) {
+    const progress = k / denom;
+    const spineIndex = Math.round(progress * (spineLen - 1));
+    seq[k].cell.forwardIndex = spineIndex;
+  }
+}
+
+const pitLen = pitZones.length;
+const pitDenom = Math.max(1, pitLen - 1);
+for (let i = 0; i < pitLen; i += 1) {
+  const pitCell = cellById.get(id(pitZones[i], pitLane));
+  if (!pitCell) continue;
+  const progress = i / pitDenom;
+  pitCell.forwardIndex = Math.round(progress * (spineLen - 1));
+}
 
 function forwardLaneTarget(targetLane, progress) {
   const seq = laneSequences.get(targetLane);
