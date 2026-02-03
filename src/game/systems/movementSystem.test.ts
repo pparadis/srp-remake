@@ -41,7 +41,7 @@ describe("computeValidTargets", () => {
       wingFrontDeg: 6,
       wingRearDeg: 12
     }});
-    expect(targets.has("P1")).toBe(true);
+    expect(targets.has("P1")).toBe(false);
   });
 
   it("limits pit lane movement to 1 step", () => {
@@ -130,5 +130,17 @@ describe("computeValidTargets", () => {
       wingRearDeg: 12
     }});
     expect(targets.has("Z07_L0_00")).toBe(true);
+  });
+
+  it("disallows sideways lane change with no forward progress", () => {
+    const occupied = new Set<string>();
+    const targets = computeValidTargets(track as TrackData, "Z01_L0_00", occupied, 1, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
+      compound: "soft",
+      psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
+      wingFrontDeg: 6,
+      wingRearDeg: 12
+    }});
+    expect(targets.has("Z01_L1_00")).toBe(false);
+    expect(targets.has("Z02_L0_00")).toBe(true);
   });
 });

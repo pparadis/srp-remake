@@ -38,10 +38,10 @@ function makeCell(id: string, forwardIndex: number, tags: TrackCell["tags"] = []
 }
 
 describe("applyMove lap counting", () => {
-  it("increments lap when crossing START_FINISH", () => {
+  it("increments lap when forwardIndex wraps", () => {
     const car = makeCar();
     const fromCell = makeCell("Z12", 12);
-    const toCell = makeCell("Z01", 0, ["START_FINISH"]);
+    const toCell = makeCell("Z02", 1);
     applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
     expect(car.lapCount).toBe(1);
   });
@@ -52,5 +52,13 @@ describe("applyMove lap counting", () => {
     const toCell = makeCell("Z11", 11);
     applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
     expect(car.lapCount).toBe(0);
+  });
+
+  it("increments lap when crossing start/finish", () => {
+    const car = makeCar();
+    const fromCell = makeCell("Z12", 12);
+    const toCell = makeCell("Z01", 0, ["START_FINISH"]);
+    applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    expect(car.lapCount).toBe(1);
   });
 });

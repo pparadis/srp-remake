@@ -9,6 +9,7 @@ import { applyMove } from "../systems/moveCommitSystem";
 import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets } from "../systems/pitSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
 import { spawnCars } from "../systems/spawnSystem";
+import { buildProgressMap, sortCarsByProgress } from "../systems/orderingSystem";
 import { advanceTurn, createTurnState, getCurrentCarId, type TurnState } from "../systems/turnSystem";
 
 type CellMap = Map<string, TrackCell>;
@@ -25,9 +26,12 @@ export class RaceScene extends Phaser.Scene {
   private txtLog!: Phaser.GameObjects.Text;
   private txtStandings!: Phaser.GameObjects.Text;
   private txtStandingsHeader!: Phaser.GameObjects.Text;
+  private txtStandingsMode!: Phaser.GameObjects.Text;
   private standingsCollapsed = false;
+  private standingsMode: "carId" | "race" = "carId";
   private showForwardIndex = false;
   private forwardIndexLabels: Phaser.GameObjects.Text[] = [];
+  private progressMap!: Map<string, number>;
   private cars: Car[] = [];
   private activeCar!: Car;
   private carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
@@ -49,6 +53,10 @@ export class RaceScene extends Phaser.Scene {
   private playerCount = 1;
   private skipButton!: Phaser.GameObjects.Text;
   private copyDebugButton!: Phaser.GameObjects.Text;
+  private readonly buildInfo = {
+    version: "debug-snapshot-v2",
+    gitSha: "6f74be4bcbc6a61e09402b831578945c836c8341"
+  };
 
   constructor() {
     super("RaceScene");
@@ -67,6 +75,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.track = parsed.data as TrackData;
     this.cellMap = new Map(this.track.cells.map((c) => [c.id, c]));
+    this.progressMap = buildProgressMap(this.track, 1);
     const rawCount = Number(this.registry.get(REG_PLAYER_COUNT) ?? 1);
     this.playerCount = Number.isNaN(rawCount) ? 1 : Math.max(1, Math.min(11, rawCount));
 
@@ -103,6 +112,18 @@ export class RaceScene extends Phaser.Scene {
       this.updateStandings();
     });
 
+    this.txtStandingsMode = this.add.text(145, 505, "Mode: Id", {
+      fontFamily: "monospace",
+      fontSize: "12px",
+      color: "#9fb0bf"
+    });
+    this.txtStandingsMode.setInteractive({ useHandCursor: true });
+    this.txtStandingsMode.on("pointerdown", () => {
+      this.standingsMode = this.standingsMode === "carId" ? "race" : "carId";
+      this.updateStandingsModeLabel();
+      this.updateStandings();
+    });
+
     this.txtStandings = this.add.text(14, 525, "", {
       fontFamily: "monospace",
       fontSize: "12px",
@@ -119,6 +140,7 @@ export class RaceScene extends Phaser.Scene {
     this.drawTargets();
     this.drawLogPanel();
     this.updateStandingsPanel();
+    this.updateStandingsModeLabel();
     this.createPitModal();
     this.createSkipButton();
     this.createCopyDebugButton();
@@ -334,6 +356,10 @@ export class RaceScene extends Phaser.Scene {
     this.txtLog.setText(this.logLines.join("\n"));
   }
 
+  private updateStandingsModeLabel() {
+    this.txtStandingsMode.setText(this.standingsMode === "carId" ? "Mode: Id" : "Mode: Race");
+  }
+
   private toggleForwardIndexOverlay() {
     this.showForwardIndex = !this.showForwardIndex;
     this.renderForwardIndexOverlay();
@@ -361,6 +387,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.standingsCollapsed) {
       this.txtStandingsHeader.setText("Standings [+]");
       this.txtStandings.setVisible(false);
+      this.txtStandingsMode.setVisible(false);
       return;
     }
     const panelX = 10;
@@ -375,6 +402,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.txtStandingsHeader.setText("Standings [-]");
     this.txtStandings.setVisible(!this.standingsCollapsed);
+    this.txtStandingsMode.setVisible(!this.standingsCollapsed);
   }
 
   private updateStandings() {
@@ -382,7 +410,9 @@ export class RaceScene extends Phaser.Scene {
       this.txtStandings.setText("");
       return;
     }
-    const ordered = [...this.cars].sort((a, b) => a.carId - b.carId);
+    const ordered = this.standingsMode === "carId"
+      ? [...this.cars].sort((a, b) => a.carId - b.carId)
+      : sortCarsByProgress(this.cars, this.cellMap, this.progressMap);
     const lines = ordered.map((car, index) => {
       const cell = this.cellMap.get(car.cellId);
       const fwd = cell?.forwardIndex ?? -1;
@@ -555,21 +585,70 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private buildDebugSnapshot() {
+    const spineLane = 1;
+    const spineCells = this.track.cells.filter((c) => c.laneIndex === spineLane);
+    const startFinishIds = this.track.cells
+      .filter((c) => (c.tags ?? []).includes("START_FINISH"))
+      .map((c) => c.id);
+    const occupiedByCell = Object.fromEntries(this.cars.map((car) => [car.cellId, car.carId]));
     const cars = this.cars
       .map((car) => {
         const cell = this.cellMap.get(car.cellId);
         return {
           carId: car.carId,
           cellId: car.cellId,
-          zoneIndex: cell?.zoneIndex ?? null,
-          laneIndex: cell?.laneIndex ?? null,
-          forwardIndex: cell?.forwardIndex ?? null,
-          pos: cell?.pos ?? null
+          lapCount: car.lapCount ?? 0,
+          state: car.state,
+          tire: car.tire,
+          fuel: car.fuel,
+          pitTurnsRemaining: car.pitTurnsRemaining,
+          pitExitBoost: car.pitExitBoost,
+          pitServiced: car.pitServiced,
+          setup: car.setup,
+          cell: cell
+            ? {
+                zoneIndex: cell.zoneIndex,
+                laneIndex: cell.laneIndex,
+                forwardIndex: cell.forwardIndex,
+                tags: cell.tags ?? []
+              }
+            : null
         };
       })
       .sort((a, b) => a.carId - b.carId);
+    const activeCell = this.cellMap.get(this.activeCar.cellId);
+    const occupied = new Set(this.cars.map((c) => c.cellId));
+    const baseMaxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0 ? 4 : 9;
+    const remainingBudget = getRemainingBudget(this.activeCar.moveCycle);
+    const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
+    const tireRate = this.activeCar.setup.compound === "soft" ? 0.5 : 0.35;
+    const fuelRate = 0.45;
+    const inPitLane = activeCell?.laneIndex === 3;
+    const validTargets = Array.from(this.validTargets.entries()).map(([cellId, info]) => ({
+      cellId,
+      distance: info.distance,
+      tireCost: info.tireCost,
+      fuelCost: info.fuelCost,
+      isPitTrigger: info.isPitTrigger
+    }));
     return {
+      version: this.buildInfo.version,
+      gitSha: this.buildInfo.gitSha,
       trackId: this.track.trackId,
+      spineLane,
+      spineLength: spineCells.length,
+      startFinishIds,
+      activeCarId: this.activeCar.carId,
+      movement: {
+        maxSteps,
+        tireRate,
+        fuelRate,
+        allowPitExitSkip: this.activeCar.pitExitBoost,
+        disallowPitBoxTargets: shouldDisallowPitBoxTargets(this.activeCar, inPitLane),
+        occupied: Array.from(occupied),
+        validTargets
+      },
+      occupiedByCell,
       cars
     };
   }
@@ -771,6 +850,7 @@ export class RaceScene extends Phaser.Scene {
     return [
       `cell: ${cell.id}`,
       `zone: ${cell.zoneIndex}  lane: ${cell.laneIndex}`,
+      `lap: ${this.activeCar.lapCount ?? 0}  fwd: ${cell.forwardIndex}`,
       `tags: ${tags}`,
       `next: ${cell.next.length}`,
       ...(targetLine ? [targetLine] : []),

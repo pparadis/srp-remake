@@ -120,13 +120,14 @@ export function computeValidTargets(
     const cell = cellMap.get(cellId);
     if (!cell) continue;
     if (!startIsPitLane && cell.laneIndex !== 3 && Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
+    const targetDelta = (cell.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
     if (!startIsPitLane && cell.laneIndex !== 3) {
       const blockDelta = minDeltaByLane.get(cell.laneIndex);
       if (blockDelta != null) {
-        const targetDelta = (cell.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
         if (targetDelta > blockDelta) continue;
       }
     }
+    if (!startIsPitLane && cell.laneIndex !== startCell.laneIndex && targetDelta === 0) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);

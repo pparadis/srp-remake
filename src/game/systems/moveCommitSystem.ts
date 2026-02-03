@@ -17,7 +17,8 @@ export function applyMove(
   moveSpend: number
 ) {
   const crossesStart =
-    (targetCell.tags ?? []).includes("START_FINISH") &&
+    fromCell.laneIndex !== 3 &&
+    targetCell.laneIndex !== 3 &&
     fromCell.forwardIndex > targetCell.forwardIndex;
   if (crossesStart) {
     car.lapCount = (car.lapCount ?? 0) + 1;
