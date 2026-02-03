@@ -119,7 +119,7 @@ export function computeValidTargets(
     if (occupied.has(cellId)) continue;
     const cell = cellMap.get(cellId);
     if (!cell) continue;
-    if (cell.laneIndex !== 3 && Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
+    if (!startIsPitLane && cell.laneIndex !== 3 && Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
     if (!startIsPitLane && cell.laneIndex !== 3) {
       const blockDelta = minDeltaByLane.get(cell.laneIndex);
       if (blockDelta != null) {

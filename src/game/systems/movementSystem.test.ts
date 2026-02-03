@@ -120,4 +120,15 @@ describe("computeValidTargets", () => {
     expect(targets.has("Z12_L1_00")).toBe(false);
     expect(targets.has("Z12_L2_00")).toBe(true);
   });
+
+  it("allows pit exit to lane 0 on real track", () => {
+    const occupied = new Set<string>();
+    const targets = computeValidTargets(track as TrackData, "Z06_L3_00", occupied, 1, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
+      compound: "soft",
+      psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
+      wingFrontDeg: 6,
+      wingRearDeg: 12
+    }});
+    expect(targets.has("Z07_L0_00")).toBe(true);
+  });
 });

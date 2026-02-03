@@ -62,6 +62,31 @@ function validateTrack(track) {
     }
   }
 
+  // Spine lane checks (lane 1).
+  const spineLane = 1;
+  const spineCells = byLane.get(spineLane) ?? [];
+  if (spineCells.length === 0) {
+    errors.push("spine lane 1 has no cells");
+  } else {
+    const spineStarts = spineCells.filter((c) => (c.tags ?? []).includes("START_FINISH"));
+    if (spineStarts.length !== 1) {
+      errors.push(`spine lane must have exactly 1 START_FINISH, got ${spineStarts.length}`);
+    }
+    const spineForward = spineCells.map((c) => c.forwardIndex).sort((a, b) => a - b);
+    for (let i = 0; i < spineForward.length; i += 1) {
+      if (spineForward[i] !== i) {
+        errors.push(`spine lane forwardIndex not contiguous at ${i}: got ${spineForward[i]}`);
+        break;
+      }
+    }
+    const spineMax = spineCells.length - 1;
+    for (const cell of cells) {
+      if (cell.forwardIndex < 0 || cell.forwardIndex > spineMax) {
+        errors.push(`forwardIndex ${cell.forwardIndex} out of spine range 0..${spineMax} on ${cell.id}`);
+      }
+    }
+  }
+
   // Pit invariants.
   const pitEntry = cells.filter((c) => (c.tags ?? []).includes("PIT_ENTRY"));
   const pitExit = cells.filter((c) => (c.tags ?? []).includes("PIT_EXIT"));
@@ -76,6 +101,30 @@ function validateTrack(track) {
   for (const c of cells) {
     if ((c.tags ?? []).includes("PIT_BOX") && c.laneIndex !== 3) {
       errors.push(`PIT_BOX must be in lane 3: ${c.id}`);
+    }
+  }
+
+  // Spine lane forwardIndex monotonicity along next[].
+  if (spineCells.length > 0) {
+    const start = spineCells.find((c) => (c.tags ?? []).includes("START_FINISH")) ?? spineCells[0];
+    const visited = new Set();
+    let current = start;
+    let steps = 0;
+    const expectedNext = (v, max) => (v + 1 > max ? 0 : v + 1);
+    const spineMax = spineCells.length - 1;
+    while (current && !visited.has(current.id) && steps <= spineCells.length) {
+      visited.add(current.id);
+      const nextSame = (current.next ?? [])
+        .map((id) => byId.get(id))
+        .find((c) => c && c.laneIndex === spineLane);
+      if (!nextSame) break;
+      const expected = expectedNext(current.forwardIndex, spineMax);
+      if (nextSame.forwardIndex !== expected) {
+        errors.push(`spine forwardIndex jump ${current.id} -> ${nextSame.id} expected ${expected}, got ${nextSame.forwardIndex}`);
+        break;
+      }
+      current = nextSame;
+      steps += 1;
     }
   }
 

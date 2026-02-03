@@ -9,7 +9,19 @@ function clamp01to100(value: number) {
   return value;
 }
 
-export function applyMove(car: Car, targetCell: TrackCell, info: TargetInfo, moveSpend: number) {
+export function applyMove(
+  car: Car,
+  fromCell: TrackCell,
+  targetCell: TrackCell,
+  info: TargetInfo,
+  moveSpend: number
+) {
+  const crossesStart =
+    (targetCell.tags ?? []).includes("START_FINISH") &&
+    fromCell.forwardIndex > targetCell.forwardIndex;
+  if (crossesStart) {
+    car.lapCount = (car.lapCount ?? 0) + 1;
+  }
   car.cellId = targetCell.id;
   car.pitExitBoost = false;
   if (targetCell.laneIndex !== 3) {

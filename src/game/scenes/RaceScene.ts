@@ -159,7 +159,12 @@ export class RaceScene extends Phaser.Scene {
         if (validation.isPitStop) {
           this.openPitModal(cell, origin, prevCellId, validation.moveSpend);
         } else {
-          applyMove(this.activeCar, cell, info, validation.moveSpend);
+          const fromCell = this.cellMap.get(prevCellId);
+          if (fromCell) {
+            applyMove(this.activeCar, fromCell, cell, info, validation.moveSpend);
+          } else {
+            applyMove(this.activeCar, cell, cell, info, validation.moveSpend);
+          }
           this.addLog(`Car ${this.activeCar.carId} moved to ${cell.id}.`);
           this.advanceTurnAndRefresh();
         }
