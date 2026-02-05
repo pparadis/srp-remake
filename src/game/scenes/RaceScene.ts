@@ -16,6 +16,7 @@ import { validateTrack } from "../../validation/trackValidation";
 import { PitModal } from "./ui/PitModal";
 import { LogPanel } from "./ui/LogPanel";
 import { StandingsPanel } from "./ui/StandingsPanel";
+import { TextButton } from "./ui/TextButton";
 
 type CellMap = Map<string, TrackCell>;
 
@@ -79,8 +80,8 @@ export class RaceScene extends Phaser.Scene {
   private turn!: TurnState;
   private pitModal!: PitModal;
   private playerCount = 1;
-  private skipButton!: Phaser.GameObjects.Text;
-  private copyDebugButton!: Phaser.GameObjects.Text;
+  private skipButton!: TextButton;
+  private copyDebugButton!: TextButton;
   private readonly buildInfo = {
     version: "debug-snapshot-v2",
     gitSha: "6f74be4bcbc6a61e09402b831578945c836c8341"
@@ -399,12 +400,10 @@ export class RaceScene extends Phaser.Scene {
     if (this.pitModal) {
       this.pitModal.setFixed();
     }
-    if (this.logPanel) {
-      this.logPanel.setFixed();
-    }
-    if (this.standingsPanel) {
-      this.standingsPanel.setFixed();
-    }
+    if (this.logPanel) this.logPanel.setFixed();
+    if (this.standingsPanel) this.standingsPanel.setFixed();
+    if (this.skipButton) this.skipButton.setFixed();
+    if (this.copyDebugButton) this.copyDebugButton.setFixed();
   }
 
   private centerTrack() {
@@ -503,36 +502,24 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private createSkipButton() {
-    this.skipButton = this.add.text(0, 0, "Skip turn", {
-      fontFamily: "monospace",
+    this.skipButton = new TextButton(this, "Skip turn", {
       fontSize: "14px",
-      color: "#0b0f14",
-      backgroundColor: "#c7d1db",
-      padding: { x: 10, y: 6 }
+      originX: 0.5,
+      originY: 1,
+      onClick: () => this.skipTurn()
     });
-    this.skipButton.setOrigin(0.5, 1);
-    this.skipButton.setInteractive({ useHandCursor: true });
-    this.skipButton.on("pointerover", () => this.skipButton.setStyle({ backgroundColor: "#e6edf3" }));
-    this.skipButton.on("pointerout", () => this.skipButton.setStyle({ backgroundColor: "#c7d1db" }));
-    this.skipButton.on("pointerdown", () => this.skipTurn());
     this.updateSkipButtonState();
     this.layoutUI();
     this.setUIFixed();
   }
 
   private createCopyDebugButton() {
-    this.copyDebugButton = this.add.text(0, 0, "Copy debug", {
-      fontFamily: "monospace",
+    this.copyDebugButton = new TextButton(this, "Copy debug", {
       fontSize: "14px",
-      color: "#0b0f14",
-      backgroundColor: "#c7d1db",
-      padding: { x: 10, y: 6 }
+      originX: 0,
+      originY: 1,
+      onClick: () => this.copyDebugSnapshot()
     });
-    this.copyDebugButton.setOrigin(0, 1);
-    this.copyDebugButton.setInteractive({ useHandCursor: true });
-    this.copyDebugButton.on("pointerover", () => this.copyDebugButton.setStyle({ backgroundColor: "#e6edf3" }));
-    this.copyDebugButton.on("pointerout", () => this.copyDebugButton.setStyle({ backgroundColor: "#c7d1db" }));
-    this.copyDebugButton.on("pointerdown", () => this.copyDebugSnapshot());
     this.layoutUI();
     this.setUIFixed();
   }
@@ -541,11 +528,7 @@ export class RaceScene extends Phaser.Scene {
     if (!this.skipButton) return;
     const canSkip = this.validTargets.size === 0 && this.activeCar.state === "ACTIVE";
     this.skipButton.setAlpha(canSkip ? 1 : 0.4);
-    if (canSkip) {
-      this.skipButton.setInteractive({ useHandCursor: true });
-    } else {
-      this.skipButton.disableInteractive();
-    }
+    this.skipButton.setInteractive(canSkip);
   }
 
   private buildDebugSnapshot() {

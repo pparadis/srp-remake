@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import type { Car } from "../../types/car";
+import { TextButton } from "./TextButton";
 
 interface PitModalTexts {
   compound: Phaser.GameObjects.Text;
@@ -178,17 +179,9 @@ export class PitModal {
   }
 
   private createModalButton(x: number, y: number, label: string): Phaser.GameObjects.Text {
-    const txt = this.scene.add.text(x, y, label, {
-      fontFamily: "monospace",
-      fontSize: "14px",
-      color: "#0b0f14",
-      backgroundColor: "#c7d1db",
-      padding: { x: 10, y: 6 }
-    });
-    txt.setInteractive({ useHandCursor: true });
-    txt.on("pointerover", () => txt.setStyle({ backgroundColor: "#e6edf3" }));
-    txt.on("pointerout", () => txt.setStyle({ backgroundColor: "#c7d1db" }));
-    return txt;
+    const btn = new TextButton(this.scene, label, { fontSize: "14px" });
+    btn.setPosition(x, y);
+    return btn.getText();
   }
 
   private refreshModalValues() {
