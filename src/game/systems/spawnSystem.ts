@@ -5,6 +5,9 @@ import { MAIN_LANES, PIT_LANE } from "../constants";
 
 interface SpawnOptions {
   playerCount: number;
+  humanCount?: number;
+  botMode?: boolean;
+  botFill?: boolean;
 }
 
 const DEFAULT_COLORS = [0xe94cff, 0x35d0c7, 0xffc857, 0xff6b6b];
@@ -93,7 +96,12 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
 
 export function spawnCars(track: TrackData, options: SpawnOptions) {
   const slots = buildSpawnSlots(track);
-  const count = Math.max(1, Math.min(options.playerCount, slots.length));
+  const desiredCount = Math.max(1, Math.min(options.playerCount, slots.length));
+  const botMode = options.botMode ?? false;
+  const botFill = options.botFill ?? true;
+  const humanCount = botMode ? 0 : Math.min(options.humanCount ?? 1, desiredCount);
+  const botCount = (botFill || botMode) ? Math.max(0, desiredCount - humanCount) : 0;
+  const count = Math.max(1, Math.min(desiredCount, humanCount + botCount));
 
   const orderedSlots = slots;
 
@@ -104,10 +112,12 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
     const cell = orderedSlots[i];
     if (!cell) continue;
     const setup = (DEFAULT_SETUPS[i % DEFAULT_SETUPS.length] ?? DEFAULT_SETUPS[0])!;
+    const isBot = i >= humanCount;
+    const botIndex = i - humanCount + 1;
     const car: Car = {
       carId: i + 1,
-      ownerId: `P${i + 1}`,
-      isBot: false,
+      ownerId: isBot ? `BOT${botIndex}` : `P${i + 1}`,
+      isBot,
       cellId: cell.id,
       lapCount: 0,
       tire: 100,

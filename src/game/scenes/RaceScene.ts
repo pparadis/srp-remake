@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import type { TrackData, TrackCell } from "../types/track";
 import type { Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
-import { PIT_LANE, REG_PLAYER_COUNT } from "../constants";
+import { PIT_LANE, REG_BOT_FILL, REG_BOT_MODE, REG_PLAYER_COUNT } from "../constants";
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
 import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
@@ -80,6 +80,8 @@ export class RaceScene extends Phaser.Scene {
   private turn!: TurnState;
   private pitModal!: PitModal;
   private playerCount = 1;
+  private botMode = false;
+  private botFill = true;
   private skipButton!: TextButton;
   private copyDebugButton!: TextButton;
   private readonly buildInfo = {
@@ -113,6 +115,8 @@ export class RaceScene extends Phaser.Scene {
     this.progressMap = buildProgressMap(this.track, 1);
     const rawCount = Number(this.registry.get(REG_PLAYER_COUNT) ?? 1);
     this.playerCount = Number.isNaN(rawCount) ? 1 : Math.max(1, Math.min(11, rawCount));
+    this.botMode = Boolean(this.registry.get(REG_BOT_MODE) ?? false);
+    this.botFill = Boolean(this.registry.get(REG_BOT_FILL) ?? true);
 
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
@@ -246,7 +250,12 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private initCars() {
-    const { cars, tokens } = spawnCars(this.track, { playerCount: this.playerCount });
+    const { cars, tokens } = spawnCars(this.track, {
+      playerCount: this.playerCount,
+      botMode: this.botMode,
+      botFill: this.botFill,
+      humanCount: this.botMode ? 0 : 1
+    });
     this.cars = cars;
     for (const entry of tokens) {
       this.spawnCarToken(entry.car, entry.color);
