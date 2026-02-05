@@ -7,6 +7,7 @@ function makeCar(): Car {
   return {
     carId: 1,
     ownerId: "P1",
+    isBot: false,
     cellId: "A",
     lapCount: 0,
     tire: 100,

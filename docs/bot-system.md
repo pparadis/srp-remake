@@ -84,3 +84,13 @@ Add unit tests for:
 - Lookahead for blocking or pit timing.
 - Per-track strategy tuning.
 - Different bot personalities (aggressive, conservative).
+
+## Implementation Checklist
+
+1. Add bot identity (`isBot`) to `Car`.
+2. Add mode flags for bot mode + fill‑slots behavior.
+3. Spawn bots to fill missing slots and/or in bot mode.
+4. Implement `pickBotMove(...)` heuristic function.
+5. Integrate bot turn execution in the turn loop.
+6. Ensure logging and UI updates for bot actions.
+7. Add tests for heuristic choices and skip behavior.

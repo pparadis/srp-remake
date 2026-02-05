@@ -7,6 +7,7 @@ function makeCar(id: number): Car {
   return {
     carId: id,
     ownerId: `P${id}`,
+    isBot: false,
     cellId: `C${id}`,
     lapCount: 0,
     tire: 100,
