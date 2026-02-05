@@ -21,6 +21,7 @@ export class RaceScene extends Phaser.Scene {
   private gTrack!: Phaser.GameObjects.Graphics;
   private gTargets!: Phaser.GameObjects.Graphics;
   private gUI!: Phaser.GameObjects.Graphics;
+  private gFrame!: Phaser.GameObjects.Graphics;
   private txtInfo!: Phaser.GameObjects.Text;
   private txtCycle!: Phaser.GameObjects.Text;
   private txtLog!: Phaser.GameObjects.Text;
@@ -32,6 +33,8 @@ export class RaceScene extends Phaser.Scene {
   private showForwardIndex = false;
   private forwardIndexLabels: Phaser.GameObjects.Text[] = [];
   private progressMap!: Map<string, number>;
+  private uiLogRect = { x: 0, y: 0, w: 0, h: 0 };
+  private uiStandingsRect = { x: 0, y: 0, w: 0, h: 0 };
   private cars: Car[] = [];
   private activeCar!: Car;
   private carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
@@ -82,25 +85,26 @@ export class RaceScene extends Phaser.Scene {
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
     this.gUI = this.add.graphics();
+    this.gFrame = this.add.graphics();
     this.txtInfo = this.add.text(14, 14, "", {
       fontFamily: "monospace",
       fontSize: "14px",
       color: "#c7d1db"
     });
-    this.txtCycle = this.add.text(550, 10, "", {
+    this.txtCycle = this.add.text(0, 10, "", {
       fontFamily: "monospace",
       fontSize: "14px",
       color: "#c7d1db"
     });
     this.txtCycle.setOrigin(0.5, 0);
-    this.txtLog = this.add.text(820, 20, "", {
+    this.txtLog = this.add.text(0, 0, "", {
       fontFamily: "monospace",
       fontSize: "13px",
       color: "#c7d1db",
       lineSpacing: 4,
       wordWrap: { width: 260 }
     });
-    this.txtStandingsHeader = this.add.text(18, 505, "Standings [-]", {
+    this.txtStandingsHeader = this.add.text(0, 0, "Standings [-]", {
       fontFamily: "monospace",
       fontSize: "12px",
       color: "#e6edf3"
@@ -108,11 +112,11 @@ export class RaceScene extends Phaser.Scene {
     this.txtStandingsHeader.setInteractive({ useHandCursor: true });
     this.txtStandingsHeader.on("pointerdown", () => {
       this.standingsCollapsed = !this.standingsCollapsed;
-      this.updateStandingsPanel();
+      this.layoutUI();
       this.updateStandings();
     });
 
-    this.txtStandingsMode = this.add.text(145, 505, "Mode: Id", {
+    this.txtStandingsMode = this.add.text(0, 0, "Mode: Id", {
       fontFamily: "monospace",
       fontSize: "12px",
       color: "#9fb0bf"
@@ -124,7 +128,7 @@ export class RaceScene extends Phaser.Scene {
       this.updateStandings();
     });
 
-    this.txtStandings = this.add.text(14, 525, "", {
+    this.txtStandings = this.add.text(0, 0, "", {
       fontFamily: "monospace",
       fontSize: "12px",
       color: "#c7d1db",
@@ -133,18 +137,26 @@ export class RaceScene extends Phaser.Scene {
     });
 
     this.drawTrack();
+    this.drawFrame();
+    this.centerTrack();
+    this.setUIFixed();
+    this.scale.on("resize", () => {
+      this.drawFrame();
+      this.layoutUI();
+      this.centerTrack();
+    });
     this.initCars();
     this.initTurn();
     this.updateStandings();
     this.recomputeTargets();
     this.drawTargets();
-    this.drawLogPanel();
-    this.updateStandingsPanel();
+    this.layoutUI();
     this.updateStandingsModeLabel();
     this.createPitModal();
     this.createSkipButton();
     this.createCopyDebugButton();
     this.updateCycleHud();
+    this.setUIFixed();
 
     this.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
       if (this.modalActive) return;
@@ -345,9 +357,49 @@ export class RaceScene extends Phaser.Scene {
   private drawLogPanel() {
     this.gUI.clear();
     this.gUI.fillStyle(0x0f141b, 0.95);
-    this.gUI.fillRoundedRect(800, 10, 290, 180, 8);
+    this.gUI.fillRoundedRect(this.uiLogRect.x, this.uiLogRect.y, this.uiLogRect.w, this.uiLogRect.h, 8);
     this.gUI.lineStyle(1, 0x2a3642, 1);
-    this.gUI.strokeRoundedRect(800, 10, 290, 180, 8);
+    this.gUI.strokeRoundedRect(this.uiLogRect.x, this.uiLogRect.y, this.uiLogRect.w, this.uiLogRect.h, 8);
+  }
+
+  private drawFrame() {
+    this.gFrame.clear();
+    this.gFrame.lineStyle(1, 0x2a3642, 0.8);
+    this.gFrame.strokeRect(1, 1, this.scale.width - 2, this.scale.height - 2);
+  }
+
+  private setUIFixed() {
+    const fixed = [
+      this.gUI,
+      this.gFrame,
+      this.txtInfo,
+      this.txtCycle,
+      this.txtLog,
+      this.txtStandingsHeader,
+      this.txtStandingsMode,
+      this.txtStandings,
+      this.skipButton,
+      this.copyDebugButton
+    ].filter(Boolean);
+    for (const obj of fixed) {
+      obj.setScrollFactor(0);
+    }
+    if (this.modal) {
+      this.modal.setScrollFactor(0);
+    }
+  }
+
+  private centerTrack() {
+    const xs = this.track.cells.map((c) => c.pos.x);
+    const ys = this.track.cells.map((c) => c.pos.y);
+    if (xs.length === 0 || ys.length === 0) return;
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    this.cameras.main.centerOn(cx, cy);
   }
 
   private addLog(line: string) {
@@ -383,26 +435,48 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private updateStandingsPanel() {
-    this.drawLogPanel();
     if (this.standingsCollapsed) {
       this.txtStandingsHeader.setText("Standings [+]");
       this.txtStandings.setVisible(false);
       this.txtStandingsMode.setVisible(false);
       return;
     }
-    const panelX = 10;
-    const panelY = 500;
-    const panelW = 250;
-    const panelH = 160;
-
     this.gUI.fillStyle(0x0f141b, 0.97);
-    this.gUI.fillRoundedRect(panelX, panelY, panelW, panelH, 8);
+    this.gUI.fillRoundedRect(this.uiStandingsRect.x, this.uiStandingsRect.y, this.uiStandingsRect.w, this.uiStandingsRect.h, 8);
     this.gUI.lineStyle(1, 0x2a3642, 1);
-    this.gUI.strokeRoundedRect(panelX, panelY, panelW, panelH, 8);
+    this.gUI.strokeRoundedRect(this.uiStandingsRect.x, this.uiStandingsRect.y, this.uiStandingsRect.w, this.uiStandingsRect.h, 8);
 
     this.txtStandingsHeader.setText("Standings [-]");
     this.txtStandings.setVisible(!this.standingsCollapsed);
     this.txtStandingsMode.setVisible(!this.standingsCollapsed);
+  }
+
+  private layoutUI() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const pad = 10;
+
+    this.uiLogRect = { x: w - 290 - pad, y: pad, w: 290, h: 180 };
+    this.uiStandingsRect = { x: pad, y: h - 160 - pad, w: 250, h: 160 };
+
+    this.txtCycle.setPosition(w / 2, 10);
+    this.txtLog.setPosition(this.uiLogRect.x + 10, this.uiLogRect.y + 10);
+    this.txtLog.setWordWrapWidth(this.uiLogRect.w - 20);
+
+    this.txtStandingsHeader.setPosition(this.uiStandingsRect.x + 8, this.uiStandingsRect.y + 6);
+    this.txtStandingsMode.setPosition(this.uiStandingsRect.x + 120, this.uiStandingsRect.y + 6);
+    this.txtStandings.setPosition(this.uiStandingsRect.x + 8, this.uiStandingsRect.y + 26);
+    this.txtStandings.setWordWrapWidth(this.uiStandingsRect.w - 16);
+
+    if (this.skipButton) {
+      this.skipButton.setPosition(w / 2, h - 10);
+    }
+    if (this.copyDebugButton) {
+      this.copyDebugButton.setPosition(pad + 4, h - 10);
+    }
+
+    this.drawLogPanel();
+    this.updateStandingsPanel();
   }
 
   private updateStandings() {
@@ -543,7 +617,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private createSkipButton() {
-    this.skipButton = this.add.text(550, 670, "Skip turn", {
+    this.skipButton = this.add.text(0, 0, "Skip turn", {
       fontFamily: "monospace",
       fontSize: "14px",
       color: "#0b0f14",
@@ -556,10 +630,12 @@ export class RaceScene extends Phaser.Scene {
     this.skipButton.on("pointerout", () => this.skipButton.setStyle({ backgroundColor: "#c7d1db" }));
     this.skipButton.on("pointerdown", () => this.skipTurn());
     this.updateSkipButtonState();
+    this.layoutUI();
+    this.setUIFixed();
   }
 
   private createCopyDebugButton() {
-    this.copyDebugButton = this.add.text(140, 670, "Copy debug", {
+    this.copyDebugButton = this.add.text(0, 0, "Copy debug", {
       fontFamily: "monospace",
       fontSize: "14px",
       color: "#0b0f14",
@@ -571,6 +647,8 @@ export class RaceScene extends Phaser.Scene {
     this.copyDebugButton.on("pointerover", () => this.copyDebugButton.setStyle({ backgroundColor: "#e6edf3" }));
     this.copyDebugButton.on("pointerout", () => this.copyDebugButton.setStyle({ backgroundColor: "#c7d1db" }));
     this.copyDebugButton.on("pointerdown", () => this.copyDebugSnapshot());
+    this.layoutUI();
+    this.setUIFixed();
   }
 
   private updateSkipButtonState() {
