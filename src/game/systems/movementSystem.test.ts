@@ -41,7 +41,7 @@ describe("computeValidTargets", () => {
       wingFrontDeg: 6,
       wingRearDeg: 12
     }});
-    expect(targets.has("P1")).toBe(false);
+    expect(targets.has("P1")).toBe(true);
   });
 
   it("limits pit lane movement to 1 step", () => {
@@ -142,5 +142,29 @@ describe("computeValidTargets", () => {
     }});
     expect(targets.has("Z01_L1_00")).toBe(false);
     expect(targets.has("Z02_L0_00")).toBe(true);
+  });
+
+  it("allows selecting any PIT_BOX when adjacent to pit boxes", () => {
+    const occupied = new Set<string>();
+    const targets = computeValidTargets(track as TrackData, "Z01_L3_00", occupied, 9, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
+      compound: "soft",
+      psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
+      wingFrontDeg: 6,
+      wingRearDeg: 12
+    }});
+    expect(targets.has("Z02_L3_00")).toBe(true);
+    expect(targets.has("Z03_L3_00")).toBe(true);
+  });
+
+  it("only allows pit entry at distance 1", () => {
+    const occupied = new Set<string>();
+    const targets = computeValidTargets(track as TrackData, "Z26_L0_00", occupied, 9, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
+      compound: "soft",
+      psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
+      wingFrontDeg: 6,
+      wingRearDeg: 12
+    }});
+    expect(targets.has("Z28_L3_00")).toBe(false);
+    expect(targets.has("Z01_L3_00")).toBe(false);
   });
 });

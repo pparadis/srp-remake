@@ -100,6 +100,34 @@ export function computeValidTargets(
     }
   }
 
+  const pitBoxAdjacent = startIsPitLane
+    ? Array.from(dist.entries()).some(([id, d]) => {
+        if (d !== 1) return false;
+        const c = cellMap.get(id);
+        return c && (c.tags ?? []).includes("PIT_BOX");
+      })
+    : false;
+
+  if (startIsPitLane && pitBoxAdjacent) {
+    const visited = new Set<string>();
+    let current: TrackCell | undefined = startCell;
+    let steps = 0;
+    const maxWalk = track.cells.length + 1;
+    while (current && !visited.has(current.id) && steps < maxWalk) {
+      visited.add(current.id);
+      const nextSame: TrackCell | undefined = current.next
+        .map((id) => cellMap.get(id))
+        .find((c) => c && c.laneIndex === 3);
+      if (!nextSame) break;
+      steps += 1;
+      if ((nextSame.tags ?? []).includes("PIT_BOX")) {
+        const prev = dist.get(nextSame.id);
+        if (prev == null || steps < prev) dist.set(nextSame.id, steps);
+      }
+      current = nextSame;
+    }
+  }
+
   const minDeltaByLane = new Map<number, number>();
   if (!startIsPitLane) {
     for (const occId of occupied) {
@@ -115,10 +143,18 @@ export function computeValidTargets(
 
   const targets = new Map<string, TargetInfo>();
   for (const [cellId, d] of dist.entries()) {
-    if (d <= 0 || d > effectiveMaxSteps) continue;
+    if (d <= 0) continue;
     if (occupied.has(cellId)) continue;
     const cell = cellMap.get(cellId);
     if (!cell) continue;
+    const isPitEntryTarget = (cell.tags ?? []).includes("PIT_ENTRY");
+    const isPitBox = (cell.tags ?? []).includes("PIT_BOX");
+    if (d > effectiveMaxSteps) {
+      if (!(startIsPitLane && pitBoxAdjacent && isPitBox)) continue;
+    }
+    if (startIsPitLane && cell.laneIndex === 3 && d > 1) {
+      if (!pitBoxAdjacent || !isPitBox) continue;
+    }
     if (!startIsPitLane && cell.laneIndex !== 3 && Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
     const targetDelta = (cell.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
     if (!startIsPitLane && cell.laneIndex !== 3) {
@@ -127,7 +163,11 @@ export function computeValidTargets(
         if (targetDelta > blockDelta) continue;
       }
     }
-    if (!startIsPitLane && cell.laneIndex !== startCell.laneIndex && targetDelta === 0) continue;
+    if (!startIsPitLane && cell.laneIndex !== startCell.laneIndex && targetDelta === 0 && !isPitEntryTarget) continue;
+    if (!startIsPitLane && cell.laneIndex === 3) {
+      if (!isPitEntryTarget) continue;
+      if (d !== 1) continue;
+    }
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);

@@ -14,13 +14,13 @@ export function startGame(parent: HTMLElement, options: GameOptions = {}) {
     width: 1600,
     height: 900,
     backgroundColor: "#0b0f14",
-    resolution: window.devicePixelRatio ?? 1,
     scene: [BootScene, RaceScene],
     scale: {
       mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH
     }
   };
+  (config as { resolution?: number }).resolution = window.devicePixelRatio ?? 1;
 
   const game = new Phaser.Game(config);
   game.registry.set(REG_PLAYER_COUNT, options.playerCount ?? 1);

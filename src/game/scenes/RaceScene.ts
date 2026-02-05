@@ -214,12 +214,12 @@ export class RaceScene extends Phaser.Scene {
     });
 
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
-      const cell = this.findNearestCell(p.x, p.y, 18);
+      const cell = this.findNearestCell(p.worldX, p.worldY, 18);
       this.txtInfo.setText(this.makeHudText(cell));
     });
 
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      const cell = this.findNearestCell(p.x, p.y, 18);
+      const cell = this.findNearestCell(p.worldX, p.worldY, 18);
       if (!cell) return;
       console.log("Cell", cell.id, "zone", cell.zoneIndex, "lane", cell.laneIndex, "next", cell.next);
       this.recomputeTargets();
@@ -328,7 +328,8 @@ export class RaceScene extends Phaser.Scene {
     const fuelRate = 0.45;
     const activeCell = this.cellMap.get(this.activeCar.cellId);
     const inPitLane = activeCell?.laneIndex === 3;
-    this.validTargets = computeValidTargets(this.track, this.activeCar.cellId, occupied, maxSteps, {
+    const effectiveMaxSteps = inPitLane ? 1 : maxSteps;
+    this.validTargets = computeValidTargets(this.track, this.activeCar.cellId, occupied, effectiveMaxSteps, {
       allowPitExitSkip: this.activeCar.pitExitBoost,
       disallowPitBoxTargets: shouldDisallowPitBoxTargets(this.activeCar, inPitLane)
     }, {
@@ -382,10 +383,19 @@ export class RaceScene extends Phaser.Scene {
       this.copyDebugButton
     ].filter(Boolean);
     for (const obj of fixed) {
-      obj.setScrollFactor(0);
+      if (typeof (obj as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor === "function") {
+        (obj as unknown as { setScrollFactor: (x: number, y?: number) => unknown }).setScrollFactor(0);
+      }
     }
     if (this.modal) {
-      this.modal.setScrollFactor(0);
+      if (typeof (this.modal as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor === "function") {
+        (this.modal as unknown as { setScrollFactor: (x: number, y?: number) => unknown }).setScrollFactor(0);
+      }
+      for (const child of this.modal.list) {
+        if (typeof (child as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor === "function") {
+          (child as unknown as { setScrollFactor: (x: number, y?: number) => unknown }).setScrollFactor(0);
+        }
+      }
     }
   }
 
@@ -718,7 +728,7 @@ export class RaceScene extends Phaser.Scene {
       startFinishIds,
       activeCarId: this.activeCar.carId,
       movement: {
-        maxSteps,
+        maxSteps: inPitLane ? 1 : maxSteps,
         tireRate,
         fuelRate,
         allowPitExitSkip: this.activeCar.pitExitBoost,
