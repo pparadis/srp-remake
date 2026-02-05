@@ -363,6 +363,12 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private recomputeTargets() {
+    if (this.activeCar.isBot) {
+      this.processBotsUntilHuman();
+      if (this.activeCar.isBot) {
+        return;
+      }
+    }
     this.validTargets = this.computeTargetsForCar(this.activeCar);
     this.updateSkipButtonState();
   }
@@ -572,6 +578,7 @@ export class RaceScene extends Phaser.Scene {
         return {
           carId: car.carId,
           cellId: car.cellId,
+          isBot: car.isBot,
           lapCount: car.lapCount ?? 0,
           state: car.state,
           tire: car.tire,
