@@ -44,8 +44,8 @@ describe("sortCarsByProgress", () => {
     ]);
     const cars = [makeCar(1, "A"), makeCar(2, "B")];
     const ordered = sortCarsByProgress(cars, cellMap);
-    expect(ordered[0].carId).toBe(2);
-    expect(ordered[1].carId).toBe(1);
+    expect(ordered[0]?.carId).toBe(2);
+    expect(ordered[1]?.carId).toBe(1);
   });
 
   it("orders by lapCount before forwardIndex", () => {
@@ -55,7 +55,7 @@ describe("sortCarsByProgress", () => {
     ]);
     const cars = [makeCar(1, "A", 1), makeCar(2, "B", 0)];
     const ordered = sortCarsByProgress(cars, cellMap);
-    expect(ordered[0].carId).toBe(1);
-    expect(ordered[1].carId).toBe(2);
+    expect(ordered[0]?.carId).toBe(1);
+    expect(ordered[1]?.carId).toBe(2);
   });
 });

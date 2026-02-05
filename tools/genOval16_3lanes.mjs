@@ -3,12 +3,23 @@ import path from "node:path";
 import { buildLanePoints } from "./track/geometry.mjs";
 import { findBestStartIndex } from "./track/sequence.mjs";
 
-const lanes = 4;
-const mainLanes = [0, 1, 2];
-const pitLane = 3;
-const pitZones = [28, 1, 2, 3, 4, 5, 6];
-const straightCount = 8;
-const cornerCounts = { 0: 6, 1: 7, 2: 8 };
+const CONFIG = {
+  lanes: 4,
+  mainLanes: [0, 1, 2],
+  pitLane: 3,
+  pitZones: [28, 1, 2, 3, 4, 5, 6],
+  straightCount: 8,
+  cornerCounts: { 0: 6, 1: 7, 2: 8 },
+  geometry: {
+    cx: 560,
+    cy: 350,
+    laneSpacing: 18,
+    pitInsetFromLane0: 36,
+    baseRadius: 120,
+    straightHalf: 260,
+    startZoneOffset: 12
+  }
+};
 
 const outDir = path.join(process.cwd(), "public", "tracks");
 fs.mkdirSync(outDir, { recursive: true });
@@ -17,13 +28,23 @@ function id(z, l) {
   return `Z${String(z).padStart(2, "0")}_L${l}_00`;
 }
 
-const cx = 560;
-const cy = 350;
-const laneSpacing = 18;
-const pitInsetFromLane0 = 36;
-const baseRadius = 120;
-const straightHalf = 260;
-const startZoneOffset = 12;
+const {
+  lanes,
+  mainLanes,
+  pitLane,
+  pitZones,
+  straightCount,
+  cornerCounts,
+  geometry: {
+    cx,
+    cy,
+    laneSpacing,
+    pitInsetFromLane0,
+    baseRadius,
+    straightHalf,
+    startZoneOffset
+  }
+} = CONFIG;
 
 const cells = [];
 const laneSequences = new Map();

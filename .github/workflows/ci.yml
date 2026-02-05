@@ -21,5 +21,7 @@ jobs:
         run: node tools/validateTrack.mjs
       - name: Test
         run: npm test
+      - name: Test Coverage
+        run: npm run test:coverage
       - name: Build
         run: npm run build

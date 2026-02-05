@@ -25,9 +25,11 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
   const buildLaneSequence = (laneIndex: number): TrackCell[] => {
     const laneCells = track.cells.filter((c) => c.laneIndex === laneIndex);
     if (laneCells.length === 0) return [];
-    const start =
-      laneCells.find((c) => (c.tags ?? []).includes("START_FINISH")) ??
-      laneCells.reduce((best, c) => (c.forwardIndex < best.forwardIndex ? c : best), laneCells[0]);
+    const taggedStart = laneCells.find((c) => (c.tags ?? []).includes("START_FINISH"));
+    let start = taggedStart ?? laneCells[0]!;
+    for (const c of laneCells) {
+      if (c.forwardIndex < start.forwardIndex) start = c;
+    }
     const seq: TrackCell[] = [];
     const visited = new Set<string>();
     let current: TrackCell | undefined = start;
@@ -65,6 +67,7 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
     for (let offset = 0; offset < seq.length; offset += 1) {
       const idx = ((start - offset) % seq.length + seq.length) % seq.length;
       const cell = seq[idx];
+      if (!cell) continue;
       if (!picks.has(cell.forwardIndex)) {
         picks.set(cell.forwardIndex, cell);
       }
@@ -76,7 +79,9 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
   const rowCount = spineLen > 0 ? spineLen : 0;
   for (let row = 0; row < rowCount; row += 1) {
     const spineIdx = ((spineStart - row) % spineLen + spineLen) % spineLen;
-    const targetForwardIndex = spineSeq[spineIdx].forwardIndex;
+    const spineCell = spineSeq[spineIdx];
+    if (!spineCell) continue;
+    const targetForwardIndex = spineCell.forwardIndex;
     for (const lane of mainLanes) {
       const picks = lanePickByForwardIndex.get(lane);
       const cell = picks?.get(targetForwardIndex);
@@ -97,7 +102,8 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
 
   for (let i = 0; i < count; i += 1) {
     const cell = orderedSlots[i];
-    const setup = DEFAULT_SETUPS[i % DEFAULT_SETUPS.length];
+    if (!cell) continue;
+    const setup = (DEFAULT_SETUPS[i % DEFAULT_SETUPS.length] ?? DEFAULT_SETUPS[0])!;
     const car: Car = {
       carId: i + 1,
       ownerId: `P${i + 1}`,
@@ -113,7 +119,8 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
       moveCycle: createMoveCycle()
     };
     cars.push(car);
-    tokens.push({ car, color: DEFAULT_COLORS[i % DEFAULT_COLORS.length] });
+    const color = (DEFAULT_COLORS[i % DEFAULT_COLORS.length] ?? DEFAULT_COLORS[0])!;
+    tokens.push({ car, color });
   }
 
   return { cars, tokens };

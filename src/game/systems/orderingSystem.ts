@@ -37,11 +37,14 @@ export function sortCarsByProgress(
 }
 
 function pickLaneStart(cells: TrackCell[]): TrackCell {
-  return (
-    cells.find((c) => (c.tags ?? []).includes("START_FINISH")) ??
-    cells.find((c) => (c.tags ?? []).includes("PIT_ENTRY")) ??
-    cells.reduce((best, c) => (c.forwardIndex < best.forwardIndex ? c : best), cells[0])
-  );
+  const start = cells.find((c) => (c.tags ?? []).includes("START_FINISH")) ??
+    cells.find((c) => (c.tags ?? []).includes("PIT_ENTRY"));
+  if (start) return start;
+  let best = cells[0]!;
+  for (const c of cells) {
+    if (c.forwardIndex < best.forwardIndex) best = c;
+  }
+  return best;
 }
 
 function buildLaneSequence(cells: TrackCell[], byId: Map<string, TrackCell>, laneIndex: number): TrackCell[] {
@@ -82,10 +85,12 @@ export function buildProgressMap(track: TrackData, spineLane = 1): Map<string, n
     const seq = buildLaneSequence(track.cells, byId, laneIndex);
     if (seq.length === 0) continue;
     const denom = Math.max(1, seq.length - 1);
-    for (let i = 0; i < seq.length; i += 1) {
+    let i = 0;
+    for (const cell of seq) {
       const progress = i / denom;
       const progressIndex = progress * (spineLen - 1);
-      progressMap.set(seq[i].id, progressIndex);
+      progressMap.set(cell.id, progressIndex);
+      i += 1;
     }
   }
   return progressMap;

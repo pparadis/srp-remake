@@ -15,6 +15,37 @@ import { advanceTurn, createTurnState, getCurrentCarId, type TurnState } from ".
 type CellMap = Map<string, TrackCell>;
 
 export class RaceScene extends Phaser.Scene {
+  private static readonly UI = {
+    padding: 10,
+    logPanel: { width: 290, height: 180, radius: 8 },
+    standingsPanel: { width: 250, height: 160, radius: 8 },
+    logPadding: 10,
+    standingsHeaderOffset: { x: 8, y: 6 },
+    standingsTextOffset: { x: 8, y: 26 },
+    standingsModeOffsetX: 120,
+    bottomButtonYPad: 10
+  };
+  private static readonly HUD = {
+    hoverMaxDist: 18,
+    infoPos: { x: 14, y: 14 },
+    debugHintPos: { x: 14, y: 36 },
+    cyclePosY: 10
+  };
+  private static readonly MOVE_RATES = {
+    softTire: 0.5,
+    hardTire: 0.35,
+    fuel: 0.45
+  };
+  private static readonly MOVE_BUDGET = {
+    baseMax: 9,
+    zeroResourceMax: 4
+  };
+  private static readonly HUD_LABELS = {
+    noneTags: "none",
+    targetPrefix: "target:",
+    factorsPrefix: "factors:",
+    validTargetsPrefix: "valid targets:"
+  };
   private track!: TrackData;
   private cellMap!: CellMap;
 
@@ -28,6 +59,7 @@ export class RaceScene extends Phaser.Scene {
   private txtStandings!: Phaser.GameObjects.Text;
   private txtStandingsHeader!: Phaser.GameObjects.Text;
   private txtStandingsMode!: Phaser.GameObjects.Text;
+  private txtDebugHint!: Phaser.GameObjects.Text;
   private standingsCollapsed = false;
   private standingsMode: "carId" | "race" = "carId";
   private showForwardIndex = false;
@@ -86,12 +118,22 @@ export class RaceScene extends Phaser.Scene {
     this.gTargets = this.add.graphics();
     this.gUI = this.add.graphics();
     this.gFrame = this.add.graphics();
-    this.txtInfo = this.add.text(14, 14, "", {
+    this.txtInfo = this.add.text(RaceScene.HUD.infoPos.x, RaceScene.HUD.infoPos.y, "", {
       fontFamily: "monospace",
       fontSize: "14px",
       color: "#c7d1db"
     });
-    this.txtCycle = this.add.text(0, 10, "", {
+    this.txtDebugHint = this.add.text(
+      RaceScene.HUD.debugHintPos.x,
+      RaceScene.HUD.debugHintPos.y,
+      "Debug: F = forwardIndex overlay",
+      {
+        fontFamily: "monospace",
+        fontSize: "12px",
+        color: "#9fb0bf"
+      }
+    );
+    this.txtCycle = this.add.text(0, RaceScene.HUD.cyclePosY, "", {
       fontFamily: "monospace",
       fontSize: "14px",
       color: "#c7d1db"
@@ -214,12 +256,12 @@ export class RaceScene extends Phaser.Scene {
     });
 
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
-      const cell = this.findNearestCell(p.worldX, p.worldY, 18);
+    const cell = this.findNearestCell(p.worldX, p.worldY, RaceScene.HUD.hoverMaxDist);
       this.txtInfo.setText(this.makeHudText(cell));
     });
 
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      const cell = this.findNearestCell(p.worldX, p.worldY, 18);
+      const cell = this.findNearestCell(p.worldX, p.worldY, RaceScene.HUD.hoverMaxDist);
       if (!cell) return;
       console.log("Cell", cell.id, "zone", cell.zoneIndex, "lane", cell.laneIndex, "next", cell.next);
       this.recomputeTargets();
@@ -239,7 +281,7 @@ export class RaceScene extends Phaser.Scene {
     for (const entry of tokens) {
       this.spawnCarToken(entry.car, entry.color);
     }
-    this.activeCar = this.cars[0];
+    this.activeCar = this.getFirstCar();
     this.updateStandings();
   }
 
@@ -266,7 +308,7 @@ export class RaceScene extends Phaser.Scene {
   private initTurn() {
     this.turn = createTurnState(this.cars);
     const currentId = getCurrentCarId(this.turn);
-    this.activeCar = this.cars.find((c) => c.carId === currentId) ?? this.cars[0];
+    this.activeCar = this.cars.find((c) => c.carId === currentId) ?? this.getFirstCar();
     this.addLog(`Car ${this.activeCar.carId} to play.`);
     this.updateActiveCarVisuals();
   }
@@ -285,7 +327,7 @@ export class RaceScene extends Phaser.Scene {
     const maxSkips = Math.max(1, this.cars.length);
     for (let i = 0; i < maxSkips; i++) {
       const currentId = getCurrentCarId(this.turn);
-      const car = this.cars.find((c) => c.carId === currentId) ?? this.cars[0];
+      const car = this.cars.find((c) => c.carId === currentId) ?? this.getFirstCar();
       if (advancePitPenalty(car)) {
         recordMove(car.moveCycle, 0);
         this.addLog(`Car ${car.carId} pit penalty (remaining ${car.pitTurnsRemaining}).`);
@@ -299,10 +341,18 @@ export class RaceScene extends Phaser.Scene {
     }
 
     const currentId = getCurrentCarId(this.turn);
-    this.activeCar = this.cars.find((c) => c.carId === currentId) ?? this.cars[0];
+    this.activeCar = this.cars.find((c) => c.carId === currentId) ?? this.getFirstCar();
     this.addLog(`Car ${this.activeCar.carId} to play.`);
     this.updateActiveCarVisuals();
     this.updateCycleHud();
+  }
+
+  private getFirstCar(): Car {
+    const first = this.cars[0];
+    if (!first) {
+      throw new Error("No cars available.");
+    }
+    return first;
   }
 
   private updateActiveCarVisuals() {
@@ -321,11 +371,15 @@ export class RaceScene extends Phaser.Scene {
 
   private recomputeTargets() {
     const occupied = new Set(this.cars.map((c) => c.cellId));
-    const baseMaxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0 ? 4 : 9;
+    const baseMaxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0
+      ? RaceScene.MOVE_BUDGET.zeroResourceMax
+      : RaceScene.MOVE_BUDGET.baseMax;
     const remainingBudget = getRemainingBudget(this.activeCar.moveCycle);
     const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
-    const tireRate = this.activeCar.setup.compound === "soft" ? 0.5 : 0.35;
-    const fuelRate = 0.45;
+    const tireRate = this.activeCar.setup.compound === "soft"
+      ? RaceScene.MOVE_RATES.softTire
+      : RaceScene.MOVE_RATES.hardTire;
+    const fuelRate = RaceScene.MOVE_RATES.fuel;
     const activeCell = this.cellMap.get(this.activeCar.cellId);
     const inPitLane = activeCell?.laneIndex === 3;
     const effectiveMaxSteps = inPitLane ? 1 : maxSteps;
@@ -358,9 +412,21 @@ export class RaceScene extends Phaser.Scene {
   private drawLogPanel() {
     this.gUI.clear();
     this.gUI.fillStyle(0x0f141b, 0.95);
-    this.gUI.fillRoundedRect(this.uiLogRect.x, this.uiLogRect.y, this.uiLogRect.w, this.uiLogRect.h, 8);
+    this.gUI.fillRoundedRect(
+      this.uiLogRect.x,
+      this.uiLogRect.y,
+      this.uiLogRect.w,
+      this.uiLogRect.h,
+      RaceScene.UI.logPanel.radius
+    );
     this.gUI.lineStyle(1, 0x2a3642, 1);
-    this.gUI.strokeRoundedRect(this.uiLogRect.x, this.uiLogRect.y, this.uiLogRect.w, this.uiLogRect.h, 8);
+    this.gUI.strokeRoundedRect(
+      this.uiLogRect.x,
+      this.uiLogRect.y,
+      this.uiLogRect.w,
+      this.uiLogRect.h,
+      RaceScene.UI.logPanel.radius
+    );
   }
 
   private drawFrame() {
@@ -452,9 +518,21 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     this.gUI.fillStyle(0x0f141b, 0.97);
-    this.gUI.fillRoundedRect(this.uiStandingsRect.x, this.uiStandingsRect.y, this.uiStandingsRect.w, this.uiStandingsRect.h, 8);
+    this.gUI.fillRoundedRect(
+      this.uiStandingsRect.x,
+      this.uiStandingsRect.y,
+      this.uiStandingsRect.w,
+      this.uiStandingsRect.h,
+      RaceScene.UI.standingsPanel.radius
+    );
     this.gUI.lineStyle(1, 0x2a3642, 1);
-    this.gUI.strokeRoundedRect(this.uiStandingsRect.x, this.uiStandingsRect.y, this.uiStandingsRect.w, this.uiStandingsRect.h, 8);
+    this.gUI.strokeRoundedRect(
+      this.uiStandingsRect.x,
+      this.uiStandingsRect.y,
+      this.uiStandingsRect.w,
+      this.uiStandingsRect.h,
+      RaceScene.UI.standingsPanel.radius
+    );
 
     this.txtStandingsHeader.setText("Standings [-]");
     this.txtStandings.setVisible(!this.standingsCollapsed);
@@ -464,25 +542,41 @@ export class RaceScene extends Phaser.Scene {
   private layoutUI() {
     const w = this.scale.width;
     const h = this.scale.height;
-    const pad = 10;
+    const ui = RaceScene.UI;
+    const pad = ui.padding;
 
-    this.uiLogRect = { x: w - 290 - pad, y: pad, w: 290, h: 180 };
-    this.uiStandingsRect = { x: pad, y: h - 160 - pad, w: 250, h: 160 };
+    this.uiLogRect = { x: w - ui.logPanel.width - pad, y: pad, w: ui.logPanel.width, h: ui.logPanel.height };
+    this.uiStandingsRect = {
+      x: pad,
+      y: h - ui.standingsPanel.height - pad,
+      w: ui.standingsPanel.width,
+      h: ui.standingsPanel.height
+    };
 
-    this.txtCycle.setPosition(w / 2, 10);
-    this.txtLog.setPosition(this.uiLogRect.x + 10, this.uiLogRect.y + 10);
-    this.txtLog.setWordWrapWidth(this.uiLogRect.w - 20);
+    this.txtCycle.setPosition(w / 2, RaceScene.HUD.cyclePosY);
+    this.txtDebugHint.setPosition(RaceScene.HUD.debugHintPos.x, RaceScene.HUD.debugHintPos.y);
+    this.txtLog.setPosition(this.uiLogRect.x + ui.logPadding, this.uiLogRect.y + ui.logPadding);
+    this.txtLog.setWordWrapWidth(this.uiLogRect.w - ui.logPadding * 2);
 
-    this.txtStandingsHeader.setPosition(this.uiStandingsRect.x + 8, this.uiStandingsRect.y + 6);
-    this.txtStandingsMode.setPosition(this.uiStandingsRect.x + 120, this.uiStandingsRect.y + 6);
-    this.txtStandings.setPosition(this.uiStandingsRect.x + 8, this.uiStandingsRect.y + 26);
-    this.txtStandings.setWordWrapWidth(this.uiStandingsRect.w - 16);
+    this.txtStandingsHeader.setPosition(
+      this.uiStandingsRect.x + ui.standingsHeaderOffset.x,
+      this.uiStandingsRect.y + ui.standingsHeaderOffset.y
+    );
+    this.txtStandingsMode.setPosition(
+      this.uiStandingsRect.x + ui.standingsModeOffsetX,
+      this.uiStandingsRect.y + ui.standingsHeaderOffset.y
+    );
+    this.txtStandings.setPosition(
+      this.uiStandingsRect.x + ui.standingsTextOffset.x,
+      this.uiStandingsRect.y + ui.standingsTextOffset.y
+    );
+    this.txtStandings.setWordWrapWidth(this.uiStandingsRect.w - ui.standingsTextOffset.x * 2);
 
     if (this.skipButton) {
-      this.skipButton.setPosition(w / 2, h - 10);
+      this.skipButton.setPosition(w / 2, h - ui.bottomButtonYPad);
     }
     if (this.copyDebugButton) {
-      this.copyDebugButton.setPosition(pad + 4, h - 10);
+      this.copyDebugButton.setPosition(pad + 4, h - ui.bottomButtonYPad);
     }
 
     this.drawLogPanel();
@@ -706,11 +800,15 @@ export class RaceScene extends Phaser.Scene {
       .sort((a, b) => a.carId - b.carId);
     const activeCell = this.cellMap.get(this.activeCar.cellId);
     const occupied = new Set(this.cars.map((c) => c.cellId));
-    const baseMaxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0 ? 4 : 9;
+    const baseMaxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0
+      ? RaceScene.MOVE_BUDGET.zeroResourceMax
+      : RaceScene.MOVE_BUDGET.baseMax;
     const remainingBudget = getRemainingBudget(this.activeCar.moveCycle);
     const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
-    const tireRate = this.activeCar.setup.compound === "soft" ? 0.5 : 0.35;
-    const fuelRate = 0.45;
+    const tireRate = this.activeCar.setup.compound === "soft"
+      ? RaceScene.MOVE_RATES.softTire
+      : RaceScene.MOVE_RATES.hardTire;
+    const fuelRate = RaceScene.MOVE_RATES.fuel;
     const inPitLane = activeCell?.laneIndex === 3;
     const validTargets = Array.from(this.validTargets.entries()).map(([cellId, info]) => ({
       cellId,
@@ -815,11 +913,16 @@ export class RaceScene extends Phaser.Scene {
 
   private refreshModalValues() {
     if (!this.modalSetup) return;
-    this.modalValueTexts.compound.setText(this.modalSetup.compound);
-    this.modalValueTexts.psi.setText(
-      `${this.modalSetup.psi.fl}/${this.modalSetup.psi.fr}/${this.modalSetup.psi.rl}/${this.modalSetup.psi.rr}`
-    );
-    this.modalValueTexts.wing.setText(`${this.modalSetup.wingFrontDeg}/${this.modalSetup.wingRearDeg}`);
+    const compound = this.modalValueTexts.compound;
+    const psi = this.modalValueTexts.psi;
+    const wing = this.modalValueTexts.wing;
+    if (compound) compound.setText(this.modalSetup.compound);
+    if (psi) {
+      psi.setText(
+        `${this.modalSetup.psi.fl}/${this.modalSetup.psi.fr}/${this.modalSetup.psi.rl}/${this.modalSetup.psi.rr}`
+      );
+    }
+    if (wing) wing.setText(`${this.modalSetup.wingFrontDeg}/${this.modalSetup.wingRearDeg}`);
   }
 
   private adjustPsi(delta: number) {
@@ -891,6 +994,7 @@ export class RaceScene extends Phaser.Scene {
       const arr = byZone.get(z);
       if (!arr) continue;
       const labelCell = arr.find((c) => c.laneIndex === 0) ?? arr.find((c) => c.laneIndex === 1) ?? arr[0];
+      if (!labelCell) continue;
       this.add.text(labelCell.pos.x + 10, labelCell.pos.y - 10, `${z}`, {
         fontFamily: "monospace",
         fontSize: "12px",
@@ -922,18 +1026,18 @@ export class RaceScene extends Phaser.Scene {
       const activeStatus = `Active: Car ${this.activeCar.carId}\nTire: ${this.activeCar.tire}% \nFuel: ${this.activeCar.fuel}%`;
       return [
         activeStatus,
-        `Valid targets: ${this.validTargets.size}`
+        `${RaceScene.HUD_LABELS.validTargetsPrefix} ${this.validTargets.size}`
       ].join("\n");
     }
 
-    const tags = (cell.tags ?? []).join(", ") || "none";
+    const tags = (cell.tags ?? []).join(", ") || RaceScene.HUD_LABELS.noneTags;
     const targetInfo = this.validTargets.get(cell.id);
     const factors = targetInfo ? this.computeCostFactors(cell.laneIndex) : null;
     const targetLine = targetInfo
-      ? `target: d${targetInfo.distance}  tire-${targetInfo.tireCost}  fuel-${targetInfo.fuelCost}${targetInfo.isPitTrigger ? "  PIT" : ""}`
+      ? `${RaceScene.HUD_LABELS.targetPrefix} d${targetInfo.distance}  tire-${targetInfo.tireCost}  fuel-${targetInfo.fuelCost}${targetInfo.isPitTrigger ? "  PIT" : ""}`
       : null;
     const factorLine = factors
-      ? `factors: aero x${factors.aero.toFixed(2)}  psi x${factors.psi.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
+      ? `${RaceScene.HUD_LABELS.factorsPrefix} aero x${factors.aero.toFixed(2)}  psi x${factors.psi.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
       : null;
     return [
       `cell: ${cell.id}`,
@@ -943,7 +1047,7 @@ export class RaceScene extends Phaser.Scene {
       `next: ${cell.next.length}`,
       ...(targetLine ? [targetLine] : []),
       ...(factorLine ? [factorLine] : []),
-      `valid targets: ${this.validTargets.size}`
+      `${RaceScene.HUD_LABELS.validTargetsPrefix} ${this.validTargets.size}`
     ].join("\n");
   }
 
