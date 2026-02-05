@@ -5,7 +5,12 @@ export default defineConfig({
     environment: "jsdom",
     coverage: {
       reporter: ["text", "lcov"],
-      include: ["src/**/*.ts"]
+      include: ["src/**/*.ts"],
+      exclude: [
+        "src/game/types/**",
+        "src/game/scenes/**",
+        "src/main.ts"
+      ]
     }
   }
 });
