@@ -1,3 +1,5 @@
+import { PIT_LANE } from "../constants";
+
 export interface MoveCycle {
   index: number;
   spent: number[];
@@ -24,5 +26,5 @@ export function getRemainingBudget(cycle: MoveCycle, total = 40) {
 }
 
 export function computeMoveSpend(distance: number, targetLaneIndex: number) {
-  return targetLaneIndex === 3 ? 1 : distance;
+  return targetLaneIndex === PIT_LANE ? 1 : distance;
 }

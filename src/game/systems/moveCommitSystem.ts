@@ -2,6 +2,7 @@ import type { Car } from "../types/car";
 import type { TrackCell } from "../types/track";
 import type { TargetInfo } from "./movementSystem";
 import { recordMove } from "./moveBudgetSystem";
+import { PIT_LANE } from "../constants";
 
 function clamp01to100(value: number) {
   if (value < 0) return 0;
@@ -17,15 +18,15 @@ export function applyMove(
   moveSpend: number
 ) {
   const crossesStart =
-    fromCell.laneIndex !== 3 &&
-    targetCell.laneIndex !== 3 &&
+    fromCell.laneIndex !== PIT_LANE &&
+    targetCell.laneIndex !== PIT_LANE &&
     fromCell.forwardIndex > targetCell.forwardIndex;
   if (crossesStart) {
     car.lapCount = (car.lapCount ?? 0) + 1;
   }
   car.cellId = targetCell.id;
   car.pitExitBoost = false;
-  if (targetCell.laneIndex !== 3) {
+  if (targetCell.laneIndex !== PIT_LANE) {
     car.pitServiced = false;
   }
   car.tire = clamp01to100(car.tire - info.tireCost);

@@ -1,4 +1,5 @@
 import type { TrackCell, TrackData } from "../types/track";
+import { PIT_LANE } from "../constants";
 
 export interface TrackIndex {
   track: TrackData;
@@ -19,10 +20,10 @@ export function buildTrackIndex(track: TrackData): TrackIndex {
   let pitBoxMaxZone: number | null = null;
   const pitLaneByZone = new Map<number, string>();
   for (const cell of track.cells) {
-    if (cell.laneIndex === 3) {
+    if (cell.laneIndex === PIT_LANE) {
       pitLaneByZone.set(cell.zoneIndex, cell.id);
     }
-    if ((cell.tags ?? []).includes("PIT_BOX") && cell.laneIndex === 3) {
+    if ((cell.tags ?? []).includes("PIT_BOX") && cell.laneIndex === PIT_LANE) {
       if (pitBoxMaxZone == null || cell.zoneIndex > pitBoxMaxZone) pitBoxMaxZone = cell.zoneIndex;
     }
   }

@@ -1,6 +1,7 @@
 import type { TrackCell } from "../types/track";
 import type { CarSetup } from "../types/car";
 import type { TrackIndex } from "./trackIndex";
+import { PIT_LANE } from "../constants";
 
 export interface TargetInfo {
   distance: number;
@@ -8,8 +9,6 @@ export interface TargetInfo {
   fuelCost: number;
   isPitTrigger: boolean;
 }
-
-const PIT_LANE = 3;
 
 export interface MovementOptions {
   allowPitExitSkip?: boolean;
@@ -111,7 +110,7 @@ export function computeValidTargets(
       visited.add(current.id);
       const nextSame: TrackCell | undefined = current.next
         .map((id) => cellMap.get(id))
-        .find((c) => c && c.laneIndex === 3);
+        .find((c) => c && c.laneIndex === PIT_LANE);
       if (!nextSame) break;
       steps += 1;
       if ((nextSame.tags ?? []).includes("PIT_BOX")) {

@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import type { TrackData, TrackCell } from "../types/track";
 import type { Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
-import { REG_PLAYER_COUNT } from "../constants";
+import { PIT_LANE, REG_PLAYER_COUNT } from "../constants";
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
 import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
@@ -198,7 +198,7 @@ export class RaceScene extends Phaser.Scene {
         this.activeCar.cellId = cell.id;
         token.setPosition(cell.pos.x, cell.pos.y);
         this.activeCar.pitExitBoost = false;
-        if (cell.laneIndex !== 3) {
+        if (cell.laneIndex !== PIT_LANE) {
           this.activeCar.pitServiced = false;
         }
         if (validation.isPitStop) {
@@ -350,7 +350,7 @@ export class RaceScene extends Phaser.Scene {
       : RaceScene.MOVE_RATES.hardTire;
     const fuelRate = RaceScene.MOVE_RATES.fuel;
     const activeCell = this.cellMap.get(this.activeCar.cellId);
-    const inPitLane = activeCell?.laneIndex === 3;
+    const inPitLane = activeCell?.laneIndex === PIT_LANE;
     const effectiveMaxSteps = inPitLane ? 1 : maxSteps;
     this.validTargets = computeValidTargets(this.trackIndex, this.activeCar.cellId, occupied, effectiveMaxSteps, {
       allowPitExitSkip: this.activeCar.pitExitBoost,
@@ -574,7 +574,7 @@ export class RaceScene extends Phaser.Scene {
       ? RaceScene.MOVE_RATES.softTire
       : RaceScene.MOVE_RATES.hardTire;
     const fuelRate = RaceScene.MOVE_RATES.fuel;
-    const inPitLane = activeCell?.laneIndex === 3;
+    const inPitLane = activeCell?.laneIndex === PIT_LANE;
     const validTargets = Array.from(this.validTargets.entries()).map(([cellId, info]) => ({
       cellId,
       distance: info.distance,

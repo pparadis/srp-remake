@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import track from "../../public/tracks/oval16_3lanes.json";
+import { PIT_LANE } from "../game/constants";
 
 describe("track forwardIndex mapping", () => {
   it("includes forwardIndex on every cell", () => {
@@ -24,7 +25,7 @@ describe("track forwardIndex mapping", () => {
   it("maps pit lane forwardIndex within spine range", () => {
     const spineCells = track.cells.filter((c: { laneIndex: number }) => c.laneIndex === 1);
     const spineMax = spineCells.length > 0 ? spineCells.length - 1 : 0;
-    const pitCells = track.cells.filter((c: { laneIndex: number }) => c.laneIndex === 3);
+    const pitCells = track.cells.filter((c: { laneIndex: number }) => c.laneIndex === PIT_LANE);
     for (const cell of pitCells) {
       expect(cell.forwardIndex).toBeGreaterThanOrEqual(0);
       expect(cell.forwardIndex).toBeLessThanOrEqual(spineMax);

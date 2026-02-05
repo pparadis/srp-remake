@@ -1,6 +1,7 @@
 import type { Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { createMoveCycle } from "./moveBudgetSystem";
+import { MAIN_LANES, PIT_LANE } from "../constants";
 
 interface SpawnOptions {
   playerCount: number;
@@ -15,10 +16,9 @@ const DEFAULT_SETUPS: Car["setup"][] = [
 ];
 
 export function buildSpawnSlots(track: TrackData): TrackCell[] {
-  const mainLanes = [0, 1, 2];
   const byId = new Map<string, TrackCell>();
   for (const cell of track.cells) {
-    if (cell.laneIndex === 3) continue;
+    if (cell.laneIndex === PIT_LANE) continue;
     byId.set(cell.id, cell);
   }
 
@@ -58,7 +58,7 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
   const spineStart = spineStartIdx >= 0 ? spineStartIdx : 0;
 
   const lanePickByForwardIndex = new Map<number, Map<number, TrackCell>>();
-  for (const lane of mainLanes) {
+  for (const lane of MAIN_LANES) {
     const seq = buildLaneSequence(lane);
     if (seq.length === 0) continue;
     const startIdx = seq.findIndex((c) => (c.tags ?? []).includes("START_FINISH"));
@@ -82,7 +82,7 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
     const spineCell = spineSeq[spineIdx];
     if (!spineCell) continue;
     const targetForwardIndex = spineCell.forwardIndex;
-    for (const lane of mainLanes) {
+    for (const lane of MAIN_LANES) {
       const picks = lanePickByForwardIndex.get(lane);
       const cell = picks?.get(targetForwardIndex);
       if (cell) slots.push(cell);

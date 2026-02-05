@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const trackPath = process.argv[2] ?? path.join(process.cwd(), "public", "tracks", "oval16_3lanes.json");
+const PIT_LANE = 3;
+const MAIN_LANES = [0, 1, 2];
 
 function loadTrack(p) {
   const raw = fs.readFileSync(p, "utf-8");
@@ -50,7 +52,7 @@ function validateTrack(track) {
   }
 
   // Contiguous zone indices for each main lane.
-  for (const lane of [0, 1, 2]) {
+  for (const lane of MAIN_LANES) {
     const laneCells = byLane.get(lane) ?? [];
     const zones = laneCells.map((c) => c.zoneIndex).sort((a, b) => a - b);
     for (let i = 0; i < zones.length; i += 1) {
@@ -93,13 +95,13 @@ function validateTrack(track) {
   if (pitEntry.length !== 1) errors.push(`expected 1 PIT_ENTRY, got ${pitEntry.length}`);
   if (pitExit.length !== 1) errors.push(`expected 1 PIT_EXIT, got ${pitExit.length}`);
   for (const c of pitEntry) {
-    if (c.laneIndex !== 3) errors.push(`PIT_ENTRY must be in lane 3: ${c.id}`);
+    if (c.laneIndex !== PIT_LANE) errors.push(`PIT_ENTRY must be in lane 3: ${c.id}`);
   }
   for (const c of pitExit) {
-    if (c.laneIndex !== 3) errors.push(`PIT_EXIT must be in lane 3: ${c.id}`);
+    if (c.laneIndex !== PIT_LANE) errors.push(`PIT_EXIT must be in lane 3: ${c.id}`);
   }
   for (const c of cells) {
-    if ((c.tags ?? []).includes("PIT_BOX") && c.laneIndex !== 3) {
+    if ((c.tags ?? []).includes("PIT_BOX") && c.laneIndex !== PIT_LANE) {
       errors.push(`PIT_BOX must be in lane 3: ${c.id}`);
     }
   }
@@ -129,7 +131,7 @@ function validateTrack(track) {
   }
 
   // Pit lane chain check (no branches, linear sequence).
-  const pitCells = (byLane.get(3) ?? []).map((c) => c.id);
+  const pitCells = (byLane.get(PIT_LANE) ?? []).map((c) => c.id);
   const pitSet = new Set(pitCells);
   for (const id of pitCells) {
     const cell = byId.get(id);
@@ -161,13 +163,13 @@ function validateTrack(track) {
   }
 
   // Lane change constraints for main lanes.
-  const mainLanes = new Set([0, 1, 2]);
+  const mainLanes = new Set(MAIN_LANES);
   for (const cell of cells) {
     if (!mainLanes.has(cell.laneIndex)) continue;
     for (const nextId of cell.next ?? []) {
       const nextCell = byId.get(nextId);
       if (!nextCell) continue;
-      if (nextCell.laneIndex === 3) continue;
+      if (nextCell.laneIndex === PIT_LANE) continue;
       const diff = Math.abs(nextCell.laneIndex - cell.laneIndex);
       if (diff > 1) {
         errors.push(`invalid lane change from ${cell.id} to ${nextId}`);
