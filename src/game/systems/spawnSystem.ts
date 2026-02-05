@@ -107,6 +107,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
     const car: Car = {
       carId: i + 1,
       ownerId: `P${i + 1}`,
+      isBot: false,
       cellId: cell.id,
       lapCount: 0,
       tire: 100,

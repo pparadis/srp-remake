@@ -17,6 +17,7 @@ import type { MoveCycle } from "../systems/moveBudgetSystem";
 export interface Car {
   carId: number;
   ownerId: string;
+  isBot: boolean;
   cellId: string;
   lapCount?: number;
   tire: number;
