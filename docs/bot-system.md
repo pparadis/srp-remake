@@ -90,7 +90,7 @@ Add unit tests for:
 1. [x] Add bot identity (`isBot`) to `Car`.
 2. [x] Add mode flags for bot mode + fill‑slots behavior.
 3. [x] Spawn bots to fill missing slots and/or in bot mode.
-4. [ ] Implement `pickBotMove(...)` heuristic function.
+4. [x] Implement `pickBotMove(...)` heuristic function.
 5. [ ] Integrate bot turn execution in the turn loop.
 6. [ ] Ensure logging and UI updates for bot actions.
-7. [ ] Add tests for heuristic choices and skip behavior.
+7. [x] Add tests for heuristic choices and skip behavior.
