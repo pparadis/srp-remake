@@ -21,9 +21,6 @@ export class StandingsPanel {
   private mode: Phaser.GameObjects.Text;
   private list: Phaser.GameObjects.Text;
   private rect: Rect = { x: 0, y: 0, w: 0, h: 0 };
-  private headerOffset = { x: 0, y: 0 };
-  private textOffset = { x: 0, y: 0 };
-  private modeOffsetX = 0;
   private collapsed = false;
   private standingsMode: StandingsMode = "carId";
   private callbacks: StandingsCallbacks;
@@ -74,9 +71,6 @@ export class StandingsPanel {
 
   setRect(rect: Rect, headerOffset: { x: number; y: number }, textOffset: { x: number; y: number }, modeOffsetX: number) {
     this.rect = rect;
-    this.headerOffset = headerOffset;
-    this.textOffset = textOffset;
-    this.modeOffsetX = modeOffsetX;
     this.header.setPosition(rect.x + headerOffset.x, rect.y + headerOffset.y);
     this.mode.setPosition(rect.x + modeOffsetX, rect.y + headerOffset.y);
     this.list.setPosition(rect.x + textOffset.x, rect.y + textOffset.y);

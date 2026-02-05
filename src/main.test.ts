@@ -38,7 +38,9 @@ describe("main", () => {
     const select = document.getElementById("playerCountSelect") as HTMLSelectElement;
     const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
 
-    expect(startGame).toHaveBeenCalledWith(app, { playerCount: 1 });
+    await vi.waitFor(() => {
+      expect(startGame).toHaveBeenCalledWith(app, { playerCount: 1 });
+    });
 
     select.disabled = false;
     toggle.checked = false;
@@ -53,7 +55,9 @@ describe("main", () => {
     select.value = "nope";
     toggle.checked = true;
     restartBtn.dispatchEvent(new MouseEvent("click"));
-    expect(destroy).toHaveBeenCalled();
-    expect(startGame).toHaveBeenCalledWith(app, { playerCount: 2 });
+    await vi.waitFor(() => {
+      expect(destroy).toHaveBeenCalled();
+      expect(startGame).toHaveBeenCalledWith(app, { playerCount: 2 });
+    });
   });
 });

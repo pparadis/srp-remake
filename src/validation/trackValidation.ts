@@ -148,9 +148,8 @@ export function validateTrack(track: TrackData): string[] {
   }
 
   // Lane change constraints for main lanes.
-  const mainLanes = new Set(MAIN_LANES);
   for (const cell of cells) {
-    if (!mainLanes.has(cell.laneIndex)) continue;
+    if (!MAIN_LANES.includes(cell.laneIndex as (typeof MAIN_LANES)[number])) continue;
     for (const nextId of cell.next ?? []) {
       const nextCell = byId.get(nextId);
       if (!nextCell) continue;

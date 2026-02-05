@@ -1,12 +1,11 @@
 import "./style.css";
-import { startGame } from "./game";
 
 const app = document.getElementById("app")!;
 const toggle = document.getElementById("extraPlayersToggle") as HTMLInputElement;
 const select = document.getElementById("playerCountSelect") as HTMLSelectElement;
 const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
 
-let game = startGame(app, { playerCount: 1 });
+let game: ReturnType<typeof import("./game").startGame> | null = null;
 
 function getPlayerCount() {
   if (!toggle.checked) return 1;
@@ -14,12 +13,21 @@ function getPlayerCount() {
   return Number.isNaN(parsed) ? 2 : parsed;
 }
 
-function restartGame() {
-  if (game) {
-    game.destroy(true);
-  }
+async function ensureGameStarted() {
+  if (game) return;
+  const { startGame } = await import("./game");
   game = startGame(app, { playerCount: getPlayerCount() });
 }
+
+async function restartGame() {
+  if (game) {
+    game.destroy(true);
+    game = null;
+  }
+  await ensureGameStarted();
+}
+
+void ensureGameStarted();
 
 toggle.addEventListener("change", () => {
   select.disabled = !toggle.checked;

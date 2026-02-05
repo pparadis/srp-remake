@@ -12,7 +12,6 @@ export class LogPanel {
   private panel: Phaser.GameObjects.Graphics;
   private text: Phaser.GameObjects.Text;
   private rect: Rect = { x: 0, y: 0, w: 0, h: 0 };
-  private padding = 0;
   private lines: string[] = [];
   private maxLines = 8;
 
@@ -30,7 +29,6 @@ export class LogPanel {
 
   setRect(rect: Rect, padding: number) {
     this.rect = rect;
-    this.padding = padding;
     this.text.setPosition(rect.x + padding, rect.y + padding);
     this.text.setWordWrapWidth(rect.w - padding * 2);
   }
