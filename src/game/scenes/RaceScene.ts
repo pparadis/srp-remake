@@ -603,9 +603,9 @@ export class RaceScene extends Phaser.Scene {
   private createPitModal() {
     const panel = this.add.graphics();
     panel.fillStyle(0x0f141b, 0.98);
-    panel.fillRoundedRect(320, 200, 460, 240, 10);
+    panel.fillRoundedRect(320, 200, 460, 270, 10);
     panel.lineStyle(1, 0x2a3642, 1);
-    panel.strokeRoundedRect(320, 200, 460, 240, 10);
+    panel.strokeRoundedRect(320, 200, 460, 270, 10);
 
     this.modalTitle = this.add.text(350, 220, "Pit stop", {
       fontFamily: "monospace",
@@ -620,20 +620,23 @@ export class RaceScene extends Phaser.Scene {
       wordWrap: { width: 400 }
     });
 
-    const fieldY = 300;
-    const lineH = 22;
+    const fieldY = 330;
+    const lineH = 26;
+    const labelX = 350;
+    const valueX = 470;
+    const controlX = 620;
 
-    const compoundLabel = this.add.text(350, fieldY, "Compound", {
+    const compoundLabel = this.add.text(labelX, fieldY, "Compound", {
       fontFamily: "monospace",
       fontSize: "13px",
       color: "#9fb0bf"
     });
-    const compoundValue = this.add.text(430, fieldY, "", {
+    const compoundValue = this.add.text(valueX, fieldY, "", {
       fontFamily: "monospace",
       fontSize: "13px",
       color: "#e6edf3"
     });
-    const compoundToggle = this.createModalButton(520, fieldY - 4, "Toggle");
+    const compoundToggle = this.createModalButton(controlX, fieldY - 6, "Toggle");
     compoundToggle.setScale(0.85);
     compoundToggle.on("pointerdown", () => {
       if (!this.modalSetup) return;
@@ -641,35 +644,35 @@ export class RaceScene extends Phaser.Scene {
       this.refreshModalValues();
     });
 
-    const psiLabel = this.add.text(350, fieldY + lineH, "PSI FL/FR/RL/RR", {
+    const psiLabel = this.add.text(labelX, fieldY + lineH, "PSI FL/FR/RL/RR", {
       fontFamily: "monospace",
       fontSize: "13px",
       color: "#9fb0bf"
     });
-    const psiValue = this.add.text(350, fieldY + lineH + 16, "", {
+    const psiValue = this.add.text(labelX, fieldY + lineH + 12, "", {
       fontFamily: "monospace",
       fontSize: "13px",
       color: "#e6edf3"
     });
-    const psiMinus = this.createModalButton(520, fieldY + lineH + 10, "-");
-    const psiPlus = this.createModalButton(560, fieldY + lineH + 10, "+");
+    const psiMinus = this.createModalButton(controlX, fieldY + lineH + 8, "-");
+    const psiPlus = this.createModalButton(controlX + 40, fieldY + lineH + 8, "+");
     psiMinus.setScale(0.85);
     psiPlus.setScale(0.85);
     psiMinus.on("pointerdown", () => this.adjustPsi(-1));
     psiPlus.on("pointerdown", () => this.adjustPsi(1));
 
-    const wingLabel = this.add.text(350, fieldY + lineH * 2 + 12, "Wing F/R", {
+    const wingLabel = this.add.text(labelX, fieldY + lineH * 2 + 16, "Wing F/R", {
       fontFamily: "monospace",
       fontSize: "13px",
       color: "#9fb0bf"
     });
-    const wingValue = this.add.text(430, fieldY + lineH * 2 + 12, "", {
+    const wingValue = this.add.text(valueX, fieldY + lineH * 2 + 16, "", {
       fontFamily: "monospace",
       fontSize: "13px",
       color: "#e6edf3"
     });
-    const wingMinus = this.createModalButton(520, fieldY + lineH * 2 + 8, "-");
-    const wingPlus = this.createModalButton(560, fieldY + lineH * 2 + 8, "+");
+    const wingMinus = this.createModalButton(controlX, fieldY + lineH * 2 + 12, "-");
+    const wingPlus = this.createModalButton(controlX + 40, fieldY + lineH * 2 + 12, "+");
     wingMinus.setScale(0.85);
     wingPlus.setScale(0.85);
     wingMinus.on("pointerdown", () => this.adjustWing(-1));
@@ -681,8 +684,8 @@ export class RaceScene extends Phaser.Scene {
       wing: wingValue
     };
 
-    this.modalConfirm = this.createModalButton(360, 405, "Confirm");
-    this.modalCancel = this.createModalButton(520, 405, "Cancel");
+    this.modalConfirm = this.createModalButton(360, 435, "Confirm");
+    this.modalCancel = this.createModalButton(520, 435, "Cancel");
 
     this.modal = this.add.container(0, 0, [
       panel,
