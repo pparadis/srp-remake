@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Car } from "../types/car";
 import type { TrackCell } from "../types/track";
-import { sortCarsByProgress } from "./orderingSystem";
+import { buildProgressMap, computeCarSortKey, getCellForwardIndex, sortCarsByProgress } from "./orderingSystem";
 
 function makeCell(id: string, forwardIndex: number): TrackCell {
   return {
@@ -57,5 +57,89 @@ describe("sortCarsByProgress", () => {
     const ordered = sortCarsByProgress(cars, cellMap);
     expect(ordered[0]?.carId).toBe(1);
     expect(ordered[1]?.carId).toBe(2);
+  });
+});
+
+describe("orderingSystem helpers", () => {
+  it("returns -1 when a cell id is missing", () => {
+    const cellMap = new Map<string, TrackCell>();
+    expect(getCellForwardIndex("missing", cellMap)).toBe(-1);
+  });
+
+  it("uses progressMap when provided and defaults lapCount to 0", () => {
+    const cellMap = new Map<string, TrackCell>([["A", makeCell("A", 9)]]);
+    const progressMap = new Map<string, number>([["A", 2.5]]);
+    const car = makeCar(7, "A");
+    delete car.lapCount;
+    const key = computeCarSortKey(car, cellMap, progressMap);
+    expect(key.progressIndex).toBe(2.5);
+    expect(key.lapCount).toBe(0);
+  });
+});
+
+describe("buildProgressMap", () => {
+  it("builds progress scaled to the spine lane length", () => {
+    const track = {
+      trackId: "progress",
+      zones: 3,
+      lanes: 4,
+      cells: [
+        makeCell("S0", 0),
+        makeCell("S1", 1),
+        makeCell("S2", 2),
+        {
+          ...makeCell("L0a", 0),
+          laneIndex: 0,
+          tags: ["PIT_ENTRY"],
+          next: ["L0b"]
+        },
+        {
+          ...makeCell("L0b", 1),
+          laneIndex: 0,
+          next: ["L0a"]
+        },
+        {
+          ...makeCell("L2b", 1),
+          laneIndex: 2,
+          next: ["L2a"]
+        },
+        {
+          ...makeCell("L2a", 0),
+          laneIndex: 2,
+          next: ["L2b"]
+        }
+      ].map((cell) => ({ ...cell }))
+    };
+
+    track.cells[0] = { ...track.cells[0], laneIndex: 1, tags: ["START_FINISH"], next: ["S1"] };
+    track.cells[1] = { ...track.cells[1], laneIndex: 1, next: ["S2"] };
+    track.cells[2] = { ...track.cells[2], laneIndex: 1, next: ["S0"] };
+
+    const progress = buildProgressMap(track);
+    expect(progress.get("S0")).toBe(0);
+    expect(progress.get("S1")).toBe(1);
+    expect(progress.get("S2")).toBe(2);
+    expect(progress.get("L0a")).toBe(0);
+    expect(progress.get("L0b")).toBe(2);
+    expect(progress.get("L2a")).toBe(0);
+    expect(progress.get("L2b")).toBe(2);
+  });
+
+  it("falls back to forwardIndex range when the spine lane is missing", () => {
+    const track = {
+      trackId: "no-spine",
+      zones: 3,
+      lanes: 3,
+      cells: [
+        { ...makeCell("A0", 0), laneIndex: 0, next: ["A1"] },
+        { ...makeCell("A1", 1), laneIndex: 0, next: ["A2"] },
+        { ...makeCell("A2", 2), laneIndex: 0, next: ["A0"] }
+      ]
+    };
+
+    const progress = buildProgressMap(track);
+    expect(progress.get("A0")).toBe(0);
+    expect(progress.get("A1")).toBe(1);
+    expect(progress.get("A2")).toBe(2);
   });
 });

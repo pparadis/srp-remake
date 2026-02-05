@@ -45,6 +45,10 @@ Project guide for Codex and other automation.
 2. Validate track: `node tools/validateTrack.mjs`
 3. Run tests: `npm test`
 
+## Troubleshooting
+
+- If a test failure is reported, run `npm test` first to confirm the failure before using `npm run test:coverage`.
+
 ## Conventions
 
 - Use `forwardIndex` for ordering/progress, not `zoneIndex`.

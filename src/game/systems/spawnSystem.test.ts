@@ -1,0 +1,80 @@
+import { describe, expect, it } from "vitest";
+import type { TrackCell, TrackData } from "../types/track";
+import { buildSpawnSlots, spawnCars } from "./spawnSystem";
+
+function makeCell(
+  id: string,
+  laneIndex: number,
+  forwardIndex: number,
+  next: string[],
+  tags: TrackCell["tags"] = []
+): TrackCell {
+  return {
+    id,
+    zoneIndex: forwardIndex + 1,
+    laneIndex,
+    forwardIndex,
+    pos: { x: forwardIndex, y: laneIndex },
+    next,
+    tags
+  };
+}
+
+function makeTrack(): TrackData {
+  const cells: TrackCell[] = [
+    makeCell("A0", 0, 0, ["A1"]),
+    makeCell("A1", 0, 1, ["A0"]),
+    makeCell("B0", 1, 0, ["B1"]),
+    makeCell("B1", 1, 1, ["B0"], ["START_FINISH"]),
+    makeCell("C0", 2, 0, ["C1"]),
+    makeCell("C1", 2, 1, ["C0"]),
+    makeCell("P0", 3, 0, ["P1"]),
+    makeCell("P1", 3, 1, ["P0"])
+  ];
+
+  return {
+    trackId: "spawn-test",
+    zones: 2,
+    lanes: 4,
+    cells
+  };
+}
+
+describe("spawnSystem", () => {
+  it("builds spawn slots in rows keyed to the spine lane", () => {
+    const track = makeTrack();
+    const slots = buildSpawnSlots(track);
+    expect(slots).toHaveLength(6);
+    expect(slots[0]?.forwardIndex).toBe(1);
+    expect(slots[1]?.forwardIndex).toBe(1);
+    expect(slots[2]?.forwardIndex).toBe(1);
+    expect(slots[0]?.laneIndex).toBe(0);
+    expect(slots[1]?.laneIndex).toBe(1);
+    expect(slots[2]?.laneIndex).toBe(2);
+  });
+
+  it("spawns at least one car and caps to available slots", () => {
+    const track = makeTrack();
+    const minSpawn = spawnCars(track, { playerCount: 0 });
+    expect(minSpawn.cars).toHaveLength(1);
+
+    const maxSpawn = spawnCars(track, { playerCount: 99 });
+    expect(maxSpawn.cars).toHaveLength(6);
+  });
+
+  it("assigns ids, tokens, and independent setups", () => {
+    const track = makeTrack();
+    const { cars, tokens } = spawnCars(track, { playerCount: 2 });
+    expect(cars[0]?.carId).toBe(1);
+    expect(cars[0]?.ownerId).toBe("P1");
+    expect(cars[1]?.carId).toBe(2);
+    expect(cars[1]?.ownerId).toBe("P2");
+    expect(tokens).toHaveLength(2);
+    expect(tokens[0]?.car).toBe(cars[0]);
+
+    const carA = cars[0]!;
+    const carB = cars[1]!;
+    carA.setup.psi.fl = 99;
+    expect(carB.setup.psi.fl).not.toBe(99);
+  });
+});
