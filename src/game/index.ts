@@ -1,10 +1,12 @@
 import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { RaceScene } from "./scenes/RaceScene";
-import { REG_PLAYER_COUNT } from "./constants";
+import { REG_BOT_FILL, REG_BOT_MODE, REG_PLAYER_COUNT } from "./constants";
 
 export interface GameOptions {
   playerCount?: number;
+  botMode?: boolean;
+  botFill?: boolean;
 }
 
 export function startGame(parent: HTMLElement, options: GameOptions = {}) {
@@ -24,5 +26,7 @@ export function startGame(parent: HTMLElement, options: GameOptions = {}) {
 
   const game = new Phaser.Game(config);
   game.registry.set(REG_PLAYER_COUNT, options.playerCount ?? 1);
+  game.registry.set(REG_BOT_MODE, options.botMode ?? false);
+  game.registry.set(REG_BOT_FILL, options.botFill ?? true);
   return game;
 }
