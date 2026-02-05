@@ -91,6 +91,6 @@ Add unit tests for:
 2. [x] Add mode flags for bot mode + fill‑slots behavior.
 3. [x] Spawn bots to fill missing slots and/or in bot mode.
 4. [x] Implement `pickBotMove(...)` heuristic function.
-5. [ ] Integrate bot turn execution in the turn loop.
-6. [ ] Ensure logging and UI updates for bot actions.
+5. [x] Integrate bot turn execution in the turn loop.
+6. [x] Ensure logging and UI updates for bot actions.
 7. [x] Add tests for heuristic choices and skip behavior.
