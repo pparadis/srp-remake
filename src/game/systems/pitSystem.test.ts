@@ -67,10 +67,10 @@ describe("pitSystem", () => {
     expect(car.pitExitBoost).toBe(true);
   });
 
-  it("disallows pit box targets only outside pit lane after service", () => {
+  it("disallows pit box targets after service", () => {
     const car = makeCar();
     car.pitServiced = true;
     expect(shouldDisallowPitBoxTargets(car, false)).toBe(true);
-    expect(shouldDisallowPitBoxTargets(car, true)).toBe(false);
+    expect(shouldDisallowPitBoxTargets(car, true)).toBe(true);
   });
 });

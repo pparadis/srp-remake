@@ -168,4 +168,27 @@ describe("computeValidTargets", () => {
     expect(targets.has("Z28_L3_00")).toBe(false);
     expect(targets.has("Z01_L3_00")).toBe(false);
   });
+
+  it("disallows pit box targets after service", () => {
+    const occupied = new Set<string>();
+    occupied.add("Z02_L3_00");
+    const targets = computeValidTargets(
+      buildTrackIndex(track as TrackData),
+      "Z02_L3_00",
+      occupied,
+      1,
+      { allowPitExitSkip: true, disallowPitBoxTargets: true },
+      {
+        tireRate: 0.5,
+        fuelRate: 0.45,
+        setup: {
+          compound: "soft",
+          psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
+          wingFrontDeg: 6,
+          wingRearDeg: 12
+        }
+      }
+    );
+    expect(targets.has("Z03_L3_00")).toBe(false);
+  });
 });
