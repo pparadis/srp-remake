@@ -3,6 +3,7 @@ import "./style.css";
 const app = document.getElementById("app")!;
 const toggle = document.getElementById("extraPlayersToggle") as HTMLInputElement;
 const select = document.getElementById("playerCountSelect") as HTMLSelectElement;
+const botsToggle = document.getElementById("botsToggle") as HTMLInputElement;
 const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
 
 let game: ReturnType<typeof import("./game").startGame> | null = null;
@@ -13,10 +14,14 @@ function getPlayerCount() {
   return Number.isNaN(parsed) ? 2 : parsed;
 }
 
+function getBotFill() {
+  return botsToggle?.checked ?? true;
+}
+
 async function ensureGameStarted() {
   if (game) return;
   const { startGame } = await import("./game");
-  game = startGame(app, { playerCount: getPlayerCount() });
+  game = startGame(app, { playerCount: getPlayerCount(), botFill: getBotFill() });
 }
 
 async function restartGame() {
