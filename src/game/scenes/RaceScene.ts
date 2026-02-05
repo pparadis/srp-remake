@@ -12,6 +12,7 @@ import { validateMoveAttempt } from "../systems/moveValidationSystem";
 import { spawnCars } from "../systems/spawnSystem";
 import { buildProgressMap, sortCarsByProgress } from "../systems/orderingSystem";
 import { advanceTurn, createTurnState, getCurrentCarId, type TurnState } from "../systems/turnSystem";
+import { validateTrack } from "../../validation/trackValidation";
 
 type CellMap = Map<string, TrackCell>;
 
@@ -111,6 +112,10 @@ export class RaceScene extends Phaser.Scene {
     }
 
     this.track = parsed.data as TrackData;
+    const validationErrors = validateTrack(this.track);
+    if (validationErrors.length > 0) {
+      throw new Error(`Invalid track data:\\n${validationErrors.map((e) => `- ${e}`).join("\\n")}`);
+    }
     this.cellMap = new Map(this.track.cells.map((c) => [c.id, c]));
     this.trackIndex = buildTrackIndex(this.track);
     this.progressMap = buildProgressMap(this.track, 1);

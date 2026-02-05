@@ -48,6 +48,7 @@ Project guide for Codex and other automation.
 ## Troubleshooting
 
 - If a test failure is reported, run `npm test` first to confirm the failure before using `npm run test:coverage`.
+- From time to time, run `npm run build` to ensure the full build stays green.
 
 ## Conventions
 
