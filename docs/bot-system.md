@@ -88,8 +88,8 @@ Add unit tests for:
 ## Implementation Checklist
 
 1. [x] Add bot identity (`isBot`) to `Car`.
-2. [ ] Add mode flags for bot mode + fill‑slots behavior.
-3. [ ] Spawn bots to fill missing slots and/or in bot mode.
+2. [x] Add mode flags for bot mode + fill‑slots behavior.
+3. [x] Spawn bots to fill missing slots and/or in bot mode.
 4. [ ] Implement `pickBotMove(...)` heuristic function.
 5. [ ] Integrate bot turn execution in the turn loop.
 6. [ ] Ensure logging and UI updates for bot actions.
