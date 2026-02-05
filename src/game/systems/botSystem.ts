@@ -1,10 +1,18 @@
 import type { Car } from "../types/car";
+import type { TrackCell } from "../types/track";
 import type { TargetInfo } from "./movementSystem";
+import { computeMoveSpend } from "./moveBudgetSystem";
+import { shouldOpenPitModal } from "./pitSystem";
 
 export interface BotPick {
   cellId: string;
   info: TargetInfo;
 }
+
+export type BotAction =
+  | { type: "skip" }
+  | { type: "pit"; target: TrackCell; info: TargetInfo }
+  | { type: "move"; target: TrackCell; info: TargetInfo; moveSpend: number };
 
 export interface BotHeuristicOptions {
   lowResourceThreshold?: number;
@@ -43,4 +51,20 @@ export function pickBotMove(
   }
 
   return best;
+}
+
+export function decideBotAction(
+  targets: Map<string, TargetInfo>,
+  car: Car,
+  cellMap: Map<string, TrackCell>
+): BotAction {
+  const pick = pickBotMove(targets, car);
+  if (!pick) return { type: "skip" };
+  const targetCell = cellMap.get(pick.cellId);
+  if (!targetCell) return { type: "skip" };
+  if (pick.info.isPitTrigger && shouldOpenPitModal(car, targetCell)) {
+    return { type: "pit", target: targetCell, info: pick.info };
+  }
+  const moveSpend = computeMoveSpend(pick.info.distance, targetCell.laneIndex);
+  return { type: "move", target: targetCell, info: pick.info, moveSpend };
 }
