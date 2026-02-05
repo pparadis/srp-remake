@@ -13,6 +13,14 @@ This doc summarizes the current movement rules implemented in `src/game/systems/
 - The active car has a max step budget (based on tires/fuel and remaining move budget).
 - If the car starts in the pit lane (lane 3), the max steps are forced to `1`.
 
+## Costs
+
+- Each valid target includes computed tire and fuel costs based on:
+  - Distance traveled.
+  - Lane factors (lane 0 is higher tire/lower fuel, lane 2 is lower tire/higher fuel).
+  - Car setup (wing angles and PSI deltas vs 32).
+- Costs are rounded to integers.
+
 ## Lane Change Rules
 
 - You may only target a lane that is the same or adjacent to your start lane.
@@ -33,7 +41,7 @@ This doc summarizes the current movement rules implemented in `src/game/systems/
 - Pit entry is only allowed at distance 1 (no multi-zone jumps into pit).
 - Once in pit lane, movement is constrained by the pit chain and `maxSteps = 1` **except**:
   - If you are adjacent to a `PIT_BOX`, you may target **any** `PIT_BOX` ahead (future‑proof for longer pit lanes).
-- `PIT_BOX` targets can be disallowed by options.
+- `PIT_BOX` targets can be disallowed by options (and are disallowed after a pit stop has been serviced).
 - A special “pit exit skip” can add an extra target when applicable.
 
 ## Options
