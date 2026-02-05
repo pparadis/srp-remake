@@ -84,7 +84,8 @@ export class RaceScene extends Phaser.Scene {
   private copyDebugButton!: TextButton;
   private readonly buildInfo = {
     version: "debug-snapshot-v2",
-    gitSha: "6f74be4bcbc6a61e09402b831578945c836c8341"
+    // eslint-disable-next-line no-undef
+    gitSha: __GIT_SHA__
   };
 
   constructor() {
