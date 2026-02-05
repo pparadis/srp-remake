@@ -1,3 +1,3 @@
 # Explore Later
 
-- Lap counting rule: require landing on `START_FINISH` vs. allow `forwardIndex` wrap to increment.
+- Lap counting rule: decided to increment on `forwardIndex` wrap on non‑pit lanes (no `START_FINISH` requirement).
