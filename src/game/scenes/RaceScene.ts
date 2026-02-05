@@ -4,6 +4,7 @@ import type { Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
 import { REG_PLAYER_COUNT } from "../constants";
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
+import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
 import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { applyMove } from "../systems/moveCommitSystem";
 import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets } from "../systems/pitSystem";
@@ -48,6 +49,7 @@ export class RaceScene extends Phaser.Scene {
   };
   private track!: TrackData;
   private cellMap!: CellMap;
+  private trackIndex!: TrackIndex;
 
   private gTrack!: Phaser.GameObjects.Graphics;
   private gTargets!: Phaser.GameObjects.Graphics;
@@ -110,6 +112,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.track = parsed.data as TrackData;
     this.cellMap = new Map(this.track.cells.map((c) => [c.id, c]));
+    this.trackIndex = buildTrackIndex(this.track);
     this.progressMap = buildProgressMap(this.track, 1);
     const rawCount = Number(this.registry.get(REG_PLAYER_COUNT) ?? 1);
     this.playerCount = Number.isNaN(rawCount) ? 1 : Math.max(1, Math.min(11, rawCount));
@@ -383,7 +386,7 @@ export class RaceScene extends Phaser.Scene {
     const activeCell = this.cellMap.get(this.activeCar.cellId);
     const inPitLane = activeCell?.laneIndex === 3;
     const effectiveMaxSteps = inPitLane ? 1 : maxSteps;
-    this.validTargets = computeValidTargets(this.track, this.activeCar.cellId, occupied, effectiveMaxSteps, {
+    this.validTargets = computeValidTargets(this.trackIndex, this.activeCar.cellId, occupied, effectiveMaxSteps, {
       allowPitExitSkip: this.activeCar.pitExitBoost,
       disallowPitBoxTargets: shouldDisallowPitBoxTargets(this.activeCar, inPitLane)
     }, {

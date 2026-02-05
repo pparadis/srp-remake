@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Car } from "../types/car";
-import type { TrackCell } from "../types/track";
+import type { TrackCell, TrackData, TrackTag } from "../types/track";
 import { buildProgressMap, computeCarSortKey, getCellForwardIndex, sortCarsByProgress } from "./orderingSystem";
 
 function makeCell(id: string, forwardIndex: number): TrackCell {
@@ -79,7 +79,7 @@ describe("orderingSystem helpers", () => {
 
 describe("buildProgressMap", () => {
   it("builds progress scaled to the spine lane length", () => {
-    const track = {
+    const track: TrackData = {
       trackId: "progress",
       zones: 3,
       lanes: 4,
@@ -90,7 +90,7 @@ describe("buildProgressMap", () => {
         {
           ...makeCell("L0a", 0),
           laneIndex: 0,
-          tags: ["PIT_ENTRY"],
+          tags: ["PIT_ENTRY"] as TrackTag[],
           next: ["L0b"]
         },
         {
@@ -108,12 +108,15 @@ describe("buildProgressMap", () => {
           laneIndex: 2,
           next: ["L2b"]
         }
-      ].map((cell) => ({ ...cell }))
+      ]
     };
 
-    track.cells[0] = { ...track.cells[0], laneIndex: 1, tags: ["START_FINISH"], next: ["S1"] };
-    track.cells[1] = { ...track.cells[1], laneIndex: 1, next: ["S2"] };
-    track.cells[2] = { ...track.cells[2], laneIndex: 1, next: ["S0"] };
+    const cell0 = track.cells[0]!;
+    const cell1 = track.cells[1]!;
+    const cell2 = track.cells[2]!;
+    track.cells[0] = { ...cell0, laneIndex: 1, tags: ["START_FINISH"] as TrackTag[], next: ["S1"] };
+    track.cells[1] = { ...cell1, laneIndex: 1, next: ["S2"] };
+    track.cells[2] = { ...cell2, laneIndex: 1, next: ["S0"] };
 
     const progress = buildProgressMap(track);
     expect(progress.get("S0")).toBe(0);
@@ -126,7 +129,7 @@ describe("buildProgressMap", () => {
   });
 
   it("falls back to forwardIndex range when the spine lane is missing", () => {
-    const track = {
+    const track: TrackData = {
       trackId: "no-spine",
       zones: 3,
       lanes: 3,
