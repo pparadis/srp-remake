@@ -17,7 +17,7 @@ import { PitModal } from "./ui/PitModal";
 import { LogPanel } from "./ui/LogPanel";
 import { StandingsPanel } from "./ui/StandingsPanel";
 import { TextButton } from "./ui/TextButton";
-import { pickBotMove } from "../systems/botSystem";
+import { decideBotAction } from "../systems/botSystem";
 
 type CellMap = Map<string, TrackCell>;
 
@@ -658,32 +658,30 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     const targets = this.computeTargetsForCar(this.activeCar);
-    const pick = pickBotMove(targets, this.activeCar);
-    if (!pick) {
+    const action = decideBotAction(targets, this.activeCar, this.cellMap);
+    if (action.type === "skip") {
       recordMove(this.activeCar.moveCycle, 0);
       this.addLog(`Car ${this.activeCar.carId} skipped (no moves).`);
       return;
     }
-    const targetCell = this.cellMap.get(pick.cellId);
     const fromCell = this.cellMap.get(this.activeCar.cellId);
-    if (!targetCell || !fromCell) {
+    if (!fromCell) {
       recordMove(this.activeCar.moveCycle, 0);
       this.addLog(`Car ${this.activeCar.carId} skipped (invalid target).`);
       return;
     }
 
-    if (pick.info.isPitTrigger && shouldOpenPitModal(this.activeCar, targetCell)) {
-      applyPitStop(this.activeCar, targetCell.id, this.activeCar.setup);
-      recordMove(this.activeCar.moveCycle, pick.info.distance);
-      this.logPitStop(targetCell);
+    if (action.type === "pit") {
+      applyPitStop(this.activeCar, action.target.id, this.activeCar.setup);
+      recordMove(this.activeCar.moveCycle, action.info.distance);
+      this.logPitStop(action.target);
     } else {
-      const moveSpend = computeMoveSpend(pick.info.distance, targetCell.laneIndex);
-      applyMove(this.activeCar, fromCell, targetCell, pick.info, moveSpend);
-      this.addLog(`Car ${this.activeCar.carId} moved to ${targetCell.id}.`);
+      applyMove(this.activeCar, fromCell, action.target, action.info, action.moveSpend);
+      this.addLog(`Car ${this.activeCar.carId} moved to ${action.target.id}.`);
     }
 
     const token = this.getActiveToken();
-    if (token) token.setPosition(targetCell.pos.x, targetCell.pos.y);
+    if (token) token.setPosition(action.target.pos.x, action.target.pos.y);
   }
 
   private openPitModal(cell: TrackCell, origin: { x: number; y: number }, originCellId: string, distance: number) {

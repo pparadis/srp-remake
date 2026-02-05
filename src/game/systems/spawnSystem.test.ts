@@ -79,4 +79,21 @@ describe("spawnSystem", () => {
     carA.setup.psi.fl = 99;
     expect(carB.setup.psi.fl).not.toBe(99);
   });
+
+  it("spawns all bots in bot mode", () => {
+    const track = makeTrack();
+    const { cars } = spawnCars(track, { playerCount: 2, botMode: true, botFill: true });
+    expect(cars).toHaveLength(2);
+    expect(cars[0]?.isBot).toBe(true);
+    expect(cars[1]?.isBot).toBe(true);
+    expect(cars[0]?.ownerId).toBe("BOT1");
+    expect(cars[1]?.ownerId).toBe("BOT2");
+  });
+
+  it("does not fill with bots when botFill is false", () => {
+    const track = makeTrack();
+    const { cars } = spawnCars(track, { playerCount: 2, humanCount: 1, botFill: false });
+    expect(cars).toHaveLength(1);
+    expect(cars[0]?.isBot).toBe(false);
+  });
 });
