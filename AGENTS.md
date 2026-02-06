@@ -23,7 +23,7 @@ Project guide for Codex and other automation.
 ## Lap Counting
 
 - Lap increments when `forwardIndex` wraps (from higher to lower) on non‑pit lanes.
-- Decision on requiring `START_FINISH` tag is deferred (see `docs/explore-later.md`).
+- Decision made: no `START_FINISH` landing requirement; increment on wrap for non‑pit lanes.
 
 ## Debugging Tools
 

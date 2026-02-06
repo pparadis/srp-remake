@@ -238,7 +238,6 @@ export class RaceScene extends Phaser.Scene {
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const cell = this.findNearestCell(p.worldX, p.worldY, RaceScene.HUD.hoverMaxDist);
       if (!cell) return;
-      console.log("Cell", cell.id, "zone", cell.zoneIndex, "lane", cell.laneIndex, "next", cell.next);
       this.recomputeTargets();
       this.drawTargets();
     });
