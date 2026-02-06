@@ -1,7 +1,7 @@
 import type { TrackCell } from "../types/track";
 import type { CarSetup } from "../types/car";
 import type { TrackIndex } from "./trackIndex";
-import { PIT_LANE } from "../constants";
+import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE } from "../constants";
 
 export interface TargetInfo {
   distance: number;
@@ -24,10 +24,10 @@ export interface MovementCostContext extends MovementCostRates {
   setup: CarSetup;
 }
 
-function laneFactor(laneIndex: number, factors: { lane0: number; lane1: number; lane2: number }): number {
-  if (laneIndex === 0) return factors.lane0;
-  if (laneIndex === 1) return factors.lane1;
-  if (laneIndex === 2) return factors.lane2;
+function laneFactor(laneIndex: number, factors: { inner: number; middle: number; outer: number }): number {
+  if (laneIndex === INNER_MAIN_LANE) return factors.inner;
+  if (laneIndex === MIDDLE_MAIN_LANE) return factors.middle;
+  if (laneIndex === OUTER_MAIN_LANE) return factors.outer;
   return 1;
 }
 
@@ -37,8 +37,8 @@ function computeCosts(distance: number, laneIndex: number, costs: MovementCostCo
   const psiFactor =
     1 +
     (Math.abs(psi.fl - 32) + Math.abs(psi.fr - 32) + Math.abs(psi.rl - 32) + Math.abs(psi.rr - 32)) * 0.002;
-  const tireLaneFactor = laneFactor(laneIndex, { lane0: 1.05, lane1: 1.0, lane2: 0.98 });
-  const fuelLaneFactor = laneFactor(laneIndex, { lane0: 0.98, lane1: 1.0, lane2: 1.03 });
+  const tireLaneFactor = laneFactor(laneIndex, { inner: 1.05, middle: 1.0, outer: 0.98 });
+  const fuelLaneFactor = laneFactor(laneIndex, { inner: 0.98, middle: 1.0, outer: 1.03 });
 
   const tireCost = Math.round(distance * costs.tireRate * aeroFactor * psiFactor * tireLaneFactor);
   const fuelCost = Math.round(distance * costs.fuelRate * aeroFactor * fuelLaneFactor);
@@ -81,7 +81,7 @@ export function computeValidTargets(
       const isPitEntry = nextTags.includes("PIT_ENTRY");
       const isPitLane = nextCell.laneIndex === PIT_LANE;
 
-      if (isPitEntry && current.laneIndex !== 0) continue;
+      if (isPitEntry && current.laneIndex !== INNER_MAIN_LANE) continue;
       if (isPitLane && !isPitEntry && current.laneIndex !== PIT_LANE) continue;
       if (dist.has(nextId)) continue;
       dist.set(nextId, currentDist + 1);

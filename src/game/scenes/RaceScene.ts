@@ -2,7 +2,15 @@ import Phaser from "phaser";
 import type { TrackData, TrackCell } from "../types/track";
 import type { Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
-import { PIT_LANE, REG_BOT_FILL, REG_BOT_MODE, REG_PLAYER_COUNT } from "../constants";
+import {
+  INNER_MAIN_LANE,
+  MIDDLE_MAIN_LANE,
+  OUTER_MAIN_LANE,
+  PIT_LANE,
+  REG_BOT_FILL,
+  REG_BOT_MODE,
+  REG_PLAYER_COUNT
+} from "../constants";
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
 import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
@@ -738,10 +746,11 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private laneColor(laneIndex: number): number {
-    if (laneIndex === 0) return 0x3aa0ff;
-    if (laneIndex === 1) return 0x66ff99;
-    if (laneIndex === 2) return 0xffcc66;
-    return 0xb87cff;
+    if (laneIndex === PIT_LANE) return 0xb87cff;
+    if (laneIndex === INNER_MAIN_LANE) return 0x3aa0ff;
+    if (laneIndex === MIDDLE_MAIN_LANE) return 0x66ff99;
+    if (laneIndex === OUTER_MAIN_LANE) return 0xffcc66;
+    return 0xffffff;
   }
 
   private buildLanePath(laneIndex: number): TrackCell[] {
@@ -992,8 +1001,8 @@ export class RaceScene extends Phaser.Scene {
         Math.abs(setup.psi.rl - 32) +
         Math.abs(setup.psi.rr - 32)) *
         0.002;
-    const laneT = laneIndex === 0 ? 1.05 : laneIndex === 2 ? 0.98 : 1.0;
-    const laneF = laneIndex === 0 ? 0.98 : laneIndex === 2 ? 1.03 : 1.0;
+    const laneT = laneIndex === INNER_MAIN_LANE ? 1.05 : laneIndex === OUTER_MAIN_LANE ? 0.98 : 1.0;
+    const laneF = laneIndex === INNER_MAIN_LANE ? 0.98 : laneIndex === OUTER_MAIN_LANE ? 1.03 : 1.0;
     return { aero, psi, laneT, laneF };
   }
 }

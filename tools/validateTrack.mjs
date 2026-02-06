@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const trackPath = process.argv[2] ?? path.join(process.cwd(), "public", "tracks", "oval16_3lanes.json");
-const PIT_LANE = 3;
-const MAIN_LANES = [0, 1, 2];
+const PIT_LANE = 0;
+const MAIN_LANES = [1, 2, 3];
 
 function loadTrack(p) {
   const raw = fs.readFileSync(p, "utf-8");
@@ -95,14 +95,14 @@ function validateTrack(track) {
   if (pitEntry.length !== 1) errors.push(`expected 1 PIT_ENTRY, got ${pitEntry.length}`);
   if (pitExit.length !== 1) errors.push(`expected 1 PIT_EXIT, got ${pitExit.length}`);
   for (const c of pitEntry) {
-    if (c.laneIndex !== PIT_LANE) errors.push(`PIT_ENTRY must be in lane 3: ${c.id}`);
+    if (c.laneIndex !== PIT_LANE) errors.push(`PIT_ENTRY must be in lane ${PIT_LANE}: ${c.id}`);
   }
   for (const c of pitExit) {
-    if (c.laneIndex !== PIT_LANE) errors.push(`PIT_EXIT must be in lane 3: ${c.id}`);
+    if (c.laneIndex !== PIT_LANE) errors.push(`PIT_EXIT must be in lane ${PIT_LANE}: ${c.id}`);
   }
   for (const c of cells) {
     if ((c.tags ?? []).includes("PIT_BOX") && c.laneIndex !== PIT_LANE) {
-      errors.push(`PIT_BOX must be in lane 3: ${c.id}`);
+      errors.push(`PIT_BOX must be in lane ${PIT_LANE}: ${c.id}`);
     }
   }
 

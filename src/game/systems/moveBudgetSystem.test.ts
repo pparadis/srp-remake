@@ -28,7 +28,7 @@ describe("moveBudgetSystem", () => {
   });
 
   it("counts pit lane movement as 1", () => {
-    expect(computeMoveSpend(5, 3)).toBe(1);
-    expect(computeMoveSpend(5, 0)).toBe(5);
+    expect(computeMoveSpend(5, 0)).toBe(1);
+    expect(computeMoveSpend(5, 1)).toBe(5);
   });
 });

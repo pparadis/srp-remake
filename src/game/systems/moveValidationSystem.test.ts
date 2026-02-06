@@ -8,7 +8,7 @@ function makeCar(): Car {
     carId: 1,
     ownerId: "P1",
     isBot: false,
-    cellId: "Z01_L0_00",
+    cellId: "Z01_L1_00",
     tire: 100,
     fuel: 100,
     setup: {
@@ -74,7 +74,7 @@ describe("validateMoveAttempt", () => {
 
   it("returns ok with moveSpend and pit flag", () => {
     const car = makeCar();
-    const cell = makeCell("Z02_L3_00", 3, ["PIT_BOX"]);
+    const cell = makeCell("Z02_L0_00", 0, ["PIT_BOX"]);
     const targets = new Map([[cell.id, { distance: 2, tireCost: 1, fuelCost: 1, isPitTrigger: true }]]);
     const res = validateMoveAttempt(car, cell, targets, true);
     expect(res.ok).toBe(true);

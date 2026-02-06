@@ -15,10 +15,10 @@ Project guide for Codex and other automation.
 - No sideways lane changes: lane changes must advance `forwardIndex` (except `PIT_ENTRY`).
 - Passing is blocked only by cars ahead in the **target lane** (adjacent lanes do not block).
 - Pit lane rules:
-  - Entry only via `PIT_ENTRY` from lane 0.
+  - Entry only via `PIT_ENTRY` from lane 1 (inner race lane).
   - Pit entry allowed only at distance 1 (no multi-zone jump).
   - Movement in pit lane is limited to 1 step, except if adjacent to a `PIT_BOX` you may target any `PIT_BOX` ahead.
-  - Pit exit can connect to lane 0 (lane adjacency is not enforced for pit exit).
+  - Pit exit can connect to lane 1 (lane adjacency is not enforced for pit exit).
 
 ## Lap Counting
 

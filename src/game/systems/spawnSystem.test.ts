@@ -22,14 +22,14 @@ function makeCell(
 
 function makeTrack(): TrackData {
   const cells: TrackCell[] = [
-    makeCell("A0", 0, 0, ["A1"]),
-    makeCell("A1", 0, 1, ["A0"]),
-    makeCell("B0", 1, 0, ["B1"]),
-    makeCell("B1", 1, 1, ["B0"], ["START_FINISH"]),
-    makeCell("C0", 2, 0, ["C1"]),
-    makeCell("C1", 2, 1, ["C0"]),
-    makeCell("P0", 3, 0, ["P1"]),
-    makeCell("P1", 3, 1, ["P0"])
+    makeCell("A0", 1, 0, ["A1"]),
+    makeCell("A1", 1, 1, ["A0"], ["START_FINISH"]),
+    makeCell("B0", 2, 0, ["B1"]),
+    makeCell("B1", 2, 1, ["B0"]),
+    makeCell("C0", 3, 0, ["C1"]),
+    makeCell("C1", 3, 1, ["C0"]),
+    makeCell("P0", 0, 0, ["P1"]),
+    makeCell("P1", 0, 1, ["P0"])
   ];
 
   return {
@@ -48,9 +48,9 @@ describe("spawnSystem", () => {
     expect(slots[0]?.forwardIndex).toBe(1);
     expect(slots[1]?.forwardIndex).toBe(1);
     expect(slots[2]?.forwardIndex).toBe(1);
-    expect(slots[0]?.laneIndex).toBe(0);
-    expect(slots[1]?.laneIndex).toBe(1);
-    expect(slots[2]?.laneIndex).toBe(2);
+    expect(slots[0]?.laneIndex).toBe(1);
+    expect(slots[1]?.laneIndex).toBe(2);
+    expect(slots[2]?.laneIndex).toBe(3);
   });
 
   it("spawns at least one car and caps to available slots", () => {

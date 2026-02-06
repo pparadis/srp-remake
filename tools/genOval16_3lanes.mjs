@@ -5,16 +5,16 @@ import { findBestStartIndex } from "./track/sequence.mjs";
 
 const CONFIG = {
   lanes: 4,
-  mainLanes: [0, 1, 2],
-  pitLane: 3,
+  mainLanes: [1, 2, 3],
+  pitLane: 0,
   pitZones: [28, 1, 2, 3, 4, 5, 6],
   straightCount: 8,
-  cornerCounts: { 0: 6, 1: 7, 2: 8 },
+  cornerCounts: { 1: 6, 2: 7, 3: 8 },
   geometry: {
     cx: 560,
     cy: 350,
     laneSpacing: 24,
-    pitInsetFromLane0: 44,
+    pitInsetFromInnerLane: 44,
     baseRadius: 120,
     straightHalf: 260,
     startZoneOffset: 12
@@ -39,12 +39,17 @@ const {
     cx,
     cy,
     laneSpacing,
-    pitInsetFromLane0,
+    pitInsetFromInnerLane,
     baseRadius,
     straightHalf,
     startZoneOffset
   }
 } = CONFIG;
+
+const sortedMainLanes = [...mainLanes].sort((a, b) => a - b);
+const innerMainLane = sortedMainLanes[0];
+const middleMainLane = sortedMainLanes[1];
+const outerMainLane = sortedMainLanes[2];
 
 const cells = [];
 const laneSequences = new Map();
@@ -67,13 +72,13 @@ for (const lane of mainLanes) {
   });
 
   const len = points.length;
-  const startIndex0 = lane === 0 ? (len - startZoneOffset) % len : null;
-  if (lane === 0) {
+  const startIndex0 = lane === innerMainLane ? (len - startZoneOffset) % len : null;
+  if (lane === innerMainLane) {
     const p = points[startIndex0];
     startLineRef = { x: p.x, y: p.y };
   }
   let startIndex = startIndex0 ?? 0;
-  if (lane !== 0 && startLineRef) {
+  if (lane !== innerMainLane && startLineRef) {
     startIndex = findBestStartIndex(points, startLineRef);
   }
 
@@ -102,8 +107,8 @@ for (const lane of mainLanes) {
 const maxZones = Math.max(...Array.from(laneLengths.values()));
 
 for (const z of pitZones) {
-  const refLaneIndex = 0;
-  const refLane = laneAngleByZone.get(0);
+  const refLaneIndex = innerMainLane;
+  const refLane = laneAngleByZone.get(innerMainLane);
   const ref = refLane?.get(z);
   if (!ref) continue;
   const baseX = ref.x;
@@ -112,7 +117,7 @@ for (const z of pitZones) {
   const toCenterY = cy - baseY;
   const normalDot = ref.nx * toCenterX + ref.ny * toCenterY;
   const dir = normalDot >= 0 ? 1 : -1;
-  const totalInset = refLaneIndex * laneSpacing + pitInsetFromLane0;
+  const totalInset = (refLaneIndex - innerMainLane) * laneSpacing + pitInsetFromInnerLane;
   const pitX = baseX + ref.nx * totalInset * dir;
   const pitY = baseY + ref.ny * totalInset * dir;
   const pitCell = {
@@ -195,22 +200,22 @@ for (const lane of mainLanes) {
     const nextSame = seq[(i + 1) % len].cell;
     targets.add(nextSame.id);
 
-    if (lane === 0) {
-      const lane1Target = forwardLaneTarget(1, progress);
-      if (lane1Target) targets.add(lane1Target.id);
+    if (lane === innerMainLane) {
+      const middleLaneTarget = forwardLaneTarget(middleMainLane, progress);
+      if (middleLaneTarget) targets.add(middleLaneTarget.id);
     }
-    if (lane === 1) {
-      const lane0Target = forwardLaneTarget(0, progress);
-      const lane2Target = forwardLaneTarget(2, progress);
-      if (lane0Target) targets.add(lane0Target.id);
-      if (lane2Target) targets.add(lane2Target.id);
+    if (lane === middleMainLane) {
+      const innerLaneTarget = forwardLaneTarget(innerMainLane, progress);
+      const outerLaneTarget = forwardLaneTarget(outerMainLane, progress);
+      if (innerLaneTarget) targets.add(innerLaneTarget.id);
+      if (outerLaneTarget) targets.add(outerLaneTarget.id);
     }
-    if (lane === 2) {
-      const lane1Target = forwardLaneTarget(1, progress);
-      if (lane1Target) targets.add(lane1Target.id);
+    if (lane === outerMainLane) {
+      const middleLaneTarget = forwardLaneTarget(middleMainLane, progress);
+      if (middleLaneTarget) targets.add(middleLaneTarget.id);
     }
 
-    if (cell.zoneIndex === 27 && lane === 0) {
+    if (cell.zoneIndex === 27 && lane === innerMainLane) {
       const pitEntry = cellById.get(id(28, pitLane));
       if (pitEntry) targets.add(pitEntry.id);
     }
@@ -227,7 +232,7 @@ for (let i = 0; i < pitZones.length; i += 1) {
   const targets = new Set();
   const nextZone = pitZones[(i + 1) % pitZones.length];
   if (z === 6) {
-    const exitMain = cellById.get(id(7, 0));
+    const exitMain = cellById.get(id(7, innerMainLane));
     if (exitMain) targets.add(exitMain.id);
   } else {
     const nextPit = cellById.get(id(nextZone, pitLane));
