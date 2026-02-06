@@ -4,6 +4,7 @@ const app = document.getElementById("app")!;
 const toggle = document.getElementById("extraPlayersToggle") as HTMLInputElement;
 const select = document.getElementById("playerCountSelect") as HTMLSelectElement;
 const botsToggle = document.getElementById("botsToggle") as HTMLInputElement;
+const botModeToggle = document.getElementById("botModeToggle") as HTMLInputElement;
 const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
 
 let game: ReturnType<typeof import("./game").startGame> | null = null;
@@ -18,10 +19,14 @@ function getBotFill() {
   return botsToggle?.checked ?? true;
 }
 
+function getBotMode() {
+  return botModeToggle?.checked ?? false;
+}
+
 async function ensureGameStarted() {
   if (game) return;
   const { startGame } = await import("./game");
-  game = startGame(app, { playerCount: getPlayerCount(), botFill: getBotFill() });
+  game = startGame(app, { playerCount: getPlayerCount(), botFill: getBotFill(), botMode: getBotMode() });
 }
 
 async function restartGame() {

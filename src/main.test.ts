@@ -17,6 +17,7 @@ function setupDom() {
       <option value="4">4</option>
     </select>
     <input id="botsToggle" type="checkbox" checked />
+    <input id="botModeToggle" type="checkbox" />
     <button id="restartBtn"></button>
   `;
 }
@@ -40,7 +41,7 @@ describe("main", () => {
     const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
 
     await vi.waitFor(() => {
-    expect(startGame).toHaveBeenCalledWith(app, { playerCount: 1, botFill: true });
+      expect(startGame).toHaveBeenCalledWith(app, { playerCount: 1, botFill: true, botMode: false });
     });
 
     select.disabled = false;
@@ -58,7 +59,7 @@ describe("main", () => {
     restartBtn.dispatchEvent(new MouseEvent("click"));
     await vi.waitFor(() => {
       expect(destroy).toHaveBeenCalled();
-      expect(startGame).toHaveBeenCalledWith(app, { playerCount: 2, botFill: true });
+      expect(startGame).toHaveBeenCalledWith(app, { playerCount: 2, botFill: true, botMode: false });
     });
   });
 });
