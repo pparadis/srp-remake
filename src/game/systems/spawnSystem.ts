@@ -98,8 +98,8 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
   const slots = buildSpawnSlots(track);
   const desiredCount = Math.max(1, Math.min(options.playerCount, slots.length));
   const botMode = options.botMode ?? false;
-  const botFill = options.botFill ?? true;
-  const humanCount = botMode ? 0 : Math.min(options.humanCount ?? 1, desiredCount);
+  const botFill = options.botFill ?? false;
+  const humanCount = botMode ? 0 : Math.min(options.humanCount ?? desiredCount, desiredCount);
   const botCount = (botFill || botMode) ? Math.max(0, desiredCount - humanCount) : 0;
   const count = Math.max(1, Math.min(desiredCount, humanCount + botCount));
 

@@ -69,8 +69,8 @@ describe("spawnSystem", () => {
     expect(cars[0]?.ownerId).toBe("P1");
     expect(cars[0]?.isBot).toBe(false);
     expect(cars[1]?.carId).toBe(2);
-    expect(cars[1]?.ownerId).toBe("BOT1");
-    expect(cars[1]?.isBot).toBe(true);
+    expect(cars[1]?.ownerId).toBe("P2");
+    expect(cars[1]?.isBot).toBe(false);
     expect(tokens).toHaveLength(2);
     expect(tokens[0]?.car).toBe(cars[0]);
 

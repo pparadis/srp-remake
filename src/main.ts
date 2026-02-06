@@ -16,11 +16,11 @@ function getPlayerCount() {
 }
 
 function getBotFill() {
-  return botsToggle?.checked ?? true;
+  return botsToggle?.checked ?? false;
 }
 
 function getBotMode() {
-  return botModeToggle?.checked ?? false;
+  return getBotFill() && (botModeToggle?.checked ?? false);
 }
 
 async function ensureGameStarted() {
@@ -42,6 +42,16 @@ void ensureGameStarted();
 toggle.addEventListener("change", () => {
   select.disabled = !toggle.checked;
 });
+
+botsToggle.addEventListener("change", () => {
+  const enabled = botsToggle.checked;
+  botModeToggle.disabled = !enabled;
+  if (!enabled) {
+    botModeToggle.checked = false;
+  }
+});
+
+botModeToggle.disabled = !getBotFill();
 
 restartBtn.addEventListener("click", () => {
   restartGame();

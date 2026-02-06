@@ -82,7 +82,7 @@ export class RaceScene extends Phaser.Scene {
   private pitModal!: PitModal;
   private playerCount = 1;
   private botMode = false;
-  private botFill = true;
+  private botFill = false;
   private skipButton!: TextButton;
   private copyDebugButton!: TextButton;
   private readonly buildInfo = {
@@ -117,7 +117,7 @@ export class RaceScene extends Phaser.Scene {
     const rawCount = Number(this.registry.get(REG_PLAYER_COUNT) ?? 1);
     this.playerCount = Number.isNaN(rawCount) ? 1 : Math.max(1, Math.min(11, rawCount));
     this.botMode = Boolean(this.registry.get(REG_BOT_MODE) ?? false);
-    this.botFill = Boolean(this.registry.get(REG_BOT_FILL) ?? true);
+    this.botFill = Boolean(this.registry.get(REG_BOT_FILL) ?? false);
 
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
