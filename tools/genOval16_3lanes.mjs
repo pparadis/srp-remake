@@ -13,8 +13,8 @@ const CONFIG = {
   geometry: {
     cx: 560,
     cy: 350,
-    laneSpacing: 18,
-    pitInsetFromLane0: 36,
+    laneSpacing: 24,
+    pitInsetFromLane0: 44,
     baseRadius: 120,
     straightHalf: 260,
     startZoneOffset: 12
