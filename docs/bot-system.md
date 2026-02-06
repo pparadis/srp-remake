@@ -81,7 +81,7 @@ Add unit tests for:
 
 ## Future Improvements
 
-- Lookahead for blocking or pit timing.
+- Lookahead for blocking or pit timing (see `docs/bot-lookahead-spec.md`).
 - Per-track strategy tuning.
 - Different bot personalities (aggressive, conservative).
 
