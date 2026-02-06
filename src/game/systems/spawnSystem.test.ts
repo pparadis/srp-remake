@@ -55,16 +55,16 @@ describe("spawnSystem", () => {
 
   it("spawns at least one car and caps to available slots", () => {
     const track = makeTrack();
-    const minSpawn = spawnCars(track, { playerCount: 0 });
+    const minSpawn = spawnCars(track, { totalCars: 0, humanCount: 0, botCount: 0 });
     expect(minSpawn.cars).toHaveLength(1);
 
-    const maxSpawn = spawnCars(track, { playerCount: 99 });
+    const maxSpawn = spawnCars(track, { totalCars: 99, humanCount: 99, botCount: 0 });
     expect(maxSpawn.cars).toHaveLength(6);
   });
 
   it("assigns ids, tokens, and independent setups", () => {
     const track = makeTrack();
-    const { cars, tokens } = spawnCars(track, { playerCount: 2 });
+    const { cars, tokens } = spawnCars(track, { totalCars: 2, humanCount: 2, botCount: 0 });
     expect(cars[0]?.carId).toBe(1);
     expect(cars[0]?.ownerId).toBe("P1");
     expect(cars[0]?.isBot).toBe(false);
@@ -80,9 +80,9 @@ describe("spawnSystem", () => {
     expect(carB.setup.psi.fl).not.toBe(99);
   });
 
-  it("spawns all bots in bot mode", () => {
+  it("spawns all bots when humans are zero", () => {
     const track = makeTrack();
-    const { cars } = spawnCars(track, { playerCount: 2, botMode: true, botFill: true });
+    const { cars } = spawnCars(track, { totalCars: 2, humanCount: 0, botCount: 2 });
     expect(cars).toHaveLength(2);
     expect(cars[0]?.isBot).toBe(true);
     expect(cars[1]?.isBot).toBe(true);
@@ -90,10 +90,12 @@ describe("spawnSystem", () => {
     expect(cars[1]?.ownerId).toBe("BOT2");
   });
 
-  it("does not fill with bots when botFill is false", () => {
+  it("supports mixed human and bot composition", () => {
     const track = makeTrack();
-    const { cars } = spawnCars(track, { playerCount: 2, humanCount: 1, botFill: false });
-    expect(cars).toHaveLength(1);
+    const { cars } = spawnCars(track, { totalCars: 3, humanCount: 2, botCount: 1 });
+    expect(cars).toHaveLength(3);
     expect(cars[0]?.isBot).toBe(false);
+    expect(cars[1]?.isBot).toBe(false);
+    expect(cars[2]?.isBot).toBe(true);
   });
 });

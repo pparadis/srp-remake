@@ -9,12 +9,10 @@
   <body>
     <div id="controls">
       <label>
-        <input type="checkbox" id="extraPlayersToggle" />
-        Enable extra players
-      </label>
-      <label>
-        Players
-        <select id="playerCountSelect" disabled>
+        Human players
+        <select id="humanCountSelect">
+          <option value="0">0</option>
+          <option value="1" selected>1</option>
           <option value="2">2</option>
           <option value="3">3</option>
           <option value="4">4</option>
@@ -28,12 +26,21 @@
         </select>
       </label>
       <label>
-        <input type="checkbox" id="botsToggle" />
-        Enable bots
-      </label>
-      <label>
-        <input type="checkbox" id="botModeToggle" />
-        Bot-only mode
+        Bot players
+        <select id="botCountSelect">
+          <option value="0" selected>0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+        </select>
       </label>
       <button id="restartBtn" type="button">Restart</button>
     </div>

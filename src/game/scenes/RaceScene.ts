@@ -7,9 +7,9 @@ import {
   MIDDLE_MAIN_LANE,
   OUTER_MAIN_LANE,
   PIT_LANE,
-  REG_BOT_FILL,
-  REG_BOT_MODE,
-  REG_PLAYER_COUNT
+  REG_BOT_CARS,
+  REG_HUMAN_CARS,
+  REG_TOTAL_CARS
 } from "../constants";
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
@@ -88,9 +88,9 @@ export class RaceScene extends Phaser.Scene {
     | null = null;
   private turn!: TurnState;
   private pitModal!: PitModal;
-  private playerCount = 1;
-  private botMode = false;
-  private botFill = false;
+  private totalCars = 1;
+  private humanCars = 1;
+  private botCars = 0;
   private skipButton!: TextButton;
   private copyDebugButton!: TextButton;
   private readonly buildInfo = {
@@ -122,10 +122,12 @@ export class RaceScene extends Phaser.Scene {
     this.cellMap = new Map(this.track.cells.map((c) => [c.id, c]));
     this.trackIndex = buildTrackIndex(this.track);
     this.progressMap = buildProgressMap(this.track, 1);
-    const rawCount = Number(this.registry.get(REG_PLAYER_COUNT) ?? 1);
-    this.playerCount = Number.isNaN(rawCount) ? 1 : Math.max(1, Math.min(11, rawCount));
-    this.botMode = Boolean(this.registry.get(REG_BOT_MODE) ?? false);
-    this.botFill = Boolean(this.registry.get(REG_BOT_FILL) ?? false);
+    const rawTotal = Number(this.registry.get(REG_TOTAL_CARS) ?? 1);
+    const rawHumans = Number(this.registry.get(REG_HUMAN_CARS) ?? 1);
+    const rawBots = Number(this.registry.get(REG_BOT_CARS) ?? 0);
+    this.totalCars = Number.isNaN(rawTotal) ? 1 : Math.max(1, Math.min(11, rawTotal));
+    this.humanCars = Number.isNaN(rawHumans) ? 1 : Math.max(0, Math.min(this.totalCars, rawHumans));
+    this.botCars = Number.isNaN(rawBots) ? 0 : Math.max(0, Math.min(this.totalCars - this.humanCars, rawBots));
 
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
@@ -259,10 +261,9 @@ export class RaceScene extends Phaser.Scene {
 
   private initCars() {
     const { cars, tokens } = spawnCars(this.track, {
-      playerCount: this.playerCount,
-      botMode: this.botMode,
-      botFill: this.botFill,
-      humanCount: this.botMode ? 0 : 1
+      totalCars: this.totalCars,
+      humanCount: this.humanCars,
+      botCount: this.botCars
     });
     this.cars = cars;
     for (const entry of tokens) {

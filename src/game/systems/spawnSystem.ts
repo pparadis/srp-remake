@@ -4,8 +4,11 @@ import { createMoveCycle } from "./moveBudgetSystem";
 import { MAIN_LANES, PIT_LANE } from "../constants";
 
 interface SpawnOptions {
-  playerCount: number;
+  totalCars?: number;
   humanCount?: number;
+  botCount?: number;
+  // Legacy options kept for compatibility.
+  playerCount?: number;
   botMode?: boolean;
   botFill?: boolean;
 }
@@ -96,12 +99,35 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
 
 export function spawnCars(track: TrackData, options: SpawnOptions) {
   const slots = buildSpawnSlots(track);
-  const desiredCount = Math.max(1, Math.min(options.playerCount, slots.length));
-  const botMode = options.botMode ?? false;
-  const botFill = options.botFill ?? false;
-  const humanCount = botMode ? 0 : Math.min(options.humanCount ?? desiredCount, desiredCount);
-  const botCount = (botFill || botMode) ? Math.max(0, desiredCount - humanCount) : 0;
-  const count = Math.max(1, Math.min(desiredCount, humanCount + botCount));
+  const maxSlots = Math.max(1, slots.length);
+
+  const hasExplicitComposition =
+    options.totalCars != null || options.humanCount != null || options.botCount != null;
+
+  let requestedTotal = 1;
+  let humanCount = 1;
+  let botCount = 0;
+
+  if (hasExplicitComposition) {
+    requestedTotal = Math.max(1, Math.min(options.totalCars ?? ((options.humanCount ?? 0) + (options.botCount ?? 0)), maxSlots));
+    humanCount = Math.max(0, Math.min(options.humanCount ?? requestedTotal, requestedTotal));
+    botCount = Math.max(0, Math.min(options.botCount ?? (requestedTotal - humanCount), requestedTotal - humanCount));
+  } else {
+    const desiredCount = Math.max(1, Math.min(options.playerCount ?? 1, maxSlots));
+    const botMode = options.botMode ?? false;
+    const botFill = options.botFill ?? false;
+    requestedTotal = desiredCount;
+    humanCount = botMode ? 0 : Math.min(options.humanCount ?? desiredCount, desiredCount);
+    botCount = (botFill || botMode) ? Math.max(0, desiredCount - humanCount) : 0;
+  }
+
+  const count = Math.max(1, Math.min(requestedTotal, humanCount + botCount, maxSlots));
+  if (humanCount > count) {
+    humanCount = count;
+    botCount = 0;
+  } else {
+    botCount = Math.min(botCount, count - humanCount);
+  }
 
   const orderedSlots = slots;
 

@@ -10,14 +10,21 @@ vi.mock("./game", () => ({
 function setupDom() {
   document.body.innerHTML = `
     <div id="app"></div>
-    <input id="extraPlayersToggle" type="checkbox" />
-    <select id="playerCountSelect">
+    <select id="humanCountSelect">
+      <option value="0">0</option>
+      <option value="1" selected>1</option>
       <option value="2">2</option>
       <option value="3">3</option>
       <option value="4">4</option>
+      <option value="11">11</option>
     </select>
-    <input id="botsToggle" type="checkbox" />
-    <input id="botModeToggle" type="checkbox" />
+    <select id="botCountSelect">
+      <option value="0" selected>0</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="10">10</option>
+      <option value="11">11</option>
+    </select>
     <button id="restartBtn"></button>
   `;
 }
@@ -36,30 +43,29 @@ describe("main", () => {
     await import("./main");
 
     const app = document.getElementById("app");
-    const toggle = document.getElementById("extraPlayersToggle") as HTMLInputElement;
-    const select = document.getElementById("playerCountSelect") as HTMLSelectElement;
+    const humanSelect = document.getElementById("humanCountSelect") as HTMLSelectElement;
+    const botSelect = document.getElementById("botCountSelect") as HTMLSelectElement;
     const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
 
     await vi.waitFor(() => {
-      expect(startGame).toHaveBeenCalledWith(app, { playerCount: 1, botFill: false, botMode: false });
+      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 1, humanCars: 1, botCars: 0 });
     });
 
-    select.disabled = false;
-    toggle.checked = false;
-    toggle.dispatchEvent(new Event("change"));
-    expect(select.disabled).toBe(true);
-
-    toggle.checked = true;
-    toggle.dispatchEvent(new Event("change"));
-    expect(select.disabled).toBe(false);
-
     startGame.mockClear();
-    select.value = "nope";
-    toggle.checked = true;
+    humanSelect.value = "3";
+    botSelect.value = "2";
     restartBtn.dispatchEvent(new MouseEvent("click"));
     await vi.waitFor(() => {
       expect(destroy).toHaveBeenCalled();
-      expect(startGame).toHaveBeenCalledWith(app, { playerCount: 2, botFill: false, botMode: false });
+      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 5, humanCars: 3, botCars: 2 });
+    });
+
+    startGame.mockClear();
+    humanSelect.value = "11";
+    botSelect.value = "11";
+    restartBtn.dispatchEvent(new MouseEvent("click"));
+    await vi.waitFor(() => {
+      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 11, humanCars: 11, botCars: 0 });
     });
   });
 });
