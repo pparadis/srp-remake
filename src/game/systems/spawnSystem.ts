@@ -117,8 +117,16 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
     const botMode = options.botMode ?? false;
     const botFill = options.botFill ?? false;
     requestedTotal = desiredCount;
-    humanCount = botMode ? 0 : Math.min(options.humanCount ?? desiredCount, desiredCount);
-    botCount = (botFill || botMode) ? Math.max(0, desiredCount - humanCount) : 0;
+    if (botMode) {
+      humanCount = 0;
+      botCount = desiredCount;
+    } else if (botFill) {
+      humanCount = 1;
+      botCount = Math.max(0, desiredCount - 1);
+    } else {
+      humanCount = desiredCount;
+      botCount = 0;
+    }
   }
 
   const count = Math.max(1, Math.min(requestedTotal, humanCount + botCount, maxSlots));

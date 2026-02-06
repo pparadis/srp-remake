@@ -40,6 +40,22 @@ function makeTrack(): TrackData {
   };
 }
 
+function makeBrokenTrack(): TrackData {
+  const cells: TrackCell[] = [
+    makeCell("A0", 1, 0, []),
+    makeCell("A1", 1, 1, [], ["START_FINISH"]),
+    makeCell("B0", 2, 0, []),
+    makeCell("P0", 0, 0, ["P1"], ["PIT_ENTRY"]),
+    makeCell("P1", 0, 1, [], ["PIT_EXIT"])
+  ];
+  return {
+    trackId: "spawn-broken",
+    zones: 2,
+    lanes: 4,
+    cells
+  };
+}
+
 describe("spawnSystem", () => {
   it("builds spawn slots in rows keyed to the spine lane", () => {
     const track = makeTrack();
@@ -97,5 +113,39 @@ describe("spawnSystem", () => {
     expect(cars[0]?.isBot).toBe(false);
     expect(cars[1]?.isBot).toBe(false);
     expect(cars[2]?.isBot).toBe(true);
+  });
+
+  it("recovers spawn rows when lane traversal is disconnected or missing", () => {
+    const track = makeBrokenTrack();
+    const slots = buildSpawnSlots(track);
+    expect(slots.map((s) => s.id)).toEqual(["A1", "A0", "B0"]);
+  });
+
+  it("clamps explicit human and bot counts into requested total", () => {
+    const track = makeTrack();
+    const { cars } = spawnCars(track, { totalCars: 4, humanCount: 3, botCount: 3 });
+    expect(cars).toHaveLength(4);
+    expect(cars.filter((c) => !c.isBot)).toHaveLength(3);
+    expect(cars.filter((c) => c.isBot)).toHaveLength(1);
+  });
+
+  it("supports explicit total derived from human and bot counts", () => {
+    const track = makeTrack();
+    const { cars } = spawnCars(track, { humanCount: 1, botCount: 2 });
+    expect(cars).toHaveLength(3);
+    expect(cars.filter((c) => !c.isBot)).toHaveLength(1);
+    expect(cars.filter((c) => c.isBot)).toHaveLength(2);
+  });
+
+  it("supports legacy bot mode and bot fill options", () => {
+    const track = makeTrack();
+    const botMode = spawnCars(track, { playerCount: 3, botMode: true });
+    expect(botMode.cars).toHaveLength(3);
+    expect(botMode.cars.every((c) => c.isBot)).toBe(true);
+
+    const botFill = spawnCars(track, { playerCount: 4, botFill: true });
+    expect(botFill.cars).toHaveLength(4);
+    expect(botFill.cars.filter((c) => !c.isBot)).toHaveLength(1);
+    expect(botFill.cars.filter((c) => c.isBot)).toHaveLength(3);
   });
 });
