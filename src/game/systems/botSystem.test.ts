@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Car } from "../types/car";
 import type { TargetInfo } from "./movementSystem";
-import { decideBotAction, pickBotMove } from "./botSystem";
+import { decideBotAction, decideBotActionWithTrace, evaluateBotTargets, pickBotMove } from "./botSystem";
 import type { TrackCell } from "../types/track";
 
 function makeCar(overrides: Partial<Car> = {}): Car {
@@ -72,6 +72,21 @@ describe("pickBotMove", () => {
   });
 });
 
+describe("evaluateBotTargets", () => {
+  it("produces deterministic candidates and selected target", () => {
+    const car = makeCar({ tire: 80, fuel: 80 });
+    const targets = makeTargets([
+      ["B", { distance: 2, tireCost: 2, fuelCost: 2, isPitTrigger: false }],
+      ["A", { distance: 2, tireCost: 2, fuelCost: 2, isPitTrigger: false }]
+    ]);
+    const trace = evaluateBotTargets(targets, car);
+    expect(trace.candidates).toHaveLength(2);
+    expect(trace.candidates[0]?.cellId).toBe("A");
+    expect(trace.candidates[1]?.cellId).toBe("B");
+    expect(trace.selectedCellId).toBe("A");
+  });
+});
+
 describe("decideBotAction", () => {
   it("returns skip when no targets", () => {
     const car = makeCar();
@@ -96,5 +111,18 @@ describe("decideBotAction", () => {
     if (action.type === "move") {
       expect(action.moveSpend).toBe(2);
     }
+  });
+
+  it("returns structured decision trace", () => {
+    const car = makeCar({ tire: 20, fuel: 20 });
+    const pitCell = makeCell("P", 0, ["PIT_BOX"]);
+    const targets = makeTargets([
+      ["P", { distance: 1, tireCost: 1, fuelCost: 1, isPitTrigger: true }],
+      ["A", { distance: 2, tireCost: 5, fuelCost: 5, isPitTrigger: false }]
+    ]);
+    const result = decideBotActionWithTrace(targets, car, new Map([[pitCell.id, pitCell]]));
+    expect(result.action.type).toBe("pit");
+    expect(result.trace.selectedCellId).toBe("P");
+    expect(result.trace.candidates.some((candidate) => candidate.cellId === "P")).toBe(true);
   });
 });

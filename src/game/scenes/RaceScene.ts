@@ -25,9 +25,46 @@ import { PitModal } from "./ui/PitModal";
 import { LogPanel } from "./ui/LogPanel";
 import { StandingsPanel } from "./ui/StandingsPanel";
 import { TextButton } from "./ui/TextButton";
-import { decideBotAction } from "../systems/botSystem";
+import { decideBotActionWithTrace, type BotDecisionTrace } from "../systems/botSystem";
 
 type CellMap = Map<string, TrackCell>;
+
+interface BotDecisionLogEntry {
+  seq: number;
+  turnIndex: number;
+  carId: number;
+  fromCellId: string;
+  state: Car["state"];
+  tire: number;
+  fuel: number;
+  pitServiced: boolean;
+  validTargets: Array<{
+    cellId: string;
+    distance: number;
+    tireCost: number;
+    fuelCost: number;
+    isPitTrigger: boolean;
+  }>;
+  action: {
+    type: "skip" | "pit" | "move";
+    targetCellId?: string;
+    moveSpend?: number;
+    note?: string;
+  };
+  trace: {
+    lowResources: boolean;
+    heuristics: { lowResourceThreshold: number; pitBonus: number; pitPenalty: number };
+    selectedCellId: string | null;
+    candidates: Array<{
+      cellId: string;
+      score: number;
+      distance: number;
+      tireCost: number;
+      fuelCost: number;
+      isPitTrigger: boolean;
+    }>;
+  } | null;
+}
 
 export class RaceScene extends Phaser.Scene {
   private static readonly UI = {
@@ -55,6 +92,7 @@ export class RaceScene extends Phaser.Scene {
     baseMax: 9,
     zeroResourceMax: 4
   };
+  private static readonly BOT_LOG_LIMIT = 1000;
   private static readonly HUD_LABELS = {
     noneTags: "none",
     targetPrefix: "target:",
@@ -93,10 +131,13 @@ export class RaceScene extends Phaser.Scene {
   private totalCars = 1;
   private humanCars = 1;
   private botCars = 0;
+  private botDecisionLog: BotDecisionLogEntry[] = [];
+  private botDecisionSeq = 1;
   private skipButton!: TextButton;
   private copyDebugButton!: TextButton;
+  private copyBotDebugButton!: TextButton;
   private readonly buildInfo = {
-    version: "debug-snapshot-v2",
+    version: "debug-snapshot-v3",
     // eslint-disable-next-line no-undef
     gitSha: __GIT_SHA__
   };
@@ -184,6 +225,7 @@ export class RaceScene extends Phaser.Scene {
     this.createPitModal();
     this.createSkipButton();
     this.createCopyDebugButton();
+    this.createCopyBotDebugButton();
     this.updateCycleHud();
     this.setUIFixed();
 
@@ -478,7 +520,8 @@ export class RaceScene extends Phaser.Scene {
       this.txtInfo,
       this.txtCycle,
       this.skipButton,
-      this.copyDebugButton
+      this.copyDebugButton,
+      this.copyBotDebugButton
     ].filter(Boolean);
     for (const obj of fixed) {
       if (typeof (obj as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor === "function") {
@@ -492,6 +535,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.standingsPanel) this.standingsPanel.setFixed();
     if (this.skipButton) this.skipButton.setFixed();
     if (this.copyDebugButton) this.copyDebugButton.setFixed();
+    if (this.copyBotDebugButton) this.copyBotDebugButton.setFixed();
   }
 
   private centerTrack() {
@@ -563,6 +607,9 @@ export class RaceScene extends Phaser.Scene {
     if (this.copyDebugButton) {
       this.copyDebugButton.setPosition(pad + 4, h - ui.bottomButtonYPad);
     }
+    if (this.copyBotDebugButton) {
+      this.copyBotDebugButton.setPosition(pad + 116, h - ui.bottomButtonYPad);
+    }
 
     this.logPanel.draw();
     this.standingsPanel.draw();
@@ -612,11 +659,70 @@ export class RaceScene extends Phaser.Scene {
     this.setUIFixed();
   }
 
+  private createCopyBotDebugButton() {
+    this.copyBotDebugButton = new TextButton(this, "Copy bot debug", {
+      fontSize: "14px",
+      originX: 0,
+      originY: 1,
+      onClick: () => this.copyBotDecisionSnapshot()
+    });
+    this.layoutUI();
+    this.setUIFixed();
+  }
+
   private updateSkipButtonState() {
     if (!this.skipButton) return;
     const canSkip = this.validTargets.size === 0 && this.activeCar.state === "ACTIVE";
     this.skipButton.setAlpha(canSkip ? 1 : 0.4);
     this.skipButton.setInteractive(canSkip);
+  }
+
+  private serializeTargets(targets: Map<string, TargetInfo>) {
+    return Array.from(targets.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cellId, info]) => ({
+        cellId,
+        distance: info.distance,
+        tireCost: info.tireCost,
+        fuelCost: info.fuelCost,
+        isPitTrigger: info.isPitTrigger
+      }));
+  }
+
+  private serializeTrace(trace: BotDecisionTrace | null): BotDecisionLogEntry["trace"] {
+    if (!trace) return null;
+    return {
+      lowResources: trace.lowResources,
+      heuristics: { ...trace.heuristics },
+      selectedCellId: trace.selectedCellId,
+      candidates: trace.candidates.map((candidate) => ({
+        cellId: candidate.cellId,
+        score: candidate.score,
+        distance: candidate.info.distance,
+        tireCost: candidate.info.tireCost,
+        fuelCost: candidate.info.fuelCost,
+        isPitTrigger: candidate.info.isPitTrigger
+      }))
+    };
+  }
+
+  private appendBotDecision(
+    entry: Omit<BotDecisionLogEntry, "seq" | "turnIndex" | "carId" | "fromCellId" | "state" | "tire" | "fuel" | "pitServiced">
+  ) {
+    this.botDecisionLog.push({
+      seq: this.botDecisionSeq++,
+      turnIndex: this.turn.index,
+      carId: this.activeCar.carId,
+      fromCellId: this.activeCar.cellId,
+      state: this.activeCar.state,
+      tire: this.activeCar.tire,
+      fuel: this.activeCar.fuel,
+      pitServiced: this.activeCar.pitServiced,
+      ...entry
+    });
+    if (this.botDecisionLog.length > RaceScene.BOT_LOG_LIMIT) {
+      this.botDecisionLog.shift();
+    }
   }
 
   private buildDebugSnapshot() {
@@ -689,7 +795,18 @@ export class RaceScene extends Phaser.Scene {
         validTargets
       },
       occupiedByCell,
-      cars
+      cars,
+      botDecisionCount: this.botDecisionLog.length
+    };
+  }
+
+  private buildBotDecisionSnapshot() {
+    return {
+      version: this.buildInfo.version,
+      gitSha: this.buildInfo.gitSha,
+      trackId: this.track.trackId,
+      botDecisionCount: this.botDecisionLog.length,
+      botDecisions: this.botDecisionLog
     };
   }
 
@@ -705,6 +822,18 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
+  private async copyBotDecisionSnapshot() {
+    const snapshot = this.buildBotDecisionSnapshot();
+    const payload = JSON.stringify(snapshot, null, 2);
+    try {
+      await navigator.clipboard.writeText(payload);
+      this.addLog("Copied bot decision snapshot to clipboard.");
+    } catch {
+      this.addLog("Clipboard failed. Check console for bot snapshot.");
+      console.log("Bot decision snapshot:", payload);
+    }
+  }
+
   private skipTurn() {
     if (this.validTargets.size !== 0 || this.activeCar.state !== "ACTIVE") return;
     recordMove(this.activeCar.moveCycle, 0);
@@ -714,19 +843,38 @@ export class RaceScene extends Phaser.Scene {
 
   private executeBotTurn() {
     if (this.activeCar.state !== "ACTIVE") {
+      this.appendBotDecision({
+        validTargets: [],
+        action: { type: "skip", note: "inactive" },
+        trace: null
+      });
       recordMove(this.activeCar.moveCycle, 0);
       this.addLog(`Car ${this.activeCar.carId} skipped (inactive).`);
       return;
     }
     const targets = this.computeTargetsForCar(this.activeCar);
-    const action = decideBotAction(targets, this.activeCar, this.cellMap);
+    const targetSnapshot = this.serializeTargets(targets);
+    const decision = decideBotActionWithTrace(targets, this.activeCar, this.cellMap);
+    const action = decision.action;
+    const trace = this.serializeTrace(decision.trace);
+
     if (action.type === "skip") {
+      this.appendBotDecision({
+        validTargets: targetSnapshot,
+        action: { type: "skip", note: "no-target" },
+        trace
+      });
       recordMove(this.activeCar.moveCycle, 0);
       this.addLog(`Car ${this.activeCar.carId} skipped (no moves).`);
       return;
     }
     const fromCell = this.cellMap.get(this.activeCar.cellId);
     if (!fromCell) {
+      this.appendBotDecision({
+        validTargets: targetSnapshot,
+        action: { type: "skip", note: "invalid-origin-cell" },
+        trace
+      });
       recordMove(this.activeCar.moveCycle, 0);
       this.addLog(`Car ${this.activeCar.carId} skipped (invalid target).`);
       return;
@@ -735,9 +883,19 @@ export class RaceScene extends Phaser.Scene {
     if (action.type === "pit") {
       applyPitStop(this.activeCar, action.target.id, this.activeCar.setup);
       recordMove(this.activeCar.moveCycle, action.info.distance);
+      this.appendBotDecision({
+        validTargets: targetSnapshot,
+        action: { type: "pit", targetCellId: action.target.id, moveSpend: action.info.distance },
+        trace
+      });
       this.logPitStop(action.target);
     } else {
       applyMove(this.activeCar, fromCell, action.target, action.info, action.moveSpend);
+      this.appendBotDecision({
+        validTargets: targetSnapshot,
+        action: { type: "move", targetCellId: action.target.id, moveSpend: action.moveSpend },
+        trace
+      });
       this.addLog(`Car ${this.activeCar.carId} moved to ${action.target.id}.`);
     }
 

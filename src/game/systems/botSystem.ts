@@ -20,37 +20,101 @@ export interface BotHeuristicOptions {
   pitPenalty?: number;
 }
 
+export interface BotCandidateScore {
+  cellId: string;
+  info: TargetInfo;
+  score: number;
+}
+
+export interface BotDecisionTrace {
+  lowResources: boolean;
+  heuristics: Required<BotHeuristicOptions>;
+  candidates: BotCandidateScore[];
+  selectedCellId: string | null;
+}
+
+export interface BotDecisionResult {
+  action: BotAction;
+  trace: BotDecisionTrace;
+}
+
 const DEFAULTS: Required<BotHeuristicOptions> = {
   lowResourceThreshold: 25,
   pitBonus: 5,
   pitPenalty: 2
 };
 
-export function pickBotMove(
+export function evaluateBotTargets(
   targets: Map<string, TargetInfo>,
   car: Car,
   options: BotHeuristicOptions = {}
-): BotPick | null {
-  if (targets.size === 0) return null;
+): BotDecisionTrace {
   const { lowResourceThreshold, pitBonus, pitPenalty } = { ...DEFAULTS, ...options };
   const lowResources = car.tire <= lowResourceThreshold || car.fuel <= lowResourceThreshold;
 
-  let best: BotPick | null = null;
+  if (targets.size === 0) {
+    return {
+      lowResources,
+      heuristics: { lowResourceThreshold, pitBonus, pitPenalty },
+      candidates: [],
+      selectedCellId: null
+    };
+  }
+
+  let selectedCellId: string | null = null;
   let bestScore = -Infinity;
 
   const entries = Array.from(targets.entries()).sort(([a], [b]) => a.localeCompare(b));
+  const candidates: BotCandidateScore[] = [];
   for (const [cellId, info] of entries) {
     let score = info.distance * 10 - (info.tireCost + info.fuelCost);
     if (info.isPitTrigger) {
       score += lowResources ? pitBonus : -pitPenalty;
     }
+    candidates.push({ cellId, info, score });
     if (score > bestScore) {
       bestScore = score;
-      best = { cellId, info };
+      selectedCellId = cellId;
     }
   }
 
-  return best;
+  return {
+    lowResources,
+    heuristics: { lowResourceThreshold, pitBonus, pitPenalty },
+    candidates,
+    selectedCellId
+  };
+}
+
+export function pickBotMove(
+  targets: Map<string, TargetInfo>,
+  car: Car,
+  options: BotHeuristicOptions = {}
+): BotPick | null {
+  const trace = evaluateBotTargets(targets, car, options);
+  if (!trace.selectedCellId) return null;
+  const selected = trace.candidates.find((candidate) => candidate.cellId === trace.selectedCellId);
+  if (!selected) return null;
+  return { cellId: selected.cellId, info: selected.info };
+}
+
+export function decideBotActionWithTrace(
+  targets: Map<string, TargetInfo>,
+  car: Car,
+  cellMap: Map<string, TrackCell>
+): BotDecisionResult {
+  const trace = evaluateBotTargets(targets, car);
+  if (!trace.selectedCellId) return { action: { type: "skip" }, trace };
+  const selected = trace.candidates.find((candidate) => candidate.cellId === trace.selectedCellId);
+  if (!selected) return { action: { type: "skip" }, trace };
+
+  const targetCell = cellMap.get(selected.cellId);
+  if (!targetCell) return { action: { type: "skip" }, trace };
+  if (selected.info.isPitTrigger && shouldOpenPitModal(car, targetCell)) {
+    return { action: { type: "pit", target: targetCell, info: selected.info }, trace };
+  }
+  const moveSpend = computeMoveSpend(selected.info.distance, targetCell.laneIndex);
+  return { action: { type: "move", target: targetCell, info: selected.info, moveSpend }, trace };
 }
 
 export function decideBotAction(
@@ -58,13 +122,5 @@ export function decideBotAction(
   car: Car,
   cellMap: Map<string, TrackCell>
 ): BotAction {
-  const pick = pickBotMove(targets, car);
-  if (!pick) return { type: "skip" };
-  const targetCell = cellMap.get(pick.cellId);
-  if (!targetCell) return { type: "skip" };
-  if (pick.info.isPitTrigger && shouldOpenPitModal(car, targetCell)) {
-    return { type: "pit", target: targetCell, info: pick.info };
-  }
-  const moveSpend = computeMoveSpend(pick.info.distance, targetCell.laneIndex);
-  return { type: "move", target: targetCell, info: pick.info, moveSpend };
+  return decideBotActionWithTrace(targets, car, cellMap).action;
 }

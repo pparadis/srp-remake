@@ -30,6 +30,7 @@ Project guide for Codex and other automation.
 - In‑game debug:
   - Press `F` to toggle forwardIndex overlay.
   - “Copy debug” button copies a JSON snapshot with car + movement context.
+  - “Copy bot debug” button copies structured bot decision traces.
 - Snapshot includes `version` + `gitSha` for reproducibility.
 
 ## Validation & Tests
