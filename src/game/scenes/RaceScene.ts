@@ -926,25 +926,6 @@ export class RaceScene extends Phaser.Scene {
       }
     }
 
-    const byZone = new Map<number, TrackCell[]>();
-    for (const c of this.track.cells) {
-      const arr = byZone.get(c.zoneIndex) ?? [];
-      arr.push(c);
-      byZone.set(c.zoneIndex, arr);
-    }
-
-    for (let z = 1; z <= this.track.zones; z++) {
-      const arr = byZone.get(z);
-      if (!arr) continue;
-      const labelCell = arr.find((c) => c.laneIndex === 0) ?? arr.find((c) => c.laneIndex === 1) ?? arr[0];
-      if (!labelCell) continue;
-      this.add.text(labelCell.pos.x + 10, labelCell.pos.y - 10, `${z}`, {
-        fontFamily: "monospace",
-        fontSize: "12px",
-        color: "#9fb0bf"
-      });
-    }
-
     this.renderForwardIndexOverlay();
   }
 
