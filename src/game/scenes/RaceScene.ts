@@ -81,6 +81,8 @@ export class RaceScene extends Phaser.Scene {
   private cars: Car[] = [];
   private activeCar!: Car;
   private carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
+  private activeHalos: Map<number, Phaser.GameObjects.Ellipse> = new Map();
+  private activeHaloTween: Phaser.Tweens.Tween | null = null;
   private validTargets: Map<string, TargetInfo> = new Map();
   private dragOrigin: { x: number; y: number } | null = null;
   private pendingPit:
@@ -199,6 +201,8 @@ export class RaceScene extends Phaser.Scene {
       const token = this.getActiveToken();
       if (!token || obj !== token) return;
       token.setPosition(x, y);
+      const halo = this.activeHalos.get(this.activeCar.carId);
+      if (halo) halo.setPosition(x, y);
     });
 
     this.input.on("dragend", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
@@ -233,8 +237,12 @@ export class RaceScene extends Phaser.Scene {
         const currentCell = this.cellMap.get(this.activeCar.cellId);
         if (currentCell) {
           token.setPosition(currentCell.pos.x, currentCell.pos.y);
+          const halo = this.activeHalos.get(this.activeCar.carId);
+          if (halo) halo.setPosition(currentCell.pos.x, currentCell.pos.y);
         } else {
           token.setPosition(origin.x, origin.y);
+          const halo = this.activeHalos.get(this.activeCar.carId);
+          if (halo) halo.setPosition(origin.x, origin.y);
         }
       }
       this.dragOrigin = null;
@@ -276,6 +284,13 @@ export class RaceScene extends Phaser.Scene {
   private spawnCarToken(car: Car, color: number) {
     const cell = this.cellMap.get(car.cellId);
     if (!cell) return;
+    const halo = this.add.ellipse(cell.pos.x, cell.pos.y, 34, 22);
+    halo.setStrokeStyle(3, 0xfff27a, 0.95);
+    halo.setFillStyle(0xfff27a, 0.08);
+    halo.setVisible(false);
+    halo.setDepth(60);
+    this.activeHalos.set(car.carId, halo);
+
     const body = this.add.rectangle(0, 0, 26, 16, color, 1);
     body.setStrokeStyle(2, 0x1a1a1a, 1);
 
@@ -287,7 +302,7 @@ export class RaceScene extends Phaser.Scene {
     label.setOrigin(0.5, 0.5);
 
     const token = this.add.container(cell.pos.x, cell.pos.y, [body, label]);
-    token.setDepth(10);
+    token.setDepth(50);
     token.setSize(28, 18);
     token.setInteractive({ useHandCursor: true });
     this.carTokens.set(car.carId, token);
@@ -357,16 +372,47 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private updateActiveCarVisuals() {
+    if (this.activeHaloTween) {
+      this.activeHaloTween.stop();
+      this.activeHaloTween = null;
+    }
+
     for (const [carId, token] of this.carTokens.entries()) {
+      const halo = this.activeHalos.get(carId);
       if (carId === this.activeCar.carId) {
         token.setAlpha(1);
         token.setScale(1.1);
         this.input.setDraggable(token, true);
+        if (halo) {
+          halo.setPosition(token.x, token.y);
+          halo.setVisible(true);
+          halo.setScale(1);
+          halo.setAlpha(1);
+        }
       } else {
         token.setAlpha(0.6);
         token.setScale(1);
         this.input.setDraggable(token, false);
+        if (halo) {
+          halo.setVisible(false);
+          halo.setScale(1);
+          halo.setAlpha(1);
+        }
       }
+    }
+
+    const activeHalo = this.activeHalos.get(this.activeCar.carId);
+    if (activeHalo) {
+      this.activeHaloTween = this.tweens.add({
+        targets: activeHalo,
+        scaleX: { from: 1, to: 1.12 },
+        scaleY: { from: 1, to: 1.12 },
+        alpha: { from: 1, to: 0.6 },
+        duration: 520,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut"
+      });
     }
   }
 
