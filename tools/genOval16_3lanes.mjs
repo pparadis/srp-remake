@@ -149,6 +149,16 @@ for (let i = 0; i < spineLen; i += 1) {
   spineSeq[i].cell.forwardIndex = i;
 }
 
+function toSpineForwardIndex(zoneIndex) {
+  const raw = (zoneIndex - 1) % spineLen;
+  return raw < 0 ? raw + spineLen : raw;
+}
+
+function isStraightZone(zoneIndex) {
+  // Two straights, including wrap-around: Z30..Z06 and Z15..Z21
+  return zoneIndex >= 30 || zoneIndex <= 6 || (zoneIndex >= 15 && zoneIndex <= 21);
+}
+
 for (const lane of mainLanes) {
   if (lane === spineLane) continue;
   const seq = laneSequences.get(lane);
@@ -156,9 +166,16 @@ for (const lane of mainLanes) {
   const len = seq.length;
   const denom = Math.max(1, len - 1);
   for (let k = 0; k < len; k += 1) {
+    const entry = seq[k];
+    // Keep banking offsets in corners via per-lane progress mapping.
     const progress = k / denom;
     const spineIndex = Math.round(progress * (spineLen - 1));
-    seq[k].cell.forwardIndex = spineIndex;
+    entry.cell.forwardIndex = spineIndex;
+
+    // Normalize forward index across lanes on straights.
+    if (isStraightZone(entry.cell.zoneIndex)) {
+      entry.cell.forwardIndex = toSpineForwardIndex(entry.cell.zoneIndex);
+    }
   }
 }
 
