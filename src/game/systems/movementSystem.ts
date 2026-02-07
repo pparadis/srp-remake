@@ -2,9 +2,11 @@ import type { TrackCell } from "../types/track";
 import type { CarSetup } from "../types/car";
 import type { TrackIndex } from "./trackIndex";
 import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE } from "../constants";
+import { computeMoveSpend } from "./moveBudgetSystem";
 
 export interface TargetInfo {
   distance: number;
+  moveSpend?: number;
   tireCost: number;
   fuelCost: number;
   isPitTrigger: boolean;
@@ -77,6 +79,7 @@ export function computeValidTargets(
     for (const nextId of current.next) {
       const nextCell = cellMap.get(nextId);
       if (!nextCell) continue;
+      if (occupied.has(nextId) && nextId !== startCellId) continue;
       const nextTags = nextCell.tags ?? [];
       const isPitEntry = nextTags.includes("PIT_ENTRY");
       const isPitLane = nextCell.laneIndex === PIT_LANE;
@@ -121,7 +124,7 @@ export function computeValidTargets(
     }
   }
 
-  const minDeltaByLane = new Map<number, number>();
+  const blockerDeltasByLane = new Map<number, number[]>();
   if (!startIsPitLane) {
     for (const occId of occupied) {
       if (occId === startCellId) continue;
@@ -129,8 +132,11 @@ export function computeValidTargets(
       if (!occ || occ.laneIndex === PIT_LANE) continue;
       const delta = (occ.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
       if (delta <= 0) continue;
-      const prev = minDeltaByLane.get(occ.laneIndex);
-      if (prev == null || delta < prev) minDeltaByLane.set(occ.laneIndex, delta);
+      const deltas = blockerDeltasByLane.get(occ.laneIndex) ?? [];
+      deltas.push(delta);
+      deltas.sort((a, b) => a - b);
+      if (deltas.length > 2) deltas.length = 2;
+      blockerDeltasByLane.set(occ.laneIndex, deltas);
     }
   }
 
@@ -152,21 +158,25 @@ export function computeValidTargets(
       continue;
     const targetDelta = (cell.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
     if (!startIsPitLane && cell.laneIndex !== PIT_LANE) {
-      const blockDelta = minDeltaByLane.get(cell.laneIndex);
-      if (blockDelta != null) {
-        if (targetDelta > blockDelta) continue;
-      }
+      const blockers = blockerDeltasByLane.get(cell.laneIndex) ?? [];
+      const blockDelta = cell.laneIndex === startCell.laneIndex
+        ? blockers[0]
+        : (blockers[1] ?? blockers[0]);
+      if (blockDelta != null && targetDelta > blockDelta) continue;
     }
     if (!startIsPitLane && cell.laneIndex !== startCell.laneIndex && targetDelta === 0 && !isPitEntryTarget) continue;
     if (!startIsPitLane && cell.laneIndex === PIT_LANE) {
       if (!isPitEntryTarget) continue;
       if (d !== 1) continue;
     }
+    const moveSpend = computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, targetDelta);
+    if (moveSpend > maxSteps) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
     targets.set(cellId, {
       distance: d,
+      moveSpend,
       tireCost,
       fuelCost,
       isPitTrigger: (cell.tags ?? []).includes("PIT_BOX")
@@ -183,12 +193,16 @@ export function computeValidTargets(
       if (exitCell) {
         const distance = Math.max(1, exitZone - startCell.zoneIndex);
         const { tireCost, fuelCost } = computeCosts(distance, exitCell.laneIndex, costs);
-        targets.set(exitCellId, {
-          distance,
-          tireCost,
-          fuelCost,
-          isPitTrigger: false
-        });
+        const moveSpend = computeMoveSpend(distance, startCell.laneIndex, exitCell.laneIndex, distance);
+        if (moveSpend <= maxSteps) {
+          targets.set(exitCellId, {
+            distance,
+            moveSpend,
+            tireCost,
+            fuelCost,
+            isPitTrigger: false
+          });
+        }
       }
     }
   }

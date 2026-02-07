@@ -13,7 +13,7 @@ import {
 } from "../constants";
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
-import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
+import { computeMoveSpend, getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { applyMove } from "../systems/moveCommitSystem";
 import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets } from "../systems/pitSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
@@ -122,6 +122,7 @@ export class RaceScene extends Phaser.Scene {
   private activeHalos: Map<number, Phaser.GameObjects.Ellipse> = new Map();
   private activeHaloTween: Phaser.Tweens.Tween | null = null;
   private validTargets: Map<string, TargetInfo> = new Map();
+  private targetCostLabels: Phaser.GameObjects.Text[] = [];
   private dragOrigin: { x: number; y: number } | null = null;
   private pendingPit:
     | { cell: TrackCell; origin: { x: number; y: number }; originCellId: string; distance: number }
@@ -253,7 +254,8 @@ export class RaceScene extends Phaser.Scene {
       if (!token || obj !== token) return;
       const origin = this.dragOrigin ?? { x: token.x, y: token.y };
       const cell = this.findNearestCell(token.x, token.y, 18);
-      const validation = validateMoveAttempt(this.activeCar, cell, this.validTargets, obj === token);
+      const fromCell = this.cellMap.get(this.activeCar.cellId) ?? null;
+      const validation = validateMoveAttempt(this.activeCar, fromCell, cell, this.validTargets, obj === token);
       if (validation.ok && cell && validation.info && validation.moveSpend != null) {
         const info = validation.info;
         const prevCellId = this.activeCar.cellId;
@@ -482,8 +484,7 @@ export class RaceScene extends Phaser.Scene {
     const fuelRate = RaceScene.MOVE_RATES.fuel;
     const activeCell = this.cellMap.get(car.cellId);
     const inPitLane = activeCell?.laneIndex === PIT_LANE;
-    const effectiveMaxSteps = inPitLane ? 1 : maxSteps;
-    return computeValidTargets(this.trackIndex, car.cellId, occupied, effectiveMaxSteps, {
+    return computeValidTargets(this.trackIndex, car.cellId, occupied, maxSteps, {
       allowPitExitSkip: car.pitExitBoost,
       disallowPitBoxTargets: shouldDisallowPitBoxTargets(car, inPitLane)
     }, {
@@ -495,17 +496,51 @@ export class RaceScene extends Phaser.Scene {
 
   private drawTargets() {
     this.gTargets.clear();
+    this.clearTargetCostLabels();
     this.gTargets.lineStyle(2, 0xffffff, 0.35);
 
     for (const [cellId, info] of this.validTargets) {
       const cell = this.cellMap.get(cellId);
       if (!cell) continue;
 
-      const r = 10 + Math.max(0, 9 - info.distance);
+      const ringRadius = 12 + Math.max(0, 9 - info.distance);
+      const dotRadius = 10;
       const color = info.isPitTrigger ? 0xffe066 : 0x66ccff;
       this.gTargets.lineStyle(2, color, 0.8);
-      this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, r);
+      this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, ringRadius);
+      this.gTargets.fillStyle(color, 0.9);
+      this.gTargets.fillCircle(cell.pos.x, cell.pos.y, dotRadius);
+      this.gTargets.lineStyle(1, 0x0b0f14, 0.95);
+      this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, dotRadius);
+
+      const costLabel = this.add.text(
+        cell.pos.x,
+        cell.pos.y,
+        this.formatTargetCost(info, cell.laneIndex),
+        {
+          fontFamily: "monospace",
+          fontSize: "11px",
+          color: "#0b0f14",
+          fontStyle: "bold"
+        }
+      );
+      costLabel.setOrigin(0.5, 0.5);
+      costLabel.setDepth(46);
+      this.targetCostLabels.push(costLabel);
     }
+  }
+
+  private clearTargetCostLabels() {
+    for (const label of this.targetCostLabels) {
+      label.destroy();
+    }
+    this.targetCostLabels = [];
+  }
+
+  private formatTargetCost(info: TargetInfo, targetLaneIndex: number): string {
+    const fromLaneIndex = this.cellMap.get(this.activeCar.cellId)?.laneIndex ?? targetLaneIndex;
+    const moveSpend = info.moveSpend ?? computeMoveSpend(info.distance, fromLaneIndex, targetLaneIndex);
+    return String(moveSpend);
   }
 
   private drawFrame() {
@@ -773,6 +808,7 @@ export class RaceScene extends Phaser.Scene {
     const validTargets = Array.from(this.validTargets.entries()).map(([cellId, info]) => ({
       cellId,
       distance: info.distance,
+      moveSpend: info.moveSpend ?? null,
       tireCost: info.tireCost,
       fuelCost: info.fuelCost,
       isPitTrigger: info.isPitTrigger

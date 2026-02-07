@@ -113,7 +113,10 @@ export function decideBotActionWithTrace(
   if (selected.info.isPitTrigger && shouldOpenPitModal(car, targetCell)) {
     return { action: { type: "pit", target: targetCell, info: selected.info }, trace };
   }
-  const moveSpend = computeMoveSpend(selected.info.distance, targetCell.laneIndex);
+  const fromCell = cellMap.get(car.cellId);
+  if (!fromCell) return { action: { type: "skip" }, trace };
+  const moveSpend = selected.info.moveSpend
+    ?? computeMoveSpend(selected.info.distance, fromCell.laneIndex, targetCell.laneIndex);
   return { action: { type: "move", target: targetCell, info: selected.info, moveSpend }, trace };
 }
 

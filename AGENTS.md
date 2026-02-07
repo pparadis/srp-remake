@@ -13,7 +13,12 @@ Project guide for Codex and other automation.
 
 - Movement is BFS on `next[]`. Forward progress ordering uses `forwardIndex`.
 - No sideways lane changes: lane changes must advance `forwardIndex` (except `PIT_ENTRY`).
-- Passing is blocked only by cars ahead in the **target lane** (adjacent lanes do not block).
+- Lane changes between main lanes cost +1 move spend.
+- Passing/merging uses target-lane blockers:
+  - Same-lane moves cannot pass the nearest car ahead.
+  - Lane-change moves may pass one target-lane blocker to merge into a gap, but cannot pass the next blocker.
+  - Adjacent lanes do not block unless they are the target lane.
+- Occupied cells are non-traversable for movement target search (except the start cell).
 - Pit lane rules:
   - Entry only via `PIT_ENTRY` from lane 1 (inner race lane).
   - Pit entry allowed only at distance 1 (no multi-zone jump).

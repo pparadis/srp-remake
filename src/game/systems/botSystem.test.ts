@@ -96,31 +96,46 @@ describe("decideBotAction", () => {
 
   it("returns pit when target is pit box and service is needed", () => {
     const car = makeCar({ pitServiced: false });
+    const fromCell = makeCell(car.cellId, 1);
     const cell = makeCell("P", 3, ["PIT_BOX"]);
     const targets = makeTargets([["P", { distance: 1, tireCost: 1, fuelCost: 1, isPitTrigger: true }]]);
-    const action = decideBotAction(targets, car, new Map([[cell.id, cell]]));
+    const action = decideBotAction(targets, car, new Map([[fromCell.id, fromCell], [cell.id, cell]]));
     expect(action.type).toBe("pit");
   });
 
   it("returns move with computed spend", () => {
     const car = makeCar();
+    const fromCell = makeCell(car.cellId, 1);
     const cell = makeCell("B", 1);
     const targets = makeTargets([["B", { distance: 2, tireCost: 1, fuelCost: 1, isPitTrigger: false }]]);
-    const action = decideBotAction(targets, car, new Map([[cell.id, cell]]));
+    const action = decideBotAction(targets, car, new Map([[fromCell.id, fromCell], [cell.id, cell]]));
     expect(action.type).toBe("move");
     if (action.type === "move") {
       expect(action.moveSpend).toBe(2);
     }
   });
 
+  it("adds +1 move spend for lane changes", () => {
+    const car = makeCar();
+    const fromCell = makeCell(car.cellId, 1);
+    const cell = makeCell("B", 2);
+    const targets = makeTargets([["B", { distance: 2, tireCost: 1, fuelCost: 1, isPitTrigger: false }]]);
+    const action = decideBotAction(targets, car, new Map([[fromCell.id, fromCell], [cell.id, cell]]));
+    expect(action.type).toBe("move");
+    if (action.type === "move") {
+      expect(action.moveSpend).toBe(3);
+    }
+  });
+
   it("returns structured decision trace", () => {
     const car = makeCar({ tire: 20, fuel: 20 });
+    const fromCell = makeCell(car.cellId, 1);
     const pitCell = makeCell("P", 0, ["PIT_BOX"]);
     const targets = makeTargets([
       ["P", { distance: 1, tireCost: 1, fuelCost: 1, isPitTrigger: true }],
       ["A", { distance: 2, tireCost: 5, fuelCost: 5, isPitTrigger: false }]
     ]);
-    const result = decideBotActionWithTrace(targets, car, new Map([[pitCell.id, pitCell]]));
+    const result = decideBotActionWithTrace(targets, car, new Map([[fromCell.id, fromCell], [pitCell.id, pitCell]]));
     expect(result.action.type).toBe("pit");
     expect(result.trace.selectedCellId).toBe("P");
     expect(result.trace.candidates.some((candidate) => candidate.cellId === "P")).toBe(true);

@@ -28,7 +28,21 @@ describe("moveBudgetSystem", () => {
   });
 
   it("counts pit lane movement as 1", () => {
-    expect(computeMoveSpend(5, 0)).toBe(1);
-    expect(computeMoveSpend(5, 1)).toBe(5);
+    expect(computeMoveSpend(5, 1, 0)).toBe(1);
+    expect(computeMoveSpend(5, 1, 1)).toBe(5);
+  });
+
+  it("adds +1 spend when changing between main lanes", () => {
+    expect(computeMoveSpend(1, 1, 2, 1)).toBe(2);
+    expect(computeMoveSpend(4, 2, 3, 4)).toBe(5);
+  });
+
+  it("does not add surcharge when lane change already consumed extra path distance", () => {
+    expect(computeMoveSpend(2, 1, 2, 1)).toBe(2);
+  });
+
+  it("does not add lane-change surcharge for pit transitions", () => {
+    expect(computeMoveSpend(1, 1, 0)).toBe(1);
+    expect(computeMoveSpend(1, 0, 1)).toBe(1);
   });
 });

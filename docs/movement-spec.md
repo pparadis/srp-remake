@@ -12,6 +12,8 @@ This doc summarizes the current movement rules implemented in `src/game/systems/
 
 - The active car has a max step budget (based on tires/fuel and remaining move budget).
 - If the car starts in the pit lane (lane 0), the max steps are forced to `1`.
+- Move spend is based on traveled distance, with `+1` surcharge for lane changes between main lanes.
+- Pit-lane movement spend remains `1`.
 
 ## Costs
 
@@ -30,10 +32,12 @@ This doc summarizes the current movement rules implemented in `src/game/systems/
 ## Occupancy
 
 - A target cell is invalid if it is occupied.
-- Passing is **blocked only by cars ahead in the target lane**:
-  - For each lane, compute the nearest occupied cell **ahead** of the start position (by `forwardIndex` delta).
-  - A target in that lane is invalid if it would move past that nearest occupied cell.
-- Adjacent lanes **do not** block lane changes; this allows overtakes when the target lane is clear.
+- Target-lane blocker policy:
+  - For same-lane movement, the nearest occupied cell ahead is the blocker.
+  - For lane changes, you may pass one blocker in the destination lane to merge into a gap.
+  - Lane-change targets are blocked by the second blocker ahead in the destination lane (or by the first if only one exists).
+  - Adjacent lanes do not block unless they are the chosen destination lane.
+- Occupied cells are not traversable during target search (except the start cell).
 
 ## Pit Rules
 

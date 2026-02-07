@@ -25,6 +25,22 @@ export function getRemainingBudget(cycle: MoveCycle, total = 40) {
   return Math.max(0, total - spent);
 }
 
-export function computeMoveSpend(distance: number, targetLaneIndex: number) {
-  return targetLaneIndex === PIT_LANE ? 1 : distance;
+function isMainLane(laneIndex: number) {
+  return laneIndex !== PIT_LANE;
+}
+
+export function computeMoveSpend(
+  distance: number,
+  startLaneIndex: number,
+  targetLaneIndex: number,
+  targetForwardDelta = distance
+) {
+  if (targetLaneIndex === PIT_LANE) return 1;
+  const laneChangeSurcharge = (
+    isMainLane(startLaneIndex) &&
+    isMainLane(targetLaneIndex) &&
+    startLaneIndex !== targetLaneIndex &&
+    targetForwardDelta >= distance
+  ) ? 1 : 0;
+  return distance + laneChangeSurcharge;
 }
