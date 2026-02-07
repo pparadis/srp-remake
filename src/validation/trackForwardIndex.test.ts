@@ -2,8 +2,28 @@ import { describe, expect, it } from "vitest";
 import track from "../../public/tracks/oval16_3lanes.json";
 import { PIT_LANE } from "../game/constants";
 
-function isStraightZone(zoneIndex: number): boolean {
-  return zoneIndex >= 30 || zoneIndex <= 6 || (zoneIndex >= 15 && zoneIndex <= 21);
+function inWrapRange(zoneIndex: number, start: number, end: number, maxZone: number): boolean {
+  if (start <= end) return zoneIndex >= start && zoneIndex <= end;
+  return zoneIndex >= start && zoneIndex <= maxZone || zoneIndex >= 1 && zoneIndex <= end;
+}
+
+function mappedStraightSpineZone(zoneIndex: number, laneIndex: number, maxZone: number): number | null {
+  if (laneIndex === 1) {
+    if (inWrapRange(zoneIndex, 28, 6, maxZone)) return zoneIndex === 28 ? 28 : zoneIndex;
+    if (zoneIndex >= 14 && zoneIndex <= 20) return zoneIndex;
+    return null;
+  }
+  if (laneIndex === 2) {
+    if (inWrapRange(zoneIndex, 30, 6, maxZone)) return zoneIndex === 30 ? 28 : zoneIndex;
+    if (zoneIndex >= 15 && zoneIndex <= 21) return zoneIndex - 1;
+    return null;
+  }
+  if (laneIndex === 3) {
+    if (inWrapRange(zoneIndex, 32, 6, maxZone)) return zoneIndex === 32 ? 28 : zoneIndex;
+    if (zoneIndex >= 16 && zoneIndex <= 22) return zoneIndex - 2;
+    return null;
+  }
+  return null;
 }
 
 describe("track forwardIndex mapping", () => {
@@ -37,29 +57,16 @@ describe("track forwardIndex mapping", () => {
   });
 
   it("normalizes main-lane forwardIndex on straight zones", () => {
-    const mainLanes = [1, 2, 3];
-    const laneZoneForward = new Map<number, Map<number, number>>();
+    const mainLanes = [1, 2, 3] as const;
+    const spineLen = track.cells.filter((c: { laneIndex: number }) => c.laneIndex === 1).length;
     for (const lane of mainLanes) {
-      laneZoneForward.set(
-        lane,
-        new Map(
-          track.cells
-            .filter((c: { laneIndex: number }) => c.laneIndex === lane)
-            .map((c: { zoneIndex: number; forwardIndex: number }) => [c.zoneIndex, c.forwardIndex])
-        )
-      );
-    }
-
-    const spineZones = laneZoneForward.get(1);
-    expect(spineZones).toBeDefined();
-    if (!spineZones) return;
-
-    for (const [zoneIndex, spineForward] of spineZones.entries()) {
-      if (!isStraightZone(zoneIndex)) continue;
-      for (const lane of [2, 3]) {
-        const laneForward = laneZoneForward.get(lane)?.get(zoneIndex);
-        if (laneForward == null) continue;
-        expect(laneForward).toBe(spineForward);
+      const laneCells = track.cells.filter((c: { laneIndex: number }) => c.laneIndex === lane);
+      const laneMaxZone = Math.max(...laneCells.map((c: { zoneIndex: number }) => c.zoneIndex));
+      for (const cell of laneCells) {
+        const mappedZone = mappedStraightSpineZone(cell.zoneIndex, lane, laneMaxZone);
+        if (mappedZone == null) continue;
+        const expected = ((mappedZone - 1) % spineLen + spineLen) % spineLen;
+        expect(cell.forwardIndex).toBe(expected);
       }
     }
   });
@@ -77,7 +84,8 @@ describe("track forwardIndex mapping", () => {
     );
 
     const cornerMismatch = Array.from(lane1ByZone.entries()).some(([zoneIndex, lane1Forward]) => {
-      if (isStraightZone(zoneIndex)) return false;
+      if (mappedStraightSpineZone(zoneIndex, 1, 28) != null) return false;
+      if (mappedStraightSpineZone(zoneIndex, 3, 32) != null) return false;
       const lane3Forward = lane3ByZone.get(zoneIndex);
       if (lane3Forward == null) return false;
       return lane3Forward !== lane1Forward;

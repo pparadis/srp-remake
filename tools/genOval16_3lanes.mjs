@@ -154,9 +154,35 @@ function toSpineForwardIndex(zoneIndex) {
   return raw < 0 ? raw + spineLen : raw;
 }
 
-function isStraightZone(zoneIndex) {
-  // Two straights, including wrap-around: Z30..Z06 and Z15..Z21
-  return zoneIndex >= 30 || zoneIndex <= 6 || (zoneIndex >= 15 && zoneIndex <= 21);
+function inWrapRange(zoneIndex, start, end, laneLen) {
+  if (start <= end) return zoneIndex >= start && zoneIndex <= end;
+  return zoneIndex >= start && zoneIndex <= laneLen || zoneIndex >= 1 && zoneIndex <= end;
+}
+
+function mappedStraightSpineZone(zoneIndex, laneIndex, laneLen) {
+  // Straight mapping by lane:
+  // L1: Z28..Z06 and Z14..Z20
+  // L2: Z30..Z06 and Z15..Z21
+  // L3: Z32..Z06 and Z16..Z22
+  // All map to spine straight zones:
+  //   first straight -> Z28..Z06
+  //   second straight -> Z14..Z20
+  if (laneIndex === 1) {
+    if (inWrapRange(zoneIndex, 28, 6, laneLen)) return zoneIndex === 28 ? 28 : zoneIndex;
+    if (zoneIndex >= 14 && zoneIndex <= 20) return zoneIndex;
+    return null;
+  }
+  if (laneIndex === 2) {
+    if (inWrapRange(zoneIndex, 30, 6, laneLen)) return zoneIndex === 30 ? 28 : zoneIndex;
+    if (zoneIndex >= 15 && zoneIndex <= 21) return zoneIndex - 1;
+    return null;
+  }
+  if (laneIndex === 3) {
+    if (inWrapRange(zoneIndex, 32, 6, laneLen)) return zoneIndex === 32 ? 28 : zoneIndex;
+    if (zoneIndex >= 16 && zoneIndex <= 22) return zoneIndex - 2;
+    return null;
+  }
+  return null;
 }
 
 for (const lane of mainLanes) {
@@ -173,8 +199,9 @@ for (const lane of mainLanes) {
     entry.cell.forwardIndex = spineIndex;
 
     // Normalize forward index across lanes on straights.
-    if (isStraightZone(entry.cell.zoneIndex)) {
-      entry.cell.forwardIndex = toSpineForwardIndex(entry.cell.zoneIndex);
+    const spineStraightZone = mappedStraightSpineZone(entry.cell.zoneIndex, lane, len);
+    if (spineStraightZone != null) {
+      entry.cell.forwardIndex = toSpineForwardIndex(spineStraightZone);
     }
   }
 }
