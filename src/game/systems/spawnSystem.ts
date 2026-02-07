@@ -130,12 +130,9 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
   }
 
   const count = Math.max(1, Math.min(requestedTotal, humanCount + botCount, maxSlots));
-  if (humanCount > count) {
-    humanCount = count;
-    botCount = 0;
-  } else {
-    botCount = Math.min(botCount, count - humanCount);
-  }
+  // `humanCount` is already clamped to `requestedTotal`, and `count` is
+  // constrained by `humanCount + botCount`, so only bot count may need trimming.
+  botCount = Math.min(botCount, count - humanCount);
 
   const orderedSlots = slots;
 

@@ -39,6 +39,11 @@ describe("turnSystem", () => {
     expect(getCurrentCarId(state)).toBeNull();
   });
 
+  it("returns null when index points outside order bounds", () => {
+    const state = { order: [7, 8], index: 99 };
+    expect(getCurrentCarId(state)).toBeNull();
+  });
+
   it("advances and wraps turn index", () => {
     const cars = [makeCar(1), makeCar(2)];
     const state = createTurnState(cars, 0);
@@ -47,5 +52,12 @@ describe("turnSystem", () => {
     expect(getCurrentCarId(state)).toBe(2);
     advanceTurn(state);
     expect(getCurrentCarId(state)).toBe(1);
+  });
+
+  it("does not advance when turn order is empty", () => {
+    const state = createTurnState([], 0);
+    advanceTurn(state);
+    expect(state.index).toBe(0);
+    expect(getCurrentCarId(state)).toBeNull();
   });
 });

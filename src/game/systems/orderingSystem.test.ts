@@ -76,6 +76,31 @@ describe("sortCarsByProgress", () => {
     expect(ordered.map((c) => c.carId)).toEqual([2, 3, 1]);
   });
 
+  it("prefers cars present in turn order when ties occur", () => {
+    const cellMap = new Map<string, TrackCell>([
+      ["A", makeCell("A", 7)],
+      ["B", makeCell("B", 7)]
+    ]);
+    const cars = [makeCar(1, "A"), makeCar(2, "B")];
+
+    const ordered = sortCarsByProgress(cars, cellMap, {
+      turnOrder: [2],
+      turnIndex: 0
+    });
+
+    expect(ordered.map((c) => c.carId)).toEqual([2, 1]);
+  });
+
+  it("falls back to carId when turn order does not break ties", () => {
+    const cellMap = new Map<string, TrackCell>([
+      ["A", makeCell("A", 7)],
+      ["B", makeCell("B", 7)]
+    ]);
+    const cars = [makeCar(2, "A"), makeCar(1, "B")];
+    const ordered = sortCarsByProgress(cars, cellMap, { turnOrder: [], turnIndex: 0 });
+    expect(ordered.map((c) => c.carId)).toEqual([1, 2]);
+  });
+
   it("uses initial placement exception for cars behind start/finish", () => {
     const cellMap = new Map<string, TrackCell>([
       ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
@@ -194,5 +219,27 @@ describe("buildProgressMap", () => {
     expect(progress.get("A0")).toBe(0);
     expect(progress.get("A1")).toBe(1);
     expect(progress.get("A2")).toBe(2);
+  });
+
+  it("includes disconnected lane cells by forwardIndex fallback order", () => {
+    const track: TrackData = {
+      trackId: "disconnected-lane",
+      zones: 4,
+      lanes: 3,
+      cells: [
+        { ...makeCell("S0", 0), laneIndex: 1, tags: ["START_FINISH"] as TrackTag[], next: ["S1"] },
+        { ...makeCell("S1", 1), laneIndex: 1, next: ["S2"] },
+        { ...makeCell("S2", 2), laneIndex: 1, next: ["S3"] },
+        { ...makeCell("S3", 3), laneIndex: 1, next: ["S0"] },
+        { ...makeCell("L2_0", 0), laneIndex: 2, next: ["L2_1"] },
+        { ...makeCell("L2_1", 1), laneIndex: 2, next: [] },
+        { ...makeCell("L2_2", 2), laneIndex: 2, next: [] }
+      ]
+    };
+
+    const progress = buildProgressMap(track);
+    expect(progress.get("L2_0")).toBe(0);
+    expect(progress.get("L2_1")).toBe(1.5);
+    expect(progress.get("L2_2")).toBe(3);
   });
 });
