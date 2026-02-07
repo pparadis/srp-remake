@@ -109,6 +109,9 @@ export class RaceScene extends Phaser.Scene {
   private txtInfo!: Phaser.GameObjects.Text;
   private txtCycle!: Phaser.GameObjects.Text;
   private txtDebugHint!: Phaser.GameObjects.Text;
+  private centerResourceBg!: Phaser.GameObjects.Rectangle;
+  private txtCenterTire!: Phaser.GameObjects.Text;
+  private txtCenterFuel!: Phaser.GameObjects.Text;
   private logPanel!: LogPanel;
   private standingsPanel!: StandingsPanel;
   private showForwardIndex = false;
@@ -136,6 +139,12 @@ export class RaceScene extends Phaser.Scene {
   private skipButton!: TextButton;
   private copyDebugButton!: TextButton;
   private copyBotDebugButton!: TextButton;
+  private showCarsAndMoves = true;
+  private readonly onExternalToggleCarsMoves = () => {
+    this.showCarsAndMoves = !this.showCarsAndMoves;
+    this.updateExternalToggleLabel();
+    this.applyCarsAndMovesVisibility();
+  };
   private readonly buildInfo = {
     version: "debug-snapshot-v3",
     // eslint-disable-next-line no-undef
@@ -208,12 +217,14 @@ export class RaceScene extends Phaser.Scene {
 
     this.drawTrack();
     this.drawFrame();
+    this.createCenterResourceHud();
     this.centerTrack();
     this.setUIFixed();
     this.scale.on("resize", () => {
       this.drawFrame();
       this.layoutUI();
       this.centerTrack();
+      this.positionCenterResourceHud();
     });
     this.initCars();
     this.initTurn();
@@ -226,7 +237,13 @@ export class RaceScene extends Phaser.Scene {
     this.createCopyDebugButton();
     this.createCopyBotDebugButton();
     this.updateCycleHud();
+    this.applyCarsAndMovesVisibility();
+    this.updateExternalToggleLabel();
     this.setUIFixed();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
+    });
+    window.addEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
 
     this.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
       if (this.pitModal.isActive()) return;
@@ -418,7 +435,19 @@ export class RaceScene extends Phaser.Scene {
       this.activeHaloTween = null;
     }
 
+    if (!this.showCarsAndMoves) {
+      for (const token of this.carTokens.values()) {
+        token.setVisible(false);
+        this.input.setDraggable(token, false);
+      }
+      for (const halo of this.activeHalos.values()) {
+        halo.setVisible(false);
+      }
+      return;
+    }
+
     for (const [carId, token] of this.carTokens.entries()) {
+      token.setVisible(true);
       const halo = this.activeHalos.get(carId);
       if (carId === this.activeCar.carId) {
         token.setAlpha(1);
@@ -494,6 +523,7 @@ export class RaceScene extends Phaser.Scene {
   private drawTargets() {
     this.gTargets.clear();
     this.clearTargetCostLabels();
+    if (!this.showCarsAndMoves) return;
     this.gTargets.lineStyle(2, 0xffffff, 0.35);
 
     for (const [cellId, info] of this.validTargets) {
@@ -571,16 +601,76 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private centerTrack() {
+    const center = this.getTrackCenter();
+    if (!center) return;
+    this.cameras.main.centerOn(center.x, center.y);
+  }
+
+  private getTrackCenter(): { x: number; y: number } | null {
     const xs = this.track.cells.map((c) => c.pos.x);
     const ys = this.track.cells.map((c) => c.pos.y);
-    if (xs.length === 0 || ys.length === 0) return;
+    if (xs.length === 0 || ys.length === 0) return null;
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    this.cameras.main.centerOn(cx, cy);
+    return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+  }
+
+  private createCenterResourceHud() {
+    const center = this.getTrackCenter() ?? { x: 0, y: 0 };
+    this.centerResourceBg = this.add.rectangle(center.x, center.y, 168, 62, 0x0f141b, 0.8);
+    this.centerResourceBg.setStrokeStyle(1, 0x2a3642, 0.95);
+    this.centerResourceBg.setDepth(62);
+
+    this.txtCenterTire = this.add.text(center.x, center.y - 11, "", {
+      fontFamily: "monospace",
+      fontSize: "14px",
+      color: "#4cd964",
+      fontStyle: "bold"
+    });
+    this.txtCenterTire.setOrigin(0.5, 0.5);
+    this.txtCenterTire.setDepth(63);
+
+    this.txtCenterFuel = this.add.text(center.x, center.y + 11, "", {
+      fontFamily: "monospace",
+      fontSize: "14px",
+      color: "#4cd964",
+      fontStyle: "bold"
+    });
+    this.txtCenterFuel.setOrigin(0.5, 0.5);
+    this.txtCenterFuel.setDepth(63);
+  }
+
+  private positionCenterResourceHud() {
+    const center = this.getTrackCenter();
+    if (!center) return;
+    this.centerResourceBg.setPosition(center.x, center.y);
+    this.txtCenterTire.setPosition(center.x, center.y - 11);
+    this.txtCenterFuel.setPosition(center.x, center.y + 11);
+  }
+
+  private getResourcePercentColor(percent: number): string {
+    const clamped = Phaser.Math.Clamp(percent, 0, 100);
+    const amber = { r: 255, g: 176, b: 32 };
+    const red = { r: 255, g: 77, b: 77 };
+    if (clamped >= 20) return "#4cd964";
+
+    // Under 20% we switch to warning colors immediately (amber -> red).
+    const t = (20 - clamped) / 20;
+    const r = Math.round(amber.r + (red.r - amber.r) * t);
+    const g = Math.round(amber.g + (red.g - amber.g) * t);
+    const b = Math.round(amber.b + (red.b - amber.b) * t);
+    const toHex = (value: number) => value.toString(16).padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  private updateCenterResourceHud() {
+    if (!this.activeCar) return;
+    this.txtCenterTire.setText(`Tire ${Math.round(this.activeCar.tire)}%`);
+    this.txtCenterFuel.setText(`Fuel ${Math.round(this.activeCar.fuel)}%`);
+    this.txtCenterTire.setColor(this.getResourcePercentColor(this.activeCar.tire));
+    this.txtCenterFuel.setColor(this.getResourcePercentColor(this.activeCar.fuel));
   }
 
   private addLog(line: string) {
@@ -641,11 +731,22 @@ export class RaceScene extends Phaser.Scene {
     if (this.skipButton) {
       this.skipButton.setPosition(w / 2, h - ui.bottomButtonYPad);
     }
-    if (this.copyDebugButton) {
-      this.copyDebugButton.setPosition(pad + 4, h - ui.bottomButtonYPad);
-    }
-    if (this.copyBotDebugButton) {
-      this.copyBotDebugButton.setPosition(pad + 116, h - ui.bottomButtonYPad);
+    const leftButtons = [this.copyDebugButton, this.copyBotDebugButton]
+      .filter(Boolean) as TextButton[];
+    if (leftButtons.length > 0) {
+      let x = pad + 4;
+      let y = h - ui.bottomButtonYPad;
+      const gap = 8;
+      for (const button of leftButtons) {
+        const textObj = button.getText();
+        const width = textObj.width;
+        if (x + width > w - pad) {
+          x = pad + 4;
+          y -= textObj.height + gap;
+        }
+        button.setPosition(x, y);
+        x += width + gap;
+      }
     }
 
     this.logPanel.draw();
@@ -710,6 +811,37 @@ export class RaceScene extends Phaser.Scene {
     });
     this.layoutUI();
     this.setUIFixed();
+  }
+
+  private updateExternalToggleLabel() {
+    const button = document.getElementById("toggleCarsMovesBtn") as HTMLButtonElement | null;
+    if (!button) return;
+    button.textContent = this.showCarsAndMoves ? "Cars+moves: ON" : "Cars+moves: OFF";
+  }
+
+  private applyCarsAndMovesVisibility() {
+    if (!this.showCarsAndMoves) {
+      if (this.activeHaloTween) {
+        this.activeHaloTween.stop();
+        this.activeHaloTween = null;
+      }
+      this.gTargets.clear();
+      this.clearTargetCostLabels();
+      for (const token of this.carTokens.values()) {
+        token.setVisible(false);
+        this.input.setDraggable(token, false);
+      }
+      for (const halo of this.activeHalos.values()) {
+        halo.setVisible(false);
+      }
+      return;
+    }
+
+    for (const token of this.carTokens.values()) {
+      token.setVisible(true);
+    }
+    this.updateActiveCarVisuals();
+    this.drawTargets();
   }
 
   private updateSkipButtonState() {
@@ -1237,6 +1369,7 @@ export class RaceScene extends Phaser.Scene {
     const parts = cycle.spent.map((v, i) => (i === cycle.index ? `[${v}]` : `${v}`));
     const remaining = getRemainingBudget(this.activeCar.moveCycle);
     this.txtCycle.setText(`Move budget: ${parts.join("-")}  Remaining ${remaining}/40`);
+    this.updateCenterResourceHud();
   }
 
   private computeCostFactors(laneIndex: number) {

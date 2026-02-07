@@ -4,6 +4,7 @@ const app = document.getElementById("app")!;
 const humanCountSelect = document.getElementById("humanCountSelect") as HTMLSelectElement;
 const botCountSelect = document.getElementById("botCountSelect") as HTMLSelectElement;
 const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
+const toggleCarsMovesBtn = document.getElementById("toggleCarsMovesBtn") as HTMLButtonElement | null;
 
 let game: ReturnType<typeof import("./game").startGame> | null = null;
 
@@ -49,4 +50,8 @@ void ensureGameStarted();
 
 restartBtn.addEventListener("click", () => {
   restartGame();
+});
+
+toggleCarsMovesBtn?.addEventListener("click", () => {
+  window.dispatchEvent(new Event("srp:toggle-cars-moves"));
 });
