@@ -22,8 +22,11 @@ export class StandingsPanel {
   private list: Phaser.GameObjects.Text;
   private rect: Rect = { x: 0, y: 0, w: 0, h: 0 };
   private collapsed = false;
-  private standingsMode: StandingsMode = "carId";
+  private standingsMode: StandingsMode = "race";
   private callbacks: StandingsCallbacks;
+  private headerOffset = { x: 8, y: 6 };
+  private textOffset = { x: 8, y: 26 };
+  private modeOffsetX = 120;
 
   constructor(scene: Phaser.Scene, callbacks: StandingsCallbacks = {}) {
     this.scene = scene;
@@ -40,7 +43,7 @@ export class StandingsPanel {
       this.callbacks.onToggle?.();
     });
 
-    this.mode = this.scene.add.text(0, 0, "Mode: Id", {
+    this.mode = this.scene.add.text(0, 0, "Mode: Race", {
       fontFamily: "monospace",
       fontSize: "12px",
       color: "#9fb0bf"
@@ -69,20 +72,30 @@ export class StandingsPanel {
     return this.standingsMode;
   }
 
-  setRect(rect: Rect, headerOffset: { x: number; y: number }, textOffset: { x: number; y: number }, modeOffsetX: number) {
-    this.rect = rect;
-    this.header.setPosition(rect.x + headerOffset.x, rect.y + headerOffset.y);
-    this.mode.setPosition(rect.x + modeOffsetX, rect.y + headerOffset.y);
-    this.list.setPosition(rect.x + textOffset.x, rect.y + textOffset.y);
-    this.list.setWordWrapWidth(rect.w - textOffset.x * 2);
+  getPreferredHeight(): number {
+    return this.computePreferredHeight();
   }
 
-  setLines(lines: string[]) {
+  setRect(rect: Rect, headerOffset: { x: number; y: number }, textOffset: { x: number; y: number }, modeOffsetX: number) {
+    this.headerOffset = headerOffset;
+    this.textOffset = textOffset;
+    this.modeOffsetX = modeOffsetX;
+    this.rect = rect;
+    this.header.setPosition(rect.x + this.headerOffset.x, rect.y + this.headerOffset.y);
+    this.mode.setPosition(rect.x + this.modeOffsetX, rect.y + this.headerOffset.y);
+    this.list.setPosition(rect.x + this.textOffset.x, rect.y + this.textOffset.y);
+    this.list.setWordWrapWidth(rect.w - this.textOffset.x * 2);
+  }
+
+  setLines(lines: string[]): boolean {
+    const before = this.computePreferredHeight();
     if (this.collapsed) {
       this.list.setText("");
-      return;
+    } else {
+      this.list.setText(lines.join("\n"));
     }
-    this.list.setText(lines.join("\n"));
+    const after = this.computePreferredHeight();
+    return before !== after;
   }
 
   draw() {
@@ -113,5 +126,15 @@ export class StandingsPanel {
 
   private refreshModeLabel() {
     this.mode.setText(this.standingsMode === "carId" ? "Mode: Id" : "Mode: Race");
+  }
+
+  private computePreferredHeight(): number {
+    const topPad = this.headerOffset.y;
+    const bottomPad = Math.max(8, this.textOffset.x);
+    const collapsedHeight = Math.ceil(topPad + this.header.height + topPad);
+    if (this.collapsed) return collapsedHeight;
+    const openMinHeight = Math.ceil(topPad + Math.max(this.header.height, this.mode.height) + topPad + 8);
+    const openHeight = Math.ceil(this.textOffset.y + this.list.height + bottomPad);
+    return Math.max(openMinHeight, openHeight);
   }
 }

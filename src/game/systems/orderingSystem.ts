@@ -7,6 +7,30 @@ export interface CarSortKey {
   carId: number;
 }
 
+export interface SortCarsOptions {
+  turnOrder?: number[];
+  turnIndex?: number;
+}
+
+function hasStartedRace(cars: Car[]): boolean {
+  return cars.some((car) => {
+    if ((car.lapCount ?? 0) !== 0) return true;
+    if (car.moveCycle.index !== 0) return true;
+    return car.moveCycle.spent.some((value) => value !== 0);
+  });
+}
+
+function getStartFinishForwardIndex(cellMap: Map<string, TrackCell>): number | null {
+  let startFinishForwardIndex: number | null = null;
+  for (const cell of cellMap.values()) {
+    if (!(cell.tags ?? []).includes("START_FINISH")) continue;
+    if (startFinishForwardIndex == null || cell.forwardIndex < startFinishForwardIndex) {
+      startFinishForwardIndex = cell.forwardIndex;
+    }
+  }
+  return startFinishForwardIndex;
+}
+
 export function getCellForwardIndex(cellId: string, cellMap: Map<string, TrackCell>): number {
   const cell = cellMap.get(cellId);
   return cell ? cell.forwardIndex : -1;
@@ -25,13 +49,53 @@ export function computeCarSortKey(
 export function sortCarsByProgress(
   cars: Car[],
   cellMap: Map<string, TrackCell>,
-  progressMap?: Map<string, number>
+  options: SortCarsOptions = {}
 ): Car[] {
+  const turnOrderRank = new Map<number, number>();
+  const turnOrder = options.turnOrder ?? [];
+  if (turnOrder.length > 0) {
+    const start = ((options.turnIndex ?? 0) % turnOrder.length + turnOrder.length) % turnOrder.length;
+    for (let i = 0; i < turnOrder.length; i += 1) {
+      const carId = turnOrder[(start + i) % turnOrder.length];
+      if (carId != null) turnOrderRank.set(carId, i);
+    }
+  }
+  const startFinishForwardIndex = getStartFinishForwardIndex(cellMap);
+  const isInitialPlacement =
+    turnOrder.length > 0 &&
+    (options.turnIndex ?? 0) === 0 &&
+    !hasStartedRace(cars);
+
   return [...cars].sort((a, b) => {
-    const aKey = computeCarSortKey(a, cellMap, progressMap);
-    const bKey = computeCarSortKey(b, cellMap, progressMap);
+    const aKey = computeCarSortKey(a, cellMap);
+    const bKey = computeCarSortKey(b, cellMap);
     if (aKey.lapCount !== bKey.lapCount) return bKey.lapCount - aKey.lapCount;
-    if (aKey.progressIndex !== bKey.progressIndex) return bKey.progressIndex - aKey.progressIndex;
+
+    if (isInitialPlacement) {
+      const aIsBehindStart = startFinishForwardIndex != null &&
+        aKey.progressIndex !== startFinishForwardIndex &&
+        aKey.progressIndex <= 27;
+      const bIsBehindStart = startFinishForwardIndex != null &&
+        bKey.progressIndex !== startFinishForwardIndex &&
+        bKey.progressIndex <= 27;
+
+      if (aIsBehindStart !== bIsBehindStart) return aIsBehindStart ? 1 : -1;
+      if (aIsBehindStart && bIsBehindStart && aKey.progressIndex !== bKey.progressIndex) {
+        return bKey.progressIndex - aKey.progressIndex;
+      }
+    }
+
+    // Lower forwardIndex is ahead in standings order.
+    if (aKey.progressIndex !== bKey.progressIndex) return aKey.progressIndex - bKey.progressIndex;
+
+    const aTurnRank = turnOrderRank.get(aKey.carId);
+    const bTurnRank = turnOrderRank.get(bKey.carId);
+    if (aTurnRank != null && bTurnRank != null && aTurnRank !== bTurnRank) {
+      return aTurnRank - bTurnRank;
+    }
+    if (aTurnRank != null && bTurnRank == null) return -1;
+    if (aTurnRank == null && bTurnRank != null) return 1;
+
     return aKey.carId - bKey.carId;
   });
 }

@@ -38,15 +38,15 @@ function makeCar(carId: number, cellId: string, lapCount = 0): Car {
 }
 
 describe("sortCarsByProgress", () => {
-  it("orders by forwardIndex when lapCount is equal", () => {
+  it("orders by forwardIndex ascending when lapCount is equal", () => {
     const cellMap = new Map<string, TrackCell>([
       ["A", makeCell("A", 10)],
       ["B", makeCell("B", 12)]
     ]);
     const cars = [makeCar(1, "A"), makeCar(2, "B")];
     const ordered = sortCarsByProgress(cars, cellMap);
-    expect(ordered[0]?.carId).toBe(2);
-    expect(ordered[1]?.carId).toBe(1);
+    expect(ordered[0]?.carId).toBe(1);
+    expect(ordered[1]?.carId).toBe(2);
   });
 
   it("orders by lapCount before forwardIndex", () => {
@@ -58,6 +58,55 @@ describe("sortCarsByProgress", () => {
     const ordered = sortCarsByProgress(cars, cellMap);
     expect(ordered[0]?.carId).toBe(1);
     expect(ordered[1]?.carId).toBe(2);
+  });
+
+  it("uses player/bot turn order as tie-break when lap and fwd are equal", () => {
+    const cellMap = new Map<string, TrackCell>([
+      ["A", makeCell("A", 7)],
+      ["B", makeCell("B", 7)],
+      ["C", makeCell("C", 7)]
+    ]);
+    const cars = [makeCar(1, "A"), makeCar(2, "B"), makeCar(3, "C")];
+
+    const ordered = sortCarsByProgress(cars, cellMap, {
+      turnOrder: [1, 2, 3],
+      turnIndex: 1
+    });
+
+    expect(ordered.map((c) => c.carId)).toEqual([2, 3, 1]);
+  });
+
+  it("uses initial placement exception for cars behind start/finish", () => {
+    const cellMap = new Map<string, TrackCell>([
+      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
+      ["B27", makeCell("B27", 27)],
+      ["B26", makeCell("B26", 26)]
+    ]);
+    const cars = [makeCar(1, "SF"), makeCar(2, "B26"), makeCar(3, "B27")];
+
+    const ordered = sortCarsByProgress(cars, cellMap, {
+      turnOrder: [1, 2, 3],
+      turnIndex: 0
+    });
+
+    expect(ordered.map((c) => c.carId)).toEqual([1, 3, 2]);
+  });
+
+  it("applies initial placement exception only before first turn", () => {
+    const cellMap = new Map<string, TrackCell>([
+      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
+      ["B27", makeCell("B27", 27)],
+      ["B26", makeCell("B26", 26)]
+    ]);
+    const cars = [makeCar(1, "SF"), makeCar(2, "B26"), makeCar(3, "B27")];
+    cars[0]!.moveCycle = { index: 1, spent: [1, 0, 0, 0, 0] };
+
+    const ordered = sortCarsByProgress(cars, cellMap, {
+      turnOrder: [1, 2, 3],
+      turnIndex: 1
+    });
+
+    expect(ordered.map((c) => c.carId)).toEqual([1, 2, 3]);
   });
 });
 

@@ -18,7 +18,7 @@ import { applyMove } from "../systems/moveCommitSystem";
 import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets } from "../systems/pitSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
 import { spawnCars } from "../systems/spawnSystem";
-import { buildProgressMap, sortCarsByProgress } from "../systems/orderingSystem";
+import { sortCarsByProgress } from "../systems/orderingSystem";
 import { advanceTurn, createTurnState, getCurrentCarId, type TurnState } from "../systems/turnSystem";
 import { validateTrack } from "../../validation/trackValidation";
 import { PitModal } from "./ui/PitModal";
@@ -70,7 +70,7 @@ export class RaceScene extends Phaser.Scene {
   private static readonly UI = {
     padding: 10,
     logPanel: { width: 290, height: 180, radius: 8 },
-    standingsPanel: { width: 250, height: 160, radius: 8 },
+    standingsPanel: { width: 250, minHeight: 64, radius: 8 },
     logPadding: 10,
     standingsHeaderOffset: { x: 8, y: 6 },
     standingsTextOffset: { x: 8, y: 26 },
@@ -113,7 +113,6 @@ export class RaceScene extends Phaser.Scene {
   private standingsPanel!: StandingsPanel;
   private showForwardIndex = false;
   private forwardIndexLabels: Phaser.GameObjects.Text[] = [];
-  private progressMap!: Map<string, number>;
   private uiLogRect = { x: 0, y: 0, w: 0, h: 0 };
   private uiStandingsRect = { x: 0, y: 0, w: 0, h: 0 };
   private cars: Car[] = [];
@@ -165,7 +164,6 @@ export class RaceScene extends Phaser.Scene {
     }
     this.cellMap = new Map(this.track.cells.map((c) => [c.id, c]));
     this.trackIndex = buildTrackIndex(this.track);
-    this.progressMap = buildProgressMap(this.track, 1);
     const rawTotal = Number(this.registry.get(REG_TOTAL_CARS) ?? 1);
     const rawHumans = Number(this.registry.get(REG_HUMAN_CARS) ?? 1);
     const rawBots = Number(this.registry.get(REG_BOT_CARS) ?? 0);
@@ -322,7 +320,6 @@ export class RaceScene extends Phaser.Scene {
       this.spawnCarToken(entry.car, entry.color);
     }
     this.activeCar = this.getFirstCar();
-    this.updateStandings();
   }
 
   private spawnCarToken(car: Car, color: number) {
@@ -617,13 +614,18 @@ export class RaceScene extends Phaser.Scene {
     const h = this.scale.height;
     const ui = RaceScene.UI;
     const pad = ui.padding;
+    const standingsHeight = Math.max(ui.standingsPanel.minHeight, this.standingsPanel.getPreferredHeight());
+    const standingsY = Math.max(
+      pad,
+      Math.min(h - standingsHeight - pad, Math.round((h - standingsHeight) / 2))
+    );
 
     this.uiLogRect = { x: w - ui.logPanel.width - pad, y: pad, w: ui.logPanel.width, h: ui.logPanel.height };
     this.uiStandingsRect = {
       x: pad,
-      y: h - ui.standingsPanel.height - pad,
+      y: standingsY,
       w: ui.standingsPanel.width,
-      h: ui.standingsPanel.height
+      h: standingsHeight
     };
 
     this.txtCycle.setPosition(w / 2, RaceScene.HUD.cyclePosY);
@@ -652,19 +654,24 @@ export class RaceScene extends Phaser.Scene {
 
   private updateStandings() {
     if (this.standingsPanel.isCollapsed()) {
-      this.standingsPanel.setLines([]);
+      const resized = this.standingsPanel.setLines([]);
+      if (resized) this.layoutUI();
       return;
     }
     const ordered = this.standingsPanel.getMode() === "carId"
       ? [...this.cars].sort((a, b) => a.carId - b.carId)
-      : sortCarsByProgress(this.cars, this.cellMap, this.progressMap);
+      : sortCarsByProgress(this.cars, this.cellMap, {
+        turnOrder: this.turn.order,
+        turnIndex: this.turn.index
+      });
     const lines = ordered.map((car, index) => {
       const cell = this.cellMap.get(car.cellId);
       const fwd = cell?.forwardIndex ?? -1;
       const lap = car.lapCount ?? 0;
       return `${index + 1}. Car ${car.carId}  lap ${lap}  fwd ${fwd}`;
     });
-    this.standingsPanel.setLines(lines);
+    const resized = this.standingsPanel.setLines(lines);
+    if (resized) this.layoutUI();
   }
 
   private createPitModal() {
