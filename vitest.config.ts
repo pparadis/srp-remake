@@ -10,7 +10,13 @@ export default defineConfig({
         "src/game/types/**",
         "src/game/scenes/**",
         "src/main.ts"
-      ]
+      ],
+      thresholds: {
+        statements: 92,
+        branches: 80,
+        functions: 92,
+        lines: 95
+      }
     }
   }
 });
