@@ -315,6 +315,7 @@ export class RaceScene extends Phaser.Scene {
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const cell = this.findNearestCell(p.worldX, p.worldY, RaceScene.HUD.hoverMaxDist);
       if (!cell) return;
+      void this.copyCellId(cell.id);
       this.recomputeTargets();
       this.drawTargets();
     });
@@ -1006,6 +1007,16 @@ export class RaceScene extends Phaser.Scene {
     } catch {
       this.addLog("Clipboard failed. Check console for bot snapshot.");
       console.log("Bot decision snapshot:", payload);
+    }
+  }
+
+  private async copyCellId(cellId: string) {
+    try {
+      await navigator.clipboard.writeText(cellId);
+      this.addLog(`Copied cell id: ${cellId}`);
+    } catch {
+      this.addLog(`Clipboard failed for cell id: ${cellId}`);
+      console.log("Cell id:", cellId);
     }
   }
 
