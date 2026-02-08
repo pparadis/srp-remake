@@ -133,6 +133,22 @@ describe("sortCarsByProgress", () => {
 
     expect(ordered.map((c) => c.carId)).toEqual([1, 2, 3]);
   });
+
+  it("derives initial placement behind-start threshold from track forwardIndex range", () => {
+    const cellMap = new Map<string, TrackCell>([
+      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
+      ["B30", makeCell("B30", 30)],
+      ["B29", makeCell("B29", 29)]
+    ]);
+    const cars = [makeCar(1, "SF"), makeCar(2, "B29"), makeCar(3, "B30")];
+
+    const ordered = sortCarsByProgress(cars, cellMap, {
+      turnOrder: [1, 2, 3],
+      turnIndex: 0
+    });
+
+    expect(ordered.map((c) => c.carId)).toEqual([1, 3, 2]);
+  });
 });
 
 describe("orderingSystem helpers", () => {

@@ -1,5 +1,6 @@
 import type { Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
+import { PIT_LANE } from "../constants";
 import { buildLaneSequence } from "./laneSequence";
 
 export interface CarSortKey {
@@ -32,6 +33,21 @@ function getStartFinishForwardIndex(cellMap: Map<string, TrackCell>): number | n
   return startFinishForwardIndex;
 }
 
+function getInitialPlacementBehindThreshold(cellMap: Map<string, TrackCell>): number | null {
+  let maxNonPitForwardIndex: number | null = null;
+  let maxAnyForwardIndex: number | null = null;
+  for (const cell of cellMap.values()) {
+    if (maxAnyForwardIndex == null || cell.forwardIndex > maxAnyForwardIndex) {
+      maxAnyForwardIndex = cell.forwardIndex;
+    }
+    if (cell.laneIndex === PIT_LANE) continue;
+    if (maxNonPitForwardIndex == null || cell.forwardIndex > maxNonPitForwardIndex) {
+      maxNonPitForwardIndex = cell.forwardIndex;
+    }
+  }
+  return maxNonPitForwardIndex ?? maxAnyForwardIndex;
+}
+
 export function getCellForwardIndex(cellId: string, cellMap: Map<string, TrackCell>): number {
   const cell = cellMap.get(cellId);
   return cell ? cell.forwardIndex : -1;
@@ -62,6 +78,7 @@ export function sortCarsByProgress(
     }
   }
   const startFinishForwardIndex = getStartFinishForwardIndex(cellMap);
+  const initialPlacementBehindThreshold = getInitialPlacementBehindThreshold(cellMap);
   const isInitialPlacement =
     turnOrder.length > 0 &&
     (options.turnIndex ?? 0) === 0 &&
@@ -74,11 +91,15 @@ export function sortCarsByProgress(
 
     if (isInitialPlacement) {
       const aIsBehindStart = startFinishForwardIndex != null &&
+        initialPlacementBehindThreshold != null &&
         aKey.progressIndex !== startFinishForwardIndex &&
-        aKey.progressIndex <= 27;
+        aKey.progressIndex >= 0 &&
+        aKey.progressIndex <= initialPlacementBehindThreshold;
       const bIsBehindStart = startFinishForwardIndex != null &&
+        initialPlacementBehindThreshold != null &&
         bKey.progressIndex !== startFinishForwardIndex &&
-        bKey.progressIndex <= 27;
+        bKey.progressIndex >= 0 &&
+        bKey.progressIndex <= initialPlacementBehindThreshold;
 
       if (aIsBehindStart !== bIsBehindStart) return aIsBehindStart ? 1 : -1;
       if (aIsBehindStart && bIsBehindStart && aKey.progressIndex !== bKey.progressIndex) {
