@@ -24,6 +24,7 @@ import { validateTrack } from "../../validation/trackValidation";
 import { PitModal } from "./ui/PitModal";
 import { LogPanel } from "./ui/LogPanel";
 import { StandingsPanel } from "./ui/StandingsPanel";
+import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
 import { decideBotActionWithTrace } from "../systems/botSystem";
 import {
@@ -107,9 +108,7 @@ export class RaceScene extends Phaser.Scene {
   private botDecisionLog: BotDecisionLogEntry[] = [];
   private botDecisionSeq = 1;
   private skipButton!: TextButton;
-  private copyDebugButton!: TextButton;
-  private copyBotDebugButton!: TextButton;
-  private copyBotDebugShortButton!: TextButton;
+  private debugButtons!: DebugButtons;
   private showCarsAndMoves = true;
   private readonly onExternalToggleCarsMoves = () => {
     this.showCarsAndMoves = !this.showCarsAndMoves;
@@ -205,9 +204,7 @@ export class RaceScene extends Phaser.Scene {
     this.layoutUI();
     this.createPitModal();
     this.createSkipButton();
-    this.createCopyDebugButton();
-    this.createCopyBotDebugButton();
-    this.createCopyBotDebugShortButton();
+    this.createDebugButtons();
     this.updateCycleHud();
     this.applyCarsAndMovesVisibility();
     this.updateExternalToggleLabel();
@@ -554,10 +551,7 @@ export class RaceScene extends Phaser.Scene {
       this.gFrame,
       this.txtInfo,
       this.txtCycle,
-      this.skipButton,
-      this.copyDebugButton,
-      this.copyBotDebugButton,
-      this.copyBotDebugShortButton
+      this.skipButton
     ].filter(Boolean);
     for (const obj of fixed) {
       if (typeof (obj as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor === "function") {
@@ -570,9 +564,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.logPanel) this.logPanel.setFixed();
     if (this.standingsPanel) this.standingsPanel.setFixed();
     if (this.skipButton) this.skipButton.setFixed();
-    if (this.copyDebugButton) this.copyDebugButton.setFixed();
-    if (this.copyBotDebugButton) this.copyBotDebugButton.setFixed();
-    if (this.copyBotDebugShortButton) this.copyBotDebugShortButton.setFixed();
+    if (this.debugButtons) this.debugButtons.setFixed();
   }
 
   private centerTrack() {
@@ -706,22 +698,8 @@ export class RaceScene extends Phaser.Scene {
     if (this.skipButton) {
       this.skipButton.setPosition(w / 2, h - ui.bottomButtonYPad);
     }
-    const leftButtons = [this.copyDebugButton, this.copyBotDebugButton, this.copyBotDebugShortButton]
-      .filter(Boolean) as TextButton[];
-    if (leftButtons.length > 0) {
-      let x = pad + 4;
-      let y = h - ui.bottomButtonYPad;
-      const gap = 8;
-      for (const button of leftButtons) {
-        const textObj = button.getText();
-        const width = textObj.width;
-        if (x + width > w - pad) {
-          x = pad + 4;
-          y -= textObj.height + gap;
-        }
-        button.setPosition(x, y);
-        x += width + gap;
-      }
+    if (this.debugButtons) {
+      this.debugButtons.layout(w, h, pad, ui.bottomButtonYPad);
     }
 
     this.logPanel.draw();
@@ -766,34 +744,11 @@ export class RaceScene extends Phaser.Scene {
     this.setUIFixed();
   }
 
-  private createCopyDebugButton() {
-    this.copyDebugButton = new TextButton(this, "Copy debug", {
-      fontSize: "14px",
-      originX: 0,
-      originY: 1,
-      onClick: () => this.copyDebugSnapshot()
-    });
-    this.layoutUI();
-    this.setUIFixed();
-  }
-
-  private createCopyBotDebugButton() {
-    this.copyBotDebugButton = new TextButton(this, "Copy bot debug", {
-      fontSize: "14px",
-      originX: 0,
-      originY: 1,
-      onClick: () => this.copyBotDecisionSnapshot()
-    });
-    this.layoutUI();
-    this.setUIFixed();
-  }
-
-  private createCopyBotDebugShortButton() {
-    this.copyBotDebugShortButton = new TextButton(this, "Copy bot debug short", {
-      fontSize: "14px",
-      originX: 0,
-      originY: 1,
-      onClick: () => this.copyShortBotDecisionSnapshot()
+  private createDebugButtons() {
+    this.debugButtons = new DebugButtons(this, {
+      onCopyDebug: () => this.copyDebugSnapshot(),
+      onCopyBotDebug: () => this.copyBotDecisionSnapshot(),
+      onCopyBotDebugShort: () => this.copyShortBotDecisionSnapshot()
     });
     this.layoutUI();
     this.setUIFixed();
