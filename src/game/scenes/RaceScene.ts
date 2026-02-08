@@ -23,6 +23,7 @@ import { LogPanel } from "./ui/LogPanel";
 import { StandingsPanel } from "./ui/StandingsPanel";
 import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
+import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
 import { executeBotTurn } from "./turns/executeBotTurn";
 import { drawTrack as drawTrackGraphics } from "./rendering/trackRenderer";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
@@ -707,28 +708,20 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private applyCarsAndMovesVisibility() {
-    if (!this.showCarsAndMoves) {
-      if (this.activeHaloTween) {
-        this.activeHaloTween.stop();
-        this.activeHaloTween = null;
-      }
-      this.gTargets.clear();
-      this.clearTargetCostLabels();
-      for (const token of this.carTokens.values()) {
-        token.setVisible(false);
-        this.input.setDraggable(token, false);
-      }
-      for (const halo of this.activeHalos.values()) {
-        halo.setVisible(false);
-      }
-      return;
-    }
-
-    for (const token of this.carTokens.values()) {
-      token.setVisible(true);
-    }
-    this.updateActiveCarVisuals();
-    this.drawTargets();
+    applyCarsMovesVisibility({
+      showCarsAndMoves: this.showCarsAndMoves,
+      activeHaloTween: this.activeHaloTween,
+      setActiveHaloTween: (tween) => {
+        this.activeHaloTween = tween;
+      },
+      gTargets: this.gTargets,
+      clearTargetCostLabels: () => this.clearTargetCostLabels(),
+      carTokens: this.carTokens,
+      activeHalos: this.activeHalos,
+      setDraggable: (token, isDraggable) => this.input.setDraggable(token, isDraggable),
+      updateActiveCarVisuals: () => this.updateActiveCarVisuals(),
+      drawTargets: () => this.drawTargets()
+    });
   }
 
   private updateSkipButtonState() {

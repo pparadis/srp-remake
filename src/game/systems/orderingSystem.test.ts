@@ -149,6 +149,38 @@ describe("sortCarsByProgress", () => {
 
     expect(ordered.map((c) => c.carId)).toEqual([1, 3, 2]);
   });
+
+  it("uses normal forward ordering once race has started even at turn index 0", () => {
+    const cellMap = new Map<string, TrackCell>([
+      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
+      ["B27", makeCell("B27", 27)],
+      ["B26", makeCell("B26", 26)]
+    ]);
+    const cars = [makeCar(1, "SF", 1), makeCar(2, "B26", 1), makeCar(3, "B27", 1)];
+
+    const ordered = sortCarsByProgress(cars, cellMap, {
+      turnOrder: [1, 2, 3],
+      turnIndex: 0
+    });
+
+    expect(ordered.map((c) => c.carId)).toEqual([1, 2, 3]);
+  });
+
+  it("handles lap wrap ordering by forwardIndex when lap counts are equal", () => {
+    const cellMap = new Map<string, TrackCell>([
+      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
+      ["A03", makeCell("A03", 3)],
+      ["A27", makeCell("A27", 27)]
+    ]);
+    const cars = [makeCar(1, "A27", 4), makeCar(2, "A03", 4), makeCar(3, "SF", 4)];
+
+    const ordered = sortCarsByProgress(cars, cellMap, {
+      turnOrder: [1, 2, 3],
+      turnIndex: 2
+    });
+
+    expect(ordered.map((c) => c.carId)).toEqual([3, 2, 1]);
+  });
 });
 
 describe("orderingSystem helpers", () => {
