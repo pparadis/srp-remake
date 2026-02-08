@@ -1,5 +1,6 @@
 import type { Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
+import { buildLaneSequence } from "./laneSequence";
 
 export interface CarSortKey {
   lapCount: number;
@@ -98,42 +99,6 @@ export function sortCarsByProgress(
 
     return aKey.carId - bKey.carId;
   });
-}
-
-function pickLaneStart(cells: TrackCell[]): TrackCell {
-  const start = cells.find((c) => (c.tags ?? []).includes("START_FINISH")) ??
-    cells.find((c) => (c.tags ?? []).includes("PIT_ENTRY"));
-  if (start) return start;
-  let best = cells[0]!;
-  for (const c of cells) {
-    if (c.forwardIndex < best.forwardIndex) best = c;
-  }
-  return best;
-}
-
-function buildLaneSequence(cells: TrackCell[], byId: Map<string, TrackCell>, laneIndex: number): TrackCell[] {
-  const laneCells = cells.filter((c) => c.laneIndex === laneIndex);
-  if (laneCells.length === 0) return [];
-  const start = pickLaneStart(laneCells);
-  const seq: TrackCell[] = [];
-  const visited = new Set<string>();
-  let current: TrackCell | undefined = start;
-  while (current && !visited.has(current.id) && seq.length < laneCells.length) {
-    visited.add(current.id);
-    seq.push(current);
-    const nextSameId: string | undefined = current.next.find((id) => {
-      const nextCell = byId.get(id);
-      return nextCell && nextCell.laneIndex === laneIndex;
-    });
-    current = nextSameId ? byId.get(nextSameId) : undefined;
-  }
-  if (seq.length < laneCells.length) {
-    const remaining = laneCells
-      .filter((c) => !visited.has(c.id))
-      .sort((a, b) => a.forwardIndex - b.forwardIndex);
-    seq.push(...remaining);
-  }
-  return seq;
 }
 
 export function buildProgressMap(track: TrackData, spineLane = 1): Map<string, number> {

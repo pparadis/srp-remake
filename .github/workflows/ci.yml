@@ -17,6 +17,8 @@ jobs:
           cache: "npm"
       - name: Install
         run: npm ci
+      - name: Lint
+        run: npm run lint
       - name: Validate Track
         run: node tools/validateTrack.mjs
       - name: Test

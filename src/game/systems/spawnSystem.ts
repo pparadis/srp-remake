@@ -2,6 +2,7 @@ import type { Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { createMoveCycle } from "./moveBudgetSystem";
 import { MAIN_LANES, PIT_LANE } from "../constants";
+import { buildLaneSequence } from "./laneSequence";
 
 interface SpawnOptions {
   totalCars?: number;
@@ -28,44 +29,19 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
     byId.set(cell.id, cell);
   }
 
-  const buildLaneSequence = (laneIndex: number): TrackCell[] => {
-    const laneCells = track.cells.filter((c) => c.laneIndex === laneIndex);
-    if (laneCells.length === 0) return [];
-    const taggedStart = laneCells.find((c) => (c.tags ?? []).includes("START_FINISH"));
-    let start = taggedStart ?? laneCells[0]!;
-    for (const c of laneCells) {
-      if (c.forwardIndex < start.forwardIndex) start = c;
-    }
-    const seq: TrackCell[] = [];
-    const visited = new Set<string>();
-    let current: TrackCell | undefined = start;
-    while (current && !visited.has(current.id) && seq.length < laneCells.length) {
-      visited.add(current.id);
-      seq.push(current);
-      const nextSameId: string | undefined = current.next.find((id) => {
-        const nextCell = byId.get(id);
-        return nextCell && nextCell.laneIndex === laneIndex;
-      });
-      current = nextSameId ? byId.get(nextSameId) : undefined;
-    }
-    if (seq.length < laneCells.length) {
-      const remaining = laneCells
-        .filter((c) => !visited.has(c.id))
-        .sort((a, b) => a.forwardIndex - b.forwardIndex);
-      seq.push(...remaining);
-    }
-    return seq;
-  };
-
   const spineLane = 1;
-  const spineSeq = buildLaneSequence(spineLane);
+  const spineSeq = buildLaneSequence(track.cells, byId, spineLane, {
+    startTagPriority: ["START_FINISH"]
+  });
   const spineLen = spineSeq.length;
   const spineStartIdx = spineSeq.findIndex((c) => (c.tags ?? []).includes("START_FINISH"));
   const spineStart = spineStartIdx >= 0 ? spineStartIdx : 0;
 
   const lanePickByForwardIndex = new Map<number, Map<number, TrackCell>>();
   for (const lane of MAIN_LANES) {
-    const seq = buildLaneSequence(lane);
+    const seq = buildLaneSequence(track.cells, byId, lane, {
+      startTagPriority: ["START_FINISH"]
+    });
     if (seq.length === 0) continue;
     const startIdx = seq.findIndex((c) => (c.tags ?? []).includes("START_FINISH"));
     const start = startIdx >= 0 ? startIdx : 0;
