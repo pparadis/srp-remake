@@ -14,7 +14,6 @@ import {
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
 import { computeMoveSpend, getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
-import { applyMove } from "../systems/moveCommitSystem";
 import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets } from "../systems/pitSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
 import { spawnCars } from "../systems/spawnSystem";
@@ -27,6 +26,7 @@ import { StandingsPanel } from "./ui/StandingsPanel";
 import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
 import { executeBotTurn } from "./turns/executeBotTurn";
+import { resolvePlayerDragDrop } from "./turns/resolvePlayerDragDrop";
 import {
   type BotDecisionAppendEntry,
   appendBotDecisionEntry,
@@ -240,39 +240,20 @@ export class RaceScene extends Phaser.Scene {
       const cell = this.findNearestCell(token.x, token.y, 18);
       const fromCell = this.cellMap.get(this.activeCar.cellId) ?? null;
       const validation = validateMoveAttempt(this.activeCar, fromCell, cell, this.validTargets, obj === token);
-      if (validation.ok && cell && validation.info && validation.moveSpend != null) {
-        const info = validation.info;
-        const prevCellId = this.activeCar.cellId;
-        this.activeCar.cellId = cell.id;
-        token.setPosition(cell.pos.x, cell.pos.y);
-        this.activeCar.pitExitBoost = false;
-        if (cell.laneIndex !== PIT_LANE) {
-          this.activeCar.pitServiced = false;
-        }
-        if (validation.isPitStop) {
-          this.openPitModal(cell, origin, prevCellId, validation.moveSpend);
-        } else {
-          const fromCell = this.cellMap.get(prevCellId);
-          if (fromCell) {
-            applyMove(this.activeCar, fromCell, cell, info, validation.moveSpend);
-          } else {
-            applyMove(this.activeCar, cell, cell, info, validation.moveSpend);
-          }
-          this.addLog(`Car ${this.activeCar.carId} moved to ${cell.id}.`);
-          this.advanceTurnAndRefresh();
-        }
-      } else {
-        const currentCell = this.cellMap.get(this.activeCar.cellId);
-        if (currentCell) {
-          token.setPosition(currentCell.pos.x, currentCell.pos.y);
-          const halo = this.activeHalos.get(this.activeCar.carId);
-          if (halo) halo.setPosition(currentCell.pos.x, currentCell.pos.y);
-        } else {
-          token.setPosition(origin.x, origin.y);
-          const halo = this.activeHalos.get(this.activeCar.carId);
-          if (halo) halo.setPosition(origin.x, origin.y);
-        }
-      }
+      resolvePlayerDragDrop({
+        activeCar: this.activeCar,
+        token,
+        origin,
+        nearestCell: cell,
+        validation,
+        cellMap: this.cellMap,
+        activeHalo: this.activeHalos.get(this.activeCar.carId) ?? null,
+        onOpenPitModal: (targetCell, dragOrigin, originCellId, distance) => {
+          this.openPitModal(targetCell, dragOrigin, originCellId, distance);
+        },
+        onLog: (line) => this.addLog(line),
+        onAdvanceTurnAndRefresh: () => this.advanceTurnAndRefresh()
+      });
       this.dragOrigin = null;
     });
 
