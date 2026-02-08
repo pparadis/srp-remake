@@ -6,6 +6,7 @@ This document captures a first-pass design for online multiplayer with a direct 
 
 - Let players join the same race via a shared URL.
 - Keep gameplay rules identical to single-player.
+- Keep configurable race length (`raceLaps`) identical to single-player.
 - Support flexible grid composition:
 - Humans only (1v1, 2v2, etc.).
 - Humans plus bots.
@@ -30,6 +31,7 @@ This document captures a first-pass design for online multiplayer with a direct 
 - Total cars.
 - Human cars.
 - Bot cars.
+- Race laps (`raceLaps`).
 
 6. Host starts race.
 7. All clients transition into the same race and receive synchronized state updates.
@@ -77,6 +79,7 @@ type Lobby = {
     totalCars: number;
     humanCars: number;
     botCars: number;
+    raceLaps: number;
   };
   players: Array<{
     playerId: string;
@@ -128,6 +131,7 @@ Authoritative match state should include:
 - `cars[]` with `isBot`, fuel/tire, pit state.
 - `turnState` and `activeCarId`.
 - `trackId`.
+- `raceLaps` and `winnerCarId | null`.
 - `rngSeed` if any random behavior is introduced.
 - `revision` integer incremented after each accepted action.
 
@@ -154,16 +158,23 @@ Server -> Client:
 - `turn.applied`
 - `error`
 
+Payload requirement for v0:
+
+- `lobby.create` / `lobby.updateSettings` must include `raceLaps`.
+- `lobby.state`, `race.started`, and `race.state` must include `raceLaps`.
+
 ## Turn Authority Rules
 
 - Server validates every action using the same movement/pit rules.
 - Only the active human player can submit a move.
 - Bot turns run only on the server.
+- Server enforces win when a car reaches `raceLaps`.
 - Client UI is optimistic only if paired with rollback on reject.
 - For v0, prefer non-optimistic updates to simplify correctness.
 - Turn timeout policy for v0:
 - No automatic timer-based skip.
 - Host can force-skip the active player.
+- Any timer-based auto-skip is out of scope for v0.
 
 ## Reconnect Behavior
 
@@ -208,6 +219,8 @@ Server -> Client:
 2. Turn timeout: `manual turns only + host force-skip`.
 3. Lobby privacy: `unguessable UUID direct link`.
 4. Race restart: `rematch in same lobby with same players`.
+5. Auto-skip timer: `not in v0` (revisit in v1+).
+6. Lap target: `host-configurable raceLaps`, authoritative on server.
 
 ## Delivery Plan
 
@@ -235,7 +248,7 @@ Server -> Client:
 5. Phase 5: Reconnect and timeout policy
 
 - Rejoin flow.
-- Turn timeout/auto-skip.
+- Document timeout policy for post-v0 (optional auto-skip).
 
 ## Implementation Checklist (From Locked Decisions)
 
@@ -244,3 +257,4 @@ Server -> Client:
 3. Keep lobby roster/settings alive across race end and expose `Rematch`.
 4. On rematch, reset match state while preserving players and host.
 5. Document inactivity TTL for lobbies and token invalidation behavior.
+6. Persist and rebroadcast `raceLaps` for lobby state, race start, and rematch.
