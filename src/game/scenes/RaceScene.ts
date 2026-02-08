@@ -34,6 +34,7 @@ import {
   serializeBotTargets,
   serializeBotTrace
 } from "./debug/botDecisionDebug";
+import { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
 
 type CellMap = Map<string, TrackCell>;
 
@@ -808,79 +809,19 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private buildDebugSnapshot() {
-    const spineLane = 1;
-    const spineCells = this.track.cells.filter((c) => c.laneIndex === spineLane);
-    const startFinishIds = this.track.cells
-      .filter((c) => (c.tags ?? []).includes("START_FINISH"))
-      .map((c) => c.id);
-    const occupiedByCell = Object.fromEntries(this.cars.map((car) => [car.cellId, car.carId]));
-    const cars = this.cars
-      .map((car) => {
-        const cell = this.cellMap.get(car.cellId);
-        return {
-          carId: car.carId,
-          cellId: car.cellId,
-          isBot: car.isBot,
-          lapCount: car.lapCount ?? 0,
-          state: car.state,
-          tire: car.tire,
-          fuel: car.fuel,
-          pitTurnsRemaining: car.pitTurnsRemaining,
-          pitExitBoost: car.pitExitBoost,
-          pitServiced: car.pitServiced,
-          setup: car.setup,
-          cell: cell
-            ? {
-                zoneIndex: cell.zoneIndex,
-                laneIndex: cell.laneIndex,
-                forwardIndex: cell.forwardIndex,
-                tags: cell.tags ?? []
-              }
-            : null
-        };
-      })
-      .sort((a, b) => a.carId - b.carId);
-    const activeCell = this.cellMap.get(this.activeCar.cellId);
-    const occupied = new Set(this.cars.map((c) => c.cellId));
-    const baseMaxSteps = this.activeCar.tire === 0 || this.activeCar.fuel === 0
-      ? RaceScene.MOVE_BUDGET.zeroResourceMax
-      : RaceScene.MOVE_BUDGET.baseMax;
-    const remainingBudget = getRemainingBudget(this.activeCar.moveCycle);
-    const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
-    const tireRate = this.activeCar.setup.compound === "soft"
-      ? RaceScene.MOVE_RATES.softTire
-      : RaceScene.MOVE_RATES.hardTire;
-    const fuelRate = RaceScene.MOVE_RATES.fuel;
-    const inPitLane = activeCell?.laneIndex === PIT_LANE;
-    const validTargets = Array.from(this.validTargets.entries()).map(([cellId, info]) => ({
-      cellId,
-      distance: info.distance,
-      moveSpend: info.moveSpend ?? null,
-      tireCost: info.tireCost,
-      fuelCost: info.fuelCost,
-      isPitTrigger: info.isPitTrigger
-    }));
-    return {
-      version: this.buildInfo.version,
-      gitSha: this.buildInfo.gitSha,
-      trackId: this.track.trackId,
-      spineLane,
-      spineLength: spineCells.length,
-      startFinishIds,
-      activeCarId: this.activeCar.carId,
-      movement: {
-        maxSteps: inPitLane ? 1 : maxSteps,
-        tireRate,
-        fuelRate,
-        allowPitExitSkip: this.activeCar.pitExitBoost,
-        disallowPitBoxTargets: shouldDisallowPitBoxTargets(this.activeCar, inPitLane),
-        occupied: Array.from(occupied),
-        validTargets
-      },
-      occupiedByCell,
-      cars,
-      botDecisionCount: this.botDecisionLog.length
-    };
+    const inPitLane = (this.cellMap.get(this.activeCar.cellId)?.laneIndex ?? -1) === PIT_LANE;
+    return buildGameDebugSnapshot({
+      buildInfo: this.buildInfo,
+      track: this.track,
+      cellMap: this.cellMap,
+      cars: this.cars,
+      activeCar: this.activeCar,
+      validTargets: this.validTargets,
+      botDecisionCount: this.botDecisionLog.length,
+      moveBudget: RaceScene.MOVE_BUDGET,
+      moveRates: RaceScene.MOVE_RATES,
+      disallowPitBoxTargets: shouldDisallowPitBoxTargets(this.activeCar, inPitLane)
+    });
   }
 
   private buildBotDecisionSnapshot(shortMode = false) {
