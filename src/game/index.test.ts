@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { REG_BOT_CARS, REG_HUMAN_CARS, REG_TOTAL_CARS } from "./constants";
+import { REG_BOT_CARS, REG_HUMAN_CARS, REG_RACE_LAPS, REG_TOTAL_CARS } from "./constants";
 
 const gameCtor = vi.fn();
 
@@ -40,11 +40,12 @@ function mockGameInstance() {
 
 function expectRegistryComposition(
   setMock: ReturnType<typeof vi.fn>,
-  expected: { totalCars: number; humanCars: number; botCars: number }
+  expected: { totalCars: number; humanCars: number; botCars: number; raceLaps?: number }
 ) {
   expect(setMock).toHaveBeenCalledWith(REG_TOTAL_CARS, expected.totalCars);
   expect(setMock).toHaveBeenCalledWith(REG_HUMAN_CARS, expected.humanCars);
   expect(setMock).toHaveBeenCalledWith(REG_BOT_CARS, expected.botCars);
+  expect(setMock).toHaveBeenCalledWith(REG_RACE_LAPS, expected.raceLaps ?? 5);
 }
 
 describe("startGame", () => {
@@ -63,7 +64,7 @@ describe("startGame", () => {
     const { startGame } = await import("./index");
     const parent = document.createElement("div");
 
-    const result = startGame(parent, { totalCars: 6, humanCars: 2, botCars: 4 });
+    const result = startGame(parent, { totalCars: 6, humanCars: 2, botCars: 4, raceLaps: 20 });
 
     expect(result).toBe(game);
     expect(gameCtor).toHaveBeenCalledTimes(1);
@@ -77,7 +78,7 @@ describe("startGame", () => {
       scale: { mode: "RESIZE", autoCenter: "CENTER_BOTH" },
       resolution: 2
     });
-    expectRegistryComposition(game.registry.set, { totalCars: 6, humanCars: 2, botCars: 4 });
+    expectRegistryComposition(game.registry.set, { totalCars: 6, humanCars: 2, botCars: 4, raceLaps: 20 });
   });
 
   it("clamps explicit composition so humans and bots never exceed total", async () => {

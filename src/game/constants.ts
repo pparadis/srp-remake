@@ -1,6 +1,7 @@
 export const REG_TOTAL_CARS = "totalCars";
 export const REG_HUMAN_CARS = "humanCars";
 export const REG_BOT_CARS = "botCars";
+export const REG_RACE_LAPS = "raceLaps";
 // Legacy keys retained for migration fallback.
 export const REG_PLAYER_COUNT = "playerCount";
 export const PIT_LANE = 0;

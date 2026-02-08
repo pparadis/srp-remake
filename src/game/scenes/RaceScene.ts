@@ -8,6 +8,7 @@ import {
   PIT_LANE,
   REG_BOT_CARS,
   REG_HUMAN_CARS,
+  REG_RACE_LAPS,
   REG_TOTAL_CARS
 } from "../constants";
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
@@ -105,6 +106,9 @@ export class RaceScene extends Phaser.Scene {
   private totalCars = 1;
   private humanCars = 1;
   private botCars = 0;
+  private raceLapTarget = 5;
+  private raceFinished = false;
+  private winnerCarId: number | null = null;
   private botDecisionLog: BotDecisionLogEntry[] = [];
   private botDecisionSeq = 1;
   private skipButton!: TextButton;
@@ -146,9 +150,11 @@ export class RaceScene extends Phaser.Scene {
     const rawTotal = Number(this.registry.get(REG_TOTAL_CARS) ?? 1);
     const rawHumans = Number(this.registry.get(REG_HUMAN_CARS) ?? 1);
     const rawBots = Number(this.registry.get(REG_BOT_CARS) ?? 0);
+    const rawRaceLaps = Number(this.registry.get(REG_RACE_LAPS) ?? 5);
     this.totalCars = Number.isNaN(rawTotal) ? 1 : Math.max(1, Math.min(11, rawTotal));
     this.humanCars = Number.isNaN(rawHumans) ? 1 : Math.max(0, Math.min(this.totalCars, rawHumans));
     this.botCars = Number.isNaN(rawBots) ? 0 : Math.max(0, Math.min(this.totalCars - this.humanCars, rawBots));
+    this.raceLapTarget = Number.isNaN(rawRaceLaps) ? 5 : Math.max(1, Math.min(999, Math.trunc(rawRaceLaps)));
 
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
@@ -216,6 +222,7 @@ export class RaceScene extends Phaser.Scene {
 
     registerRaceSceneInputHandlers({
       scene: this,
+      isRaceFinished: () => this.raceFinished,
       pitModal: this.pitModal,
       getActiveToken: () => this.getActiveToken(),
       getActiveCar: () => this.activeCar,
@@ -293,6 +300,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private advanceTurnAndRefresh() {
+    if (this.finalizeRaceIfNeeded()) return;
     advanceTurn(this.turn);
     this.selectNextPlayable();
     this.processBotsUntilHuman();
@@ -304,10 +312,12 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private processBotsUntilHuman() {
+    if (this.raceFinished) return;
     const maxBots = Math.max(1, this.cars.length);
     let steps = 0;
-    while (this.activeCar.isBot && steps < maxBots) {
+    while (this.activeCar.isBot && steps < maxBots && !this.raceFinished) {
       this.executeBotTurn();
+      if (this.finalizeRaceIfNeeded()) return;
       advanceTurn(this.turn);
       this.selectNextPlayable();
       steps += 1;
@@ -315,6 +325,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private selectNextPlayable() {
+    if (this.raceFinished) return;
     const maxSkips = Math.max(1, this.cars.length);
     for (let i = 0; i < maxSkips; i++) {
       const currentId = getCurrentCarId(this.turn);
@@ -336,6 +347,31 @@ export class RaceScene extends Phaser.Scene {
     this.addLog(`Car ${this.activeCar.carId} to play.`);
     this.updateActiveCarVisuals();
     this.updateCycleHud();
+  }
+
+  private findWinnerCar(): Car | null {
+    if ((this.activeCar.lapCount ?? 0) >= this.raceLapTarget) {
+      return this.activeCar;
+    }
+    return this.cars.find((car) => (car.lapCount ?? 0) >= this.raceLapTarget) ?? null;
+  }
+
+  private finalizeRaceIfNeeded(): boolean {
+    if (this.raceFinished) return true;
+    const winner = this.findWinnerCar();
+    if (!winner) return false;
+
+    this.raceFinished = true;
+    this.winnerCarId = winner.carId;
+    this.activeCar = winner;
+    this.validTargets = new Map();
+    this.drawTargets();
+    this.updateSkipButtonState();
+    this.updateActiveCarVisuals();
+    this.updateCycleHud();
+    this.updateStandings();
+    this.addLog(`Race finished. Car ${winner.carId} wins (${winner.lapCount ?? 0}/${this.raceLapTarget} laps).`);
+    return true;
   }
 
   private getFirstCar(): Car {
@@ -369,7 +405,7 @@ export class RaceScene extends Phaser.Scene {
       if (carId === this.activeCar.carId) {
         token.setAlpha(1);
         token.setScale(1.1);
-        this.input.setDraggable(token, true);
+        this.input.setDraggable(token, !this.raceFinished);
         if (halo) {
           halo.setPosition(token.x, token.y);
           halo.setVisible(true);
@@ -404,6 +440,11 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private recomputeTargets() {
+    if (this.raceFinished) {
+      this.validTargets = new Map();
+      this.updateSkipButtonState();
+      return;
+    }
     if (this.activeCar.isBot) {
       this.processBotsUntilHuman();
       if (this.activeCar.isBot) {
@@ -669,7 +710,8 @@ export class RaceScene extends Phaser.Scene {
       const cell = this.cellMap.get(car.cellId);
       const fwd = cell?.forwardIndex ?? -1;
       const lap = car.lapCount ?? 0;
-      return `${index + 1}. Car ${car.carId}  lap ${lap}  fwd ${fwd}`;
+      const winnerTag = this.winnerCarId === car.carId ? "  WIN" : "";
+      return `${index + 1}. Car ${car.carId}  lap ${lap}/${this.raceLapTarget}  fwd ${fwd}${winnerTag}`;
     });
     const resized = this.standingsPanel.setLines(lines);
     if (resized) this.layoutUI();
@@ -726,7 +768,7 @@ export class RaceScene extends Phaser.Scene {
 
   private updateSkipButtonState() {
     if (!this.skipButton) return;
-    const canSkip = this.validTargets.size === 0 && this.activeCar.state === "ACTIVE";
+    const canSkip = !this.raceFinished && this.validTargets.size === 0 && this.activeCar.state === "ACTIVE";
     this.skipButton.setAlpha(canSkip ? 1 : 0.4);
     this.skipButton.setInteractive(canSkip);
   }
@@ -813,6 +855,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private skipTurn() {
+    if (this.raceFinished) return;
     if (this.validTargets.size !== 0 || this.activeCar.state !== "ACTIVE") return;
     recordMove(this.activeCar.moveCycle, 0);
     this.addLog(`Car ${this.activeCar.carId} skipped (no moves).`);
@@ -820,6 +863,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private executeBotTurn() {
+    if (this.raceFinished) return;
     const target = executeBotTurn({
       activeCar: this.activeCar,
       cellMap: this.cellMap,
@@ -908,7 +952,12 @@ export class RaceScene extends Phaser.Scene {
 
   private makeHudText(cell: TrackCell | null): string {
     if (!cell) {
-      const activeStatus = `Active: Car ${this.activeCar.carId}\nTire: ${this.activeCar.tire}% \nFuel: ${this.activeCar.fuel}%`;
+      const activeStatus = [
+        `Active: Car ${this.activeCar.carId}`,
+        `Lap: ${this.activeCar.lapCount ?? 0}/${this.raceLapTarget}`,
+        `Tire: ${this.activeCar.tire}%`,
+        `Fuel: ${this.activeCar.fuel}%`
+      ].join("\n");
       return [
         activeStatus,
         `${RaceScene.HUD_LABELS.validTargetsPrefix} ${this.validTargets.size}`
@@ -937,10 +986,17 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private updateCycleHud() {
+    if (this.raceFinished && this.winnerCarId != null) {
+      this.txtCycle.setText(`Race finished: Car ${this.winnerCarId} wins at ${this.raceLapTarget} laps`);
+      this.updateCenterResourceHud();
+      return;
+    }
     const cycle = this.activeCar.moveCycle;
     const parts = cycle.spent.map((v, i) => (i === cycle.index ? `[${v}]` : `${v}`));
     const remaining = getRemainingBudget(this.activeCar.moveCycle);
-    this.txtCycle.setText(`Move budget: ${parts.join("-")}  Remaining ${remaining}/40`);
+    this.txtCycle.setText(
+      `Move budget: ${parts.join("-")}  Remaining ${remaining}/40  Laps to win ${this.raceLapTarget}`
+    );
     this.updateCenterResourceHud();
   }
 

@@ -25,6 +25,7 @@ function setupDom() {
       <option value="10">10</option>
       <option value="11">11</option>
     </select>
+    <input id="lapCountInput" value="5" />
     <button id="restartBtn"></button>
   `;
 }
@@ -45,27 +46,30 @@ describe("main", () => {
     const app = document.getElementById("app");
     const humanSelect = document.getElementById("humanCountSelect") as HTMLSelectElement;
     const botSelect = document.getElementById("botCountSelect") as HTMLSelectElement;
+    const lapInput = document.getElementById("lapCountInput") as HTMLInputElement;
     const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
 
     await vi.waitFor(() => {
-      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 1, humanCars: 1, botCars: 0 });
+      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 1, humanCars: 1, botCars: 0, raceLaps: 5 });
     });
 
     startGame.mockClear();
     humanSelect.value = "3";
     botSelect.value = "2";
+    lapInput.value = "12";
     restartBtn.dispatchEvent(new MouseEvent("click"));
     await vi.waitFor(() => {
       expect(destroy).toHaveBeenCalled();
-      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 5, humanCars: 3, botCars: 2 });
+      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 5, humanCars: 3, botCars: 2, raceLaps: 12 });
     });
 
     startGame.mockClear();
     humanSelect.value = "11";
     botSelect.value = "11";
+    lapInput.value = "0";
     restartBtn.dispatchEvent(new MouseEvent("click"));
     await vi.waitFor(() => {
-      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 11, humanCars: 11, botCars: 0 });
+      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 11, humanCars: 11, botCars: 0, raceLaps: 1 });
     });
   });
 });

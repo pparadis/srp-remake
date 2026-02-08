@@ -8,6 +8,7 @@ import { resolvePlayerDragDrop } from "../turns/resolvePlayerDragDrop";
 
 export interface RegisterRaceSceneInputHandlersParams {
   scene: Phaser.Scene;
+  isRaceFinished: () => boolean;
   pitModal: PitModal;
   getActiveToken: () => Phaser.GameObjects.Container | null;
   getActiveCar: () => Car;
@@ -33,6 +34,7 @@ export interface RegisterRaceSceneInputHandlersParams {
 export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHandlersParams): void {
   const {
     scene,
+    isRaceFinished,
     pitModal,
     getActiveToken,
     getActiveCar,
@@ -56,6 +58,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
   } = params;
 
   scene.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+    if (isRaceFinished()) return;
     if (pitModal.isActive()) return;
     const token = getActiveToken();
     if (!token || obj !== token) return;
@@ -65,6 +68,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
   });
 
   scene.input.on("drag", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, x: number, y: number) => {
+    if (isRaceFinished()) return;
     if (pitModal.isActive()) return;
     const token = getActiveToken();
     if (!token || obj !== token) return;
@@ -75,6 +79,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
   });
 
   scene.input.on("dragend", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+    if (isRaceFinished()) return;
     if (pitModal.isActive()) return;
     const token = getActiveToken();
     if (!token || obj !== token) return;

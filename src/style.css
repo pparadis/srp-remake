@@ -20,12 +20,17 @@ body {
 }
 
 #controls select,
+#controls input,
 #controls button {
   background: #111821;
   color: #c7d1db;
   border: 1px solid #2a3642;
   padding: 4px 8px;
   border-radius: 4px;
+}
+
+#controls input {
+  width: 72px;
 }
 
 #app {

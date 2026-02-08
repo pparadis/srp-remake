@@ -1,12 +1,13 @@
 import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { RaceScene } from "./scenes/RaceScene";
-import { REG_BOT_CARS, REG_HUMAN_CARS, REG_TOTAL_CARS } from "./constants";
+import { REG_BOT_CARS, REG_HUMAN_CARS, REG_RACE_LAPS, REG_TOTAL_CARS } from "./constants";
 
 export interface GameOptions {
   totalCars?: number;
   humanCars?: number;
   botCars?: number;
+  raceLaps?: number;
   // Legacy options kept for compatibility.
   playerCount?: number;
   botMode?: boolean;
@@ -60,8 +61,10 @@ export function startGame(parent: HTMLElement, options: GameOptions = {}) {
 
   const game = new Phaser.Game(config);
   const composition = resolveComposition(options);
+  const raceLaps = clampInt(options.raceLaps ?? 5, 1, 999);
   game.registry.set(REG_TOTAL_CARS, composition.totalCars);
   game.registry.set(REG_HUMAN_CARS, composition.humanCars);
   game.registry.set(REG_BOT_CARS, composition.botCars);
+  game.registry.set(REG_RACE_LAPS, raceLaps);
   return game;
 }
