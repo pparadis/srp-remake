@@ -19,10 +19,14 @@ export default defineConfig({
     )
   },
   build: {
+    // Phaser is intentionally large and isolated in its own vendor chunk.
+    chunkSizeWarningLimit: 1300,
     rollupOptions: {
       output: {
-        manualChunks: {
-          phaser: ["phaser"]
+        manualChunks: (id) => {
+          if (id.includes("node_modules/phaser")) return "phaser";
+          if (id.includes("node_modules/zod")) return "zod";
+          return undefined;
         }
       }
     }
