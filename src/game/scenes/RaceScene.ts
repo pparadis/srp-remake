@@ -25,48 +25,16 @@ import { PitModal } from "./ui/PitModal";
 import { LogPanel } from "./ui/LogPanel";
 import { StandingsPanel } from "./ui/StandingsPanel";
 import { TextButton } from "./ui/TextButton";
-import { decideBotActionWithTrace, type BotDecisionTrace } from "../systems/botSystem";
+import { decideBotActionWithTrace } from "../systems/botSystem";
+import {
+  appendBotDecisionEntry,
+  buildBotDecisionSnapshot as buildBotDecisionSnapshotPayload,
+  type BotDecisionLogEntry,
+  serializeBotTargets,
+  serializeBotTrace
+} from "./debug/botDecisionDebug";
 
 type CellMap = Map<string, TrackCell>;
-
-interface BotDecisionLogEntry {
-  seq: number;
-  turnIndex: number;
-  carId: number;
-  fromCellId: string;
-  state: Car["state"];
-  tire: number;
-  fuel: number;
-  pitServiced: boolean;
-  validTargets: Array<{
-    cellId: string;
-    distance: number;
-    tireCost: number;
-    fuelCost: number;
-    isPitTrigger: boolean;
-  }>;
-  action: {
-    type: "skip" | "pit" | "move";
-    targetCellId?: string;
-    moveSpend?: number;
-    note?: string;
-  };
-  trace: {
-    lowResources: boolean;
-    heuristics: { lowResourceThreshold: number; pitBonus: number; pitPenalty: number };
-    selectedCellId: string | null;
-    candidates: Array<{
-      cellId: string;
-      score: number;
-      distance: number;
-      tireCost: number;
-      fuelCost: number;
-      isPitTrigger: boolean;
-    }>;
-  } | null;
-}
-
-type BotDecisionShortLogEntry = Omit<BotDecisionLogEntry, "validTargets" | "trace">;
 
 export class RaceScene extends Phaser.Scene {
   private static readonly UI = {
@@ -869,53 +837,19 @@ export class RaceScene extends Phaser.Scene {
     this.skipButton.setInteractive(canSkip);
   }
 
-  private serializeTargets(targets: Map<string, TargetInfo>) {
-    return Array.from(targets.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([cellId, info]) => ({
-        cellId,
-        distance: info.distance,
-        tireCost: info.tireCost,
-        fuelCost: info.fuelCost,
-        isPitTrigger: info.isPitTrigger
-      }));
-  }
-
-  private serializeTrace(trace: BotDecisionTrace | null): BotDecisionLogEntry["trace"] {
-    if (!trace) return null;
-    return {
-      lowResources: trace.lowResources,
-      heuristics: { ...trace.heuristics },
-      selectedCellId: trace.selectedCellId,
-      candidates: trace.candidates.map((candidate) => ({
-        cellId: candidate.cellId,
-        score: candidate.score,
-        distance: candidate.info.distance,
-        tireCost: candidate.info.tireCost,
-        fuelCost: candidate.info.fuelCost,
-        isPitTrigger: candidate.info.isPitTrigger
-      }))
-    };
-  }
-
   private appendBotDecision(
     entry: Omit<BotDecisionLogEntry, "seq" | "turnIndex" | "carId" | "fromCellId" | "state" | "tire" | "fuel" | "pitServiced">,
     fromCellId?: string
   ) {
-    this.botDecisionLog.push({
-      seq: this.botDecisionSeq++,
-      turnIndex: this.turn.index,
-      carId: this.activeCar.carId,
-      fromCellId: fromCellId ?? this.activeCar.cellId,
-      state: this.activeCar.state,
-      tire: this.activeCar.tire,
-      fuel: this.activeCar.fuel,
-      pitServiced: this.activeCar.pitServiced,
-      ...entry
-    });
-    if (this.botDecisionLog.length > RaceScene.BOT_LOG_LIMIT) {
-      this.botDecisionLog.shift();
-    }
+    this.botDecisionSeq = appendBotDecisionEntry(
+      this.botDecisionLog,
+      RaceScene.BOT_LOG_LIMIT,
+      this.botDecisionSeq,
+      this.turn.index,
+      this.activeCar,
+      entry,
+      fromCellId
+    );
   }
 
   private buildDebugSnapshot() {
@@ -994,22 +928,8 @@ export class RaceScene extends Phaser.Scene {
     };
   }
 
-  private toShortBotDecisionLogEntry(entry: BotDecisionLogEntry): BotDecisionShortLogEntry {
-    const { validTargets: _validTargets, trace: _trace, ...shortEntry } = entry;
-    return shortEntry;
-  }
-
   private buildBotDecisionSnapshot(shortMode = false) {
-    return {
-      version: this.buildInfo.version,
-      gitSha: this.buildInfo.gitSha,
-      trackId: this.track.trackId,
-      botDecisionCount: this.botDecisionLog.length,
-      shortMode,
-      botDecisions: shortMode
-        ? this.botDecisionLog.map((entry) => this.toShortBotDecisionLogEntry(entry))
-        : this.botDecisionLog
-    };
+    return buildBotDecisionSnapshotPayload(this.buildInfo, this.track.trackId, this.botDecisionLog, shortMode);
   }
 
   private async copyDebugSnapshot() {
@@ -1077,10 +997,10 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     const targets = this.computeTargetsForCar(this.activeCar);
-    const targetSnapshot = this.serializeTargets(targets);
+    const targetSnapshot = serializeBotTargets(targets);
     const decision = decideBotActionWithTrace(targets, this.activeCar, this.cellMap);
     const action = decision.action;
-    const trace = this.serializeTrace(decision.trace);
+    const trace = serializeBotTrace(decision.trace);
 
     if (action.type === "skip") {
       this.appendBotDecision({
