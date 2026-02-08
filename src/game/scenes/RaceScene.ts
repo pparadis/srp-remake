@@ -14,7 +14,6 @@ import { computeValidTargets, type TargetInfo } from "../systems/movementSystem"
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
 import { computeMoveSpend, getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets } from "../systems/pitSystem";
-import { validateMoveAttempt } from "../systems/moveValidationSystem";
 import { spawnCars } from "../systems/spawnSystem";
 import { sortCarsByProgress } from "../systems/orderingSystem";
 import { advanceTurn, createTurnState, getCurrentCarId, type TurnState } from "../systems/turnSystem";
@@ -25,8 +24,8 @@ import { StandingsPanel } from "./ui/StandingsPanel";
 import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
 import { executeBotTurn } from "./turns/executeBotTurn";
-import { resolvePlayerDragDrop } from "./turns/resolvePlayerDragDrop";
 import { drawTrack as drawTrackGraphics } from "./rendering/trackRenderer";
+import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
 import {
   type BotDecisionAppendEntry,
   appendBotDecisionEntry,
@@ -214,67 +213,33 @@ export class RaceScene extends Phaser.Scene {
     });
     window.addEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
 
-    this.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
-      if (this.pitModal.isActive()) return;
-      const token = this.getActiveToken();
-      if (!token || obj !== token) return;
-      this.recomputeTargets();
-      this.drawTargets();
-      this.dragOrigin = { x: token.x, y: token.y };
+    registerRaceSceneInputHandlers({
+      scene: this,
+      pitModal: this.pitModal,
+      getActiveToken: () => this.getActiveToken(),
+      getActiveCar: () => this.activeCar,
+      getDragOrigin: () => this.dragOrigin,
+      setDragOrigin: (origin) => {
+        this.dragOrigin = origin;
+      },
+      cellMap: this.cellMap,
+      getValidTargets: () => this.validTargets,
+      activeHalos: this.activeHalos,
+      findNearestCell: (x, y, maxDist) => this.findNearestCell(x, y, maxDist),
+      recomputeTargets: () => this.recomputeTargets(),
+      drawTargets: () => this.drawTargets(),
+      makeHudText: (cell) => this.makeHudText(cell),
+      setHudText: (text) => this.txtInfo.setText(text),
+      copyCellId: (cellId) => {
+        void this.copyCellId(cellId);
+      },
+      toggleForwardIndexOverlay: () => this.toggleForwardIndexOverlay(),
+      openPitModal: (cell, origin, originCellId, distance) => this.openPitModal(cell, origin, originCellId, distance),
+      addLog: (line) => this.addLog(line),
+      advanceTurnAndRefresh: () => this.advanceTurnAndRefresh(),
+      hoverMaxDist: RaceScene.HUD.hoverMaxDist,
+      dragSnapDist: 18
     });
-
-    this.input.on("drag", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, x: number, y: number) => {
-      if (this.pitModal.isActive()) return;
-      const token = this.getActiveToken();
-      if (!token || obj !== token) return;
-      token.setPosition(x, y);
-      const halo = this.activeHalos.get(this.activeCar.carId);
-      if (halo) halo.setPosition(x, y);
-    });
-
-    this.input.on("dragend", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
-      if (this.pitModal.isActive()) return;
-      const token = this.getActiveToken();
-      if (!token || obj !== token) return;
-      const origin = this.dragOrigin ?? { x: token.x, y: token.y };
-      const cell = this.findNearestCell(token.x, token.y, 18);
-      const fromCell = this.cellMap.get(this.activeCar.cellId) ?? null;
-      const validation = validateMoveAttempt(this.activeCar, fromCell, cell, this.validTargets, obj === token);
-      resolvePlayerDragDrop({
-        activeCar: this.activeCar,
-        token,
-        origin,
-        nearestCell: cell,
-        validation,
-        cellMap: this.cellMap,
-        activeHalo: this.activeHalos.get(this.activeCar.carId) ?? null,
-        onOpenPitModal: (targetCell, dragOrigin, originCellId, distance) => {
-          this.openPitModal(targetCell, dragOrigin, originCellId, distance);
-        },
-        onLog: (line) => this.addLog(line),
-        onAdvanceTurnAndRefresh: () => this.advanceTurnAndRefresh()
-      });
-      this.dragOrigin = null;
-    });
-
-    this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
-    const cell = this.findNearestCell(p.worldX, p.worldY, RaceScene.HUD.hoverMaxDist);
-      this.txtInfo.setText(this.makeHudText(cell));
-    });
-
-    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      const cell = this.findNearestCell(p.worldX, p.worldY, RaceScene.HUD.hoverMaxDist);
-      if (!cell) return;
-      void this.copyCellId(cell.id);
-      this.recomputeTargets();
-      this.drawTargets();
-    });
-
-    this.input.keyboard?.on("keydown-F", () => {
-      this.toggleForwardIndexOverlay();
-    });
-
-    this.txtInfo.setText(this.makeHudText(null));
   }
 
   private initCars() {
