@@ -26,13 +26,12 @@ import { LogPanel } from "./ui/LogPanel";
 import { StandingsPanel } from "./ui/StandingsPanel";
 import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
-import { decideBotActionWithTrace } from "../systems/botSystem";
+import { executeBotTurn } from "./turns/executeBotTurn";
 import {
+  type BotDecisionAppendEntry,
   appendBotDecisionEntry,
   buildBotDecisionSnapshot as buildBotDecisionSnapshotPayload,
-  type BotDecisionLogEntry,
-  serializeBotTargets,
-  serializeBotTrace
+  type BotDecisionLogEntry
 } from "./debug/botDecisionDebug";
 import { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
 
@@ -794,7 +793,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private appendBotDecision(
-    entry: Omit<BotDecisionLogEntry, "seq" | "turnIndex" | "carId" | "fromCellId" | "state" | "tire" | "fuel" | "pitServiced">,
+    entry: BotDecisionAppendEntry,
     fromCellId?: string
   ) {
     this.botDecisionSeq = appendBotDecisionEntry(
@@ -882,65 +881,17 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private executeBotTurn() {
-    if (this.activeCar.state !== "ACTIVE") {
-      this.appendBotDecision({
-        validTargets: [],
-        action: { type: "skip", note: "inactive" },
-        trace: null
-      });
-      recordMove(this.activeCar.moveCycle, 0);
-      this.addLog(`Car ${this.activeCar.carId} skipped (inactive).`);
-      return;
-    }
-    const targets = this.computeTargetsForCar(this.activeCar);
-    const targetSnapshot = serializeBotTargets(targets);
-    const decision = decideBotActionWithTrace(targets, this.activeCar, this.cellMap);
-    const action = decision.action;
-    const trace = serializeBotTrace(decision.trace);
-
-    if (action.type === "skip") {
-      this.appendBotDecision({
-        validTargets: targetSnapshot,
-        action: { type: "skip", note: "no-target" },
-        trace
-      });
-      recordMove(this.activeCar.moveCycle, 0);
-      this.addLog(`Car ${this.activeCar.carId} skipped (no moves).`);
-      return;
-    }
-    const fromCell = this.cellMap.get(this.activeCar.cellId);
-    if (!fromCell) {
-      this.appendBotDecision({
-        validTargets: targetSnapshot,
-        action: { type: "skip", note: "invalid-origin-cell" },
-        trace
-      });
-      recordMove(this.activeCar.moveCycle, 0);
-      this.addLog(`Car ${this.activeCar.carId} skipped (invalid target).`);
-      return;
-    }
-
-    if (action.type === "pit") {
-      applyPitStop(this.activeCar, action.target.id, this.activeCar.setup);
-      recordMove(this.activeCar.moveCycle, action.info.distance);
-      this.appendBotDecision({
-        validTargets: targetSnapshot,
-        action: { type: "pit", targetCellId: action.target.id, moveSpend: action.info.distance },
-        trace
-      }, fromCell.id);
-      this.logPitStop(action.target);
-    } else {
-      applyMove(this.activeCar, fromCell, action.target, action.info, action.moveSpend);
-      this.appendBotDecision({
-        validTargets: targetSnapshot,
-        action: { type: "move", targetCellId: action.target.id, moveSpend: action.moveSpend },
-        trace
-      }, fromCell.id);
-      this.addLog(`Car ${this.activeCar.carId} moved to ${action.target.id}.`);
-    }
-
+    const target = executeBotTurn({
+      activeCar: this.activeCar,
+      cellMap: this.cellMap,
+      computeTargetsForCar: (car) => this.computeTargetsForCar(car),
+      appendBotDecision: (entry, fromCellId) => this.appendBotDecision(entry, fromCellId),
+      addLog: (line) => this.addLog(line),
+      onPitStop: (cell) => this.logPitStop(cell)
+    });
+    if (!target) return;
     const token = this.getActiveToken();
-    if (token) token.setPosition(action.target.pos.x, action.target.pos.y);
+    if (token) token.setPosition(target.pos.x, target.pos.y);
   }
 
   private openPitModal(cell: TrackCell, origin: { x: number; y: number }, originCellId: string, distance: number) {

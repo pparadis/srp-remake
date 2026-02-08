@@ -40,6 +40,10 @@ export interface BotDecisionLogEntry {
 }
 
 export type BotDecisionShortLogEntry = Omit<BotDecisionLogEntry, "validTargets" | "trace">;
+export type BotDecisionAppendEntry = Omit<
+  BotDecisionLogEntry,
+  "seq" | "turnIndex" | "carId" | "fromCellId" | "state" | "tire" | "fuel" | "pitServiced"
+>;
 
 export interface BotDecisionSnapshot {
   version: string;
@@ -85,7 +89,7 @@ export function appendBotDecisionEntry(
   seq: number,
   turnIndex: number,
   activeCar: Pick<Car, "carId" | "cellId" | "state" | "tire" | "fuel" | "pitServiced">,
-  entry: Omit<BotDecisionLogEntry, "seq" | "turnIndex" | "carId" | "fromCellId" | "state" | "tire" | "fuel" | "pitServiced">,
+  entry: BotDecisionAppendEntry,
   fromCellId?: string
 ): number {
   log.push({
