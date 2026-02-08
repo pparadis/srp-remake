@@ -4,7 +4,6 @@ import type { Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
 import {
   INNER_MAIN_LANE,
-  MIDDLE_MAIN_LANE,
   OUTER_MAIN_LANE,
   PIT_LANE,
   REG_BOT_CARS,
@@ -27,6 +26,7 @@ import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
 import { executeBotTurn } from "./turns/executeBotTurn";
 import { resolvePlayerDragDrop } from "./turns/resolvePlayerDragDrop";
+import { drawTrack as drawTrackGraphics } from "./rendering/trackRenderer";
 import {
   type BotDecisionAppendEntry,
   appendBotDecisionEntry,
@@ -922,197 +922,14 @@ export class RaceScene extends Phaser.Scene {
     return this.carTokens.get(this.activeCar.carId) ?? null;
   }
 
-  private laneColor(laneIndex: number): number {
-    if (laneIndex === PIT_LANE) return 0xb87cff;
-    if (laneIndex === INNER_MAIN_LANE) return 0x3aa0ff;
-    if (laneIndex === MIDDLE_MAIN_LANE) return 0x66ff99;
-    if (laneIndex === OUTER_MAIN_LANE) return 0xffcc66;
-    return 0xffffff;
-  }
-
-  private buildLanePath(laneIndex: number): TrackCell[] {
-    const laneCells = this.track.cells.filter((c) => c.laneIndex === laneIndex);
-    if (laneCells.length === 0) return [];
-
-    const laneIds = new Set(laneCells.map((c) => c.id));
-    const incoming = new Map<string, number>();
-    for (const cell of laneCells) incoming.set(cell.id, 0);
-
-    for (const cell of laneCells) {
-      for (const nextId of cell.next) {
-        if (!laneIds.has(nextId)) continue;
-        incoming.set(nextId, (incoming.get(nextId) ?? 0) + 1);
-      }
-    }
-
-    let start = laneCells.find((c) => (incoming.get(c.id) ?? 0) === 0);
-    if (!start) {
-      start = laneCells.reduce((best, c) => (c.zoneIndex < best.zoneIndex ? c : best), laneCells[0]!);
-    }
-
-    const path: TrackCell[] = [];
-    const visited = new Set<string>();
-    let current: TrackCell | undefined = start;
-    while (current && !visited.has(current.id)) {
-      path.push(current);
-      visited.add(current.id);
-      const nextId: string | undefined = current.next.find(
-        (n: string) => laneIds.has(n) && !visited.has(n)
-      );
-      current = nextId ? this.cellMap.get(nextId) : undefined;
-    }
-
-    if (path.length < laneCells.length) {
-      const remaining = laneCells
-        .filter((c) => !visited.has(c.id))
-        .sort((a, b) => a.zoneIndex - b.zoneIndex);
-      path.push(...remaining);
-    }
-
-    return path;
-  }
-
-  private drawLaneRibbon(path: TrackCell[], laneIndex: number) {
-    if (path.length < 2) return;
-
-    const outerWidth = laneIndex === PIT_LANE ? 16 : 20;
-    const innerWidth = laneIndex === PIT_LANE ? 11 : 14;
-    const innerAlpha = laneIndex === PIT_LANE ? 0.42 : 0.34;
-
-    const first = path[0];
-    const last = path[path.length - 1];
-    if (!first || !last) return;
-    const closesLoop = last.next.some((nextId) => {
-      const nextCell = this.cellMap.get(nextId);
-      return nextCell?.id === first.id && nextCell.laneIndex === laneIndex;
-    });
-
-    this.strokeLanePath(path, closesLoop, outerWidth, 0x0b0f14, 0.55);
-    this.strokeLanePath(path, closesLoop, innerWidth, this.laneColor(laneIndex), innerAlpha);
-  }
-
-  private smoothLanePoints(path: TrackCell[], closesLoop: boolean, iterations = 2): Phaser.Math.Vector2[] {
-    let points = path.map((cell) => new Phaser.Math.Vector2(cell.pos.x, cell.pos.y));
-    if (points.length < 3) return points;
-
-    for (let iter = 0; iter < iterations; iter += 1) {
-      const next: Phaser.Math.Vector2[] = [];
-
-      if (closesLoop) {
-        for (let i = 0; i < points.length; i += 1) {
-          const a = points[i];
-          const b = points[(i + 1) % points.length];
-          if (!a || !b) continue;
-          next.push(new Phaser.Math.Vector2(0.75 * a.x + 0.25 * b.x, 0.75 * a.y + 0.25 * b.y));
-          next.push(new Phaser.Math.Vector2(0.25 * a.x + 0.75 * b.x, 0.25 * a.y + 0.75 * b.y));
-        }
-      } else {
-        const first = points[0];
-        const last = points[points.length - 1];
-        if (!first || !last) return points;
-        next.push(first.clone());
-        for (let i = 0; i < points.length - 1; i += 1) {
-          const a = points[i];
-          const b = points[i + 1];
-          if (!a || !b) continue;
-          next.push(new Phaser.Math.Vector2(0.75 * a.x + 0.25 * b.x, 0.75 * a.y + 0.25 * b.y));
-          next.push(new Phaser.Math.Vector2(0.25 * a.x + 0.75 * b.x, 0.25 * a.y + 0.75 * b.y));
-        }
-        next.push(last.clone());
-      }
-
-      points = next;
-      if (points.length < 3) break;
-    }
-
-    return points;
-  }
-
-  private strokeLanePath(path: TrackCell[], closesLoop: boolean, width: number, color: number, alpha: number) {
-    if (path.length < 2) return;
-    const points = this.smoothLanePoints(path, closesLoop, 2);
-    if (points.length < 2) return;
-
-    this.gTrack.lineStyle(width, color, alpha);
-
-    for (let i = 0; i < points.length - 1; i += 1) {
-      const from = points[i];
-      const to = points[i + 1];
-      if (!from || !to) continue;
-      this.gTrack.lineBetween(from.x, from.y, to.x, to.y);
-    }
-
-    if (closesLoop) {
-      const first = points[0];
-      const last = points[points.length - 1];
-      if (!first || !last) return;
-      this.gTrack.lineBetween(last.x, last.y, first.x, first.y);
-    }
-  }
-
-  private drawPitConnectors() {
-    const drawn = new Set<string>();
-
-    for (const from of this.track.cells) {
-      for (const nextId of from.next) {
-        const to = this.cellMap.get(nextId);
-        if (!to) continue;
-
-        const isPitTransition = from.laneIndex === PIT_LANE || to.laneIndex === PIT_LANE;
-        const isCrossLane = from.laneIndex !== to.laneIndex;
-        if (!isPitTransition || !isCrossLane) continue;
-
-        const key = [from.id, to.id].sort().join("|");
-        if (drawn.has(key)) continue;
-        drawn.add(key);
-
-        this.gTrack.lineStyle(12, 0x0b0f14, 0.6);
-        this.gTrack.lineBetween(from.pos.x, from.pos.y, to.pos.x, to.pos.y);
-        this.gTrack.lineStyle(8, this.laneColor(PIT_LANE), 0.55);
-        this.gTrack.lineBetween(from.pos.x, from.pos.y, to.pos.x, to.pos.y);
-      }
-    }
-  }
-
   private drawTrack() {
-    this.gTrack.clear();
-
-    for (let lane = 0; lane < this.track.lanes; lane += 1) {
-      this.drawLaneRibbon(this.buildLanePath(lane), lane);
-    }
-    this.drawPitConnectors();
-
-    for (const c of this.track.cells) {
-      const r = 4;
-      const fill = this.laneColor(c.laneIndex);
-
-      this.gTrack.fillStyle(fill, 1);
-      this.gTrack.fillCircle(c.pos.x, c.pos.y, r);
-
-      this.gTrack.lineStyle(1, 0x0b0f14, 1);
-      this.gTrack.strokeCircle(c.pos.x, c.pos.y, r + 1);
-
-      const tags = c.tags ?? [];
-      if (tags.includes("PIT_BOX")) {
-        this.gTrack.lineStyle(3, 0xff2d95, 1);
-        this.gTrack.strokeCircle(c.pos.x, c.pos.y, r + 3);
-        this.gTrack.lineStyle(1, 0xffffff, 0.8);
-        this.gTrack.strokeCircle(c.pos.x, c.pos.y, r + 1);
-      }
-    }
-
-    if (this.showForwardIndex) {
-      this.gTrack.lineStyle(1, 0xffffff, 0.2);
-      for (const c of this.track.cells) {
-        for (const n of c.next) {
-          const to = this.cellMap.get(n);
-          if (!to) continue;
-          this.gTrack.lineBetween(c.pos.x, c.pos.y, to.pos.x, to.pos.y);
-        }
-      }
-    }
-
-    this.renderForwardIndexOverlay();
+    drawTrackGraphics({
+      graphics: this.gTrack,
+      track: this.track,
+      cellMap: this.cellMap,
+      showForwardIndex: this.showForwardIndex,
+      renderForwardIndexOverlay: () => this.renderForwardIndexOverlay()
+    });
   }
 
   private findNearestCell(x: number, y: number, maxDist: number): TrackCell | null {
