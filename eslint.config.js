@@ -38,5 +38,13 @@ export default [
         ...globals.node
       }
     }
+  },
+  {
+    files: ["backend/**/*.{js,ts,mjs,cjs}"],
+    languageOptions: {
+      globals: {
+        ...globals.node
+      }
+    }
   }
 ];
