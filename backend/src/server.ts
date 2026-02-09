@@ -345,6 +345,21 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       return reply.code(409).send(result);
     }
 
+    const activeCar = lobbyStore.getActiveRaceCar(lobby.lobbyId);
+    if (!activeCar || activeCar.playerId !== player.playerId) {
+      result = {
+        ok: false,
+        lobbyId: lobby.lobbyId,
+        playerId: player.playerId,
+        clientCommandId: body.clientCommandId,
+        revision: lobby.revision,
+        error: "not_active_player"
+      };
+      await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
+      return reply.code(409).send(result);
+    }
+
+    lobbyStore.applyTurnAction(lobby.lobbyId, body.action);
     const updatedLobby = lobbyStore.incrementRevision(lobby.lobbyId);
     result = {
       ok: true,
@@ -356,6 +371,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     };
     await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
     broadcast(lobby.lobbyId, "turn.applied", result);
+    broadcast(lobby.lobbyId, "race.state", toPublicLobby(updatedLobby));
     return result;
   });
 

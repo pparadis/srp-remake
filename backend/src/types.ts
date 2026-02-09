@@ -8,6 +8,8 @@ export interface RaceCarState {
   name: string;
   isBot: boolean;
   lapCount: number;
+  actionsTaken: number;
+  lastAction?: TurnSubmitAction;
 }
 
 export interface RaceState {
@@ -91,5 +93,5 @@ export type TurnCommandResult =
       playerId: string;
       clientCommandId: string;
       revision: number;
-      error: "stale_revision" | "lobby_not_in_race";
+      error: "stale_revision" | "lobby_not_in_race" | "not_active_player";
     };

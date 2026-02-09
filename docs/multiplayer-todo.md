@@ -27,10 +27,10 @@ Execution backlog for authoritative multiplayer gameplay sync.
 
 ## Priority 2: Authoritative Turn Engine
 
-- [ ] Move turn application to backend (move/pit/skip mutates authoritative `raceState`).
-- [ ] Enforce active-turn ownership (only active human seat owner may submit turn).
-- [ ] Keep revision/idempotency behavior while applying real state mutations.
-- [ ] Return deterministic stale/invalid turn errors without mutating state.
+- [x] Move turn application to backend (move/pit/skip mutates authoritative `raceState`).
+- [x] Enforce active-turn ownership (only active human seat owner may submit turn).
+- [x] Keep revision/idempotency behavior while applying real state mutations.
+- [x] Return deterministic stale/invalid turn errors without mutating state.
 
 ## Priority 3: Server Bot Authority
 

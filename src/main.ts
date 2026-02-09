@@ -385,6 +385,12 @@ async function submitTurnAction(action: BackendTurnAction) {
         setBackendStatusText("Backend: lobby not in race");
         return;
       }
+      if (result.error === "not_active_player") {
+        backendSession.revision = result.revision;
+        setBackendStatusText("Backend: not your turn");
+        void rehydrateLobbyState("not-active-player");
+        return;
+      }
       setBackendStatusText(`Backend: turn rejected (${result.error})`);
       return;
     } catch (error) {

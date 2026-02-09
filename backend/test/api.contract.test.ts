@@ -267,7 +267,8 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
     playerId: createdBody.playerId,
     name: "Host",
     isBot: false,
-    lapCount: 0
+    lapCount: 0,
+    actionsTaken: 0
   });
   assert.deepEqual(startBody.lobby.raceState.cars[1], {
     carId: 2,
@@ -275,7 +276,8 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
     playerId: joinBody.playerId,
     name: "Guest",
     isBot: false,
-    lapCount: 0
+    lapCount: 0,
+    actionsTaken: 0
   });
   assert.equal(startBody.lobby.raceState.cars[2]?.isBot, true);
   assert.equal(startBody.lobby.raceState.cars[2]?.playerId, null);
@@ -304,6 +306,148 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   };
   assert.equal(reconnectBody.isReconnect, true);
   assert.ok(reconnectBody.lobby.raceState);
+});
+
+test("enforces active turn ownership and mutates authoritative race state", async (t) => {
+  const app = await createTestApp();
+  t.after(async () => {
+    await app.close();
+  });
+
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: { name: "Host" }
+  });
+  assert.equal(createdRes.statusCode, 201);
+  const createdBody = createdRes.json() as {
+    lobby: { lobbyId: string };
+    playerId: string;
+    playerToken: string;
+  };
+
+  const settingsRes = await app.inject({
+    method: "PATCH",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/settings`,
+    payload: {
+      playerToken: createdBody.playerToken,
+      settings: {
+        totalCars: 2,
+        humanCars: 2,
+        botCars: 0,
+        raceLaps: 5
+      }
+    }
+  });
+  assert.equal(settingsRes.statusCode, 200);
+
+  const joinRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
+    payload: { name: "Guest" }
+  });
+  assert.equal(joinRes.statusCode, 200);
+  const joinBody = joinRes.json() as {
+    playerId: string;
+    playerToken: string;
+  };
+
+  const startRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
+    payload: { playerToken: createdBody.playerToken }
+  });
+  assert.equal(startRes.statusCode, 200);
+
+  const hostTurnRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
+    payload: {
+      playerToken: createdBody.playerToken,
+      clientCommandId: "host-turn-1",
+      revision: 0,
+      action: { type: "skip" }
+    }
+  });
+  assert.equal(hostTurnRes.statusCode, 200);
+  const hostTurnBody = hostTurnRes.json() as { ok: true; revision: number };
+  assert.equal(hostTurnBody.ok, true);
+  assert.equal(hostTurnBody.revision, 1);
+
+  const hostOutOfTurnRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
+    payload: {
+      playerToken: createdBody.playerToken,
+      clientCommandId: "host-turn-2",
+      revision: 1,
+      action: { type: "skip" }
+    }
+  });
+  assert.equal(hostOutOfTurnRes.statusCode, 409);
+  const hostOutOfTurnBody = hostOutOfTurnRes.json() as {
+    ok: false;
+    error: string;
+    revision: number;
+  };
+  assert.equal(hostOutOfTurnBody.ok, false);
+  assert.equal(hostOutOfTurnBody.error, "not_active_player");
+  assert.equal(hostOutOfTurnBody.revision, 1);
+
+  const hostOutOfTurnDedupeRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
+    payload: {
+      playerToken: createdBody.playerToken,
+      clientCommandId: "host-turn-2",
+      revision: 1,
+      action: { type: "skip" }
+    }
+  });
+  assert.equal(hostOutOfTurnDedupeRes.statusCode, 200);
+  const hostOutOfTurnDedupeBody = hostOutOfTurnDedupeRes.json() as {
+    ok: false;
+    error: string;
+    revision: number;
+  };
+  assert.equal(hostOutOfTurnDedupeBody.ok, false);
+  assert.equal(hostOutOfTurnDedupeBody.error, "not_active_player");
+  assert.equal(hostOutOfTurnDedupeBody.revision, 1);
+
+  const guestTurnRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
+    payload: {
+      playerToken: joinBody.playerToken,
+      clientCommandId: "guest-turn-1",
+      revision: 1,
+      action: { type: "skip" }
+    }
+  });
+  assert.equal(guestTurnRes.statusCode, 200);
+  const guestTurnBody = guestTurnRes.json() as { ok: true; revision: number };
+  assert.equal(guestTurnBody.ok, true);
+  assert.equal(guestTurnBody.revision, 2);
+
+  const readRes = await app.inject({
+    method: "GET",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(createdBody.playerToken)}`
+  });
+  assert.equal(readRes.statusCode, 200);
+  const readBody = readRes.json() as {
+    lobby: {
+      raceState?: {
+        turnIndex: number;
+        activeSeatIndex: number;
+        cars: Array<{ seatIndex: number; actionsTaken: number }>;
+      };
+    };
+  };
+
+  assert.equal(readBody.lobby.raceState?.turnIndex, 2);
+  assert.equal(readBody.lobby.raceState?.activeSeatIndex, 0);
+  assert.equal(readBody.lobby.raceState?.cars[0]?.actionsTaken, 1);
+  assert.equal(readBody.lobby.raceState?.cars[1]?.actionsTaken, 1);
 });
 
 test("enforces turn idempotency and stale revision contract", async (t) => {

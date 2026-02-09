@@ -3,6 +3,7 @@ import type {
   Lobby,
   LobbyPlayer,
   RaceState,
+  TurnSubmitAction,
   LobbySettings,
   LobbyTerminationReason,
   PublicLobby,
@@ -132,7 +133,8 @@ export class LobbyStore {
         playerId: player?.playerId ?? null,
         name: player?.name ?? `Bot ${botCounter}`,
         isBot,
-        lapCount: 0
+        lapCount: 0,
+        actionsTaken: 0
       };
     });
 
@@ -311,6 +313,48 @@ export class LobbyStore {
   incrementRevision(lobbyId: string): Lobby {
     const lobby = this.getLobbyOrThrow(lobbyId);
     lobby.revision += 1;
+    lobby.updatedAt = Date.now();
+    return lobby;
+  }
+
+  getActiveRaceCar(lobbyId: string) {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    const raceState = lobby.raceState;
+    if (!raceState) return undefined;
+    return raceState.cars[raceState.activeSeatIndex];
+  }
+
+  applyTurnAction(lobbyId: string, action: TurnSubmitAction): Lobby {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    const raceState = lobby.raceState;
+    if (!raceState || raceState.cars.length === 0) {
+      throw new LobbyError(409, "Race state not initialized.");
+    }
+
+    const activeCar = raceState.cars[raceState.activeSeatIndex];
+    if (!activeCar) {
+      throw new LobbyError(409, "Active seat is out of bounds.");
+    }
+
+    activeCar.actionsTaken += 1;
+    activeCar.lastAction =
+      action.targetCellId === undefined ? { type: action.type } : { ...action };
+
+    raceState.turnIndex += 1;
+
+    let nextSeat = raceState.activeSeatIndex;
+    for (let i = 0; i < raceState.cars.length; i += 1) {
+      nextSeat = (nextSeat + 1) % raceState.cars.length;
+      const nextCar = raceState.cars[nextSeat];
+      if (nextCar && !nextCar.isBot) {
+        raceState.activeSeatIndex = nextSeat;
+        lobby.updatedAt = Date.now();
+        return lobby;
+      }
+    }
+
+    // Fallback: if all seats are bots (should not happen in v0), keep deterministic progression.
+    raceState.activeSeatIndex = nextSeat;
     lobby.updatedAt = Date.now();
     return lobby;
   }

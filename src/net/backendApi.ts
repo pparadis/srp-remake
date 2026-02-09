@@ -78,7 +78,7 @@ export type SubmitTurnResponse =
       playerId: string;
       clientCommandId: string;
       revision: number;
-      error: "stale_revision" | "lobby_not_in_race";
+      error: "stale_revision" | "lobby_not_in_race" | "not_active_player";
     };
 
 export class BackendApiError extends Error {
