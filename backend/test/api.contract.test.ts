@@ -11,7 +11,8 @@ const TEST_CONFIG: BackendConfig = {
   PORT: 3001,
   REDIS_URL: "redis://127.0.0.1:6399",
   DEDUPE_TTL_SECONDS: 120,
-  CORS_ALLOWED_ORIGINS: "*"
+  CORS_ALLOWED_ORIGINS: "*",
+  PLAYER_TOKEN_TTL_SECONDS: 86400
 };
 
 async function createTestApp() {
@@ -218,6 +219,43 @@ test("enforces turn idempotency and stale revision contract", async (t) => {
   assert.equal(staleBody.error, "stale_revision");
 });
 
+test("rejects expired player token", async (t) => {
+  const app = await createApp(
+    {
+      ...TEST_CONFIG,
+      PLAYER_TOKEN_TTL_SECONDS: 1
+    },
+    {
+      logger: false,
+      dedupeStore: new MemoryDedupeStore<TurnCommandResult>(),
+      redis: null
+    }
+  );
+  t.after(async () => {
+    await app.close();
+  });
+
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: { name: "Host" }
+  });
+  assert.equal(createdRes.statusCode, 201);
+  const createdBody = createdRes.json() as {
+    lobby: { lobbyId: string };
+    playerToken: string;
+  };
+
+  await delay(1100);
+
+  const startRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
+    payload: { playerToken: createdBody.playerToken }
+  });
+  assert.equal(startRes.statusCode, 401);
+});
+
 test("websocket rejects unknown player token (1008 or transport-level 1006)", async (t) => {
   const app = await createTestApp();
   await app.listen({ host: "127.0.0.1", port: 0 });
@@ -244,7 +282,7 @@ test("websocket rejects unknown player token (1008 or transport-level 1006)", as
   }
 });
 
-test("host websocket disconnect preserves valid turn error contract during transition", async (t) => {
+test("host websocket disconnect revokes tokens and ends race", async (t) => {
   const app = await createTestApp();
   await app.listen({ host: "127.0.0.1", port: 0 });
   t.after(async () => {
@@ -300,10 +338,9 @@ test("host websocket disconnect preserves valid turn error contract during trans
     assert.equal(observerClosed.reason, "host_disconnected");
   }
 
-  let terminalBody: { ok: false; error: string; revision: number } | undefined;
+  let sawTokenRevoked = false;
   let lastStatus: number | undefined;
   let lastBody: unknown;
-  let expectedRevision = 0;
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const turnRes = await app.inject({
       method: "POST",
@@ -311,7 +348,7 @@ test("host websocket disconnect preserves valid turn error contract during trans
       payload: {
         playerToken: createdBody.playerToken,
         clientCommandId: `after-host-disconnect-${attempt}`,
-        revision: expectedRevision,
+        revision: 0,
         action: { type: "skip" }
       }
     });
@@ -319,26 +356,11 @@ test("host websocket disconnect preserves valid turn error contract during trans
     lastStatus = turnRes.statusCode;
     lastBody = turnRes.json();
 
-    if (turnRes.statusCode === 200) {
-      const body = lastBody as { ok: true; revision: number };
-      expectedRevision = body.revision;
-      await delay(25);
-      continue;
+    if (turnRes.statusCode === 401) {
+      sawTokenRevoked = true;
+      break;
     }
-
-    if (turnRes.statusCode === 409) {
-      const body = lastBody as { ok: false; error: string; revision: number };
-      if (body.error === "lobby_not_in_race" || body.error === "stale_revision") {
-        terminalBody = body;
-        break;
-      }
-      expectedRevision = body.revision;
-      await delay(25);
-      continue;
-    }
-
-    // During host-disconnect transition, API may briefly return 500.
-    if (turnRes.statusCode === 500) {
+    if (turnRes.statusCode === 200 || turnRes.statusCode === 409 || turnRes.statusCode === 500) {
       await delay(25);
       continue;
     }
@@ -349,8 +371,7 @@ test("host websocket disconnect preserves valid turn error contract during trans
   }
 
   assert.ok(
-    terminalBody,
-    `Expected terminal turn error state; lastStatus=${lastStatus} lastBody=${JSON.stringify(lastBody)}`
+    sawTokenRevoked,
+    `Expected token revocation after host disconnect; lastStatus=${lastStatus} lastBody=${JSON.stringify(lastBody)}`
   );
-  assert.ok(["lobby_not_in_race", "stale_revision"].includes(terminalBody.error));
 });

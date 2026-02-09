@@ -81,6 +81,8 @@ export class LobbyError extends Error {
 }
 
 export class LobbyStore {
+  constructor(private readonly playerTokenTtlMs = Number.POSITIVE_INFINITY) {}
+
   private lobbies = new Map<string, Lobby>();
 
   count(): number {
@@ -108,7 +110,12 @@ export class LobbyStore {
   }
 
   findPlayerByToken(lobby: Lobby, playerToken: string): LobbyPlayer | undefined {
-    return lobby.players.find((p) => p.playerToken === playerToken);
+    const now = Date.now();
+    return lobby.players.find((p) => {
+      if (p.playerToken !== playerToken) return false;
+      if (p.tokenRevoked) return false;
+      return now - p.tokenIssuedAt <= this.playerTokenTtlMs;
+    });
   }
 
   createLobby(
@@ -133,7 +140,9 @@ export class LobbyStore {
       connected: true,
       seatIndex: 0,
       isHost: true,
-      playerToken: randomUUID()
+      playerToken: randomUUID(),
+      tokenIssuedAt: now,
+      tokenRevoked: false
     };
 
     const lobby: Lobby = {
@@ -190,7 +199,9 @@ export class LobbyStore {
       connected: true,
       seatIndex: this.findNextHumanSeat(lobby),
       isHost: false,
-      playerToken: randomUUID()
+      playerToken: randomUUID(),
+      tokenIssuedAt: Date.now(),
+      tokenRevoked: false
     };
 
     lobby.players.push(player);
@@ -220,7 +231,10 @@ export class LobbyStore {
     }
 
     const host = this.findPlayerByToken(lobby, hostToken);
-    if (!host || !host.isHost) {
+    if (!host) {
+      throw new LobbyError(401, "Invalid player token for this lobby.");
+    }
+    if (!host.isHost) {
       throw new LobbyError(403, "Only host can update lobby settings.");
     }
 
@@ -244,7 +258,10 @@ export class LobbyStore {
     }
 
     const host = this.findPlayerByToken(lobby, hostToken);
-    if (!host || !host.isHost) {
+    if (!host) {
+      throw new LobbyError(401, "Invalid player token for this lobby.");
+    }
+    if (!host.isHost) {
       throw new LobbyError(403, "Only host can start race.");
     }
 
@@ -265,6 +282,10 @@ export class LobbyStore {
     const lobby = this.getLobbyOrThrow(lobbyId);
     lobby.status = "FINISHED";
     lobby.terminationReason = reason;
+    for (const player of lobby.players) {
+      player.tokenRevoked = true;
+      player.connected = false;
+    }
     lobby.updatedAt = Date.now();
     return lobby;
   }

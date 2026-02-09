@@ -16,6 +16,8 @@ export interface LobbyPlayer {
   seatIndex: number;
   isHost: boolean;
   playerToken: string;
+  tokenIssuedAt: number;
+  tokenRevoked: boolean;
 }
 
 export interface Lobby {

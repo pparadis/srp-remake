@@ -115,7 +115,7 @@ async function createDedupeStore(redisUrl: string): Promise<{
 
 export async function createApp(config: BackendConfig, options: CreateAppOptions = {}) {
   const app = Fastify({ logger: options.logger ?? true });
-  const lobbyStore = new LobbyStore();
+  const lobbyStore = new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000);
   const { dedupeStore, redis } = options.dedupeStore
     ? { dedupeStore: options.dedupeStore, redis: options.redis ?? null }
     : await createDedupeStore(config.REDIS_URL);

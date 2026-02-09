@@ -32,6 +32,8 @@ sudo apt install -y podman podman-compose
 - `CORS_ALLOWED_ORIGINS` (default `*`)
   - Use comma-separated origins for stricter production setup.
   - Example: `https://your-frontend.example.com,http://localhost:5173`
+- `PLAYER_TOKEN_TTL_SECONDS` (default `86400`)
+  - Player tokens expire after this duration.
 
 ## Run
 
