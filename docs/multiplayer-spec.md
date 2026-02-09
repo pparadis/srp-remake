@@ -162,6 +162,20 @@ Payload requirement for v0:
 
 - `lobby.create` / `lobby.updateSettings` must include `raceLaps`.
 - `lobby.state`, `race.started`, and `race.state` must include `raceLaps`.
+- `turn.submitMove`, `turn.submitPitStop`, and `turn.skip` must include `clientCommandId` (UUID-like).
+- `turn.applied` should echo `clientCommandId` when action originated from a client.
+
+## Idempotency Contract (v0)
+
+- `clientCommandId` is generated client-side per submitted turn action.
+- Command id uniqueness scope: unique per `playerId` for the lifetime of a lobby.
+- Server stores a dedupe cache keyed by `(lobbyId, playerId, clientCommandId)`.
+- If a duplicate command is received:
+- Server must not apply game state twice.
+- Server returns the previously computed result (`turn.applied` or `error`) for that command id.
+- If `revision` no longer matches current state:
+- Server rejects with deterministic stale-action error.
+- Duplicate stale commands must return the same stale-action error payload.
 
 ## Turn Authority Rules
 
@@ -197,6 +211,7 @@ Payload requirement for v0:
 - Server recomputes valid targets from authoritative state.
 - Rate-limit action submissions.
 - Reject stale actions using `revision` checks.
+- Enforce idempotency using `(playerId, clientCommandId)` dedupe.
 
 ## UX Notes
 
@@ -228,6 +243,7 @@ Payload requirement for v0:
 5. Auto-skip timer: `not in v0` (revisit in v1+).
 6. Lap target: `host-configurable raceLaps`, authoritative on server.
 7. Host disconnect: `end lobby/race immediately` ("if he dies, he dies").
+8. Action idempotency: `clientCommandId + server dedupe cache` is required for turn submissions.
 
 ## Delivery Plan
 
@@ -266,3 +282,4 @@ Payload requirement for v0:
 5. Document inactivity TTL for lobbies and token invalidation behavior.
 6. Persist and rebroadcast `raceLaps` for lobby state, race start, and rematch.
 7. On host disconnect, close the lobby and broadcast terminal reason `host_disconnected`.
+8. Add `(playerId, clientCommandId)` dedupe storage and replay same result for duplicate submits.
