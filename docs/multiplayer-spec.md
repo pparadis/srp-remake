@@ -91,6 +91,22 @@ type Lobby = {
 };
 ```
 
+## Seat Model (v0)
+
+- Seats are indexed `0..(totalCars-1)` and are authoritative on the server.
+- Host is always assigned `seatIndex = 0`.
+- Additional humans are assigned the lowest available seat index at join time.
+- During an active race, seat ownership is stable (no seat reshuffle).
+- Turn order is derived from ascending `seatIndex`.
+- Spawn/car identity is derived from ascending `seatIndex`:
+- `carId = seatIndex + 1`.
+- Human cars use the owning player seat.
+- Bot seats fill all remaining unoccupied seats in ascending `seatIndex`.
+- Rematch in same lobby:
+- Keep seat ownership for players still present.
+- Remove seats for players who left.
+- Fill newly free seats with reconnecting/new humans first, then bots (ascending seat index).
+
 ## Identity Decision (v0)
 
 Chosen approach: `anonymous nickname + server-issued session token`.
@@ -244,6 +260,7 @@ Payload requirement for v0:
 6. Lap target: `host-configurable raceLaps`, authoritative on server.
 7. Host disconnect: `end lobby/race immediately` ("if he dies, he dies").
 8. Action idempotency: `clientCommandId + server dedupe cache` is required for turn submissions.
+9. Seat model: `deterministic seatIndex-driven spawn + turn order + rematch preservation`.
 
 ## Delivery Plan
 
@@ -283,3 +300,4 @@ Payload requirement for v0:
 6. Persist and rebroadcast `raceLaps` for lobby state, race start, and rematch.
 7. On host disconnect, close the lobby and broadcast terminal reason `host_disconnected`.
 8. Add `(playerId, clientCommandId)` dedupe storage and replay same result for duplicate submits.
+9. Implement authoritative seat assignment and bot-fill rules based on ascending `seatIndex`.
