@@ -108,6 +108,7 @@ Notes:
 
 - Run `01 Create Lobby` before requests that require `{{lobbyId}}` and `{{hostPlayerToken}}`.
 - The collection stores `lobbyId`, `hostPlayerToken`, and `guestPlayerToken` from responses.
+- Render deployment guide: `docs/backend-render-deploy.md`
 
 ## Notes
 
