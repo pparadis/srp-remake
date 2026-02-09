@@ -174,17 +174,136 @@ test("supports authenticated lobby read contract", async (t) => {
   });
   assert.equal(readRes.statusCode, 200);
   const readBody = readRes.json() as {
-    lobby: { lobbyId: string };
+    lobby: { lobbyId: string; raceState?: unknown };
     playerId: string;
   };
   assert.equal(readBody.lobby.lobbyId, createdBody.lobby.lobbyId);
   assert.equal(readBody.playerId, createdBody.playerId);
+  assert.equal(readBody.lobby.raceState, undefined);
 
   const badTokenRes = await app.inject({
     method: "GET",
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=invalid`
   });
   assert.equal(badTokenRes.statusCode, 401);
+});
+
+test("builds and exposes authoritative race state on start/reconnect", async (t) => {
+  const app = await createTestApp();
+  t.after(async () => {
+    await app.close();
+  });
+
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: { name: "Host" }
+  });
+  assert.equal(createdRes.statusCode, 201);
+  const createdBody = createdRes.json() as {
+    lobby: { lobbyId: string };
+    playerId: string;
+    playerToken: string;
+  };
+
+  const settingsRes = await app.inject({
+    method: "PATCH",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/settings`,
+    payload: {
+      playerToken: createdBody.playerToken,
+      settings: {
+        totalCars: 4,
+        humanCars: 2,
+        botCars: 2,
+        raceLaps: 7
+      }
+    }
+  });
+  assert.equal(settingsRes.statusCode, 200);
+
+  const joinRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
+    payload: { name: "Guest" }
+  });
+  assert.equal(joinRes.statusCode, 200);
+  const joinBody = joinRes.json() as {
+    playerId: string;
+    playerToken: string;
+  };
+
+  const startRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
+    payload: { playerToken: createdBody.playerToken }
+  });
+  assert.equal(startRes.statusCode, 200);
+  const startBody = startRes.json() as {
+    lobby: {
+      raceState: {
+        trackId: string;
+        raceLaps: number;
+        turnIndex: number;
+        activeSeatIndex: number;
+        cars: Array<{
+          carId: number;
+          seatIndex: number;
+          playerId: string | null;
+          name: string;
+          isBot: boolean;
+          lapCount: number;
+        }>;
+      };
+    };
+  };
+  assert.equal(startBody.lobby.raceState.trackId, "oval16_3lanes");
+  assert.equal(startBody.lobby.raceState.raceLaps, 7);
+  assert.equal(startBody.lobby.raceState.turnIndex, 0);
+  assert.equal(startBody.lobby.raceState.activeSeatIndex, 0);
+  assert.equal(startBody.lobby.raceState.cars.length, 4);
+  assert.deepEqual(startBody.lobby.raceState.cars[0], {
+    carId: 1,
+    seatIndex: 0,
+    playerId: createdBody.playerId,
+    name: "Host",
+    isBot: false,
+    lapCount: 0
+  });
+  assert.deepEqual(startBody.lobby.raceState.cars[1], {
+    carId: 2,
+    seatIndex: 1,
+    playerId: joinBody.playerId,
+    name: "Guest",
+    isBot: false,
+    lapCount: 0
+  });
+  assert.equal(startBody.lobby.raceState.cars[2]?.isBot, true);
+  assert.equal(startBody.lobby.raceState.cars[2]?.playerId, null);
+  assert.equal(startBody.lobby.raceState.cars[3]?.isBot, true);
+  assert.equal(startBody.lobby.raceState.cars[3]?.playerId, null);
+
+  const readRes = await app.inject({
+    method: "GET",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(joinBody.playerToken)}`
+  });
+  assert.equal(readRes.statusCode, 200);
+  const readBody = readRes.json() as { lobby: { raceState?: unknown } };
+  assert.ok(readBody.lobby.raceState);
+
+  const reconnectRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
+    payload: {
+      playerToken: joinBody.playerToken
+    }
+  });
+  assert.equal(reconnectRes.statusCode, 200);
+  const reconnectBody = reconnectRes.json() as {
+    isReconnect: boolean;
+    lobby: { raceState?: unknown };
+  };
+  assert.equal(reconnectBody.isReconnect, true);
+  assert.ok(reconnectBody.lobby.raceState);
 });
 
 test("enforces turn idempotency and stale revision contract", async (t) => {

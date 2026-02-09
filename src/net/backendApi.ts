@@ -25,6 +25,20 @@ export interface PublicLobby {
     seatIndex: number;
     isHost: boolean;
   }>;
+  raceState?: {
+    trackId: string;
+    raceLaps: number;
+    turnIndex: number;
+    activeSeatIndex: number;
+    cars: Array<{
+      carId: number;
+      seatIndex: number;
+      playerId: string | null;
+      name: string;
+      isBot: boolean;
+      lapCount: number;
+    }>;
+  };
 }
 
 export interface CreateLobbyResponse {

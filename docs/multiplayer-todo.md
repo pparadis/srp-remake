@@ -20,10 +20,10 @@ Execution backlog for authoritative multiplayer gameplay sync.
 
 ## Priority 1: Server Authoritative Race State
 
-- [ ] Extend backend lobby model with authoritative `raceState` snapshot.
-- [ ] Add/standardize server payload contracts to include `raceState` where relevant.
-- [ ] On race start, initialize authoritative cars/turn order from deterministic seat assignment.
-- [ ] Expose `race.state` snapshot on join/reconnect for state hydration.
+- [x] Extend backend lobby model with authoritative `raceState` snapshot.
+- [x] Add/standardize server payload contracts to include `raceState` where relevant.
+- [x] On race start, initialize authoritative cars/turn order from deterministic seat assignment.
+- [x] Expose `race.state` snapshot on join/reconnect for state hydration.
 
 ## Priority 2: Authoritative Turn Engine
 

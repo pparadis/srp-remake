@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type {
   Lobby,
   LobbyPlayer,
+  RaceState,
   LobbySettings,
   LobbyTerminationReason,
   PublicLobby,
@@ -67,6 +68,9 @@ export function toPublicLobby(lobby: Lobby): PublicLobby {
   if (lobby.terminationReason !== undefined) {
     publicLobby.terminationReason = lobby.terminationReason;
   }
+  if (lobby.raceState !== undefined) {
+    publicLobby.raceState = lobby.raceState;
+  }
 
   return publicLobby;
 }
@@ -107,6 +111,38 @@ export class LobbyStore {
       if (!used.has(seat)) return seat;
     }
     throw new LobbyError(409, "No human seats remaining in lobby settings.");
+  }
+
+  private buildInitialRaceState(lobby: Lobby): RaceState {
+    const playersBySeat = new Map<number, LobbyPlayer>();
+    for (const player of lobby.players) {
+      playersBySeat.set(player.seatIndex, player);
+    }
+
+    let botCounter = 0;
+    const cars = Array.from({ length: lobby.settings.totalCars }, (_, seatIndex) => {
+      const player = playersBySeat.get(seatIndex);
+      const isBot = !player;
+      if (isBot) {
+        botCounter += 1;
+      }
+      return {
+        carId: seatIndex + 1,
+        seatIndex,
+        playerId: player?.playerId ?? null,
+        name: player?.name ?? `Bot ${botCounter}`,
+        isBot,
+        lapCount: 0
+      };
+    });
+
+    return {
+      trackId: lobby.settings.trackId,
+      raceLaps: lobby.settings.raceLaps,
+      turnIndex: 0,
+      activeSeatIndex: 0,
+      cars
+    };
   }
 
   findPlayerByToken(lobby: Lobby, playerToken: string): LobbyPlayer | undefined {
@@ -267,6 +303,7 @@ export class LobbyStore {
 
     lobby.status = "IN_RACE";
     lobby.revision = 0;
+    lobby.raceState = this.buildInitialRaceState(lobby);
     lobby.updatedAt = Date.now();
     return lobby;
   }

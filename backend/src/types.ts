@@ -1,6 +1,23 @@
 export type LobbyStatus = "WAITING" | "IN_RACE" | "FINISHED";
 export type LobbyTerminationReason = "host_disconnected";
 
+export interface RaceCarState {
+  carId: number;
+  seatIndex: number;
+  playerId: string | null;
+  name: string;
+  isBot: boolean;
+  lapCount: number;
+}
+
+export interface RaceState {
+  trackId: string;
+  raceLaps: number;
+  turnIndex: number;
+  activeSeatIndex: number;
+  cars: RaceCarState[];
+}
+
 export interface LobbySettings {
   trackId: string;
   totalCars: number;
@@ -30,6 +47,7 @@ export interface Lobby {
   terminationReason?: LobbyTerminationReason;
   settings: LobbySettings;
   players: LobbyPlayer[];
+  raceState?: RaceState;
 }
 
 export interface PublicLobbyPlayer {
@@ -50,6 +68,7 @@ export interface PublicLobby {
   terminationReason?: LobbyTerminationReason;
   settings: LobbySettings;
   players: PublicLobbyPlayer[];
+  raceState?: RaceState;
 }
 
 export interface TurnSubmitAction {

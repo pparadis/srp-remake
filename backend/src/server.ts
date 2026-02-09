@@ -296,6 +296,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const lobby = lobbyStore.startRace(params.lobbyId, body.playerToken);
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "race.started", publicLobby);
+    broadcast(lobby.lobbyId, "race.state", publicLobby);
     return { lobby: publicLobby };
   });
 
@@ -380,7 +381,11 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
     addSocket(lobbyId, socket);
     lobbyStore.setPlayerConnected(lobbyId, playerToken, true);
-    socket.send(JSON.stringify({ event: "lobby.state", payload: toPublicLobby(lobby) }));
+    const publicLobby = toPublicLobby(lobby);
+    socket.send(JSON.stringify({ event: "lobby.state", payload: publicLobby }));
+    if (publicLobby.raceState !== undefined) {
+      socket.send(JSON.stringify({ event: "race.state", payload: publicLobby }));
+    }
 
     socket.on("close", () => {
       removeSocket(lobbyId, socket);
