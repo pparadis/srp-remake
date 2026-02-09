@@ -185,6 +185,12 @@ Payload requirement for v0:
 - Player reconnects.
 - Host force-skips.
 
+## Host Disconnect Policy (v0)
+
+- If host disconnects at any time, the current race/lobby is ended immediately.
+- Server broadcasts terminal state with reason: `host_disconnected`.
+- Clients return to out-of-race UI and must create/join a new lobby to continue.
+
 ## Anti-Cheat and Integrity
 
 - Never trust client-computed valid targets.
@@ -221,6 +227,7 @@ Payload requirement for v0:
 4. Race restart: `rematch in same lobby with same players`.
 5. Auto-skip timer: `not in v0` (revisit in v1+).
 6. Lap target: `host-configurable raceLaps`, authoritative on server.
+7. Host disconnect: `end lobby/race immediately` ("if he dies, he dies").
 
 ## Delivery Plan
 
@@ -258,3 +265,4 @@ Payload requirement for v0:
 4. On rematch, reset match state while preserving players and host.
 5. Document inactivity TTL for lobbies and token invalidation behavior.
 6. Persist and rebroadcast `raceLaps` for lobby state, race start, and rematch.
+7. On host disconnect, close the lobby and broadcast terminal reason `host_disconnected`.
