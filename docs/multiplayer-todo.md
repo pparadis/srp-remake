@@ -47,6 +47,7 @@ Execution backlog for authoritative multiplayer gameplay sync.
 
 ## Priority 5: Validation
 
-- [ ] Add backend contract tests for websocket event ordering and turn ownership enforcement.
-- [ ] Add integration tests for two-client sync (host + guest).
-- [ ] Add reconnect/resume tests (same token, same seat, hydrated state).
+- [x] Add backend contract tests for websocket event ordering and turn ownership enforcement.
+- [x] Add integration tests for two-client sync (host + guest).
+- [x] Add reconnect/resume tests (same token, same seat, hydrated state).
+- [x] Add deterministic local repro script for sync/idempotency flow with fixed command IDs.

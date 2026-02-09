@@ -71,6 +71,18 @@ npm run backend:logs
 npm --prefix backend test
 ```
 
+5. Deterministic sync repro (fixed `clientCommandId`s):
+
+```bash
+npm run backend:repro:sync
+```
+
+Optional env vars:
+
+- `BACKEND_BASE_URL` (default `http://localhost:3001`)
+- `BACKEND_ADMIN_DEBUG_TOKEN` (if timeline endpoint requires auth)
+- `REPRO_TIMELINE_LIMIT` (default `40`)
+
 ## Docker Compose Fallback
 
 If your machine has Docker Compose instead of Podman Compose:

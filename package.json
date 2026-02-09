@@ -21,6 +21,7 @@
     "backend:restart": "npm run backend:down && npm run backend:up",
     "backend:test": "npm --prefix backend test",
     "backend:build": "npm --prefix backend run build",
+    "backend:repro:sync": "npm --prefix backend run repro:sync",
     "backend:up:docker": "docker-compose up --build api redis",
     "backend:down:docker": "docker-compose down",
     "backend:logs:docker": "docker-compose logs -f api redis",
