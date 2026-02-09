@@ -48,6 +48,18 @@
       </label>
       <button id="restartBtn" type="button">Restart</button>
       <button id="toggleCarsMovesBtn" type="button">Cars+moves: ON</button>
+      <label>
+        Lobby ID
+        <input id="backendLobbyIdInput" type="text" placeholder="(host creates)" />
+      </label>
+      <label>
+        Name
+        <input id="backendPlayerNameInput" type="text" value="Player" />
+      </label>
+      <button id="backendHostBtn" type="button">Host local lobby</button>
+      <button id="backendJoinBtn" type="button">Join lobby</button>
+      <button id="backendStartBtn" type="button">Start race</button>
+      <span id="backendStatus">Backend: idle</span>
     </div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>

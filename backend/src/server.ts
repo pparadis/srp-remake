@@ -121,6 +121,18 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     : await createDedupeStore(config.REDIS_URL);
   const socketsByLobby = new Map<string, Set<LobbySocket>>();
 
+  app.addHook("onRequest", async (request, reply) => {
+    // Keep local frontend integration simple: allow browser clients to call v1 API directly.
+    reply.header("Access-Control-Allow-Origin", "*");
+    reply.header("Access-Control-Allow-Methods", "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS");
+    reply.header("Access-Control-Allow-Headers", "Accept,Content-Type,Authorization");
+    reply.header("Access-Control-Max-Age", "86400");
+
+    if (request.method === "OPTIONS") {
+      return reply.code(204).send();
+    }
+  });
+
   function addSocket(lobbyId: string, socket: LobbySocket) {
     const set = socketsByLobby.get(lobbyId) ?? new Set<LobbySocket>();
     set.add(socket);

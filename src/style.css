@@ -8,6 +8,7 @@ body {
 #controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid #1a2330;
@@ -31,6 +32,18 @@ body {
 
 #controls input {
   width: 72px;
+}
+
+#backendLobbyIdInput {
+  width: 170px;
+}
+
+#backendPlayerNameInput {
+  width: 96px;
+}
+
+#backendStatus {
+  color: #8fb0cc;
 }
 
 #app {

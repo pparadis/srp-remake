@@ -5,6 +5,7 @@ import { type MoveValidationResult } from "../../systems/moveValidationSystem";
 import type { Car } from "../../types/car";
 import type { TrackCell } from "../../types/track";
 import type { TargetInfo } from "../../systems/movementSystem";
+import type { BackendTurnAction } from "../../../net/backendApi";
 
 export interface ResolvePlayerDragDropParams {
   activeCar: Car;
@@ -14,9 +15,15 @@ export interface ResolvePlayerDragDropParams {
   validation: MoveValidationResult;
   cellMap: Map<string, TrackCell>;
   activeHalo: Phaser.GameObjects.Ellipse | null;
-  onOpenPitModal: (cell: TrackCell, origin: { x: number; y: number }, originCellId: string, distance: number) => void;
+  onOpenPitModal: (
+    cell: TrackCell,
+    origin: { x: number; y: number },
+    originCellId: string,
+    distance: number
+  ) => void;
   onLog: (line: string) => void;
   onAdvanceTurnAndRefresh: () => void;
+  onTurnAction?: (action: BackendTurnAction) => void;
 }
 
 export function resolvePlayerDragDrop(params: ResolvePlayerDragDropParams): void {
@@ -52,6 +59,7 @@ export function resolvePlayerDragDrop(params: ResolvePlayerDragDropParams): void
     } else {
       applyMove(activeCar, nearestCell, nearestCell, info, validation.moveSpend);
     }
+    params.onTurnAction?.({ type: "move", targetCellId: nearestCell.id });
     onLog(`Car ${activeCar.carId} moved to ${nearestCell.id}.`);
     onAdvanceTurnAndRefresh();
     return;

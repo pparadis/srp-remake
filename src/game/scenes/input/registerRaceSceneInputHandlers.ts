@@ -4,7 +4,8 @@ import type { TargetInfo } from "../../systems/movementSystem";
 import type { Car } from "../../types/car";
 import type { TrackCell } from "../../types/track";
 import type { PitModal } from "../ui/PitModal";
-import { resolvePlayerDragDrop } from "../turns/resolvePlayerDragDrop";
+import { resolvePlayerDragDrop, type ResolvePlayerDragDropParams } from "../turns/resolvePlayerDragDrop";
+import type { BackendTurnAction } from "../../../net/backendApi";
 
 export interface RegisterRaceSceneInputHandlersParams {
   scene: Phaser.Scene;
@@ -24,9 +25,15 @@ export interface RegisterRaceSceneInputHandlersParams {
   setHudText: (text: string) => void;
   copyCellId: (cellId: string) => void;
   toggleForwardIndexOverlay: () => void;
-  openPitModal: (cell: TrackCell, origin: { x: number; y: number }, originCellId: string, distance: number) => void;
+  openPitModal: (
+    cell: TrackCell,
+    origin: { x: number; y: number },
+    originCellId: string,
+    distance: number
+  ) => void;
   addLog: (line: string) => void;
   advanceTurnAndRefresh: () => void;
+  onTurnAction?: (action: BackendTurnAction) => void;
   hoverMaxDist: number;
   dragSnapDist: number;
 }
@@ -53,6 +60,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     openPitModal,
     addLog,
     advanceTurnAndRefresh,
+    onTurnAction,
     hoverMaxDist,
     dragSnapDist
   } = params;
@@ -67,16 +75,19 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     setDragOrigin({ x: token.x, y: token.y });
   });
 
-  scene.input.on("drag", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, x: number, y: number) => {
-    if (isRaceFinished()) return;
-    if (pitModal.isActive()) return;
-    const token = getActiveToken();
-    if (!token || obj !== token) return;
-    token.setPosition(x, y);
-    const activeCar = getActiveCar();
-    const halo = activeHalos.get(activeCar.carId);
-    if (halo) halo.setPosition(x, y);
-  });
+  scene.input.on(
+    "drag",
+    (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, x: number, y: number) => {
+      if (isRaceFinished()) return;
+      if (pitModal.isActive()) return;
+      const token = getActiveToken();
+      if (!token || obj !== token) return;
+      token.setPosition(x, y);
+      const activeCar = getActiveCar();
+      const halo = activeHalos.get(activeCar.carId);
+      if (halo) halo.setPosition(x, y);
+    }
+  );
 
   scene.input.on("dragend", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
     if (isRaceFinished()) return;
@@ -87,8 +98,14 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     const nearestCell = findNearestCell(token.x, token.y, dragSnapDist);
     const activeCar = getActiveCar();
     const fromCell = cellMap.get(activeCar.cellId) ?? null;
-    const validation = validateMoveAttempt(activeCar, fromCell, nearestCell, getValidTargets(), obj === token);
-    resolvePlayerDragDrop({
+    const validation = validateMoveAttempt(
+      activeCar,
+      fromCell,
+      nearestCell,
+      getValidTargets(),
+      obj === token
+    );
+    const dropParams: ResolvePlayerDragDropParams = {
       activeCar,
       token,
       origin,
@@ -101,7 +118,15 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
       },
       onLog: (line) => addLog(line),
       onAdvanceTurnAndRefresh: () => advanceTurnAndRefresh()
-    });
+    };
+    if (onTurnAction) {
+      resolvePlayerDragDrop({
+        ...dropParams,
+        onTurnAction
+      });
+    } else {
+      resolvePlayerDragDrop(dropParams);
+    }
     setDragOrigin(null);
   });
 

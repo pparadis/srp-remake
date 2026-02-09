@@ -84,6 +84,7 @@ describe("resolvePlayerDragDrop", () => {
     const onOpenPitModal = vi.fn();
     const onLog = vi.fn();
     const onAdvanceTurnAndRefresh = vi.fn();
+    const onTurnAction = vi.fn();
 
     resolvePlayerDragDrop({
       activeCar: car,
@@ -98,7 +99,8 @@ describe("resolvePlayerDragDrop", () => {
       activeHalo: makeHalo(15, 25),
       onOpenPitModal,
       onLog,
-      onAdvanceTurnAndRefresh
+      onAdvanceTurnAndRefresh,
+      onTurnAction
     });
 
     expect(car.cellId).toBe("B");
@@ -109,6 +111,7 @@ describe("resolvePlayerDragDrop", () => {
     expect(onOpenPitModal).not.toHaveBeenCalled();
     expect(onAdvanceTurnAndRefresh).toHaveBeenCalledTimes(1);
     expect(onLog).toHaveBeenCalledWith("Car 1 moved to B.");
+    expect(onTurnAction).toHaveBeenCalledWith({ type: "move", targetCellId: "B" });
   });
 
   it("opens pit modal for pit stop instead of advancing turn", () => {

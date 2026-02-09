@@ -97,3 +97,33 @@ Notes:
 
 - This is a scaffold for local development and protocol exploration.
 - Current turn route enforces `revision` and `clientCommandId` dedupe, but does not yet run full game-rule validation.
+
+## Local Client Smoke Test
+
+1. Start backend stack:
+
+```bash
+npm run backend:up
+```
+
+2. Start frontend:
+
+```bash
+npm run dev
+```
+
+Optional (if not using default):
+
+```bash
+VITE_BACKEND_API_BASE_URL=http://localhost:3001 npm run dev
+```
+
+3. Open two browser tabs on the frontend URL.
+4. In tab A:
+   - Click `Host local lobby`.
+   - Copy `Lobby ID`.
+   - Click `Start race`.
+5. In tab B:
+   - Paste same `Lobby ID`.
+   - Click `Join lobby`.
+6. Drive turns locally; each human move/skip/pit action is submitted to backend and status updates are shown in `Backend: ...` text.
