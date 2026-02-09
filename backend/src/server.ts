@@ -375,36 +375,36 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return result;
   });
 
-  app.get("/ws", { websocket: true }, (connection, request) => {
-    const socket = connection.socket as LobbySocket;
+  app.get("/ws", { websocket: true }, (socket, request) => {
+    const ws = socket as LobbySocket;
     const query = WsQuerySchema.safeParse(request.query);
     if (!query.success) {
-      socket.close(1008, "invalid_query");
+      ws.close(1008, "invalid_query");
       return;
     }
 
     const { lobbyId, playerToken } = query.data;
     const lobby = lobbyStore.getLobby(lobbyId);
     if (!lobby) {
-      socket.close(1008, "unknown_lobby");
+      ws.close(1008, "unknown_lobby");
       return;
     }
     const player = lobbyStore.findPlayerByToken(lobby, playerToken);
     if (!player) {
-      socket.close(1008, "invalid_token");
+      ws.close(1008, "invalid_token");
       return;
     }
 
-    addSocket(lobbyId, socket);
+    addSocket(lobbyId, ws);
     lobbyStore.setPlayerConnected(lobbyId, playerToken, true);
     const publicLobby = toPublicLobby(lobby);
-    socket.send(JSON.stringify({ event: "lobby.state", payload: publicLobby }));
+    ws.send(JSON.stringify({ event: "lobby.state", payload: publicLobby }));
     if (publicLobby.raceState !== undefined) {
-      socket.send(JSON.stringify({ event: "race.state", payload: publicLobby }));
+      ws.send(JSON.stringify({ event: "race.state", payload: publicLobby }));
     }
 
-    socket.on("close", () => {
-      removeSocket(lobbyId, socket);
+    ws.on("close", () => {
+      removeSocket(lobbyId, ws);
       try {
         const result = lobbyStore.setPlayerConnected(lobbyId, playerToken, false);
         broadcast(lobbyId, "lobby.state", toPublicLobby(result.lobby));
