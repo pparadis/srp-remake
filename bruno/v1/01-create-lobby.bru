@@ -1,0 +1,52 @@
+meta {
+  name: 01 Create Lobby
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/lobbies
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "name": "Host QA",
+    "settings": {
+      "totalCars": 4,
+      "humanCars": 1,
+      "botCars": 3,
+      "raceLaps": 5
+    }
+  }
+}
+
+tests {
+  test("status is 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("response has lobby id and host token", function () {
+    const body = res.getBody();
+    expect(body.lobby.lobbyId).to.be.a("string");
+    expect(body.playerToken).to.be.a("string");
+  });
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body?.lobby?.lobbyId) {
+    bru.setVar("lobbyId", body.lobby.lobbyId);
+  }
+  if (body?.playerToken) {
+    bru.setVar("hostPlayerToken", body.playerToken);
+  }
+  if (body?.playerId) {
+    bru.setVar("hostPlayerId", body.playerId);
+  }
+}

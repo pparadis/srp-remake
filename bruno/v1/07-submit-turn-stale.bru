@@ -1,0 +1,38 @@
+meta {
+  name: 07 Submit Turn (Stale Revision)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/lobbies/{{lobbyId}}/turns
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "playerToken": "{{hostPlayerToken}}",
+    "clientCommandId": "cmd-2",
+    "revision": 0,
+    "action": {
+      "type": "skip"
+    }
+  }
+}
+
+tests {
+  test("status is 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+
+  test("error is stale_revision", function () {
+    const body = res.getBody();
+    expect(body.ok).to.equal(false);
+    expect(body.error).to.equal("stale_revision");
+  });
+}

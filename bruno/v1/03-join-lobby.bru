@@ -1,0 +1,40 @@
+meta {
+  name: 03 Join Lobby
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/lobbies/{{lobbyId}}/join
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "name": "Player 2"
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("join is a new player and token is returned", function () {
+    const body = res.getBody();
+    expect(body.isReconnect).to.equal(false);
+    expect(body.playerToken).to.be.a("string");
+  });
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body?.playerToken) {
+    bru.setVar("guestPlayerToken", body.playerToken);
+  }
+}

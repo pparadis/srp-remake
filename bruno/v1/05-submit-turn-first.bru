@@ -1,0 +1,38 @@
+meta {
+  name: 05 Submit Turn (First)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/lobbies/{{lobbyId}}/turns
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "playerToken": "{{hostPlayerToken}}",
+    "clientCommandId": "cmd-1",
+    "revision": 0,
+    "action": {
+      "type": "skip"
+    }
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("turn accepted", function () {
+    const body = res.getBody();
+    expect(body.ok).to.equal(true);
+    expect(body.revision).to.equal(1);
+  });
+}

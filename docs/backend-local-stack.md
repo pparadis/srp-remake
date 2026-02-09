@@ -82,6 +82,17 @@ Expected shape:
 - `POST /api/v1/lobbies/:lobbyId/turns`
 - `GET /ws` (websocket with `lobbyId` + `playerToken` query)
 
+## Bruno Collection
+
+- Collection path: `bruno/`
+- Environment file: `bruno/environments/local.bru`
+- Request flow (in order): `bruno/v1/00-health.bru` to `bruno/v1/07-submit-turn-stale.bru`
+
+Notes:
+
+- Run `01 Create Lobby` before requests that require `{{lobbyId}}` and `{{hostPlayerToken}}`.
+- The collection stores `lobbyId`, `hostPlayerToken`, and `guestPlayerToken` from responses.
+
 ## Notes
 
 - This is a scaffold for local development and protocol exploration.

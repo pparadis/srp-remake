@@ -1,0 +1,38 @@
+meta {
+  name: 06 Submit Turn (Dedupe)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/lobbies/{{lobbyId}}/turns
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "playerToken": "{{hostPlayerToken}}",
+    "clientCommandId": "cmd-1",
+    "revision": 0,
+    "action": {
+      "type": "skip"
+    }
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("deduped response keeps revision 1", function () {
+    const body = res.getBody();
+    expect(body.ok).to.equal(true);
+    expect(body.revision).to.equal(1);
+  });
+}

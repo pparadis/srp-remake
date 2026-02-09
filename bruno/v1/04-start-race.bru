@@ -1,0 +1,33 @@
+meta {
+  name: 04 Start Race
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/lobbies/{{lobbyId}}/start
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "playerToken": "{{hostPlayerToken}}"
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("lobby status is IN_RACE", function () {
+    const body = res.getBody();
+    expect(body.lobby.status).to.equal("IN_RACE");
+    expect(body.lobby.revision).to.equal(0);
+  });
+}
