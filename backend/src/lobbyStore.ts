@@ -20,7 +20,10 @@ function clampInt(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.trunc(value)));
 }
 
-function normalizeSettings(input: Partial<LobbySettings> | undefined, base = DEFAULT_SETTINGS): LobbySettings {
+function normalizeSettings(
+  input: Partial<LobbySettings> | undefined,
+  base = DEFAULT_SETTINGS
+): LobbySettings {
   const trackId = input?.trackId?.trim() || base.trackId;
   let humanCars = clampInt(input?.humanCars ?? base.humanCars, 0, 11);
   let botCars = clampInt(input?.botCars ?? base.botCars, 0, 11);
@@ -50,17 +53,22 @@ function toPublicPlayer(player: LobbyPlayer): PublicLobbyPlayer {
 }
 
 export function toPublicLobby(lobby: Lobby): PublicLobby {
-  return {
+  const publicLobby: PublicLobby = {
     lobbyId: lobby.lobbyId,
     status: lobby.status,
     hostPlayerId: lobby.hostPlayerId,
     createdAt: lobby.createdAt,
     updatedAt: lobby.updatedAt,
     revision: lobby.revision,
-    terminationReason: lobby.terminationReason,
     settings: lobby.settings,
     players: lobby.players.map(toPublicPlayer)
   };
+
+  if (lobby.terminationReason !== undefined) {
+    publicLobby.terminationReason = lobby.terminationReason;
+  }
+
+  return publicLobby;
 }
 
 export class LobbyError extends Error {
@@ -103,7 +111,10 @@ export class LobbyStore {
     return lobby.players.find((p) => p.playerToken === playerToken);
   }
 
-  createLobby(hostName: string, rawSettings?: Partial<LobbySettings>): { lobby: Lobby; host: LobbyPlayer } {
+  createLobby(
+    hostName: string,
+    rawSettings?: Partial<LobbySettings>
+  ): { lobby: Lobby; host: LobbyPlayer } {
     const trimmedName = hostName.trim();
     if (trimmedName.length === 0) {
       throw new LobbyError(400, "Host name is required.");
@@ -187,7 +198,11 @@ export class LobbyStore {
     return { lobby, player, isReconnect: false };
   }
 
-  setPlayerConnected(lobbyId: string, playerToken: string, connected: boolean): { lobby: Lobby; player: LobbyPlayer } {
+  setPlayerConnected(
+    lobbyId: string,
+    playerToken: string,
+    connected: boolean
+  ): { lobby: Lobby; player: LobbyPlayer } {
     const lobby = this.getLobbyOrThrow(lobbyId);
     const player = this.findPlayerByToken(lobby, playerToken);
     if (!player) {

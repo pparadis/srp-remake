@@ -1,6 +1,6 @@
 services:
   redis:
-    image: redis:7-alpine
+    image: docker.io/library/redis:7-alpine
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -13,6 +13,7 @@ services:
       retries: 10
 
   api:
+    image: localhost/srp-remake-api:dev
     build:
       context: ./backend
     restart: unless-stopped

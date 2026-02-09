@@ -1,63 +1,93 @@
 import Fastify from "fastify";
 import websocket from "@fastify/websocket";
-import type { RedisClientType } from "redis";
+import { pathToFileURL } from "node:url";
 import { createClient } from "redis";
 import { z } from "zod";
-import type WebSocket from "ws";
-import { loadConfig } from "./config.js";
+import { loadConfig, type BackendConfig } from "./config.js";
 import { MemoryDedupeStore, RedisDedupeStore, type DedupeStore } from "./dedupeStore.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
-import type { TurnCommandResult, TurnSubmitAction } from "./types.js";
+import type { LobbySettings, TurnCommandResult, TurnSubmitAction } from "./types.js";
 
 const WS_OPEN = 1;
+const API_V1_PREFIX = "/api/v1";
+
+type LobbySocket = {
+  readyState: number;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  on(event: "close", listener: () => void): void;
+};
+
+type CreateAppOptions = {
+  logger?: boolean;
+  dedupeStore?: DedupeStore<TurnCommandResult>;
+  redis?: ReturnType<typeof createClient> | null;
+};
+
+const LobbySettingsPatchSchema = z.object({
+  trackId: z.string().min(1).optional(),
+  totalCars: z.number().int().min(1).max(11).optional(),
+  humanCars: z.number().int().min(0).max(11).optional(),
+  botCars: z.number().int().min(0).max(11).optional(),
+  raceLaps: z.number().int().min(1).max(999).optional()
+});
+
+function toSettingsPatch(
+  settings: z.infer<typeof LobbySettingsPatchSchema> | undefined
+): Partial<LobbySettings> | undefined {
+  if (!settings) {
+    return undefined;
+  }
+
+  const patch: Partial<LobbySettings> = {};
+  if (settings.trackId !== undefined) patch.trackId = settings.trackId;
+  if (settings.totalCars !== undefined) patch.totalCars = settings.totalCars;
+  if (settings.humanCars !== undefined) patch.humanCars = settings.humanCars;
+  if (settings.botCars !== undefined) patch.botCars = settings.botCars;
+  if (settings.raceLaps !== undefined) patch.raceLaps = settings.raceLaps;
+  return patch;
+}
 
 const CreateLobbySchema = z.object({
   name: z.string().min(1),
-  settings: z
-    .object({
-      trackId: z.string().min(1).optional(),
-      totalCars: z.number().int().min(1).max(11).optional(),
-      humanCars: z.number().int().min(0).max(11).optional(),
-      botCars: z.number().int().min(0).max(11).optional(),
-      raceLaps: z.number().int().min(1).max(999).optional()
-    })
-    .optional()
+  settings: LobbySettingsPatchSchema.optional()
 });
 
 const JoinLobbySchema = z.object({
-  lobbyId: z.string().min(1),
   name: z.string().min(1).optional(),
   playerToken: z.string().min(1).optional()
 });
 
 const UpdateLobbySchema = z.object({
-  lobbyId: z.string().min(1),
   playerToken: z.string().min(1),
-  settings: z.object({
-    trackId: z.string().min(1).optional(),
-    totalCars: z.number().int().min(1).max(11).optional(),
-    humanCars: z.number().int().min(0).max(11).optional(),
-    botCars: z.number().int().min(0).max(11).optional(),
-    raceLaps: z.number().int().min(1).max(999).optional()
-  })
+  settings: LobbySettingsPatchSchema
 });
 
 const StartRaceSchema = z.object({
-  lobbyId: z.string().min(1),
   playerToken: z.string().min(1)
 });
 
-const TurnActionSchema: z.ZodType<TurnSubmitAction> = z.object({
-  type: z.enum(["move", "pit", "skip"]),
-  targetCellId: z.string().min(1).optional()
-});
+const TurnActionSchema = z
+  .object({
+    type: z.enum(["move", "pit", "skip"]),
+    targetCellId: z.string().min(1).optional()
+  })
+  .transform(
+    (action): TurnSubmitAction =>
+      action.targetCellId === undefined
+        ? { type: action.type }
+        : { type: action.type, targetCellId: action.targetCellId }
+  );
 
 const SubmitTurnSchema = z.object({
-  lobbyId: z.string().min(1),
   playerToken: z.string().min(1),
   clientCommandId: z.string().min(1),
   revision: z.number().int().min(0),
   action: TurnActionSchema
+});
+
+const LobbyPathSchema = z.object({
+  lobbyId: z.string().min(1)
 });
 
 const WsQuerySchema = z.object({
@@ -65,9 +95,10 @@ const WsQuerySchema = z.object({
   playerToken: z.string().min(1)
 });
 
-async function createDedupeStore(
-  redisUrl: string
-): Promise<{ dedupeStore: DedupeStore<TurnCommandResult>; redis: RedisClientType | null }> {
+async function createDedupeStore(redisUrl: string): Promise<{
+  dedupeStore: DedupeStore<TurnCommandResult>;
+  redis: ReturnType<typeof createClient> | null;
+}> {
   const redis = createClient({ url: redisUrl });
   try {
     await redis.connect();
@@ -82,20 +113,21 @@ async function createDedupeStore(
   }
 }
 
-async function bootstrap() {
-  const config = loadConfig();
-  const app = Fastify({ logger: true });
+export async function createApp(config: BackendConfig, options: CreateAppOptions = {}) {
+  const app = Fastify({ logger: options.logger ?? true });
   const lobbyStore = new LobbyStore();
-  const { dedupeStore, redis } = await createDedupeStore(config.REDIS_URL);
-  const socketsByLobby = new Map<string, Set<WebSocket>>();
+  const { dedupeStore, redis } = options.dedupeStore
+    ? { dedupeStore: options.dedupeStore, redis: options.redis ?? null }
+    : await createDedupeStore(config.REDIS_URL);
+  const socketsByLobby = new Map<string, Set<LobbySocket>>();
 
-  function addSocket(lobbyId: string, socket: WebSocket) {
-    const set = socketsByLobby.get(lobbyId) ?? new Set<WebSocket>();
+  function addSocket(lobbyId: string, socket: LobbySocket) {
+    const set = socketsByLobby.get(lobbyId) ?? new Set<LobbySocket>();
     set.add(socket);
     socketsByLobby.set(lobbyId, set);
   }
 
-  function removeSocket(lobbyId: string, socket: WebSocket) {
+  function removeSocket(lobbyId: string, socket: LobbySocket) {
     const set = socketsByLobby.get(lobbyId);
     if (!set) return;
     set.delete(socket);
@@ -108,10 +140,25 @@ async function bootstrap() {
     const set = socketsByLobby.get(lobbyId);
     if (!set) return;
     const data = JSON.stringify({ event, payload });
+    const staleSockets: LobbySocket[] = [];
     for (const socket of set) {
-      if (socket.readyState === WS_OPEN) {
-        socket.send(data);
+      if (socket.readyState !== WS_OPEN) {
+        staleSockets.push(socket);
+        continue;
       }
+
+      try {
+        socket.send(data);
+      } catch {
+        staleSockets.push(socket);
+      }
+    }
+
+    for (const socket of staleSockets) {
+      set.delete(socket);
+    }
+    if (set.size === 0) {
+      socketsByLobby.delete(lobbyId);
     }
   }
 
@@ -120,7 +167,11 @@ async function bootstrap() {
     if (!set) return;
     for (const socket of set) {
       if (socket.readyState === WS_OPEN) {
-        socket.close(closeCode, reason);
+        try {
+          socket.close(closeCode, reason);
+        } catch {
+          // Ignore close races.
+        }
       }
     }
     socketsByLobby.delete(lobbyId);
@@ -143,9 +194,9 @@ async function bootstrap() {
     lobbies: lobbyStore.count()
   }));
 
-  app.post("/api/lobby.create", async (request, reply) => {
+  app.post(`${API_V1_PREFIX}/lobbies`, async (request, reply) => {
     const body = CreateLobbySchema.parse(request.body);
-    const { lobby, host } = lobbyStore.createLobby(body.name, body.settings);
+    const { lobby, host } = lobbyStore.createLobby(body.name, toSettingsPatch(body.settings));
     const publicLobby = toPublicLobby(lobby);
     return reply.code(201).send({
       lobby: publicLobby,
@@ -154,9 +205,14 @@ async function bootstrap() {
     });
   });
 
-  app.post("/api/lobby.join", async (request) => {
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/join`, async (request) => {
+    const params = LobbyPathSchema.parse(request.params);
     const body = JoinLobbySchema.parse(request.body);
-    const { lobby, player, isReconnect } = lobbyStore.joinLobby(body.lobbyId, body.name, body.playerToken);
+    const { lobby, player, isReconnect } = lobbyStore.joinLobby(
+      params.lobbyId,
+      body.name,
+      body.playerToken
+    );
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "lobby.state", publicLobby);
     return {
@@ -167,34 +223,41 @@ async function bootstrap() {
     };
   });
 
-  app.post("/api/lobby.updateSettings", async (request) => {
+  app.patch(`${API_V1_PREFIX}/lobbies/:lobbyId/settings`, async (request) => {
+    const params = LobbyPathSchema.parse(request.params);
     const body = UpdateLobbySchema.parse(request.body);
-    const lobby = lobbyStore.updateSettings(body.lobbyId, body.playerToken, body.settings);
+    const lobby = lobbyStore.updateSettings(
+      params.lobbyId,
+      body.playerToken,
+      toSettingsPatch(body.settings) ?? {}
+    );
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "lobby.state", publicLobby);
     return { lobby: publicLobby };
   });
 
-  app.post("/api/lobby.startRace", async (request) => {
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/start`, async (request) => {
+    const params = LobbyPathSchema.parse(request.params);
     const body = StartRaceSchema.parse(request.body);
-    const lobby = lobbyStore.startRace(body.lobbyId, body.playerToken);
+    const lobby = lobbyStore.startRace(params.lobbyId, body.playerToken);
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "race.started", publicLobby);
     return { lobby: publicLobby };
   });
 
-  app.post("/api/turn.submit", async (request, reply) => {
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/turns`, async (request, reply) => {
+    const params = LobbyPathSchema.parse(request.params);
     const body = SubmitTurnSchema.parse(request.body);
-    const lobby = lobbyStore.getLobby(body.lobbyId);
+    const lobby = lobbyStore.getLobby(params.lobbyId);
     if (!lobby) {
-      throw new LobbyError(404, `Lobby ${body.lobbyId} not found.`);
+      throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
     }
     const player = lobbyStore.findPlayerByToken(lobby, body.playerToken);
     if (!player) {
       throw new LobbyError(401, "Invalid player token for this lobby.");
     }
 
-    const dedupeKey = `dedupe:${body.lobbyId}:${player.playerId}:${body.clientCommandId}`;
+    const dedupeKey = `dedupe:${params.lobbyId}:${player.playerId}:${body.clientCommandId}`;
     const deduped = await dedupeStore.get(dedupeKey);
     if (deduped) {
       return deduped;
@@ -242,30 +305,31 @@ async function bootstrap() {
   });
 
   app.get("/ws", { websocket: true }, (connection, request) => {
+    const socket = connection.socket as LobbySocket;
     const query = WsQuerySchema.safeParse(request.query);
     if (!query.success) {
-      connection.socket.close(1008, "invalid_query");
+      socket.close(1008, "invalid_query");
       return;
     }
 
     const { lobbyId, playerToken } = query.data;
     const lobby = lobbyStore.getLobby(lobbyId);
     if (!lobby) {
-      connection.socket.close(1008, "unknown_lobby");
+      socket.close(1008, "unknown_lobby");
       return;
     }
     const player = lobbyStore.findPlayerByToken(lobby, playerToken);
     if (!player) {
-      connection.socket.close(1008, "invalid_token");
+      socket.close(1008, "invalid_token");
       return;
     }
 
-    addSocket(lobbyId, connection.socket);
+    addSocket(lobbyId, socket);
     lobbyStore.setPlayerConnected(lobbyId, playerToken, true);
-    connection.socket.send(JSON.stringify({ event: "lobby.state", payload: toPublicLobby(lobby) }));
+    socket.send(JSON.stringify({ event: "lobby.state", payload: toPublicLobby(lobby) }));
 
-    connection.socket.on("close", () => {
-      removeSocket(lobbyId, connection.socket);
+    socket.on("close", () => {
+      removeSocket(lobbyId, socket);
       try {
         const result = lobbyStore.setPlayerConnected(lobbyId, playerToken, false);
         broadcast(lobbyId, "lobby.state", toPublicLobby(result.lobby));
@@ -289,7 +353,15 @@ async function bootstrap() {
     }
   });
 
+  return app;
+}
+
+async function bootstrap() {
+  const config = loadConfig();
+  const app = await createApp(config);
   await app.listen({ host: config.HOST, port: config.PORT });
 }
 
-void bootstrap();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void bootstrap();
+}

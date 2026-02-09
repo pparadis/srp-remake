@@ -1,8 +1,11 @@
-import type { RedisClientType } from "redis";
-
 export interface DedupeStore<T> {
   get(key: string): Promise<T | undefined>;
   set(key: string, value: T, ttlSeconds: number): Promise<void>;
+}
+
+export interface RedisLikeClient {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, options?: { EX: number }): Promise<unknown>;
 }
 
 export class MemoryDedupeStore<T> implements DedupeStore<T> {
@@ -25,7 +28,7 @@ export class MemoryDedupeStore<T> implements DedupeStore<T> {
 }
 
 export class RedisDedupeStore<T> implements DedupeStore<T> {
-  constructor(private readonly redis: RedisClientType) {}
+  constructor(private readonly redis: RedisLikeClient) {}
 
   async get(key: string): Promise<T | undefined> {
     const raw = await this.redis.get(key);
