@@ -224,6 +224,7 @@ Payload requirement for v0:
 - GitHub Pages can host the web client only.
 - Real-time multiplayer still needs a backend endpoint (WebSocket/SSE/HTTP).
 - Practical setup: frontend on GitHub Pages, backend on Fly.io/Render/Railway (or equivalent).
+- Transport policy for v0: keep WebSocket + REST only; do not add SSE unless production/network constraints prove WS reliability issues.
 
 ## V0 Decisions (Locked)
 
@@ -237,6 +238,7 @@ Payload requirement for v0:
 8. Action idempotency: `clientCommandId + server dedupe cache` is required for turn submissions.
 9. Seat model: `deterministic seatIndex-driven spawn + turn order + rematch preservation`.
 10. Admin endpoint: `disabled in prod by default`; if enabled, require bearer auth + HTTPS.
+11. Transport fallback: `SSE deferred`; revisit only if concrete WebSocket compatibility issues appear in production-like environments.
 
 ## Delivery Plan
 
