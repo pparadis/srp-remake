@@ -25,6 +25,9 @@ const backendPlayerNameInput = document.getElementById(
 const backendHostBtn = document.getElementById("backendHostBtn") as HTMLButtonElement | null;
 const backendJoinBtn = document.getElementById("backendJoinBtn") as HTMLButtonElement | null;
 const backendStartBtn = document.getElementById("backendStartBtn") as HTMLButtonElement | null;
+const backendCopyMpDebugBtn = document.getElementById(
+  "backendCopyMpDebugBtn"
+) as HTMLButtonElement | null;
 const backendStatus = document.getElementById("backendStatus") as HTMLSpanElement | null;
 
 let game: ReturnType<typeof import("./game").startGame> | null = null;
@@ -47,6 +50,14 @@ let backendSocket: WebSocket | null = null;
 let backendReconnectTimer: number | null = null;
 let backendShouldReconnect = false;
 let backendReconnectAttempt = 0;
+let clientTimelineSeq = 1;
+const clientTimelineLimit = 500;
+const clientTimeline: Array<{
+  seq: number;
+  at: number;
+  event: string;
+  context: Record<string, unknown>;
+}> = [];
 
 function logMultiplayerClient(event: string, context: Record<string, unknown> = {}) {
   const payload = {
@@ -57,6 +68,15 @@ function logMultiplayerClient(event: string, context: Record<string, unknown> = 
     revision: backendSession?.revision ?? null,
     ...context
   };
+  clientTimeline.push({
+    seq: clientTimelineSeq++,
+    at: payload.ts,
+    event,
+    context: payload
+  });
+  if (clientTimeline.length > clientTimelineLimit) {
+    clientTimeline.splice(0, clientTimeline.length - clientTimelineLimit);
+  }
   console.info("[multiplayer]", payload);
 }
 
@@ -270,11 +290,71 @@ async function connectBackendSocket(reason: string) {
   });
 }
 
+async function copyMultiplayerDebugSnapshot() {
+  const snapshot: Record<string, unknown> = {
+    version: "multiplayer-debug-v1",
+    // eslint-disable-next-line no-undef
+    gitSha: __GIT_SHA__,
+    generatedAt: new Date().toISOString(),
+    backendApiBaseUrl,
+    backendWsBaseUrl,
+    session: backendSession,
+    clientTimeline
+  };
+
+  if (backendSession) {
+    const headers: Record<string, string> = {};
+    const adminToken = import.meta.env.VITE_BACKEND_ADMIN_TOKEN?.trim();
+    if (adminToken && adminToken.length > 0) {
+      headers.authorization = `Bearer ${adminToken}`;
+    }
+    try {
+      const res = await fetch(
+        `${backendApiBaseUrl}/admin/lobbies/${encodeURIComponent(backendSession.lobbyId)}/timeline?limit=500`,
+        { headers }
+      );
+      const text = await res.text();
+      let payload: unknown = { raw: text };
+      if (text.length > 0) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          // Keep raw payload fallback.
+        }
+      }
+      if (res.ok) {
+        snapshot.backendTimeline = payload;
+      } else {
+        snapshot.backendTimelineError = {
+          status: res.status,
+          payload
+        };
+      }
+    } catch (error) {
+      snapshot.backendTimelineError = {
+        error: error instanceof Error ? error.message : "unknown_error"
+      };
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(snapshot, null, 2));
+    setBackendStatusText("Backend: multiplayer debug copied");
+    logMultiplayerClient("debug.copy.success");
+  } catch (error) {
+    setBackendStatusText("Backend: multiplayer debug copy failed");
+    logMultiplayerClient("debug.copy.failed", {
+      error: error instanceof Error ? error.message : "unknown_error"
+    });
+  }
+}
+
 function setBackendBusy(nextBusy: boolean) {
   backendBusy = nextBusy;
   if (backendHostBtn) backendHostBtn.disabled = nextBusy;
   if (backendJoinBtn) backendJoinBtn.disabled = nextBusy;
   if (backendStartBtn) backendStartBtn.disabled = nextBusy;
+  if (backendCopyMpDebugBtn) backendCopyMpDebugBtn.disabled = nextBusy;
 }
 
 function toErrorText(error: unknown): string {
@@ -499,6 +579,10 @@ backendJoinBtn?.addEventListener("click", () => {
 
 backendStartBtn?.addEventListener("click", () => {
   void startRace();
+});
+
+backendCopyMpDebugBtn?.addEventListener("click", () => {
+  void copyMultiplayerDebugSnapshot();
 });
 
 window.addEventListener("srp:local-turn-action", (event) => {

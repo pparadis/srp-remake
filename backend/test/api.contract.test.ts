@@ -12,7 +12,9 @@ const TEST_CONFIG: BackendConfig = {
   REDIS_URL: "redis://127.0.0.1:6399",
   DEDUPE_TTL_SECONDS: 120,
   CORS_ALLOWED_ORIGINS: "*",
-  PLAYER_TOKEN_TTL_SECONDS: 86400
+  PLAYER_TOKEN_TTL_SECONDS: 86400,
+  ADMIN_DEBUG_ENABLED: false,
+  ADMIN_DEBUG_TOKEN: ""
 };
 
 async function createTestApp() {
@@ -84,6 +86,62 @@ test("supports CORS preflight on v1 endpoints", async (t) => {
   assert.equal(res.statusCode, 204);
   assert.equal(res.headers["access-control-allow-origin"], "*");
   assert.match(String(res.headers["access-control-allow-methods"] ?? ""), /POST/);
+});
+
+test("exposes admin timeline when debug endpoint is enabled", async (t) => {
+  const app = await createApp(
+    {
+      ...TEST_CONFIG,
+      ADMIN_DEBUG_ENABLED: true,
+      ADMIN_DEBUG_TOKEN: "secret-token"
+    },
+    {
+      logger: false,
+      dedupeStore: new MemoryDedupeStore<TurnCommandResult>(),
+      redis: null
+    }
+  );
+  t.after(async () => {
+    await app.close();
+  });
+
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: { name: "Host" }
+  });
+  assert.equal(createdRes.statusCode, 201);
+  const createdBody = createdRes.json() as { lobby: { lobbyId: string }; playerToken: string };
+
+  const startRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
+    payload: { playerToken: createdBody.playerToken }
+  });
+  assert.equal(startRes.statusCode, 200);
+
+  const unauthorizedRes = await app.inject({
+    method: "GET",
+    url: `/admin/lobbies/${createdBody.lobby.lobbyId}/timeline`
+  });
+  assert.equal(unauthorizedRes.statusCode, 401);
+
+  const timelineRes = await app.inject({
+    method: "GET",
+    url: `/admin/lobbies/${createdBody.lobby.lobbyId}/timeline?limit=10`,
+    headers: { authorization: "Bearer secret-token" }
+  });
+  assert.equal(timelineRes.statusCode, 200);
+  const body = timelineRes.json() as {
+    lobbyId: string;
+    count: number;
+    returned: number;
+    entries: Array<{ event: string }>;
+  };
+  assert.equal(body.lobbyId, createdBody.lobby.lobbyId);
+  assert.ok(body.count >= 1);
+  assert.ok(body.returned >= 1);
+  assert.ok(body.entries.some((entry) => entry.event === "lobby.create"));
 });
 
 test("supports lobby create, settings patch, and join contracts", async (t) => {

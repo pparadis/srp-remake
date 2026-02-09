@@ -19,6 +19,13 @@ type LobbySocket = {
   on(event: "close", listener: () => void): void;
 };
 
+type TimelineEntry = {
+  seq: number;
+  at: number;
+  event: string;
+  context: Record<string, unknown>;
+};
+
 type CreateAppOptions = {
   logger?: boolean;
   dedupeStore?: DedupeStore<TurnCommandResult>;
@@ -100,6 +107,10 @@ const LobbyReadQuerySchema = z.object({
   playerToken: z.string().min(1)
 });
 
+const AdminTimelineQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional()
+});
+
 async function createDedupeStore(redisUrl: string): Promise<{
   dedupeStore: DedupeStore<TurnCommandResult>;
   redis: ReturnType<typeof createClient> | null;
@@ -125,6 +136,9 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     ? { dedupeStore: options.dedupeStore, redis: options.redis ?? null }
     : await createDedupeStore(config.REDIS_URL);
   const socketsByLobby = new Map<string, Set<LobbySocket>>();
+  const timelineByLobby = new Map<string, TimelineEntry[]>();
+  const timelineMaxEntries = 500;
+  let timelineSeq = 1;
   let wsConnectionSeq = 1;
   const allowedOrigins = config.CORS_ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
@@ -146,8 +160,42 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return createHash("sha256").update(token).digest("hex").slice(0, 10);
   }
 
+  function summarizeRaceState(lobbyId: string) {
+    const lobby = lobbyStore.getLobby(lobbyId);
+    if (!lobby?.raceState) return null;
+    return {
+      turnIndex: lobby.raceState.turnIndex,
+      activeSeatIndex: lobby.raceState.activeSeatIndex,
+      cars: lobby.raceState.cars.map((car) => ({
+        seatIndex: car.seatIndex,
+        playerId: car.playerId,
+        isBot: car.isBot,
+        actionsTaken: car.actionsTaken
+      }))
+    };
+  }
+
+  function recordTimeline(lobbyId: string, event: string, context: Record<string, unknown>) {
+    const entry: TimelineEntry = {
+      seq: timelineSeq++,
+      at: Date.now(),
+      event,
+      context
+    };
+    const items = timelineByLobby.get(lobbyId) ?? [];
+    items.push(entry);
+    if (items.length > timelineMaxEntries) {
+      items.splice(0, items.length - timelineMaxEntries);
+    }
+    timelineByLobby.set(lobbyId, items);
+  }
+
   function logMultiplayer(event: string, context: Record<string, unknown>) {
     app.log.info({ event, ...context }, "multiplayer_event");
+    const lobbyId = context.lobbyId;
+    if (typeof lobbyId === "string" && lobbyId.length > 0) {
+      recordTimeline(lobbyId, event, context);
+    }
   }
 
   app.addHook("onRequest", async (request, reply) => {
@@ -184,6 +232,11 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   function broadcast(lobbyId: string, event: string, payload: unknown) {
     const set = socketsByLobby.get(lobbyId);
+    recordTimeline(lobbyId, `broadcast.${event}`, {
+      lobbyId,
+      audience: set?.size ?? 0,
+      raceSummary: summarizeRaceState(lobbyId)
+    });
     if (!set) return;
     const data = JSON.stringify({ event, payload });
     const staleSockets: LobbySocket[] = [];
@@ -249,7 +302,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       playerId: host.playerId,
       seatIndex: host.seatIndex,
       revision: lobby.revision,
-      turnIndex: lobby.raceState?.turnIndex ?? null
+      turnIndex: lobby.raceState?.turnIndex ?? null,
+      raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     return reply.code(201).send({
       lobby: publicLobby,
@@ -305,7 +359,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       seatIndex: player.seatIndex,
       revision: lobby.revision,
       turnIndex: lobby.raceState?.turnIndex ?? null,
-      tokenFingerprint: tokenFingerprint(player.playerToken)
+      tokenFingerprint: tokenFingerprint(player.playerToken),
+      raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     return {
       lobby: publicLobby,
@@ -328,7 +383,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     logMultiplayer("lobby.settings.update", {
       lobbyId: lobby.lobbyId,
       revision: lobby.revision,
-      turnIndex: lobby.raceState?.turnIndex ?? null
+      turnIndex: lobby.raceState?.turnIndex ?? null,
+      raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     return { lobby: publicLobby };
   });
@@ -344,7 +400,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       lobbyId: lobby.lobbyId,
       revision: lobby.revision,
       turnIndex: lobby.raceState?.turnIndex ?? null,
-      activeSeatIndex: lobby.raceState?.activeSeatIndex ?? null
+      activeSeatIndex: lobby.raceState?.activeSeatIndex ?? null,
+      raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     return { lobby: publicLobby };
   });
@@ -423,7 +480,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         clientCommandId: body.clientCommandId,
         reason: "stale_revision",
         expectedRevision: lobby.revision,
-        receivedRevision: body.revision
+        receivedRevision: body.revision,
+        raceSummary: summarizeRaceState(lobby.lobbyId)
       });
       return reply.code(409).send(result);
     }
@@ -447,7 +505,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         turnIndex: lobby.raceState?.turnIndex ?? null,
         clientCommandId: body.clientCommandId,
         reason: "not_active_player",
-        activeSeatIndex: lobby.raceState?.activeSeatIndex ?? null
+        activeSeatIndex: lobby.raceState?.activeSeatIndex ?? null,
+        raceSummary: summarizeRaceState(lobby.lobbyId)
       });
       return reply.code(409).send(result);
     }
@@ -472,9 +531,38 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       revision: updatedLobby.revision,
       turnIndex: updatedLobby.raceState?.turnIndex ?? null,
       clientCommandId: body.clientCommandId,
-      activeSeatIndex: updatedLobby.raceState?.activeSeatIndex ?? null
+      activeSeatIndex: updatedLobby.raceState?.activeSeatIndex ?? null,
+      raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     return result;
+  });
+
+  app.get("/admin/lobbies/:lobbyId/timeline", async (request, reply) => {
+    if (!config.ADMIN_DEBUG_ENABLED) {
+      return reply.code(404).send({ error: "not_found" });
+    }
+
+    const params = LobbyPathSchema.parse(request.params);
+    const query = AdminTimelineQuerySchema.parse(request.query);
+    const auth = request.headers.authorization;
+    if (config.ADMIN_DEBUG_TOKEN.length > 0) {
+      const expected = `Bearer ${config.ADMIN_DEBUG_TOKEN}`;
+      if (auth !== expected) {
+        return reply.code(401).send({ error: "unauthorized" });
+      }
+    }
+
+    const items = timelineByLobby.get(params.lobbyId) ?? [];
+    const limit = query.limit ?? 200;
+    const entries = items.slice(Math.max(0, items.length - limit));
+    const lobby = lobbyStore.getLobby(params.lobbyId);
+    return {
+      lobbyId: params.lobbyId,
+      count: items.length,
+      returned: entries.length,
+      entries,
+      snapshot: lobby ? toPublicLobby(lobby) : null
+    };
   });
 
   app.get("/ws", { websocket: true }, (socket, request) => {

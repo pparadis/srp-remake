@@ -34,6 +34,10 @@ sudo apt install -y podman podman-compose
   - Example: `https://your-frontend.example.com,http://localhost:5173`
 - `PLAYER_TOKEN_TTL_SECONDS` (default `86400`)
   - Player tokens expire after this duration.
+- `ADMIN_DEBUG_ENABLED` (default `false`)
+  - Enables `GET /admin/lobbies/:lobbyId/timeline`.
+- `ADMIN_DEBUG_TOKEN` (default empty)
+  - Optional bearer token required by admin timeline endpoint when set.
 
 ## Run
 
@@ -100,6 +104,7 @@ Expected shape:
 - `POST /api/v1/lobbies/:lobbyId/start`
 - `POST /api/v1/lobbies/:lobbyId/turns`
 - `GET /ws` (websocket with `lobbyId` + `playerToken` query)
+- `GET /admin/lobbies/:lobbyId/timeline` (dev/admin debug endpoint)
 
 ## Bruno Collection
 
@@ -129,6 +134,10 @@ Notes:
   - API lifecycle (`host/join/start/turn submit`)
   - websocket lifecycle (`ws connecting/open/close/reconnect`)
   - rehydrate lifecycle (`rehydrate start/success/fail`)
+- Backend maintains a per-lobby timeline ring buffer (last 500 events).
+- UI button `Copy multiplayer debug` exports:
+  - client timeline + session state
+  - backend timeline snapshot (when admin endpoint is enabled/reachable)
 
 ## Local Client Smoke Test
 

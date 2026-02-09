@@ -6,7 +6,9 @@ const ConfigSchema = z.object({
   REDIS_URL: z.string().default("redis://redis:6379"),
   DEDUPE_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
   CORS_ALLOWED_ORIGINS: z.string().default("*"),
-  PLAYER_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(86400)
+  PLAYER_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
+  ADMIN_DEBUG_ENABLED: z.coerce.boolean().default(false),
+  ADMIN_DEBUG_TOKEN: z.string().default("")
 });
 
 export type BackendConfig = z.infer<typeof ConfigSchema>;
