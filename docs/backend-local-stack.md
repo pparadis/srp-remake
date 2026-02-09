@@ -47,6 +47,12 @@ npm run backend:up
 npm run backend:down
 ```
 
+Restart quickly:
+
+```bash
+npm run backend:restart
+```
+
 3. Logs:
 
 ```bash
@@ -137,3 +143,19 @@ VITE_BACKEND_API_BASE_URL=http://localhost:3001 npm run dev
    - Paste same `Lobby ID`.
    - Click `Join lobby`.
 6. Drive turns locally; each human move/skip/pit action is submitted to backend and status updates are shown in `Backend: ...` text.
+
+## Troubleshooting
+
+- Podman reports container name already in use:
+
+```bash
+podman rm -f srp-remake_api_1 srp-remake_redis_1
+npm run backend:up
+```
+
+- Browser works on `localhost` but tooling fails on `127.0.0.1`:
+  - Use `http://localhost:3001` consistently for frontend and Bruno on WSL setups.
+
+- Frontend CORS errors:
+  - Confirm backend exposes `CORS_ALLOWED_ORIGINS` for your frontend origin.
+  - Example: `CORS_ALLOWED_ORIGINS=https://your-frontend.example.com,http://localhost:5173`
