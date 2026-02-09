@@ -48,6 +48,18 @@ let backendReconnectTimer: number | null = null;
 let backendShouldReconnect = false;
 let backendReconnectAttempt = 0;
 
+function logMultiplayerClient(event: string, context: Record<string, unknown> = {}) {
+  const payload = {
+    event,
+    ts: Date.now(),
+    lobbyId: backendSession?.lobbyId ?? null,
+    playerId: backendSession?.playerId ?? null,
+    revision: backendSession?.revision ?? null,
+    ...context
+  };
+  console.info("[multiplayer]", payload);
+}
+
 function parseSelectInt(select: HTMLSelectElement, fallback: number): number {
   const parsed = Number.parseInt(select.value, 10);
   return Number.isNaN(parsed) ? fallback : parsed;
@@ -108,6 +120,11 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
   setBackendStatusText(
     `Backend: ${source} -> ${lobby.status.toLowerCase()} (rev ${lobby.revision}, players ${lobby.players.length})`
   );
+  logMultiplayerClient("lobby.state.applied", {
+    source,
+    status: lobby.status,
+    players: lobby.players.length
+  });
 }
 
 function clearBackendReconnectTimer() {
@@ -118,13 +135,16 @@ function clearBackendReconnectTimer() {
 
 async function rehydrateLobbyState(reason: string) {
   if (!backendSession) return;
+  logMultiplayerClient("lobby.rehydrate.start", { reason });
   try {
     const read = await backendClient.readLobby(backendSession.lobbyId, backendSession.playerToken);
     if (!backendSession || backendSession.lobbyId !== read.lobby.lobbyId) return;
     backendSession.playerId = read.playerId;
     applyLobbyState(read.lobby, `rehydrate(${reason})`);
+    logMultiplayerClient("lobby.rehydrate.success", { reason });
   } catch (error) {
     setBackendStatusText(`Backend: rehydrate failed (${toErrorText(error)})`);
+    logMultiplayerClient("lobby.rehydrate.failed", { reason, error: toErrorText(error) });
   }
 }
 
@@ -134,12 +154,14 @@ function scheduleBackendReconnect() {
   const delayMs = Math.min(5000, 500 * 2 ** Math.min(backendReconnectAttempt, 5));
   backendReconnectAttempt += 1;
   setBackendStatusText(`Backend: ws reconnect in ${delayMs}ms`);
+  logMultiplayerClient("ws.reconnect.scheduled", { delayMs, attempt: backendReconnectAttempt });
   backendReconnectTimer = window.setTimeout(() => {
     void connectBackendSocket("retry");
   }, delayMs);
 }
 
 function handleBackendWsEvent(eventName: string, payload: unknown) {
+  logMultiplayerClient("ws.message", { wsEvent: eventName });
   if (!backendSession) return;
   if (eventName === "lobby.state" || eventName === "race.started" || eventName === "race.state") {
     if (payload && typeof payload === "object" && "lobbyId" in payload) {
@@ -178,6 +200,7 @@ function disconnectBackendSocket() {
   if (!backendSocket) return;
   const socket = backendSocket;
   backendSocket = null;
+  logMultiplayerClient("ws.disconnect.requested");
   socket.close(1000, "client_close");
 }
 
@@ -194,11 +217,13 @@ async function connectBackendSocket(reason: string) {
   const socket = new WebSocket(socketUrl);
   backendSocket = socket;
   setBackendStatusText(`Backend: ws connecting (${reason})...`);
+  logMultiplayerClient("ws.connecting", { reason });
 
   socket.addEventListener("open", () => {
     if (backendSocket !== socket) return;
     backendReconnectAttempt = 0;
     setBackendStatusText("Backend: ws connected");
+    logMultiplayerClient("ws.open", { reason });
     void rehydrateLobbyState("ws-open");
   });
 
@@ -213,6 +238,7 @@ async function connectBackendSocket(reason: string) {
       handleBackendWsEvent(parsed.event, parsed.payload);
     } catch {
       setBackendStatusText("Backend: ws parse error");
+      logMultiplayerClient("ws.parse_error");
     }
   });
 
@@ -221,6 +247,7 @@ async function connectBackendSocket(reason: string) {
       backendSocket = null;
     }
     if (!backendShouldReconnect) return;
+    logMultiplayerClient("ws.close", { code: event.code, reason: event.reason || "" });
 
     if (event.code === 1008) {
       backendShouldReconnect = false;
@@ -239,6 +266,7 @@ async function connectBackendSocket(reason: string) {
   socket.addEventListener("error", () => {
     if (backendSocket !== socket) return;
     setBackendStatusText("Backend: ws error");
+    logMultiplayerClient("ws.error");
   });
 }
 
@@ -270,6 +298,7 @@ async function hostLobby() {
   if (backendBusy) return;
   setBackendBusy(true);
   setBackendStatusText("Backend: creating lobby...");
+  logMultiplayerClient("lobby.host.start");
   try {
     const name = getPlayerName();
     const composition = getComposition();
@@ -291,9 +320,11 @@ async function hostLobby() {
     syncCompositionFromLobby(created.lobby);
     if (backendLobbyIdInput) backendLobbyIdInput.value = created.lobby.lobbyId;
     setBackendStatusText(`Backend: hosted ${created.lobby.lobbyId} (rev ${created.lobby.revision})`);
+    logMultiplayerClient("lobby.host.success");
     void connectBackendSocket("host");
   } catch (error) {
     setBackendStatusText(`Backend: host failed (${toErrorText(error)})`);
+    logMultiplayerClient("lobby.host.failed", { error: toErrorText(error) });
   } finally {
     setBackendBusy(false);
   }
@@ -308,6 +339,7 @@ async function joinLobby() {
   }
   setBackendBusy(true);
   setBackendStatusText(`Backend: joining ${lobbyId}...`);
+  logMultiplayerClient("lobby.join.start", { requestedLobbyId: lobbyId });
   try {
     const joined = await backendClient.joinLobby(lobbyId, getPlayerName());
     backendSession = {
@@ -320,9 +352,11 @@ async function joinLobby() {
     backendRaceStarted = joined.lobby.status === "IN_RACE";
     syncCompositionFromLobby(joined.lobby);
     setBackendStatusText(`Backend: joined ${joined.lobby.lobbyId} (rev ${joined.lobby.revision})`);
+    logMultiplayerClient("lobby.join.success");
     void connectBackendSocket("join");
   } catch (error) {
     setBackendStatusText(`Backend: join failed (${toErrorText(error)})`);
+    logMultiplayerClient("lobby.join.failed", { error: toErrorText(error) });
   } finally {
     setBackendBusy(false);
   }
@@ -340,6 +374,7 @@ async function startRace() {
   }
   setBackendBusy(true);
   setBackendStatusText("Backend: starting race...");
+  logMultiplayerClient("race.start.requested");
   try {
     const started = await backendClient.startRace(
       backendSession.lobbyId,
@@ -348,8 +383,10 @@ async function startRace() {
     backendSession.revision = started.lobby.revision;
     backendRaceStarted = started.lobby.status === "IN_RACE";
     setBackendStatusText(`Backend: race started (rev ${backendSession.revision})`);
+    logMultiplayerClient("race.start.accepted");
   } catch (error) {
     setBackendStatusText(`Backend: start failed (${toErrorText(error)})`);
+    logMultiplayerClient("race.start.failed", { error: toErrorText(error) });
   } finally {
     setBackendBusy(false);
   }
@@ -359,6 +396,7 @@ async function submitTurnAction(action: BackendTurnAction) {
   if (!backendSession || !backendRaceStarted || backendBusy) return;
   let revision = backendSession.revision;
   const clientCommandId = makeCommandId();
+  logMultiplayerClient("turn.submit.start", { clientCommandId, action: action.type });
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
@@ -372,34 +410,56 @@ async function submitTurnAction(action: BackendTurnAction) {
       if (result.ok) {
         backendSession.revision = result.revision;
         setBackendStatusText(`Backend: turn synced (rev ${result.revision})`);
+        logMultiplayerClient("turn.submit.applied", { clientCommandId, revision: result.revision });
         return;
       }
       if (result.error === "stale_revision") {
         revision = result.revision;
         backendSession.revision = result.revision;
+        logMultiplayerClient("turn.submit.stale_revision", {
+          clientCommandId,
+          revision: result.revision
+        });
         continue;
       }
       if (result.error === "lobby_not_in_race") {
         backendRaceStarted = false;
         backendSession.revision = result.revision;
         setBackendStatusText("Backend: lobby not in race");
+        logMultiplayerClient("turn.submit.rejected", {
+          clientCommandId,
+          reason: "lobby_not_in_race"
+        });
         return;
       }
       if (result.error === "not_active_player") {
         backendSession.revision = result.revision;
         setBackendStatusText("Backend: not your turn");
+        logMultiplayerClient("turn.submit.rejected", {
+          clientCommandId,
+          reason: "not_active_player"
+        });
         void rehydrateLobbyState("not-active-player");
         return;
       }
       setBackendStatusText(`Backend: turn rejected (${result.error})`);
+      logMultiplayerClient("turn.submit.rejected", {
+        clientCommandId,
+        reason: result.error
+      });
       return;
     } catch (error) {
       setBackendStatusText(`Backend: turn submit failed (${toErrorText(error)})`);
+      logMultiplayerClient("turn.submit.failed", {
+        clientCommandId,
+        error: toErrorText(error)
+      });
       return;
     }
   }
 
   setBackendStatusText(`Backend: turn stale (rev ${backendSession.revision})`);
+  logMultiplayerClient("turn.submit.give_up", { clientCommandId });
 }
 
 async function ensureGameStarted() {

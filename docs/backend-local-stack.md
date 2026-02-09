@@ -119,6 +119,17 @@ Notes:
 - This is a scaffold for local development and protocol exploration.
 - Current turn route enforces `revision` and `clientCommandId` dedupe, but does not yet run full game-rule validation.
 
+## Multiplayer Logging
+
+- Backend emits structured `multiplayer_event` logs with:
+  - `event`, `lobbyId`, `playerId`, `seatIndex`, `revision`, `turnIndex`, `clientCommandId`, `wsConnId`.
+- Token values are never logged directly.
+  - Logs include `tokenFingerprint` (short hash) when needed.
+- Frontend emits structured console logs under `[multiplayer]` for:
+  - API lifecycle (`host/join/start/turn submit`)
+  - websocket lifecycle (`ws connecting/open/close/reconnect`)
+  - rehydrate lifecycle (`rehydrate start/success/fail`)
+
 ## Local Client Smoke Test
 
 1. Start backend stack:

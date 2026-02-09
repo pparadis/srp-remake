@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import websocket from "@fastify/websocket";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { createClient } from "redis";
 import { z } from "zod";
@@ -124,6 +125,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     ? { dedupeStore: options.dedupeStore, redis: options.redis ?? null }
     : await createDedupeStore(config.REDIS_URL);
   const socketsByLobby = new Map<string, Set<LobbySocket>>();
+  let wsConnectionSeq = 1;
   const allowedOrigins = config.CORS_ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
@@ -137,6 +139,15 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       return requestOrigin;
     }
     return allowedOrigins[0] ?? "*";
+  }
+
+  function tokenFingerprint(token: string | undefined): string | undefined {
+    if (!token) return undefined;
+    return createHash("sha256").update(token).digest("hex").slice(0, 10);
+  }
+
+  function logMultiplayer(event: string, context: Record<string, unknown>) {
+    app.log.info({ event, ...context }, "multiplayer_event");
   }
 
   app.addHook("onRequest", async (request, reply) => {
@@ -233,6 +244,13 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const body = CreateLobbySchema.parse(request.body);
     const { lobby, host } = lobbyStore.createLobby(body.name, toSettingsPatch(body.settings));
     const publicLobby = toPublicLobby(lobby);
+    logMultiplayer("lobby.create", {
+      lobbyId: lobby.lobbyId,
+      playerId: host.playerId,
+      seatIndex: host.seatIndex,
+      revision: lobby.revision,
+      turnIndex: lobby.raceState?.turnIndex ?? null
+    });
     return reply.code(201).send({
       lobby: publicLobby,
       playerId: host.playerId,
@@ -250,9 +268,21 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
     const player = lobbyStore.findPlayerByToken(lobby, query.playerToken);
     if (!player) {
+      logMultiplayer("lobby.read.rejected", {
+        lobbyId: params.lobbyId,
+        tokenFingerprint: tokenFingerprint(query.playerToken),
+        reason: "invalid_token"
+      });
       throw new LobbyError(401, "Invalid player token for this lobby.");
     }
 
+    logMultiplayer("lobby.read", {
+      lobbyId: params.lobbyId,
+      playerId: player.playerId,
+      seatIndex: player.seatIndex,
+      revision: lobby.revision,
+      turnIndex: lobby.raceState?.turnIndex ?? null
+    });
     return {
       lobby: toPublicLobby(lobby),
       playerId: player.playerId
@@ -269,6 +299,14 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     );
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "lobby.state", publicLobby);
+    logMultiplayer(isReconnect ? "lobby.reconnect" : "lobby.join", {
+      lobbyId: lobby.lobbyId,
+      playerId: player.playerId,
+      seatIndex: player.seatIndex,
+      revision: lobby.revision,
+      turnIndex: lobby.raceState?.turnIndex ?? null,
+      tokenFingerprint: tokenFingerprint(player.playerToken)
+    });
     return {
       lobby: publicLobby,
       playerId: player.playerId,
@@ -287,6 +325,11 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     );
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "lobby.state", publicLobby);
+    logMultiplayer("lobby.settings.update", {
+      lobbyId: lobby.lobbyId,
+      revision: lobby.revision,
+      turnIndex: lobby.raceState?.turnIndex ?? null
+    });
     return { lobby: publicLobby };
   });
 
@@ -297,6 +340,12 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "race.started", publicLobby);
     broadcast(lobby.lobbyId, "race.state", publicLobby);
+    logMultiplayer("race.start", {
+      lobbyId: lobby.lobbyId,
+      revision: lobby.revision,
+      turnIndex: lobby.raceState?.turnIndex ?? null,
+      activeSeatIndex: lobby.raceState?.activeSeatIndex ?? null
+    });
     return { lobby: publicLobby };
   });
 
@@ -309,12 +358,26 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     }
     const player = lobbyStore.findPlayerByToken(lobby, body.playerToken);
     if (!player) {
+      logMultiplayer("turn.submit.rejected", {
+        lobbyId: params.lobbyId,
+        clientCommandId: body.clientCommandId,
+        tokenFingerprint: tokenFingerprint(body.playerToken),
+        reason: "invalid_token"
+      });
       throw new LobbyError(401, "Invalid player token for this lobby.");
     }
 
     const dedupeKey = `dedupe:${params.lobbyId}:${player.playerId}:${body.clientCommandId}`;
     const deduped = await dedupeStore.get(dedupeKey);
     if (deduped) {
+      logMultiplayer("turn.submit.deduped", {
+        lobbyId: lobby.lobbyId,
+        playerId: player.playerId,
+        seatIndex: player.seatIndex,
+        revision: deduped.revision,
+        turnIndex: lobby.raceState?.turnIndex ?? null,
+        clientCommandId: body.clientCommandId
+      });
       return deduped;
     }
 
@@ -329,6 +392,15 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         error: "lobby_not_in_race"
       };
       await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
+      logMultiplayer("turn.submit.rejected", {
+        lobbyId: lobby.lobbyId,
+        playerId: player.playerId,
+        seatIndex: player.seatIndex,
+        revision: lobby.revision,
+        turnIndex: lobby.raceState?.turnIndex ?? null,
+        clientCommandId: body.clientCommandId,
+        reason: "lobby_not_in_race"
+      });
       return reply.code(409).send(result);
     }
 
@@ -342,6 +414,17 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         error: "stale_revision"
       };
       await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
+      logMultiplayer("turn.submit.rejected", {
+        lobbyId: lobby.lobbyId,
+        playerId: player.playerId,
+        seatIndex: player.seatIndex,
+        revision: lobby.revision,
+        turnIndex: lobby.raceState?.turnIndex ?? null,
+        clientCommandId: body.clientCommandId,
+        reason: "stale_revision",
+        expectedRevision: lobby.revision,
+        receivedRevision: body.revision
+      });
       return reply.code(409).send(result);
     }
 
@@ -356,6 +439,16 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         error: "not_active_player"
       };
       await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
+      logMultiplayer("turn.submit.rejected", {
+        lobbyId: lobby.lobbyId,
+        playerId: player.playerId,
+        seatIndex: player.seatIndex,
+        revision: lobby.revision,
+        turnIndex: lobby.raceState?.turnIndex ?? null,
+        clientCommandId: body.clientCommandId,
+        reason: "not_active_player",
+        activeSeatIndex: lobby.raceState?.activeSeatIndex ?? null
+      });
       return reply.code(409).send(result);
     }
 
@@ -372,13 +465,27 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
     broadcast(lobby.lobbyId, "turn.applied", result);
     broadcast(lobby.lobbyId, "race.state", toPublicLobby(updatedLobby));
+    logMultiplayer("turn.submit.applied", {
+      lobbyId: lobby.lobbyId,
+      playerId: player.playerId,
+      seatIndex: player.seatIndex,
+      revision: updatedLobby.revision,
+      turnIndex: updatedLobby.raceState?.turnIndex ?? null,
+      clientCommandId: body.clientCommandId,
+      activeSeatIndex: updatedLobby.raceState?.activeSeatIndex ?? null
+    });
     return result;
   });
 
   app.get("/ws", { websocket: true }, (socket, request) => {
     const ws = socket as LobbySocket;
+    const wsConnId = `ws-${wsConnectionSeq++}`;
     const query = WsQuerySchema.safeParse(request.query);
     if (!query.success) {
+      logMultiplayer("ws.connect.rejected", {
+        wsConnId,
+        reason: "invalid_query"
+      });
       ws.close(1008, "invalid_query");
       return;
     }
@@ -386,17 +493,37 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const { lobbyId, playerToken } = query.data;
     const lobby = lobbyStore.getLobby(lobbyId);
     if (!lobby) {
+      logMultiplayer("ws.connect.rejected", {
+        wsConnId,
+        lobbyId,
+        tokenFingerprint: tokenFingerprint(playerToken),
+        reason: "unknown_lobby"
+      });
       ws.close(1008, "unknown_lobby");
       return;
     }
     const player = lobbyStore.findPlayerByToken(lobby, playerToken);
     if (!player) {
+      logMultiplayer("ws.connect.rejected", {
+        wsConnId,
+        lobbyId,
+        tokenFingerprint: tokenFingerprint(playerToken),
+        reason: "invalid_token"
+      });
       ws.close(1008, "invalid_token");
       return;
     }
 
     addSocket(lobbyId, ws);
     lobbyStore.setPlayerConnected(lobbyId, playerToken, true);
+    logMultiplayer("ws.open", {
+      wsConnId,
+      lobbyId,
+      playerId: player.playerId,
+      seatIndex: player.seatIndex,
+      revision: lobby.revision,
+      turnIndex: lobby.raceState?.turnIndex ?? null
+    });
     const publicLobby = toPublicLobby(lobby);
     ws.send(JSON.stringify({ event: "lobby.state", payload: publicLobby }));
     if (publicLobby.raceState !== undefined) {
@@ -407,9 +534,24 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       removeSocket(lobbyId, ws);
       try {
         const result = lobbyStore.setPlayerConnected(lobbyId, playerToken, false);
+        logMultiplayer("ws.close", {
+          wsConnId,
+          lobbyId,
+          playerId: result.player.playerId,
+          seatIndex: result.player.seatIndex,
+          revision: result.lobby.revision,
+          turnIndex: result.lobby.raceState?.turnIndex ?? null
+        });
         broadcast(lobbyId, "lobby.state", toPublicLobby(result.lobby));
         if (result.player.isHost && result.lobby.status !== "FINISHED") {
           const ended = lobbyStore.terminateLobby(lobbyId, "host_disconnected");
+          logMultiplayer("race.end", {
+            wsConnId,
+            lobbyId,
+            reason: "host_disconnected",
+            revision: ended.revision,
+            turnIndex: ended.raceState?.turnIndex ?? null
+          });
           broadcast(lobbyId, "race.ended", {
             reason: "host_disconnected",
             lobby: toPublicLobby(ended)
