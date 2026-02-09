@@ -95,6 +95,10 @@ const WsQuerySchema = z.object({
   playerToken: z.string().min(1)
 });
 
+const LobbyReadQuerySchema = z.object({
+  playerToken: z.string().min(1)
+});
+
 async function createDedupeStore(redisUrl: string): Promise<{
   dedupeStore: DedupeStore<TurnCommandResult>;
   redis: ReturnType<typeof createClient> | null;
@@ -234,6 +238,25 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       playerId: host.playerId,
       playerToken: host.playerToken
     });
+  });
+
+  app.get(`${API_V1_PREFIX}/lobbies/:lobbyId`, async (request) => {
+    const params = LobbyPathSchema.parse(request.params);
+    const query = LobbyReadQuerySchema.parse(request.query);
+    const lobby = lobbyStore.getLobby(params.lobbyId);
+    if (!lobby) {
+      throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
+    }
+
+    const player = lobbyStore.findPlayerByToken(lobby, query.playerToken);
+    if (!player) {
+      throw new LobbyError(401, "Invalid player token for this lobby.");
+    }
+
+    return {
+      lobby: toPublicLobby(lobby),
+      playerId: player.playerId
+    };
   });
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/join`, async (request) => {

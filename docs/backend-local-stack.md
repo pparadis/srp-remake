@@ -94,6 +94,7 @@ Expected shape:
 ## Minimal API Surface (Scaffold)
 
 - `POST /api/v1/lobbies`
+- `GET /api/v1/lobbies/:lobbyId?playerToken=...`
 - `POST /api/v1/lobbies/:lobbyId/join`
 - `PATCH /api/v1/lobbies/:lobbyId/settings`
 - `POST /api/v1/lobbies/:lobbyId/start`
@@ -105,6 +106,7 @@ Expected shape:
 - Collection path: `bruno/`
 - Environment file: `bruno/environments/local.bru`
 - Request flow (in order): `bruno/v1/00-health.bru` to `bruno/v1/07-submit-turn-stale.bru`
+- Optional lobby read check: `bruno/v1/03a-read-lobby.bru`
 
 Notes:
 

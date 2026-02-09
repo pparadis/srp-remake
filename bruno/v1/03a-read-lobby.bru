@@ -1,0 +1,23 @@
+meta {
+  name: 03a Read Lobby
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/lobbies/{{lobbyId}}?playerToken={{hostPlayerToken}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("response has lobby and caller player id", function () {
+    const body = res.getBody();
+    expect(body.lobby.lobbyId).to.be.a("string");
+    expect(body.playerId).to.be.a("string");
+  });
+}

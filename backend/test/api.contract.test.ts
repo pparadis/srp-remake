@@ -150,6 +150,43 @@ test("supports lobby create, settings patch, and join contracts", async (t) => {
   assert.equal(joinBody.lobby.players.length, 2);
 });
 
+test("supports authenticated lobby read contract", async (t) => {
+  const app = await createTestApp();
+  t.after(async () => {
+    await app.close();
+  });
+
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: { name: "Host" }
+  });
+  assert.equal(createdRes.statusCode, 201);
+  const createdBody = createdRes.json() as {
+    lobby: { lobbyId: string };
+    playerId: string;
+    playerToken: string;
+  };
+
+  const readRes = await app.inject({
+    method: "GET",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(createdBody.playerToken)}`
+  });
+  assert.equal(readRes.statusCode, 200);
+  const readBody = readRes.json() as {
+    lobby: { lobbyId: string };
+    playerId: string;
+  };
+  assert.equal(readBody.lobby.lobbyId, createdBody.lobby.lobbyId);
+  assert.equal(readBody.playerId, createdBody.playerId);
+
+  const badTokenRes = await app.inject({
+    method: "GET",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=invalid`
+  });
+  assert.equal(badTokenRes.statusCode, 401);
+});
+
 test("enforces turn idempotency and stale revision contract", async (t) => {
   const app = await createTestApp();
   t.after(async () => {
