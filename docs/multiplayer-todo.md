@@ -10,7 +10,8 @@ Saved follow-up items from spec review.
 - [x] Add protocol idempotency contract (`clientCommandId` + server dedupe semantics).
 - [x] Specify deterministic seat rules (`seatIndex` assignment, bot seat fill, rematch seat persistence).
 - [x] Define auth/scope for admin debug endpoint (dev-only vs protected prod access).
+- [x] Clean up spec formatting for nested lists/readability.
 
 ## Remaining
 
-- [ ] Clean up spec formatting for nested lists/readability.
+- None.

@@ -7,9 +7,7 @@ This document captures a first-pass design for online multiplayer with a direct 
 - Let players join the same race via a shared URL.
 - Keep gameplay rules identical to single-player.
 - Keep configurable race length (`raceLaps`) identical to single-player.
-- Support flexible grid composition:
-- Humans only (1v1, 2v2, etc.).
-- Humans plus bots.
+- Support flexible grid composition (`humans-only` and `humans + bots`).
 - Keep turn resolution deterministic and debuggable.
 
 ## Non-Goals (v0)
@@ -25,14 +23,7 @@ This document captures a first-pass design for online multiplayer with a direct 
 2. Client requests a new lobby and receives a link like `/lobby/:lobbyId`.
 3. Host shares the link.
 4. Other players open link and join lobby.
-5. Host sets options:
-
-- Track.
-- Total cars.
-- Human cars.
-- Bot cars.
-- Race laps (`raceLaps`).
-
+5. Host sets options (`track`, `totalCars`, `humanCars`, `botCars`, `raceLaps`).
 6. Host starts race.
 7. All clients transition into the same race and receive synchronized state updates.
 
@@ -98,14 +89,10 @@ type Lobby = {
 - Additional humans are assigned the lowest available seat index at join time.
 - During an active race, seat ownership is stable (no seat reshuffle).
 - Turn order is derived from ascending `seatIndex`.
-- Spawn/car identity is derived from ascending `seatIndex`:
-- `carId = seatIndex + 1`.
+- Spawn/car identity is derived from ascending `seatIndex` (`carId = seatIndex + 1`).
 - Human cars use the owning player seat.
 - Bot seats fill all remaining unoccupied seats in ascending `seatIndex`.
-- Rematch in same lobby:
-- Keep seat ownership for players still present.
-- Remove seats for players who left.
-- Fill newly free seats with reconnecting/new humans first, then bots (ascending seat index).
+- Rematch in same lobby keeps seat ownership for players still present, removes seats for leavers, then fills free seats with reconnecting/new humans first and bots second (ascending `seatIndex`).
 
 ## Identity Decision (v0)
 
@@ -119,19 +106,11 @@ Rationale:
 
 ### Token Lifecycle (v0)
 
-1. On first join, client submits nickname and receives:
-
-- `playerId` (lobby-scoped identity).
-- `playerToken` (opaque secret).
-
+1. On first join, client submits nickname and receives `playerId` (lobby-scoped identity) and `playerToken` (opaque secret).
 2. Client stores `playerToken` in local storage.
 3. On reconnect, client sends `lobbyId + playerToken`.
 4. Server maps token to existing player seat and restores control.
-5. Tokens are invalidated when:
-
-- Lobby expires.
-- Host destroys lobby.
-- Player is removed/kicked.
+5. Tokens are invalidated when the lobby expires, host destroys the lobby, or player is removed/kicked.
 
 ### Security Constraints (v0)
 
@@ -186,12 +165,8 @@ Payload requirement for v0:
 - `clientCommandId` is generated client-side per submitted turn action.
 - Command id uniqueness scope: unique per `playerId` for the lifetime of a lobby.
 - Server stores a dedupe cache keyed by `(lobbyId, playerId, clientCommandId)`.
-- If a duplicate command is received:
-- Server must not apply game state twice.
-- Server returns the previously computed result (`turn.applied` or `error`) for that command id.
-- If `revision` no longer matches current state:
-- Server rejects with deterministic stale-action error.
-- Duplicate stale commands must return the same stale-action error payload.
+- If a duplicate command is received, server must not apply state twice and must return the previously computed result (`turn.applied` or `error`) for that command id.
+- If `revision` no longer matches current state, server rejects with deterministic stale-action error; duplicate stale commands must return the same stale-action payload.
 
 ## Turn Authority Rules
 
@@ -201,19 +176,14 @@ Payload requirement for v0:
 - Server enforces win when a car reaches `raceLaps`.
 - Client UI is optimistic only if paired with rollback on reject.
 - For v0, prefer non-optimistic updates to simplify correctness.
-- Turn timeout policy for v0:
-- No automatic timer-based skip.
-- Host can force-skip the active player.
-- Any timer-based auto-skip is out of scope for v0.
+- Turn timeout policy for v0: no automatic timer-based skip, host can force-skip active player, and timer auto-skip stays out of scope.
 
 ## Reconnect Behavior
 
 - Player identity stored in `playerToken`.
 - On reconnect, client sends token and lobby id.
 - Server rebinds socket to player and sends full latest `race.state`.
-- If disconnected player is active, race pauses until:
-- Player reconnects.
-- Host force-skips.
+- If disconnected player is active, race pauses until the player reconnects or host force-skips.
 
 ## Host Disconnect Policy (v0)
 
@@ -246,20 +216,14 @@ Payload requirement for v0:
 
 - Endpoint is intended for debugging operations only (not gameplay clients).
 - Default policy: disabled in production.
-- If explicitly enabled in production, all of the following are required:
-- HTTPS only.
-- Static admin bearer token via `Authorization: Bearer <token>`.
-- Rate limit and request audit logging.
-- Redact secrets (`playerToken`, auth headers) from payload and logs.
+- If explicitly enabled in production, require HTTPS, static admin bearer token (`Authorization: Bearer <token>`), rate limit, request audit logging, and secret redaction (`playerToken`, auth headers) from payload/logs.
 - Recommended endpoint shape: `GET /admin/lobbies/:lobbyId/state`.
 
 ## Deployment Notes
 
 - GitHub Pages can host the web client only.
 - Real-time multiplayer still needs a backend endpoint (WebSocket/SSE/HTTP).
-- Practical setup:
-- Frontend on GitHub Pages.
-- Backend on Fly.io, Render, Railway, or similar.
+- Practical setup: frontend on GitHub Pages, backend on Fly.io/Render/Railway (or equivalent).
 
 ## V0 Decisions (Locked)
 
