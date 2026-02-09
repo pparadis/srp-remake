@@ -242,6 +242,17 @@ Payload requirement for v0:
 - Keep bot decision logs server-side and fetch on demand.
 - Add a lightweight admin endpoint to dump current authoritative state.
 
+## Admin Debug Endpoint Scope (v0)
+
+- Endpoint is intended for debugging operations only (not gameplay clients).
+- Default policy: disabled in production.
+- If explicitly enabled in production, all of the following are required:
+- HTTPS only.
+- Static admin bearer token via `Authorization: Bearer <token>`.
+- Rate limit and request audit logging.
+- Redact secrets (`playerToken`, auth headers) from payload and logs.
+- Recommended endpoint shape: `GET /admin/lobbies/:lobbyId/state`.
+
 ## Deployment Notes
 
 - GitHub Pages can host the web client only.
@@ -261,6 +272,7 @@ Payload requirement for v0:
 7. Host disconnect: `end lobby/race immediately` ("if he dies, he dies").
 8. Action idempotency: `clientCommandId + server dedupe cache` is required for turn submissions.
 9. Seat model: `deterministic seatIndex-driven spawn + turn order + rematch preservation`.
+10. Admin endpoint: `disabled in prod by default`; if enabled, require bearer auth + HTTPS.
 
 ## Delivery Plan
 
@@ -301,3 +313,4 @@ Payload requirement for v0:
 7. On host disconnect, close the lobby and broadcast terminal reason `host_disconnected`.
 8. Add `(playerId, clientCommandId)` dedupe storage and replay same result for duplicate submits.
 9. Implement authoritative seat assignment and bot-fill rules based on ascending `seatIndex`.
+10. Gate admin state-dump endpoint behind environment flag and bearer-token auth.

@@ -9,8 +9,8 @@ Saved follow-up items from spec review.
 - [x] Define host-disconnect behavior (host disconnect ends lobby/race immediately).
 - [x] Add protocol idempotency contract (`clientCommandId` + server dedupe semantics).
 - [x] Specify deterministic seat rules (`seatIndex` assignment, bot seat fill, rematch seat persistence).
+- [x] Define auth/scope for admin debug endpoint (dev-only vs protected prod access).
 
 ## Remaining
 
-- [ ] Define auth/scope for admin debug endpoint (dev-only vs protected prod access).
 - [ ] Clean up spec formatting for nested lists/readability.
