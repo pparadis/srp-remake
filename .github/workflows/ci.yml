@@ -17,6 +17,8 @@ jobs:
           cache: "npm"
       - name: Install
         run: npm ci
+      - name: Install Backend
+        run: npm --prefix backend ci
       - name: Lint
         run: npm run lint
       - name: Validate Track
@@ -27,3 +29,7 @@ jobs:
         run: npm run test:coverage
       - name: Build
         run: npm run build
+      - name: Backend Test
+        run: npm run backend:test
+      - name: Backend Build
+        run: npm run backend:build
