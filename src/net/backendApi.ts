@@ -44,6 +44,11 @@ export interface StartRaceResponse {
   lobby: PublicLobby;
 }
 
+export interface ReadLobbyResponse {
+  lobby: PublicLobby;
+  playerId: string;
+}
+
 export type SubmitTurnResponse =
   | {
       ok: true;
@@ -124,6 +129,11 @@ export class BackendApiClient {
     });
   }
 
+  readLobby(lobbyId: string, playerToken: string): Promise<ReadLobbyResponse> {
+    const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}?playerToken=${encodeURIComponent(playerToken)}`;
+    return this.request("GET", path);
+  }
+
   submitTurn(
     lobbyId: string,
     playerToken: string,
@@ -143,4 +153,14 @@ export class BackendApiClient {
 export function resolveBackendBaseUrl(): string {
   const configured = import.meta.env.VITE_BACKEND_API_BASE_URL?.trim();
   return configured && configured.length > 0 ? configured : "http://localhost:3001";
+}
+
+export function resolveBackendWsBaseUrl(apiBaseUrl: string): string {
+  const configured = import.meta.env.VITE_BACKEND_WS_BASE_URL?.trim();
+  if (configured && configured.length > 0) {
+    return normalizeBaseUrl(configured);
+  }
+  const parsed = new URL(apiBaseUrl);
+  parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
+  return normalizeBaseUrl(parsed.toString());
 }

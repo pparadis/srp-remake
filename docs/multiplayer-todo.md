@@ -14,9 +14,9 @@ Execution backlog for authoritative multiplayer gameplay sync.
 
 ## Priority 0: Core Sync Backbone
 
-- [ ] Frontend opens authenticated websocket session (`/ws?lobbyId&playerToken`) after host/join.
-- [ ] Frontend consumes and applies server events: `lobby.state`, `race.started`, `race.state`, `turn.applied`, `race.ended`.
-- [ ] Add explicit websocket reconnect flow with lobby rehydrate on reconnect.
+- [x] Frontend opens authenticated websocket session (`/ws?lobbyId&playerToken`) after host/join.
+- [x] Frontend consumes and applies server events: `lobby.state`, `race.started`, `race.state`, `turn.applied`, `race.ended`.
+- [x] Add explicit websocket reconnect flow with lobby rehydrate on reconnect.
 
 ## Priority 1: Server Authoritative Race State
 

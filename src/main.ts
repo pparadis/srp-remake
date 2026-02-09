@@ -3,6 +3,8 @@ import {
   BackendApiClient,
   BackendApiError,
   resolveBackendBaseUrl,
+  resolveBackendWsBaseUrl,
+  type PublicLobby,
   type BackendTurnAction
 } from "./net/backendApi";
 
@@ -28,7 +30,9 @@ const backendStatus = document.getElementById("backendStatus") as HTMLSpanElemen
 let game: ReturnType<typeof import("./game").startGame> | null = null;
 let backendBusy = false;
 let backendRaceStarted = false;
-const backendClient = new BackendApiClient(resolveBackendBaseUrl());
+const backendApiBaseUrl = resolveBackendBaseUrl();
+const backendWsBaseUrl = resolveBackendWsBaseUrl(backendApiBaseUrl);
+const backendClient = new BackendApiClient(backendApiBaseUrl);
 
 interface BackendSession {
   lobbyId: string;
@@ -39,6 +43,10 @@ interface BackendSession {
 }
 
 let backendSession: BackendSession | null = null;
+let backendSocket: WebSocket | null = null;
+let backendReconnectTimer: number | null = null;
+let backendShouldReconnect = false;
+let backendReconnectAttempt = 0;
 
 function parseSelectInt(select: HTMLSelectElement, fallback: number): number {
   const parsed = Number.parseInt(select.value, 10);
@@ -80,6 +88,158 @@ function makeCommandId(): string {
 function setBackendStatusText(text: string) {
   if (!backendStatus) return;
   backendStatus.textContent = text;
+}
+
+function syncCompositionFromLobby(lobby: PublicLobby) {
+  humanCountSelect.value = String(lobby.settings.humanCars);
+  botCountSelect.value = String(lobby.settings.botCars);
+  lapCountInput.value = String(lobby.settings.raceLaps);
+}
+
+function applyLobbyState(lobby: PublicLobby, source: string) {
+  if (!backendSession) return;
+  if (lobby.lobbyId !== backendSession.lobbyId) return;
+  backendSession.revision = lobby.revision;
+  backendRaceStarted = lobby.status === "IN_RACE";
+  syncCompositionFromLobby(lobby);
+  if (backendLobbyIdInput) {
+    backendLobbyIdInput.value = lobby.lobbyId;
+  }
+  setBackendStatusText(
+    `Backend: ${source} -> ${lobby.status.toLowerCase()} (rev ${lobby.revision}, players ${lobby.players.length})`
+  );
+}
+
+function clearBackendReconnectTimer() {
+  if (backendReconnectTimer === null) return;
+  window.clearTimeout(backendReconnectTimer);
+  backendReconnectTimer = null;
+}
+
+async function rehydrateLobbyState(reason: string) {
+  if (!backendSession) return;
+  try {
+    const read = await backendClient.readLobby(backendSession.lobbyId, backendSession.playerToken);
+    if (!backendSession || backendSession.lobbyId !== read.lobby.lobbyId) return;
+    backendSession.playerId = read.playerId;
+    applyLobbyState(read.lobby, `rehydrate(${reason})`);
+  } catch (error) {
+    setBackendStatusText(`Backend: rehydrate failed (${toErrorText(error)})`);
+  }
+}
+
+function scheduleBackendReconnect() {
+  if (!backendShouldReconnect || !backendSession) return;
+  clearBackendReconnectTimer();
+  const delayMs = Math.min(5000, 500 * 2 ** Math.min(backendReconnectAttempt, 5));
+  backendReconnectAttempt += 1;
+  setBackendStatusText(`Backend: ws reconnect in ${delayMs}ms`);
+  backendReconnectTimer = window.setTimeout(() => {
+    void connectBackendSocket("retry");
+  }, delayMs);
+}
+
+function handleBackendWsEvent(eventName: string, payload: unknown) {
+  if (!backendSession) return;
+  if (eventName === "lobby.state" || eventName === "race.started" || eventName === "race.state") {
+    if (payload && typeof payload === "object" && "lobbyId" in payload) {
+      applyLobbyState(payload as PublicLobby, eventName);
+    }
+    return;
+  }
+  if (eventName === "turn.applied") {
+    if (payload && typeof payload === "object" && "revision" in payload) {
+      const revision = (payload as { revision: unknown }).revision;
+      if (typeof revision === "number") {
+        backendSession.revision = Math.max(backendSession.revision, revision);
+        setBackendStatusText(`Backend: turn applied (rev ${backendSession.revision})`);
+      }
+    }
+    return;
+  }
+  if (eventName === "race.ended") {
+    backendRaceStarted = false;
+    if (payload && typeof payload === "object") {
+      const reason = (payload as { reason?: unknown }).reason;
+      const lobby = (payload as { lobby?: unknown }).lobby;
+      if (lobby && typeof lobby === "object" && "lobbyId" in lobby) {
+        applyLobbyState(lobby as PublicLobby, "race.ended");
+      }
+      if (typeof reason === "string") {
+        setBackendStatusText(`Backend: race ended (${reason})`);
+      }
+    }
+  }
+}
+
+function disconnectBackendSocket() {
+  backendShouldReconnect = false;
+  clearBackendReconnectTimer();
+  if (!backendSocket) return;
+  const socket = backendSocket;
+  backendSocket = null;
+  socket.close(1000, "client_close");
+}
+
+async function connectBackendSocket(reason: string) {
+  if (!backendSession) return;
+  clearBackendReconnectTimer();
+  if (backendSocket) {
+    backendSocket.close(1000, "reconnect");
+    backendSocket = null;
+  }
+  backendShouldReconnect = true;
+
+  const socketUrl = `${backendWsBaseUrl}/ws?lobbyId=${encodeURIComponent(backendSession.lobbyId)}&playerToken=${encodeURIComponent(backendSession.playerToken)}`;
+  const socket = new WebSocket(socketUrl);
+  backendSocket = socket;
+  setBackendStatusText(`Backend: ws connecting (${reason})...`);
+
+  socket.addEventListener("open", () => {
+    if (backendSocket !== socket) return;
+    backendReconnectAttempt = 0;
+    setBackendStatusText("Backend: ws connected");
+    void rehydrateLobbyState("ws-open");
+  });
+
+  socket.addEventListener("message", (event) => {
+    if (backendSocket !== socket) return;
+    try {
+      const parsed = JSON.parse(String(event.data)) as {
+        event?: unknown;
+        payload?: unknown;
+      };
+      if (typeof parsed.event !== "string") return;
+      handleBackendWsEvent(parsed.event, parsed.payload);
+    } catch {
+      setBackendStatusText("Backend: ws parse error");
+    }
+  });
+
+  socket.addEventListener("close", (event) => {
+    if (backendSocket === socket) {
+      backendSocket = null;
+    }
+    if (!backendShouldReconnect) return;
+
+    if (event.code === 1008) {
+      backendShouldReconnect = false;
+      setBackendStatusText("Backend: ws auth failed");
+      return;
+    }
+    if (event.code === 4001) {
+      backendShouldReconnect = false;
+      backendRaceStarted = false;
+      setBackendStatusText(`Backend: ws closed (${event.reason || "host_disconnected"})`);
+      return;
+    }
+    scheduleBackendReconnect();
+  });
+
+  socket.addEventListener("error", () => {
+    if (backendSocket !== socket) return;
+    setBackendStatusText("Backend: ws error");
+  });
 }
 
 function setBackendBusy(nextBusy: boolean) {
@@ -128,10 +288,10 @@ async function hostLobby() {
       isHost: true
     };
     backendRaceStarted = created.lobby.status === "IN_RACE";
+    syncCompositionFromLobby(created.lobby);
     if (backendLobbyIdInput) backendLobbyIdInput.value = created.lobby.lobbyId;
-    setBackendStatusText(
-      `Backend: hosted ${created.lobby.lobbyId} (rev ${created.lobby.revision})`
-    );
+    setBackendStatusText(`Backend: hosted ${created.lobby.lobbyId} (rev ${created.lobby.revision})`);
+    void connectBackendSocket("host");
   } catch (error) {
     setBackendStatusText(`Backend: host failed (${toErrorText(error)})`);
   } finally {
@@ -158,7 +318,9 @@ async function joinLobby() {
       isHost: false
     };
     backendRaceStarted = joined.lobby.status === "IN_RACE";
+    syncCompositionFromLobby(joined.lobby);
     setBackendStatusText(`Backend: joined ${joined.lobby.lobbyId} (rev ${joined.lobby.revision})`);
+    void connectBackendSocket("join");
   } catch (error) {
     setBackendStatusText(`Backend: join failed (${toErrorText(error)})`);
   } finally {
@@ -241,6 +403,9 @@ async function ensureGameStarted() {
 }
 
 async function restartGame() {
+  disconnectBackendSocket();
+  backendSession = null;
+  backendRaceStarted = false;
   if (game) {
     game.destroy(true);
     game = null;
@@ -276,4 +441,8 @@ window.addEventListener("srp:local-turn-action", (event) => {
   void submitTurnAction(custom.detail);
 });
 
-setBackendStatusText(`Backend: ready (${resolveBackendBaseUrl()})`);
+window.addEventListener("beforeunload", () => {
+  disconnectBackendSocket();
+});
+
+setBackendStatusText(`Backend: ready (${backendApiBaseUrl})`);
