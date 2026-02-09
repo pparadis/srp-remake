@@ -120,13 +120,32 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     ? { dedupeStore: options.dedupeStore, redis: options.redis ?? null }
     : await createDedupeStore(config.REDIS_URL);
   const socketsByLobby = new Map<string, Set<LobbySocket>>();
+  const allowedOrigins = config.CORS_ALLOWED_ORIGINS.split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+  const allowAnyOrigin = allowedOrigins.includes("*");
+
+  function resolveAllowOrigin(requestOrigin: string | undefined): string {
+    if (allowAnyOrigin) {
+      return "*";
+    }
+    if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+      return requestOrigin;
+    }
+    return allowedOrigins[0] ?? "*";
+  }
 
   app.addHook("onRequest", async (request, reply) => {
-    // Keep local frontend integration simple: allow browser clients to call v1 API directly.
-    reply.header("Access-Control-Allow-Origin", "*");
+    const allowOrigin = resolveAllowOrigin(request.headers.origin);
+
+    // Enable browser frontend access for local and hosted clients.
+    reply.header("Access-Control-Allow-Origin", allowOrigin);
     reply.header("Access-Control-Allow-Methods", "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS");
     reply.header("Access-Control-Allow-Headers", "Accept,Content-Type,Authorization");
     reply.header("Access-Control-Max-Age", "86400");
+    if (!allowAnyOrigin) {
+      reply.header("Vary", "Origin");
+    }
 
     if (request.method === "OPTIONS") {
       return reply.code(204).send();

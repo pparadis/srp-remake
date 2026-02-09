@@ -10,7 +10,8 @@ const TEST_CONFIG: BackendConfig = {
   HOST: "127.0.0.1",
   PORT: 3001,
   REDIS_URL: "redis://127.0.0.1:6399",
-  DEDUPE_TTL_SECONDS: 120
+  DEDUPE_TTL_SECONDS: 120,
+  CORS_ALLOWED_ORIGINS: "*"
 };
 
 async function createTestApp() {
@@ -61,6 +62,27 @@ test("uses REST-style v1 endpoints (RPC dot endpoint is not exposed)", async (t)
   });
 
   assert.equal(res.statusCode, 404);
+});
+
+test("supports CORS preflight on v1 endpoints", async (t) => {
+  const app = await createTestApp();
+  t.after(async () => {
+    await app.close();
+  });
+
+  const res = await app.inject({
+    method: "OPTIONS",
+    url: "/api/v1/lobbies",
+    headers: {
+      origin: "http://localhost:5173",
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type"
+    }
+  });
+
+  assert.equal(res.statusCode, 204);
+  assert.equal(res.headers["access-control-allow-origin"], "*");
+  assert.match(String(res.headers["access-control-allow-methods"] ?? ""), /POST/);
 });
 
 test("supports lobby create, settings patch, and join contracts", async (t) => {
