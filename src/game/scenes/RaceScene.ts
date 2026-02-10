@@ -40,7 +40,7 @@ import {
   type BotDecisionLogEntry
 } from "./debug/botDecisionDebug";
 import { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
-import type { BackendTurnAction } from "../../net/backendApi";
+import type { BackendTurnAction, PublicLobby } from "../../net/backendApi";
 
 type CellMap = Map<string, TrackCell>;
 
@@ -118,6 +118,8 @@ export class RaceScene extends Phaser.Scene {
   private raceLapTarget = 5;
   private raceFinished = false;
   private winnerCarId: number | null = null;
+  private backendLobbyId: string | null = null;
+  private localPlayerId: string | null = null;
   private botDecisionLog: BotDecisionLogEntry[] = [];
   private botDecisionSeq = 1;
   private skipButton!: TextButton;
@@ -127,6 +129,31 @@ export class RaceScene extends Phaser.Scene {
     this.showCarsAndMoves = !this.showCarsAndMoves;
     this.updateExternalToggleLabel();
     this.applyCarsAndMovesVisibility();
+  };
+  private readonly onBackendLobbyState = (event: Event) => {
+    const custom = event as CustomEvent<{ lobby?: PublicLobby; localPlayerId?: string }>;
+    const lobby = custom.detail?.lobby;
+    if (!lobby) return;
+    const localPlayerId =
+      typeof custom.detail?.localPlayerId === "string" ? custom.detail.localPlayerId : null;
+    this.applyBackendLobbyState(lobby, localPlayerId);
+  };
+  private readonly onBackendTurnApplied = (event: Event) => {
+    const custom = event as CustomEvent<{
+      lobbyId?: string;
+      playerId?: string;
+      applied?: BackendTurnAction;
+    }>;
+    const detail = custom.detail;
+    if (
+      !detail ||
+      typeof detail.lobbyId !== "string" ||
+      typeof detail.playerId !== "string" ||
+      !detail.applied
+    ) {
+      return;
+    }
+    this.applyBackendTurnApplied(detail.lobbyId, detail.playerId, detail.applied);
   };
   private readonly buildInfo = {
     version: "debug-snapshot-v3",
@@ -228,8 +255,12 @@ export class RaceScene extends Phaser.Scene {
     this.setUIFixed();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
+      window.removeEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
+      window.removeEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
     });
     window.addEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
+    window.addEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
+    window.addEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
 
     registerRaceSceneInputHandlers({
       scene: this,
@@ -258,6 +289,10 @@ export class RaceScene extends Phaser.Scene {
       addLog: (line) => this.addLog(line),
       advanceTurnAndRefresh: () => this.advanceTurnAndRefresh(),
       onTurnAction: (action) => this.emitLocalTurnAction(action),
+      canControlActiveCar: () => this.canLocalControlActiveCar(),
+      onUnauthorizedControlAttempt: () => {
+        this.addLog("Not your turn/car.");
+      },
       hoverMaxDist: RaceScene.HUD.hoverMaxDist,
       dragSnapDist: 18
     });
@@ -274,6 +309,128 @@ export class RaceScene extends Phaser.Scene {
       this.spawnCarToken(entry.car, entry.color);
     }
     this.activeCar = this.getFirstCar();
+  }
+
+  private clearCarVisuals() {
+    for (const token of this.carTokens.values()) {
+      token.destroy();
+    }
+    this.carTokens.clear();
+    for (const halo of this.activeHalos.values()) {
+      halo.destroy();
+    }
+    this.activeHalos.clear();
+  }
+
+  private respawnCarsForComposition(totalCars: number, humanCars: number, botCars: number) {
+    this.totalCars = Math.max(1, Math.min(11, Math.trunc(totalCars)));
+    this.humanCars = Math.max(0, Math.min(this.totalCars, Math.trunc(humanCars)));
+    this.botCars = Math.max(0, Math.min(this.totalCars - this.humanCars, Math.trunc(botCars)));
+    this.raceFinished = false;
+    this.winnerCarId = null;
+    this.clearCarVisuals();
+    const { cars, tokens } = spawnCars(this.track, {
+      totalCars: this.totalCars,
+      humanCount: this.humanCars,
+      botCount: this.botCars
+    });
+    this.cars = cars;
+    for (const entry of tokens) {
+      this.spawnCarToken(entry.car, entry.color);
+    }
+    this.turn = createTurnState(this.cars);
+    const currentId = getCurrentCarId(this.turn);
+    this.activeCar = this.cars.find((c) => c.carId === currentId) ?? this.getFirstCar();
+    this.validTargets = new Map();
+    this.updateActiveCarVisuals();
+    this.updateSkipButtonState();
+    this.updateCycleHud();
+    this.updateStandings();
+    this.drawTargets();
+  }
+
+  private isBackendAuthoritativeMode(): boolean {
+    return this.backendLobbyId != null;
+  }
+
+  private canLocalControlActiveCar(): boolean {
+    if (!this.isBackendAuthoritativeMode()) return true;
+    if (!this.localPlayerId) return false;
+    return this.activeCar.ownerId === this.localPlayerId;
+  }
+
+  private applyBackendLobbyState(lobby: PublicLobby, localPlayerId: string | null) {
+    this.backendLobbyId = lobby.lobbyId;
+    this.localPlayerId = localPlayerId;
+    if (
+      lobby.settings.totalCars !== this.totalCars ||
+      lobby.settings.humanCars !== this.humanCars ||
+      lobby.settings.botCars !== this.botCars
+    ) {
+      this.respawnCarsForComposition(
+        lobby.settings.totalCars,
+        lobby.settings.humanCars,
+        lobby.settings.botCars
+      );
+    }
+    if (lobby.status !== "IN_RACE" || !lobby.raceState) return;
+    const targetIndex = Phaser.Math.Clamp(
+      lobby.raceState.activeSeatIndex,
+      0,
+      Math.max(0, this.turn.order.length - 1)
+    );
+    this.raceLapTarget = Math.max(1, Math.min(999, Math.trunc(lobby.settings.raceLaps)));
+
+    const localCarsById = new Map(this.cars.map((car) => [car.carId, car]));
+    for (const raceCar of lobby.raceState.cars) {
+      const localCar = localCarsById.get(raceCar.carId);
+      if (!localCar) continue;
+      localCar.ownerId = raceCar.playerId ?? `BOT${raceCar.seatIndex + 1}`;
+      localCar.isBot = raceCar.isBot;
+      localCar.lapCount = raceCar.lapCount;
+    }
+
+    this.turn.index = targetIndex;
+    const targetCarId = this.turn.order[targetIndex];
+    const targetCar = this.cars.find((car) => car.carId === targetCarId);
+    if (targetCar) {
+      this.activeCar = targetCar;
+    }
+
+    this.updateActiveCarVisuals();
+    if (this.activeCar.isBot || !this.canLocalControlActiveCar()) {
+      this.validTargets = new Map();
+      this.updateSkipButtonState();
+    } else {
+      this.validTargets = this.computeTargetsForCar(this.activeCar);
+      this.updateSkipButtonState();
+    }
+    this.drawTargets();
+    this.updateCycleHud();
+    this.updateStandings();
+  }
+
+  private applyBackendTurnApplied(lobbyId: string, playerId: string, action: BackendTurnAction) {
+    if (this.backendLobbyId && lobbyId !== this.backendLobbyId) return;
+    if (lobbyId.length === 0 || playerId.length === 0) return;
+
+    const car = this.cars.find((candidate) => candidate.ownerId === playerId);
+    if (!car) return;
+    if (action.type !== "move" && action.type !== "pit") return;
+    if (!action.targetCellId) return;
+
+    const targetCell = this.cellMap.get(action.targetCellId);
+    if (!targetCell) return;
+    car.cellId = targetCell.id;
+    const token = this.carTokens.get(car.carId);
+    if (token) {
+      token.setPosition(targetCell.pos.x, targetCell.pos.y);
+    }
+    const halo = this.activeHalos.get(car.carId);
+    if (halo) {
+      halo.setPosition(targetCell.pos.x, targetCell.pos.y);
+    }
+    this.updateStandings();
   }
 
   private spawnCarToken(car: Car, color: number) {
@@ -326,6 +483,7 @@ export class RaceScene extends Phaser.Scene {
 
   private processBotsUntilHuman() {
     if (this.raceFinished) return;
+    if (this.isBackendAuthoritativeMode()) return;
     const maxBots = Math.max(1, this.cars.length);
     let steps = 0;
     while (this.activeCar.isBot && steps < maxBots && !this.raceFinished) {
@@ -418,12 +576,13 @@ export class RaceScene extends Phaser.Scene {
       token.setVisible(true);
       const halo = this.activeHalos.get(carId);
       if (carId === this.activeCar.carId) {
+        const canControlActive = this.canLocalControlActiveCar() && !this.raceFinished;
         token.setAlpha(1);
-        token.setScale(1.1);
-        this.input.setDraggable(token, !this.raceFinished);
+        token.setScale(canControlActive ? 1.1 : 1);
+        this.input.setDraggable(token, canControlActive);
         if (halo) {
           halo.setPosition(token.x, token.y);
-          halo.setVisible(true);
+          halo.setVisible(canControlActive);
           halo.setScale(1);
           halo.setAlpha(1);
         }
@@ -440,7 +599,7 @@ export class RaceScene extends Phaser.Scene {
     }
 
     const activeHalo = this.activeHalos.get(this.activeCar.carId);
-    if (activeHalo) {
+    if (activeHalo && this.canLocalControlActiveCar() && !this.raceFinished) {
       this.activeHaloTween = this.tweens.add({
         targets: activeHalo,
         scaleX: { from: 1, to: 1.12 },
@@ -456,6 +615,11 @@ export class RaceScene extends Phaser.Scene {
 
   private recomputeTargets() {
     if (this.raceFinished) {
+      this.validTargets = new Map();
+      this.updateSkipButtonState();
+      return;
+    }
+    if (this.isBackendAuthoritativeMode() && !this.canLocalControlActiveCar()) {
       this.validTargets = new Map();
       this.updateSkipButtonState();
       return;
@@ -801,7 +965,10 @@ export class RaceScene extends Phaser.Scene {
   private updateSkipButtonState() {
     if (!this.skipButton) return;
     const canSkip =
-      !this.raceFinished && this.validTargets.size === 0 && this.activeCar.state === "ACTIVE";
+      !this.raceFinished &&
+      this.validTargets.size === 0 &&
+      this.activeCar.state === "ACTIVE" &&
+      this.canLocalControlActiveCar();
     this.skipButton.setAlpha(canSkip ? 1 : 0.4);
     this.skipButton.setInteractive(canSkip);
   }
@@ -891,6 +1058,10 @@ export class RaceScene extends Phaser.Scene {
 
   private skipTurn() {
     if (this.raceFinished) return;
+    if (!this.canLocalControlActiveCar()) {
+      this.addLog("Not your turn/car.");
+      return;
+    }
     if (this.validTargets.size !== 0 || this.activeCar.state !== "ACTIVE") return;
     recordMove(this.activeCar.moveCycle, 0);
     this.addLog(`Car ${this.activeCar.carId} skipped (no moves).`);

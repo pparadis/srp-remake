@@ -34,6 +34,8 @@ export interface RegisterRaceSceneInputHandlersParams {
   addLog: (line: string) => void;
   advanceTurnAndRefresh: () => void;
   onTurnAction?: (action: BackendTurnAction) => void;
+  canControlActiveCar?: () => boolean;
+  onUnauthorizedControlAttempt?: () => void;
   hoverMaxDist: number;
   dragSnapDist: number;
 }
@@ -61,6 +63,8 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     addLog,
     advanceTurnAndRefresh,
     onTurnAction,
+    canControlActiveCar,
+    onUnauthorizedControlAttempt,
     hoverMaxDist,
     dragSnapDist
   } = params;
@@ -70,6 +74,10 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     if (pitModal.isActive()) return;
     const token = getActiveToken();
     if (!token || obj !== token) return;
+    if (canControlActiveCar && !canControlActiveCar()) {
+      onUnauthorizedControlAttempt?.();
+      return;
+    }
     recomputeTargets();
     drawTargets();
     setDragOrigin({ x: token.x, y: token.y });
@@ -82,6 +90,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
       if (pitModal.isActive()) return;
       const token = getActiveToken();
       if (!token || obj !== token) return;
+      if (canControlActiveCar && !canControlActiveCar()) return;
       token.setPosition(x, y);
       const activeCar = getActiveCar();
       const halo = activeHalos.get(activeCar.carId);
@@ -94,6 +103,18 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     if (pitModal.isActive()) return;
     const token = getActiveToken();
     if (!token || obj !== token) return;
+    if (canControlActiveCar && !canControlActiveCar()) {
+      onUnauthorizedControlAttempt?.();
+      const activeCar = getActiveCar();
+      const currentCell = cellMap.get(activeCar.cellId);
+      if (currentCell) {
+        token.setPosition(currentCell.pos.x, currentCell.pos.y);
+        const activeHalo = activeHalos.get(activeCar.carId);
+        if (activeHalo) activeHalo.setPosition(currentCell.pos.x, currentCell.pos.y);
+      }
+      setDragOrigin(null);
+      return;
+    }
     const origin = getDragOrigin() ?? { x: token.x, y: token.y };
     const nearestCell = findNearestCell(token.x, token.y, dragSnapDist);
     const activeCar = getActiveCar();

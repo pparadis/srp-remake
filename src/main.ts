@@ -16,6 +16,15 @@ const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
 const toggleCarsMovesBtn = document.getElementById(
   "toggleCarsMovesBtn"
 ) as HTMLButtonElement | null;
+const backendLobbyLinkInput = document.getElementById(
+  "backendLobbyLinkInput"
+) as HTMLInputElement | null;
+const backendCopyInviteBtn = document.getElementById(
+  "backendCopyInviteBtn"
+) as HTMLButtonElement | null;
+const backendOpenInviteBtn = document.getElementById(
+  "backendOpenInviteBtn"
+) as HTMLButtonElement | null;
 const backendLobbyIdInput = document.getElementById(
   "backendLobbyIdInput"
 ) as HTMLInputElement | null;
@@ -45,6 +54,19 @@ interface BackendSession {
   isHost: boolean;
 }
 
+type BackendLobbyStateEventDetail = {
+  lobby: PublicLobby;
+  source: string;
+  localPlayerId: string;
+};
+
+type BackendTurnAppliedEventDetail = {
+  lobbyId: string;
+  playerId: string;
+  revision: number;
+  applied: BackendTurnAction;
+};
+
 let backendSession: BackendSession | null = null;
 let backendSocket: WebSocket | null = null;
 let backendReconnectTimer: number | null = null;
@@ -58,6 +80,45 @@ const clientTimeline: Array<{
   event: string;
   context: Record<string, unknown>;
 }> = [];
+
+function getLobbyIdFromUrl(): string | null {
+  try {
+    const url = new URL(window.location.href);
+    const lobbyId = url.searchParams.get("lobby")?.trim() ?? "";
+    return lobbyId.length > 0 ? lobbyId : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildLobbyInviteUrl(lobbyId: string): string {
+  const url = new URL(window.location.href);
+  url.searchParams.set("lobby", lobbyId);
+  return url.toString();
+}
+
+function syncLobbyUrl(lobbyId: string | null) {
+  const url = new URL(window.location.href);
+  if (lobbyId) {
+    url.searchParams.set("lobby", lobbyId);
+  } else {
+    url.searchParams.delete("lobby");
+  }
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function updateInviteUi(lobbyId: string | null) {
+  if (!backendLobbyLinkInput) return;
+  if (!lobbyId) {
+    backendLobbyLinkInput.value = "";
+    if (backendCopyInviteBtn) backendCopyInviteBtn.disabled = true;
+    if (backendOpenInviteBtn) backendOpenInviteBtn.disabled = true;
+    return;
+  }
+  backendLobbyLinkInput.value = buildLobbyInviteUrl(lobbyId);
+  if (backendCopyInviteBtn) backendCopyInviteBtn.disabled = backendBusy;
+  if (backendOpenInviteBtn) backendOpenInviteBtn.disabled = backendBusy;
+}
 
 function logMultiplayerClient(event: string, context: Record<string, unknown> = {}) {
   const payload = {
@@ -134,6 +195,8 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
   backendSession.revision = lobby.revision;
   backendRaceStarted = lobby.status === "IN_RACE";
   syncCompositionFromLobby(lobby);
+  syncLobbyUrl(lobby.lobbyId);
+  updateInviteUi(lobby.lobbyId);
   if (backendLobbyIdInput) {
     backendLobbyIdInput.value = lobby.lobbyId;
   }
@@ -145,6 +208,11 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
     status: lobby.status,
     players: lobby.players.length
   });
+  window.dispatchEvent(
+    new CustomEvent<BackendLobbyStateEventDetail>("srp:backend-lobby-state", {
+      detail: { lobby, source, localPlayerId: backendSession.playerId }
+    })
+  );
 }
 
 function clearBackendReconnectTimer() {
@@ -195,6 +263,48 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
       if (typeof revision === "number") {
         backendSession.revision = Math.max(backendSession.revision, revision);
         setBackendStatusText(`Backend: turn applied (rev ${backendSession.revision})`);
+      }
+    }
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "lobbyId" in payload &&
+      "playerId" in payload &&
+      "revision" in payload &&
+      "applied" in payload
+    ) {
+      const turnPayload = payload as {
+        lobbyId: unknown;
+        playerId: unknown;
+        revision: unknown;
+        applied: unknown;
+      };
+      if (
+        typeof turnPayload.lobbyId === "string" &&
+        typeof turnPayload.playerId === "string" &&
+        typeof turnPayload.revision === "number" &&
+        turnPayload.applied &&
+        typeof turnPayload.applied === "object"
+      ) {
+        const applied = turnPayload.applied as { type?: unknown; targetCellId?: unknown };
+        if (
+          (applied.type === "move" || applied.type === "pit" || applied.type === "skip") &&
+          (applied.targetCellId === undefined || typeof applied.targetCellId === "string")
+        ) {
+          window.dispatchEvent(
+            new CustomEvent<BackendTurnAppliedEventDetail>("srp:backend-turn-applied", {
+              detail: {
+                lobbyId: turnPayload.lobbyId,
+                playerId: turnPayload.playerId,
+                revision: turnPayload.revision,
+                applied: {
+                  type: applied.type,
+                  ...(applied.targetCellId ? { targetCellId: applied.targetCellId } : {})
+                }
+              }
+            })
+          );
+        }
       }
     }
     return;
@@ -263,9 +373,8 @@ async function connectBackendSocket(reason: string) {
   });
 
   socket.addEventListener("close", (event) => {
-    if (backendSocket === socket) {
-      backendSocket = null;
-    }
+    if (backendSocket !== socket) return;
+    backendSocket = null;
     if (!backendShouldReconnect) return;
     logMultiplayerClient("ws.close", { code: event.code, reason: event.reason || "" });
 
@@ -355,6 +464,9 @@ function setBackendBusy(nextBusy: boolean) {
   if (backendJoinBtn) backendJoinBtn.disabled = nextBusy;
   if (backendStartBtn) backendStartBtn.disabled = nextBusy;
   if (backendCopyMpDebugBtn) backendCopyMpDebugBtn.disabled = nextBusy;
+  const hasInvite = (backendLobbyLinkInput?.value?.trim().length ?? 0) > 0;
+  if (backendCopyInviteBtn) backendCopyInviteBtn.disabled = nextBusy || !hasInvite;
+  if (backendOpenInviteBtn) backendOpenInviteBtn.disabled = nextBusy || !hasInvite;
 }
 
 function toErrorText(error: unknown): string {
@@ -372,6 +484,33 @@ function toErrorText(error: unknown): string {
 function getPlayerName(): string {
   const raw = backendPlayerNameInput?.value?.trim() ?? "";
   return raw.length > 0 ? raw : "Player";
+}
+
+async function copyInviteLink() {
+  const inviteUrl =
+    (backendLobbyLinkInput?.value?.trim() ?? "") ||
+    (backendSession ? buildLobbyInviteUrl(backendSession.lobbyId) : "");
+  if (inviteUrl.length === 0) {
+    setBackendStatusText("Backend: no invite link yet");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(inviteUrl);
+    setBackendStatusText("Backend: invite link copied");
+  } catch (error) {
+    setBackendStatusText(`Backend: invite copy failed (${toErrorText(error)})`);
+  }
+}
+
+function openInviteLink() {
+  const inviteUrl =
+    (backendLobbyLinkInput?.value?.trim() ?? "") ||
+    (backendSession ? buildLobbyInviteUrl(backendSession.lobbyId) : "");
+  if (inviteUrl.length === 0) {
+    setBackendStatusText("Backend: no invite link yet");
+    return;
+  }
+  window.open(inviteUrl, "_blank", "noopener,noreferrer");
 }
 
 async function hostLobby() {
@@ -399,6 +538,8 @@ async function hostLobby() {
     backendRaceStarted = created.lobby.status === "IN_RACE";
     syncCompositionFromLobby(created.lobby);
     if (backendLobbyIdInput) backendLobbyIdInput.value = created.lobby.lobbyId;
+    syncLobbyUrl(created.lobby.lobbyId);
+    updateInviteUi(created.lobby.lobbyId);
     setBackendStatusText(`Backend: hosted ${created.lobby.lobbyId} (rev ${created.lobby.revision})`);
     logMultiplayerClient("lobby.host.success");
     void connectBackendSocket("host");
@@ -431,6 +572,8 @@ async function joinLobby() {
     };
     backendRaceStarted = joined.lobby.status === "IN_RACE";
     syncCompositionFromLobby(joined.lobby);
+    syncLobbyUrl(joined.lobby.lobbyId);
+    updateInviteUi(joined.lobby.lobbyId);
     setBackendStatusText(`Backend: joined ${joined.lobby.lobbyId} (rev ${joined.lobby.revision})`);
     logMultiplayerClient("lobby.join.success");
     void connectBackendSocket("join");
@@ -552,6 +695,9 @@ async function restartGame() {
   disconnectBackendSocket();
   backendSession = null;
   backendRaceStarted = false;
+  syncLobbyUrl(null);
+  updateInviteUi(null);
+  if (backendLobbyIdInput) backendLobbyIdInput.value = "";
   if (game) {
     game.destroy(true);
     game = null;
@@ -581,6 +727,14 @@ backendStartBtn?.addEventListener("click", () => {
   void startRace();
 });
 
+backendCopyInviteBtn?.addEventListener("click", () => {
+  void copyInviteLink();
+});
+
+backendOpenInviteBtn?.addEventListener("click", () => {
+  openInviteLink();
+});
+
 backendCopyMpDebugBtn?.addEventListener("click", () => {
   void copyMultiplayerDebugSnapshot();
 });
@@ -596,3 +750,12 @@ window.addEventListener("beforeunload", () => {
 });
 
 setBackendStatusText(`Backend: ready (${backendApiBaseUrl})`);
+
+const lobbyIdFromUrl = getLobbyIdFromUrl();
+if (lobbyIdFromUrl) {
+  if (backendLobbyIdInput) backendLobbyIdInput.value = lobbyIdFromUrl;
+  updateInviteUi(lobbyIdFromUrl);
+  setBackendStatusText(`Backend: invite loaded (${lobbyIdFromUrl})`);
+} else {
+  updateInviteUi(null);
+}
