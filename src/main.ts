@@ -72,6 +72,7 @@ let backendSocket: WebSocket | null = null;
 let backendReconnectTimer: number | null = null;
 let backendShouldReconnect = false;
 let backendReconnectAttempt = 0;
+let inviteAutoJoinRequested = false;
 let clientTimelineSeq = 1;
 const clientTimelineLimit = 500;
 const clientTimeline: Array<{
@@ -513,6 +514,14 @@ function openInviteLink() {
   window.open(inviteUrl, "_blank", "noopener,noreferrer");
 }
 
+function requestAutoJoinFromInvite() {
+  if (inviteAutoJoinRequested) return;
+  if (backendSession) return;
+  inviteAutoJoinRequested = true;
+  setBackendStatusText("Backend: joining from invite...");
+  void joinLobby();
+}
+
 async function hostLobby() {
   if (backendBusy) return;
   setBackendBusy(true);
@@ -756,6 +765,7 @@ if (lobbyIdFromUrl) {
   if (backendLobbyIdInput) backendLobbyIdInput.value = lobbyIdFromUrl;
   updateInviteUi(lobbyIdFromUrl);
   setBackendStatusText(`Backend: invite loaded (${lobbyIdFromUrl})`);
+  requestAutoJoinFromInvite();
 } else {
   updateInviteUi(null);
 }
