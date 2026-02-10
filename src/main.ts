@@ -153,7 +153,7 @@ function parseInputInt(input: HTMLInputElement, fallback: number): number {
 }
 
 function getComposition() {
-  let humanCars = Math.max(0, Math.min(11, parseSelectInt(humanCountSelect, 1)));
+  let humanCars = Math.max(0, Math.min(11, parseSelectInt(humanCountSelect, 2)));
   let botCars = Math.max(0, Math.min(11, parseSelectInt(botCountSelect, 0)));
   const raceLaps = Math.max(1, Math.min(999, parseInputInt(lapCountInput, 5)));
   if (humanCars + botCars === 0) {
