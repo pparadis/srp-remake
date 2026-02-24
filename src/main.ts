@@ -172,6 +172,11 @@ function getComposition() {
   return { totalCars, humanCars, botCars, raceLaps };
 }
 
+function canStartLocalRace(): boolean {
+  const composition = getComposition();
+  return composition.humanCars === 1;
+}
+
 function makeCommandId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -195,6 +200,7 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
   if (lobby.lobbyId !== backendSession.lobbyId) return;
   backendSession.revision = lobby.revision;
   backendRaceStarted = lobby.status === "IN_RACE";
+  setBackendBusy(backendBusy);
   syncCompositionFromLobby(lobby);
   syncLobbyUrl(lobby.lobbyId);
   updateInviteUi(lobby.lobbyId);
@@ -312,6 +318,7 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
   }
   if (eventName === "race.ended") {
     backendRaceStarted = false;
+    setBackendBusy(backendBusy);
     if (payload && typeof payload === "object") {
       const reason = (payload as { reason?: unknown }).reason;
       const lobby = (payload as { lobby?: unknown }).lobby;
@@ -382,12 +389,14 @@ async function connectBackendSocket(reason: string) {
     if (event.code === 1008) {
       backendShouldReconnect = false;
       setBackendStatusText("Backend: ws auth failed");
+      setBackendBusy(backendBusy);
       return;
     }
     if (event.code === 4001) {
       backendShouldReconnect = false;
       backendRaceStarted = false;
       setBackendStatusText(`Backend: ws closed (${event.reason || "host_disconnected"})`);
+      setBackendBusy(backendBusy);
       return;
     }
     scheduleBackendReconnect();
@@ -461,9 +470,12 @@ async function copyMultiplayerDebugSnapshot() {
 
 function setBackendBusy(nextBusy: boolean) {
   backendBusy = nextBusy;
+  const canStartRace = backendSession
+    ? backendSession.isHost && !backendRaceStarted
+    : canStartLocalRace();
   if (backendHostBtn) backendHostBtn.disabled = nextBusy;
   if (backendJoinBtn) backendJoinBtn.disabled = nextBusy;
-  if (backendStartBtn) backendStartBtn.disabled = nextBusy;
+  if (backendStartBtn) backendStartBtn.disabled = nextBusy || !canStartRace;
   if (backendCopyMpDebugBtn) backendCopyMpDebugBtn.disabled = nextBusy;
   const hasInvite = (backendLobbyLinkInput?.value?.trim().length ?? 0) > 0;
   if (backendCopyInviteBtn) backendCopyInviteBtn.disabled = nextBusy || !hasInvite;
@@ -597,7 +609,22 @@ async function joinLobby() {
 async function startRace() {
   if (backendBusy) return;
   if (!backendSession) {
-    setBackendStatusText("Backend: host or join a lobby first");
+    if (!canStartLocalRace()) {
+      setBackendStatusText("Local: start requires exactly 1 human (use multiplayer for >1).");
+      return;
+    }
+    setBackendBusy(true);
+    setBackendStatusText("Local: starting race...");
+    try {
+      if (game) {
+        game.destroy(true);
+        game = null;
+      }
+      await ensureGameStarted();
+      setBackendStatusText("Local: race started");
+    } finally {
+      setBackendBusy(false);
+    }
     return;
   }
   if (!backendSession.isHost) {
@@ -656,6 +683,7 @@ async function submitTurnAction(action: BackendTurnAction) {
       }
       if (result.error === "lobby_not_in_race") {
         backendRaceStarted = false;
+        setBackendBusy(backendBusy);
         backendSession.revision = result.revision;
         setBackendStatusText("Backend: lobby not in race");
         logMultiplayerClient("turn.submit.rejected", {
@@ -704,6 +732,7 @@ async function restartGame() {
   disconnectBackendSocket();
   backendSession = null;
   backendRaceStarted = false;
+  setBackendBusy(backendBusy);
   syncLobbyUrl(null);
   updateInviteUi(null);
   if (backendLobbyIdInput) backendLobbyIdInput.value = "";
@@ -718,6 +747,14 @@ void ensureGameStarted();
 
 restartBtn.addEventListener("click", () => {
   restartGame();
+});
+
+humanCountSelect.addEventListener("change", () => {
+  setBackendBusy(backendBusy);
+});
+
+botCountSelect.addEventListener("change", () => {
+  setBackendBusy(backendBusy);
 });
 
 toggleCarsMovesBtn?.addEventListener("click", () => {
@@ -759,6 +796,7 @@ window.addEventListener("beforeunload", () => {
 });
 
 setBackendStatusText(`Backend: ready (${backendApiBaseUrl})`);
+setBackendBusy(false);
 
 const lobbyIdFromUrl = getLobbyIdFromUrl();
 if (lobbyIdFromUrl) {
