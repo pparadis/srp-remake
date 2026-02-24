@@ -144,6 +144,117 @@ test("exposes admin timeline when debug endpoint is enabled", async (t) => {
   assert.ok(body.entries.some((entry) => entry.event === "lobby.create"));
 });
 
+test("runs bot turns on backend and records bot traces in admin timeline", async (t) => {
+  const app = await createApp(
+    {
+      ...TEST_CONFIG,
+      ADMIN_DEBUG_ENABLED: true,
+      ADMIN_DEBUG_TOKEN: "secret-token"
+    },
+    {
+      logger: false,
+      dedupeStore: new MemoryDedupeStore<TurnCommandResult>(),
+      redis: null
+    }
+  );
+  t.after(async () => {
+    await app.close();
+  });
+
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: {
+      name: "Host",
+      settings: {
+        totalCars: 3,
+        humanCars: 1,
+        botCars: 2,
+        raceLaps: 5
+      }
+    }
+  });
+  assert.equal(createdRes.statusCode, 201);
+  const createdBody = createdRes.json() as {
+    lobby: { lobbyId: string };
+    playerToken: string;
+  };
+
+  const startRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
+    payload: { playerToken: createdBody.playerToken }
+  });
+  assert.equal(startRes.statusCode, 200);
+
+  const turnRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
+    payload: {
+      playerToken: createdBody.playerToken,
+      clientCommandId: "host-turn-with-bots",
+      revision: 0,
+      action: { type: "skip" }
+    }
+  });
+  assert.equal(turnRes.statusCode, 200);
+  const turnBody = turnRes.json() as { ok: true; revision: number };
+  assert.equal(turnBody.ok, true);
+  assert.equal(turnBody.revision, 1);
+
+  const readRes = await app.inject({
+    method: "GET",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(createdBody.playerToken)}`
+  });
+  assert.equal(readRes.statusCode, 200);
+  const readBody = readRes.json() as {
+    lobby: {
+      revision: number;
+      raceState?: {
+        turnIndex: number;
+        activeSeatIndex: number;
+        cars: Array<{ actionsTaken: number }>;
+      };
+    };
+  };
+  assert.equal(readBody.lobby.revision, 3);
+  assert.equal(readBody.lobby.raceState?.turnIndex, 3);
+  assert.equal(readBody.lobby.raceState?.activeSeatIndex, 0);
+  assert.equal(readBody.lobby.raceState?.cars[0]?.actionsTaken, 1);
+  assert.equal(readBody.lobby.raceState?.cars[1]?.actionsTaken, 1);
+  assert.equal(readBody.lobby.raceState?.cars[2]?.actionsTaken, 1);
+
+  const timelineRes = await app.inject({
+    method: "GET",
+    url: `/admin/lobbies/${createdBody.lobby.lobbyId}/timeline?limit=50`,
+    headers: { authorization: "Bearer secret-token" }
+  });
+  assert.equal(timelineRes.statusCode, 200);
+  const timelineBody = timelineRes.json() as {
+    entries: Array<{
+      event: string;
+      context?: Record<string, unknown>;
+    }>;
+  };
+  const botAppliedEntries = timelineBody.entries.filter((entry) => entry.event === "turn.bot.applied");
+  assert.equal(botAppliedEntries.length, 2);
+
+  const botSeatIndexes: number[] = [];
+  for (const entry of botAppliedEntries) {
+    const context = entry.context ?? {};
+    assert.equal(typeof context.playerId, "string");
+    assert.match(String(context.playerId), /^BOT\d+$/);
+    const botTrace = context.botTrace as Record<string, unknown> | undefined;
+    assert.ok(botTrace);
+    assert.equal(botTrace?.policyVersion, "v0.skip_only");
+    assert.equal(botTrace?.reason, "movement_targets_unavailable_in_backend_state");
+    assert.equal(typeof botTrace?.seatIndex, "number");
+    botSeatIndexes.push(Number(botTrace?.seatIndex));
+  }
+  botSeatIndexes.sort((a, b) => a - b);
+  assert.deepEqual(botSeatIndexes, [1, 2]);
+});
+
 test("supports lobby create, settings patch, and join contracts", async (t) => {
   const app = await createTestApp();
   t.after(async () => {

@@ -341,20 +341,7 @@ export class LobbyStore {
       action.targetCellId === undefined ? { type: action.type } : { ...action };
 
     raceState.turnIndex += 1;
-
-    let nextSeat = raceState.activeSeatIndex;
-    for (let i = 0; i < raceState.cars.length; i += 1) {
-      nextSeat = (nextSeat + 1) % raceState.cars.length;
-      const nextCar = raceState.cars[nextSeat];
-      if (nextCar && !nextCar.isBot) {
-        raceState.activeSeatIndex = nextSeat;
-        lobby.updatedAt = Date.now();
-        return lobby;
-      }
-    }
-
-    // Fallback: if all seats are bots (should not happen in v0), keep deterministic progression.
-    raceState.activeSeatIndex = nextSeat;
+    raceState.activeSeatIndex = (raceState.activeSeatIndex + 1) % raceState.cars.length;
     lobby.updatedAt = Date.now();
     return lobby;
   }

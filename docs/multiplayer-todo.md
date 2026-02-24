@@ -34,9 +34,9 @@ Execution backlog for authoritative multiplayer gameplay sync.
 
 ## Priority 3: Server Bot Authority
 
-- [ ] Run bot turns only on backend.
-- [ ] Broadcast bot-applied turns and resulting authoritative state.
-- [ ] Keep bot decision traces server-side and queryable for debug.
+- [x] Run bot turns only on backend.
+- [x] Broadcast bot-applied turns and resulting authoritative state.
+- [x] Keep bot decision traces server-side and queryable for debug.
 
 ## Priority 4: Client Rehydration and UX Safety
 

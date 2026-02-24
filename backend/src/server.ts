@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { createClient } from "redis";
 import { z } from "zod";
 import { loadConfig, type BackendConfig } from "./config.js";
+import { decideBotTurnAction, type BotTurnTrace } from "./botTurnEngine.js";
 import { MemoryDedupeStore, RedisDedupeStore, type DedupeStore } from "./dedupeStore.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
 import type { LobbySettings, TurnCommandResult, TurnSubmitAction } from "./types.js";
@@ -24,6 +25,18 @@ type TimelineEntry = {
   at: number;
   event: string;
   context: Record<string, unknown>;
+};
+
+type AppliedTurnEvent = {
+  ok: true;
+  lobbyId: string;
+  playerId: string;
+  clientCommandId: string;
+  revision: number;
+  applied: TurnSubmitAction;
+  source?: "human" | "bot";
+  seatIndex?: number;
+  botTrace?: BotTurnTrace;
 };
 
 type CreateAppOptions = {
@@ -274,6 +287,51 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       }
     }
     socketsByLobby.delete(lobbyId);
+  }
+
+  function runPendingBotTurns(lobbyId: string) {
+    while (true) {
+      const lobby = lobbyStore.getLobby(lobbyId);
+      if (!lobby || lobby.status !== "IN_RACE" || !lobby.raceState) {
+        return;
+      }
+
+      const activeCar = lobbyStore.getActiveRaceCar(lobbyId);
+      if (!activeCar || !activeCar.isBot) {
+        return;
+      }
+
+      const { action, trace } = decideBotTurnAction(lobby.raceState, activeCar);
+      lobbyStore.applyTurnAction(lobbyId, action);
+      const updatedLobby = lobbyStore.incrementRevision(lobbyId);
+      const playerId = `BOT${activeCar.seatIndex + 1}`;
+      const clientCommandId = `bot-${updatedLobby.revision}-${activeCar.seatIndex}`;
+      const botEvent: AppliedTurnEvent = {
+        ok: true,
+        lobbyId,
+        playerId,
+        clientCommandId,
+        revision: updatedLobby.revision,
+        applied: action,
+        source: "bot",
+        seatIndex: activeCar.seatIndex,
+        botTrace: trace
+      };
+      broadcast(lobbyId, "turn.applied", botEvent);
+      broadcast(lobbyId, "race.state", toPublicLobby(updatedLobby));
+      logMultiplayer("turn.bot.applied", {
+        lobbyId,
+        playerId,
+        seatIndex: activeCar.seatIndex,
+        revision: updatedLobby.revision,
+        turnIndex: updatedLobby.raceState?.turnIndex ?? null,
+        clientCommandId,
+        activeSeatIndex: updatedLobby.raceState?.activeSeatIndex ?? null,
+        applied: action,
+        botTrace: trace,
+        raceSummary: summarizeRaceState(lobbyId)
+      });
+    }
   }
 
   app.setErrorHandler((error, _request, reply) => {
@@ -534,6 +592,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       activeSeatIndex: updatedLobby.raceState?.activeSeatIndex ?? null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
+    runPendingBotTurns(lobby.lobbyId);
     return result;
   });
 

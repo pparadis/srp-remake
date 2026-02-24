@@ -232,6 +232,86 @@ test("two clients receive same turn.applied revision", async (t) => {
   await Promise.all([waitForClose(hostWsState.ws), waitForClose(guestWsState.ws)]);
 });
 
+test("websocket broadcasts backend bot turns after human submit", async (t) => {
+  const app = await createListeningTestApp();
+  t.after(async () => {
+    await app.close();
+  });
+
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: {
+      name: "Host",
+      settings: {
+        totalCars: 3,
+        humanCars: 1,
+        botCars: 2,
+        raceLaps: 5
+      }
+    }
+  });
+  assert.equal(createdRes.statusCode, 201);
+  const createdBody = createdRes.json() as {
+    lobby: { lobbyId: string };
+    playerId: string;
+    playerToken: string;
+  };
+
+  const wsState = connectAndCollect(app, createdBody.lobby.lobbyId, createdBody.playerToken);
+  await waitForWsOpen(wsState.ws);
+
+  const startRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
+    payload: { playerToken: createdBody.playerToken }
+  });
+  assert.equal(startRes.statusCode, 200);
+
+  const turnRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
+    payload: {
+      playerToken: createdBody.playerToken,
+      clientCommandId: "host-cmd-with-bots-1",
+      revision: 0,
+      action: { type: "skip" }
+    }
+  });
+  assert.equal(turnRes.statusCode, 200);
+
+  await waitFor(() => wsState.events.filter((e) => e.event === "turn.applied").length >= 3, 3000);
+  await waitFor(
+    () =>
+      wsState.events.some(
+        (e) =>
+          e.event === "race.state" &&
+          typeof e.payload === "object" &&
+          e.payload !== null &&
+          "revision" in e.payload &&
+          (e.payload as { revision: unknown }).revision === 3
+      ),
+    3000
+  );
+
+  const appliedPayloads = wsState.events
+    .filter((e) => e.event === "turn.applied")
+    .map((e) => e.payload as { revision?: unknown; playerId?: unknown; source?: unknown });
+  const firstThree = appliedPayloads.slice(0, 3);
+  assert.deepEqual(
+    firstThree.map((payload) => payload.revision),
+    [1, 2, 3]
+  );
+  assert.equal(firstThree[0]?.playerId, createdBody.playerId);
+  assert.equal(firstThree[1]?.source, "bot");
+  assert.equal(firstThree[2]?.source, "bot");
+  assert.match(String(firstThree[1]?.playerId), /^BOT\d+$/);
+  assert.match(String(firstThree[2]?.playerId), /^BOT\d+$/);
+
+  wsState.ws.close(1000, "done");
+  await waitForClose(wsState.ws);
+});
+
 test("reconnect websocket receives hydration race.state snapshot", async (t) => {
   const app = await createListeningTestApp();
   t.after(async () => {
