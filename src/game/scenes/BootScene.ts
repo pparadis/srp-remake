@@ -6,7 +6,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.json("track", "tracks/oval16_3lanes.json");
+    this.load.json("track", `${import.meta.env.BASE_URL}tracks/oval16_3lanes.json`);
   }
 
   create() {
