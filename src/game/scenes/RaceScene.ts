@@ -52,6 +52,8 @@ declare global {
     __srp?: {
       state: () => ReturnType<typeof buildGameDebugSnapshot>;
       cellScreenPos: (cellId: string) => { x: number; y: number } | null;
+      /** Where a car token is drawn right now (page coordinates), mid-tween included. */
+      tokenScreenPos: (carId: number) => { x: number; y: number } | null;
       /** Stops the looping halo pulse so screenshots are deterministic. */
       freezeAnimations: () => void;
       status: () => {
@@ -284,7 +286,11 @@ export class RaceScene extends Phaser.Scene {
           this.activeHaloTween = null;
           for (const halo of this.activeHalos.values()) halo.setScale(1).setAlpha(1);
         },
-        cellScreenPos: (cellId) => this.cellScreenPos(cellId)
+        cellScreenPos: (cellId) => this.cellScreenPos(cellId),
+        tokenScreenPos: (carId) => {
+          const token = this.carTokens.get(carId);
+          return token ? this.worldToScreen(token.x, token.y) : null;
+        }
       };
     }
     // main.ts replays the latest lobby state now that the scene listens for it.
@@ -445,6 +451,7 @@ export class RaceScene extends Phaser.Scene {
       // Multiplayer: the server validates and applies it; its race.state redraws the board.
       this.awaitServer();
       this.emitLocalTurnAction(action);
+      this.faceDroppedCell(action);
       this.refreshAfterTurn();
       return true;
     }
@@ -477,12 +484,24 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
+  // Online, the server moves the car: until it answers, the car we just dropped keeps the
+  // place and heading of its target cell instead of sliding back to the old one.
+  private faceDroppedCell(action: RaceAction) {
+    if (action.type === "skip") return;
+    const cell = this.cellMap.get(action.targetCellId);
+    const token = this.carTokens.get(this.activeCar.carId);
+    if (!cell || !token) return;
+    (token.first as Phaser.GameObjects.Image).setRotation(spriteRotation(cell, this.cellMap));
+  }
+
   private syncTokens() {
+    const awaitingServer = Date.now() < this.awaitingServerUntil;
     for (const car of this.cars) {
       const cell = this.cellMap.get(car.cellId);
       if (!cell) continue;
       const token = this.carTokens.get(car.carId);
       if (!token) continue;
+      if (awaitingServer && car.carId === this.activeCar.carId) continue;
       const body = token.first as Phaser.GameObjects.Image;
       body.setRotation(spriteRotation(cell, this.cellMap));
       const halo = this.activeHalos.get(car.carId);
@@ -1048,14 +1067,17 @@ export class RaceScene extends Phaser.Scene {
   // Page coordinates of a cell, for the e2e hook and the DOM tooltip.
   private cellScreenPos(cellId: string): { x: number; y: number } | null {
     const cell = this.cellMap.get(cellId);
-    if (!cell) return null;
+    return cell ? this.worldToScreen(cell.pos.x, cell.pos.y) : null;
+  }
+
+  private worldToScreen(wx: number, wy: number): { x: number; y: number } {
     const cam = this.cameras.main;
     const rect = this.game.canvas.getBoundingClientRect();
     const sx = rect.width / this.scale.width;
     const sy = rect.height / this.scale.height;
     return {
-      x: rect.left + (cell.pos.x - cam.worldView.x) * cam.zoom * sx,
-      y: rect.top + (cell.pos.y - cam.worldView.y) * cam.zoom * sy
+      x: rect.left + (wx - cam.worldView.x) * cam.zoom * sx,
+      y: rect.top + (wy - cam.worldView.y) * cam.zoom * sy
     };
   }
 
