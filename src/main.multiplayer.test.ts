@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import indexHtml from "../index.html?raw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const startGame = vi.fn();
@@ -73,33 +74,12 @@ class FakeWebSocket {
 
 function setupDom() {
   window.history.replaceState({}, "", "/");
-  document.body.innerHTML = `
-    <div id="controls">
-      <div class="controls-shell">
-        <section>
-          <select id="humanCountSelect">
-            <option value="1">1</option>
-            <option value="2" selected>2</option>
-          </select>
-          <select id="botCountSelect"><option value="0" selected>0</option></select>
-          <input id="lapCountInput" value="5" />
-          <button id="restartBtn"></button>
-        </section>
-        <section>
-          <input id="backendPlayerNameInput" value="Player" />
-          <input id="backendLobbyIdInput" value="" />
-          <button id="backendHostBtn" type="button">Host lobby</button>
-          <button id="backendJoinBtn" type="button">Join lobby</button>
-          <button id="backendStartBtn" type="button">Start race</button>
-          <input id="backendLobbyLinkInput" value="" />
-          <button id="backendCopyInviteBtn" type="button">Copy invite</button>
-          <button id="backendOpenInviteBtn" type="button">Open invite</button>
-          <span id="backendStatus"></span>
-        </section>
-      </div>
-    </div>
-    <div id="app"></div>
-  `;
+  
+  document.body.innerHTML = /<body[^>]*>([\s\S]*)<\/body>/.exec(indexHtml)![1]!.replace(
+    /<script[\s\S]*?<\/script>/g,
+    ""
+  );
+  document.body.dataset.screen = "home";
 }
 
 function makeLobby(lobbyId: string) {
@@ -136,7 +116,7 @@ function makeLobby(lobbyId: string) {
   };
 }
 
-describe("main multiplayer controls", () => {
+describe("main multiplayer screens", () => {
   beforeEach(() => {
     vi.resetModules();
     startGame.mockReset();
@@ -150,60 +130,62 @@ describe("main multiplayer controls", () => {
     setupDom();
   });
 
-  it("disables start race locally for multi-human composition", async () => {
-    await import("./main");
+  const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-    const humanSelect = document.getElementById("humanCountSelect") as HTMLSelectElement;
-    const startBtn = document.getElementById("backendStartBtn") as HTMLButtonElement;
-    expect(startBtn.disabled).toBe(true);
-
-    humanSelect.value = "1";
-    humanSelect.dispatchEvent(new Event("change"));
-    expect(startBtn.disabled).toBe(false);
-  });
-
-  it("keeps start race enabled for host lobby owner", async () => {
+  it("host creates a lobby and may start the race", async () => {
     createLobbyMock.mockResolvedValue({
       lobby: makeLobby("host-lobby"),
       playerId: "host-player-id",
       playerToken: "host-token"
     });
-
     await import("./main");
 
-    const hostBtn = document.getElementById("backendHostBtn") as HTMLButtonElement;
-    const startBtn = document.getElementById("backendStartBtn") as HTMLButtonElement;
-    expect(startBtn.disabled).toBe(true);
-
-    hostBtn.click();
+    byId("homeCreateBtn").click();
 
     await vi.waitFor(() => {
       expect(createLobbyMock).toHaveBeenCalledTimes(1);
-      expect(startBtn.disabled).toBe(false);
+      expect(document.body.dataset.screen).toBe("lobby");
     });
+    expect(window.location.pathname).toBe("/lobby/host-lobby");
+    expect(byId<HTMLInputElement>("lobbyInviteLink").value).toBe(
+      `${window.location.origin}/lobby/host-lobby`
+    );
+    expect(byId("lobbyPlayers").querySelectorAll("li")).toHaveLength(2);
+    expect(byId("lobbyPlayers").querySelectorAll('[data-testid="host-badge"]')).toHaveLength(1);
+    expect(byId<HTMLButtonElement>("lobbyStartBtn").disabled).toBe(false);
+    expect(byId<HTMLSelectElement>("lobbyBots").disabled).toBe(false);
   });
 
-  it("keeps start race disabled for joined non-host player", async () => {
+  it("a joined non-host cannot start or edit settings", async () => {
     joinLobbyMock.mockResolvedValue({
       lobby: makeLobby("joined-lobby"),
       playerId: "guest-player-id",
       playerToken: "guest-token",
       isReconnect: false
     });
-
+    window.history.replaceState({}, "", "/lobby/joined-lobby");
     await import("./main");
-
-    const lobbyIdInput = document.getElementById("backendLobbyIdInput") as HTMLInputElement;
-    const joinBtn = document.getElementById("backendJoinBtn") as HTMLButtonElement;
-    const startBtn = document.getElementById("backendStartBtn") as HTMLButtonElement;
-
-    lobbyIdInput.value = "joined-lobby";
-    joinBtn.click();
 
     await vi.waitFor(() => {
       expect(joinLobbyMock).toHaveBeenCalled();
       expect(joinLobbyMock.mock.calls.at(-1)?.[0]).toBe("joined-lobby");
-      expect(startBtn.disabled).toBe(true);
+      expect(byId("lobbyPlayers").querySelectorAll("li")).toHaveLength(2);
     });
+    expect(byId<HTMLButtonElement>("lobbyStartBtn").hidden).toBe(true);
+    expect(byId<HTMLButtonElement>("lobbyStartBtn").disabled).toBe(true);
+    expect(byId<HTMLInputElement>("lobbyLaps").disabled).toBe(true);
+  });
+
+  it("goes back home with a notice when joining fails", async () => {
+    joinLobbyMock.mockRejectedValue(new MockBackendApiError(404, { error: "not_found" }));
+    window.history.replaceState({}, "", "/lobby/missing");
+    await import("./main");
+
+    await vi.waitFor(() => {
+      expect(document.body.dataset.screen).toBe("home");
+    });
+    expect(window.location.pathname).toBe("/");
+    expect(byId("homeNotice").hidden).toBe(false);
+    expect(byId("homeNotice").textContent).toContain("404");
   });
 });

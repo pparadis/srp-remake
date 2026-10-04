@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import indexHtml from "../index.html?raw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const startGame = vi.fn();
@@ -7,69 +8,79 @@ vi.mock("./game", () => ({
   startGame: (...args: unknown[]) => startGame(...args)
 }));
 
-function setupDom() {
-  document.body.innerHTML = `
-    <div id="app"></div>
-    <select id="humanCountSelect">
-      <option value="0">0</option>
-      <option value="1" selected>1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="11">11</option>
-    </select>
-    <select id="botCountSelect">
-      <option value="0" selected>0</option>
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="10">10</option>
-      <option value="11">11</option>
-    </select>
-    <input id="lapCountInput" value="5" />
-    <button id="restartBtn"></button>
-  `;
+// The real page markup, so the test cannot drift from index.html.
+function loadBody() {
+  
+  document.body.innerHTML = /<body[^>]*>([\s\S]*)<\/body>/.exec(indexHtml)![1]!.replace(
+    /<script[\s\S]*?<\/script>/g,
+    ""
+  );
+  document.body.dataset.screen = "home";
 }
 
-describe("main", () => {
+const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+describe("main (solo flow)", () => {
   beforeEach(() => {
     vi.resetModules();
     startGame.mockReset();
-    setupDom();
+    window.history.replaceState({}, "", "/");
+    loadBody();
   });
 
-  it("initializes the game and wires restart flow", async () => {
+  it("does not start a game on load", async () => {
+    await import("./main");
+    expect(document.body.dataset.screen).toBe("home");
+    expect(startGame).not.toHaveBeenCalled();
+  });
+
+  it("quick race -> lobby -> start creates the game with the lobby settings", async () => {
     const destroy = vi.fn();
     startGame.mockReturnValue({ destroy });
-
     await import("./main");
 
-    const app = document.getElementById("app");
-    const humanSelect = document.getElementById("humanCountSelect") as HTMLSelectElement;
-    const botSelect = document.getElementById("botCountSelect") as HTMLSelectElement;
-    const lapInput = document.getElementById("lapCountInput") as HTMLInputElement;
-    const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
+    byId("homeQuickBtn").click();
+    expect(document.body.dataset.screen).toBe("lobby");
+    expect(window.location.pathname).toBe("/solo");
+    expect(byId("lobbyPlayersBlock").hidden).toBe(true);
 
+    const bots = byId<HTMLSelectElement>("lobbyBots");
+    bots.value = "2";
+    bots.dispatchEvent(new Event("change"));
+    const laps = byId<HTMLInputElement>("lobbyLaps");
+    laps.value = "2";
+    laps.dispatchEvent(new Event("change"));
+
+    byId("lobbyStartBtn").click();
+    expect(window.location.pathname).toBe("/solo/race");
     await vi.waitFor(() => {
-      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 1, humanCars: 1, botCars: 0, raceLaps: 5 });
+      expect(startGame).toHaveBeenCalledWith(byId("app"), {
+        totalCars: 3,
+        humanCars: 1,
+        botCars: 2,
+        raceLaps: 2
+      });
     });
 
-    startGame.mockClear();
-    humanSelect.value = "3";
-    botSelect.value = "2";
-    lapInput.value = "12";
-    restartBtn.dispatchEvent(new MouseEvent("click"));
-    await vi.waitFor(() => {
-      expect(destroy).toHaveBeenCalled();
-      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 5, humanCars: 3, botCars: 2, raceLaps: 12 });
-    });
+    byId("lobbyLeaveBtn").click();
+    byId("homeQuickBtn").click();
+    expect(destroy).toHaveBeenCalled();
+  });
 
-    startGame.mockClear();
-    humanSelect.value = "11";
-    botSelect.value = "11";
-    lapInput.value = "0";
-    restartBtn.dispatchEvent(new MouseEvent("click"));
-    await vi.waitFor(() => {
-      expect(startGame).toHaveBeenCalledWith(app, { totalCars: 11, humanCars: 11, botCars: 0, raceLaps: 1 });
-    });
+  it("reloading /solo/race falls back to /solo", async () => {
+    window.history.replaceState({}, "", "/solo/race");
+    await import("./main");
+    expect(window.location.pathname).toBe("/solo");
+    expect(document.body.dataset.screen).toBe("lobby");
+    expect(startGame).not.toHaveBeenCalled();
+  });
+
+  it("redirects old ?lobby= links to /lobby/:id", async () => {
+    window.history.replaceState({}, "", "/?lobby=abc");
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    await import("./main");
+    expect(window.location.pathname).toBe("/lobby/abc");
+    expect(window.location.search).toBe("");
+    vi.unstubAllGlobals();
   });
 });

@@ -52,6 +52,12 @@ declare global {
     __srp?: {
       state: () => ReturnType<typeof buildGameDebugSnapshot>;
       cellScreenPos: (cellId: string) => { x: number; y: number } | null;
+      status: () => {
+        raceLaps: number;
+        winnerCarId: number | null;
+        canControl: boolean;
+        activeOwnerId: string;
+      };
     };
   }
 }
@@ -214,7 +220,7 @@ export class RaceScene extends Phaser.Scene {
     this.txtDebugHint = this.add.text(
       RaceScene.HUD.debugHintPos.x,
       RaceScene.HUD.debugHintPos.y,
-      "Debug: F = forwardIndex overlay",
+      "Debug: F = forwardIndex overlay, C = cars+moves",
       {
         fontFamily: "monospace",
         fontSize: "12px",
@@ -309,6 +315,12 @@ export class RaceScene extends Phaser.Scene {
       // e2e hook: read-only state + cell -> page coordinates for real mouse drags
       window.__srp = {
         state: () => this.buildDebugSnapshot(),
+        status: () => ({
+          raceLaps: this.raceLapTarget,
+          winnerCarId: this.winnerCarId,
+          canControl: this.canLocalControlActiveCar() && !this.raceFinished,
+          activeOwnerId: this.activeCar.ownerId
+        }),
         cellScreenPos: (cellId) => {
           const cell = this.cellMap.get(cellId);
           if (!cell) return null;
@@ -323,6 +335,8 @@ export class RaceScene extends Phaser.Scene {
         }
       };
     }
+    // main.ts replays the latest lobby state now that the scene listens for it.
+    window.dispatchEvent(new Event("srp:scene-ready"));
   }
 
   // Local seats: humans first, then bots.
@@ -492,6 +506,8 @@ export class RaceScene extends Phaser.Scene {
     return true;
   }
 
+  private raceFinishedAnnounced = false;
+
   private refreshAfterTurn() {
     this.processBotsUntilHuman();
     this.syncTokens();
@@ -501,6 +517,12 @@ export class RaceScene extends Phaser.Scene {
     this.updateSkipButtonState();
     this.updateCycleHud();
     this.updateStandings();
+    if (this.raceFinished && !this.raceFinishedAnnounced) {
+      this.raceFinishedAnnounced = true;
+      window.dispatchEvent(
+        new CustomEvent("srp:race-finished", { detail: { winnerCarId: this.winnerCarId } })
+      );
+    }
   }
 
   private syncTokens() {

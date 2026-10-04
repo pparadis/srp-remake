@@ -38,6 +38,13 @@ describe("BackendApiClient", () => {
     await client.startRace("L1", "tok");
     expect(lastCall(fetchMock)).toMatchObject({ url: "http://api.test/api/v1/lobbies/L1/start", body: { playerToken: "tok" } });
 
+    await client.updateSettings("L1", "tok", { raceLaps: 2 });
+    expect(lastCall(fetchMock)).toMatchObject({
+      url: "http://api.test/api/v1/lobbies/L1/settings",
+      method: "PATCH",
+      body: { playerToken: "tok", settings: { raceLaps: 2 } }
+    });
+
     await client.readLobby("L1", "t&k");
     expect(lastCall(fetchMock)).toEqual({
       url: "http://api.test/api/v1/lobbies/L1?playerToken=t%26k",

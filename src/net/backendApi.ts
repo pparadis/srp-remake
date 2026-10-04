@@ -164,6 +164,17 @@ export class BackendApiClient {
     });
   }
 
+  updateSettings(
+    lobbyId: string,
+    playerToken: string,
+    settings: Partial<PublicLobby["settings"]>
+  ): Promise<StartRaceResponse> {
+    return this.request("PATCH", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/settings`, {
+      playerToken,
+      settings
+    });
+  }
+
   readLobby(lobbyId: string, playerToken: string): Promise<ReadLobbyResponse> {
     const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}?playerToken=${encodeURIComponent(playerToken)}`;
     return this.request("GET", path);

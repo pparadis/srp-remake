@@ -8,38 +8,52 @@ import {
   type AppliedTurnSummary,
   type BackendTurnAction
 } from "./net/backendApi";
+import {
+  currentRoute,
+  navigate,
+  parseRoute,
+  routePath,
+  screenOf,
+  startRouter,
+  type Route,
+  type Screen
+} from "./ui/router";
 
-const app = document.getElementById("app")!;
-const humanCountSelect = document.getElementById("humanCountSelect") as HTMLSelectElement;
-const botCountSelect = document.getElementById("botCountSelect") as HTMLSelectElement;
-const lapCountInput = document.getElementById("lapCountInput") as HTMLInputElement;
-const restartBtn = document.getElementById("restartBtn") as HTMLButtonElement;
-const toggleCarsMovesBtn = document.getElementById(
-  "toggleCarsMovesBtn"
-) as HTMLButtonElement | null;
-const backendLobbyLinkInput = document.getElementById(
-  "backendLobbyLinkInput"
-) as HTMLInputElement | null;
-const backendCopyInviteBtn = document.getElementById(
-  "backendCopyInviteBtn"
-) as HTMLButtonElement | null;
-const backendOpenInviteBtn = document.getElementById(
-  "backendOpenInviteBtn"
-) as HTMLButtonElement | null;
-const backendLobbyIdInput = document.getElementById(
-  "backendLobbyIdInput"
-) as HTMLInputElement | null;
-const backendPlayerNameInput = document.getElementById(
-  "backendPlayerNameInput"
-) as HTMLInputElement | null;
-const backendHostBtn = document.getElementById("backendHostBtn") as HTMLButtonElement | null;
-const backendJoinBtn = document.getElementById("backendJoinBtn") as HTMLButtonElement | null;
-const backendStartBtn = document.getElementById("backendStartBtn") as HTMLButtonElement | null;
-const backendStatus = document.getElementById("backendStatus") as HTMLSpanElement | null;
+function el<T extends HTMLElement>(id: string): T {
+  return document.getElementById(id) as T;
+}
+
+const app = el("app");
+const statusLine = el("statusLine");
+const homeNotice = el("homeNotice");
+const homeName = el<HTMLInputElement>("homeName");
+const homeJoinCode = el<HTMLInputElement>("homeJoinCode");
+const homeButtons = ["homeQuickBtn", "homeCreateBtn", "homeJoinBtn"].map((id) =>
+  el<HTMLButtonElement>(id)
+);
+const lobbyTitle = el("lobbyTitle");
+const lobbyNote = el("lobbyNote");
+const lobbyPlayersBlock = el("lobbyPlayersBlock");
+const lobbyPlayers = el("lobbyPlayers");
+const lobbyHumans = el<HTMLSelectElement>("lobbyHumans");
+const lobbyHumansField = el("lobbyHumansField");
+const lobbyBots = el<HTMLSelectElement>("lobbyBots");
+const lobbyLaps = el<HTMLInputElement>("lobbyLaps");
+const lobbyInviteBlock = el("lobbyInviteBlock");
+const lobbyInviteLink = el<HTMLInputElement>("lobbyInviteLink");
+const lobbyCopyBtn = el<HTMLButtonElement>("lobbyCopyBtn");
+const lobbyStartBtn = el<HTMLButtonElement>("lobbyStartBtn");
+const lobbyLeaveBtn = el<HTMLButtonElement>("lobbyLeaveBtn");
+const results = el("results");
+const resultsWinner = el("resultsWinner");
 
 let game: ReturnType<typeof import("./game").startGame> | null = null;
+let gameStarting = false;
 let backendBusy = false;
-let backendRaceStarted = false;
+let mode: "solo" | "online" = "solo";
+let soloRaceRequested = false;
+let raceOver = false;
+const soloSettings = { botCars: 3, raceLaps: 5 };
 const backendApiBaseUrl = resolveBackendBaseUrl();
 const backendWsBaseUrl = resolveBackendWsBaseUrl(backendApiBaseUrl);
 const backendClient = new BackendApiClient(backendApiBaseUrl);
@@ -66,49 +80,53 @@ type BackendTurnAppliedEventDetail = {
 };
 
 let backendSession: BackendSession | null = null;
+let lastLobby: PublicLobby | null = null;
 let backendSocket: WebSocket | null = null;
 let backendReconnectTimer: number | null = null;
 let backendShouldReconnect = false;
 let backendReconnectAttempt = 0;
-let inviteAutoJoinRequested = false;
+let joining = false;
 
-function getLobbyIdFromUrl(): string | null {
+function setStatus(text: string) {
+  statusLine.textContent = text;
+}
+
+function showNotice(text: string | null) {
+  homeNotice.textContent = text ?? "";
+  homeNotice.hidden = text === null;
+}
+
+// sessionStorage is per tab: a reload rejoins with the same player token, a second tab is a new player.
+const sessionKey = (lobbyId: string) => `srp:session:${lobbyId}`;
+
+function storeSession(session: BackendSession) {
   try {
-    const url = new URL(window.location.href);
-    const lobbyId = url.searchParams.get("lobby")?.trim() ?? "";
-    return lobbyId.length > 0 ? lobbyId : null;
+    window.sessionStorage.setItem(sessionKey(session.lobbyId), JSON.stringify(session));
   } catch {
-    return null;
+    // storage unavailable: reload simply won't rejoin
+  }
+}
+
+function loadStoredToken(lobbyId: string): string | undefined {
+  try {
+    const raw = window.sessionStorage.getItem(sessionKey(lobbyId));
+    const parsed = raw ? (JSON.parse(raw) as { playerToken?: unknown }) : null;
+    return typeof parsed?.playerToken === "string" ? parsed.playerToken : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function clearStoredSession(lobbyId: string) {
+  try {
+    window.sessionStorage.removeItem(sessionKey(lobbyId));
+  } catch {
+    // ignore
   }
 }
 
 function buildLobbyInviteUrl(lobbyId: string): string {
-  const url = new URL(window.location.href);
-  url.searchParams.set("lobby", lobbyId);
-  return url.toString();
-}
-
-function syncLobbyUrl(lobbyId: string | null) {
-  const url = new URL(window.location.href);
-  if (lobbyId) {
-    url.searchParams.set("lobby", lobbyId);
-  } else {
-    url.searchParams.delete("lobby");
-  }
-  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-}
-
-function updateInviteUi(lobbyId: string | null) {
-  if (!backendLobbyLinkInput) return;
-  if (!lobbyId) {
-    backendLobbyLinkInput.value = "";
-    if (backendCopyInviteBtn) backendCopyInviteBtn.disabled = true;
-    if (backendOpenInviteBtn) backendOpenInviteBtn.disabled = true;
-    return;
-  }
-  backendLobbyLinkInput.value = buildLobbyInviteUrl(lobbyId);
-  if (backendCopyInviteBtn) backendCopyInviteBtn.disabled = backendBusy;
-  if (backendOpenInviteBtn) backendOpenInviteBtn.disabled = backendBusy;
+  return `${window.location.origin}${routePath({ name: "lobby", id: lobbyId })}`;
 }
 
 function logMultiplayerClient(event: string, context: Record<string, unknown> = {}) {
@@ -123,41 +141,6 @@ function logMultiplayerClient(event: string, context: Record<string, unknown> = 
   console.info("[multiplayer]", payload);
 }
 
-function parseSelectInt(select: HTMLSelectElement, fallback: number): number {
-  const parsed = Number.parseInt(select.value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
-function parseInputInt(input: HTMLInputElement, fallback: number): number {
-  const parsed = Number.parseInt(input.value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
-function getComposition() {
-  let humanCars = Math.max(0, Math.min(11, parseSelectInt(humanCountSelect, 2)));
-  let botCars = Math.max(0, Math.min(11, parseSelectInt(botCountSelect, 0)));
-  const raceLaps = Math.max(1, Math.min(999, parseInputInt(lapCountInput, 5)));
-  if (humanCars + botCars === 0) {
-    humanCars = 1;
-    botCars = 0;
-  }
-  if (humanCars + botCars > 11) {
-    const maxBots = Math.max(0, 11 - humanCars);
-    botCars = Math.min(botCars, maxBots);
-    if (humanCars + botCars > 11) {
-      humanCars = 11;
-      botCars = 0;
-    }
-  }
-  const totalCars = humanCars + botCars;
-  return { totalCars, humanCars, botCars, raceLaps };
-}
-
-function canStartLocalRace(): boolean {
-  const composition = getComposition();
-  return composition.humanCars === 1;
-}
-
 function makeCommandId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -165,32 +148,236 @@ function makeCommandId(): string {
   return `cmd-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function setBackendStatusText(text: string) {
-  if (!backendStatus) return;
-  backendStatus.textContent = text;
+function toErrorText(error: unknown): string {
+  if (error instanceof BackendApiError) {
+    const payload = error.payload as { error?: string };
+    const reason = typeof payload?.error === "string" ? payload.error : "request_failed";
+    return `HTTP ${error.status}: ${reason}`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "unknown_error";
 }
 
-function syncCompositionFromLobby(lobby: PublicLobby) {
-  humanCountSelect.value = String(lobby.settings.humanCars);
-  botCountSelect.value = String(lobby.settings.botCars);
-  lapCountInput.value = String(lobby.settings.raceLaps);
+function getPlayerName(): string {
+  const raw = homeName.value.trim();
+  return raw.length > 0 ? raw : "Player";
 }
+
+// What the game scene is built from: the lobby's settings online, the lobby card offline.
+function getComposition() {
+  if (mode === "online" && lastLobby) {
+    const { totalCars, humanCars, botCars, raceLaps } = lastLobby.settings;
+    return { totalCars, humanCars, botCars, raceLaps };
+  }
+  return {
+    totalCars: 1 + soloSettings.botCars,
+    humanCars: 1,
+    botCars: soloSettings.botCars,
+    raceLaps: soloSettings.raceLaps
+  };
+}
+
+// ---- screens -------------------------------------------------------------------------------
+
+function destroyGame() {
+  if (game) {
+    game.destroy(true);
+    game = null;
+  }
+  delete window.__srp;
+}
+
+function showScreen(screen: Screen) {
+  document.body.dataset.screen = screen;
+  if (screen !== "race") {
+    destroyGame();
+    results.hidden = true;
+    raceOver = false;
+  }
+  if (screen === "home") renderHome();
+  else if (screen === "lobby") renderLobby();
+}
+
+function renderHome() {
+  for (const button of homeButtons) button.disabled = backendBusy;
+}
+
+function renderLobby() {
+  const online = mode === "online";
+  const lobby = online ? lastLobby : null;
+  const isHost = !online || (backendSession?.isHost ?? false);
+  const waiting = !online || lobby?.status === "WAITING";
+  const settings = lobby?.settings;
+
+  lobbyTitle.textContent = online ? "Lobby" : "Quick race";
+  lobbyPlayersBlock.hidden = !online;
+  lobbyInviteBlock.hidden = !online;
+  lobbyHumansField.hidden = !online;
+  lobbyHumans.value = String(settings?.humanCars ?? 1);
+  lobbyBots.value = String(settings?.botCars ?? soloSettings.botCars);
+  lobbyLaps.value = String(settings?.raceLaps ?? soloSettings.raceLaps);
+  const editable = isHost && waiting && !backendBusy;
+  lobbyHumans.disabled = lobbyBots.disabled = lobbyLaps.disabled = !editable;
+  lobbyStartBtn.disabled = backendBusy || !isHost || !waiting;
+  lobbyStartBtn.hidden = online && !isHost;
+  lobbyNote.hidden = !(online && lobby && lobby.status !== "WAITING");
+  lobbyNote.textContent =
+    lobby?.status === "IN_RACE" ? "Race in progress." : "Race finished. Create a new lobby to race again.";
+
+  lobbyPlayers.replaceChildren(
+    ...(lobby?.players ?? []).map((player) => {
+      const item = document.createElement("li");
+      item.dataset.testid = "lobby-player";
+      const dot = document.createElement("span");
+      dot.className = player.connected ? "dot on" : "dot";
+      item.append(dot, player.name + (player.playerId === backendSession?.playerId ? " (you)" : ""));
+      if (player.isHost) {
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.dataset.testid = "host-badge";
+        badge.textContent = "host";
+        item.append(badge);
+      }
+      return item;
+    })
+  );
+  lobbyInviteLink.value = lobby ? buildLobbyInviteUrl(lobby.lobbyId) : "";
+  lobbyCopyBtn.disabled = !lobby;
+}
+
+function setBackendBusy(next: boolean) {
+  backendBusy = next;
+  renderHome();
+  if (document.body.dataset.screen === "lobby") renderLobby();
+}
+
+async function ensureGameStarted() {
+  if (game || gameStarting) return;
+  gameStarting = true;
+  try {
+    const { startGame } = await import("./game");
+    // The player may have left while the chunk loaded.
+    if (document.body.dataset.screen !== "race" || game) return;
+    game = startGame(app, getComposition());
+  } finally {
+    gameStarting = false;
+  }
+}
+
+function showResults(winnerCarId: number | null) {
+  raceOver = true;
+  const car = lastLobby?.raceState?.cars.find((candidate) => candidate.carId === winnerCarId);
+  const who = car ? car.name : mode === "solo" ? (winnerCarId === 1 ? "you" : "bot") : "";
+  resultsWinner.textContent = `Car ${winnerCarId ?? "?"}${who ? ` (${who})` : ""} wins`;
+  results.hidden = false;
+}
+
+// ---- routing -------------------------------------------------------------------------------
+
+function leaveOnline() {
+  disconnectBackendSocket();
+  if (backendSession) clearStoredSession(backendSession.lobbyId);
+  backendSession = null;
+  lastLobby = null;
+}
+
+function kickToHome(message: string) {
+  leaveOnline();
+  navigate({ name: "home" }, "replace");
+  showNotice(message);
+}
+
+async function handleRoute(route: Route, source: "push" | "replace" | "pop") {
+  const onRaceScreen = document.body.dataset.screen === "race" && !raceOver;
+  if (source === "pop" && onRaceScreen && screenOf(route) !== "race") {
+    if (!window.confirm("Leave race?")) {
+      // undo the back navigation
+      window.history.pushState({}, "", routePath(mode === "solo" ? { name: "soloRace" } : lobbyRaceRoute()));
+      return;
+    }
+    if (mode === "online") {
+      // leaving an online race means leaving the lobby (its status would pull us straight back)
+      leaveOnline();
+      navigate({ name: "home" }, "replace");
+      return;
+    }
+  }
+  switch (route.name) {
+    case "home":
+      leaveOnline();
+      soloRaceRequested = false;
+      showScreen("home");
+      return;
+    case "solo":
+      leaveOnline();
+      mode = "solo";
+      soloRaceRequested = false;
+      showScreen("lobby");
+      return;
+    case "soloRace":
+      mode = "solo";
+      if (!soloRaceRequested) {
+        navigate({ name: "solo" }, "replace");
+        return;
+      }
+      showScreen("race");
+      await ensureGameStarted();
+      return;
+    case "lobby":
+    case "lobbyRace":
+      mode = "online";
+      if (!backendSession || backendSession.lobbyId !== route.id) {
+        leaveOnline();
+        showScreen("lobby");
+        await joinLobbyById(route.id);
+        return;
+      }
+      syncOnlineScreen();
+  }
+}
+
+function lobbyRaceRoute(): Route {
+  return { name: "lobbyRace", id: backendSession?.lobbyId ?? "" };
+}
+
+// The lobby's status decides which online screen is right; the URL follows it.
+function syncOnlineScreen() {
+  const route = currentRoute();
+  if (mode !== "online" || !backendSession || !lastLobby) return;
+  if (route.name !== "lobby" && route.name !== "lobbyRace") return;
+  if (lastLobby.terminationReason === "host_disconnected" && !backendSession.isHost) {
+    kickToHome("The host disconnected. The lobby is closed.");
+    return;
+  }
+  const hasRace = lastLobby.raceState !== undefined && lastLobby.status !== "WAITING";
+  if (route.name === "lobby") {
+    if (lastLobby.status === "IN_RACE") {
+      navigate({ name: "lobbyRace", id: lastLobby.lobbyId });
+    } else {
+      showScreen("lobby");
+    }
+    return;
+  }
+  if (!hasRace) {
+    navigate({ name: "lobby", id: lastLobby.lobbyId }, "replace");
+    return;
+  }
+  if (document.body.dataset.screen !== "race") showScreen("race");
+  void ensureGameStarted();
+}
+
+// ---- backend session -----------------------------------------------------------------------
 
 function applyLobbyState(lobby: PublicLobby, source: string) {
   if (!backendSession) return;
   if (lobby.lobbyId !== backendSession.lobbyId) return;
-  backendSession.revision = lobby.revision;
-  backendRaceStarted = lobby.status === "IN_RACE";
-  setBackendBusy(backendBusy);
-  syncCompositionFromLobby(lobby);
-  syncLobbyUrl(lobby.lobbyId);
-  updateInviteUi(lobby.lobbyId);
-  if (backendLobbyIdInput) {
-    backendLobbyIdInput.value = lobby.lobbyId;
-  }
-  setBackendStatusText(
-    `Backend: ${source} -> ${lobby.status.toLowerCase()} (rev ${lobby.revision}, players ${lobby.players.length})`
-  );
+  backendSession.revision = Math.max(backendSession.revision, lobby.revision);
+  backendSession.isHost = lobby.hostPlayerId === backendSession.playerId;
+  lastLobby = lobby;
+  storeSession(backendSession);
+  setStatus(`${source}: ${lobby.status.toLowerCase()} (rev ${lobby.revision})`);
   logMultiplayerClient("lobby.state.applied", {
     source,
     status: lobby.status,
@@ -201,6 +388,8 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
       detail: { lobby, source, localPlayerId: backendSession.playerId }
     })
   );
+  if (document.body.dataset.screen === "lobby") renderLobby();
+  syncOnlineScreen();
 }
 
 function clearBackendReconnectTimer() {
@@ -219,7 +408,7 @@ async function rehydrateLobbyState(reason: string) {
     applyLobbyState(read.lobby, `rehydrate(${reason})`);
     logMultiplayerClient("lobby.rehydrate.success", { reason });
   } catch (error) {
-    setBackendStatusText(`Backend: rehydrate failed (${toErrorText(error)})`);
+    setStatus(`rehydrate failed (${toErrorText(error)})`);
     logMultiplayerClient("lobby.rehydrate.failed", { reason, error: toErrorText(error) });
   }
 }
@@ -229,7 +418,7 @@ function scheduleBackendReconnect() {
   clearBackendReconnectTimer();
   const delayMs = Math.min(5000, 500 * 2 ** Math.min(backendReconnectAttempt, 5));
   backendReconnectAttempt += 1;
-  setBackendStatusText(`Backend: ws reconnect in ${delayMs}ms`);
+  setStatus(`ws reconnect in ${delayMs}ms`);
   logMultiplayerClient("ws.reconnect.scheduled", { delayMs, attempt: backendReconnectAttempt });
   backendReconnectTimer = window.setTimeout(() => {
     void connectBackendSocket("retry");
@@ -250,7 +439,6 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
       const revision = (payload as { revision: unknown }).revision;
       if (typeof revision === "number") {
         backendSession.revision = Math.max(backendSession.revision, revision);
-        setBackendStatusText(`Backend: turn applied (rev ${backendSession.revision})`);
       }
     }
     if (
@@ -297,20 +485,10 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
     }
     return;
   }
-  if (eventName === "race.ended") {
-    backendRaceStarted = false;
-    setBackendBusy(backendBusy);
-    if (payload && typeof payload === "object") {
-      const reason = (payload as { reason?: unknown }).reason;
-      const lobby = (payload as { lobby?: unknown }).lobby;
-      if (lobby && typeof lobby === "object" && "lobbyId" in lobby) {
-        applyLobbyState(lobby as PublicLobby, "race.ended");
-      }
-      const winnerCarId = (payload as { winnerCarId?: unknown }).winnerCarId;
-      if (typeof reason === "string") {
-        const winner = typeof winnerCarId === "number" ? `, car ${winnerCarId} wins` : "";
-        setBackendStatusText(`Backend: race ended (${reason}${winner})`);
-      }
+  if (eventName === "race.ended" && payload && typeof payload === "object") {
+    const lobby = (payload as { lobby?: unknown }).lobby;
+    if (lobby && typeof lobby === "object" && "lobbyId" in lobby) {
+      applyLobbyState(lobby as PublicLobby, "race.ended");
     }
   }
 }
@@ -337,13 +515,13 @@ async function connectBackendSocket(reason: string) {
   const socketUrl = `${backendWsBaseUrl}/ws?lobbyId=${encodeURIComponent(backendSession.lobbyId)}&playerToken=${encodeURIComponent(backendSession.playerToken)}`;
   const socket = new WebSocket(socketUrl);
   backendSocket = socket;
-  setBackendStatusText(`Backend: ws connecting (${reason})...`);
+  setStatus(`ws connecting (${reason})...`);
   logMultiplayerClient("ws.connecting", { reason });
 
   socket.addEventListener("open", () => {
     if (backendSocket !== socket) return;
     backendReconnectAttempt = 0;
-    setBackendStatusText("Backend: ws connected");
+    setStatus("ws connected");
     logMultiplayerClient("ws.open", { reason });
     void rehydrateLobbyState("ws-open");
   });
@@ -358,7 +536,7 @@ async function connectBackendSocket(reason: string) {
       if (typeof parsed.event !== "string") return;
       handleBackendWsEvent(parsed.event, parsed.payload);
     } catch {
-      setBackendStatusText("Backend: ws parse error");
+      setStatus("ws parse error");
       logMultiplayerClient("ws.parse_error");
     }
   });
@@ -370,16 +548,13 @@ async function connectBackendSocket(reason: string) {
     logMultiplayerClient("ws.close", { code: event.code, reason: event.reason || "" });
 
     if (event.code === 1008) {
-      backendShouldReconnect = false;
-      setBackendStatusText("Backend: ws auth failed");
-      setBackendBusy(backendBusy);
+      kickToHome("Your session expired.");
       return;
     }
     if (event.code === 4001) {
       backendShouldReconnect = false;
-      backendRaceStarted = false;
-      setBackendStatusText(`Backend: ws closed (${event.reason || "host_disconnected"})`);
-      setBackendBusy(backendBusy);
+      if (lastLobby?.terminationReason === "race_finished") return;
+      kickToHome("The host disconnected. The lobby is closed.");
       return;
     }
     scheduleBackendReconnect();
@@ -387,196 +562,143 @@ async function connectBackendSocket(reason: string) {
 
   socket.addEventListener("error", () => {
     if (backendSocket !== socket) return;
-    setBackendStatusText("Backend: ws error");
+    setStatus("ws error");
     logMultiplayerClient("ws.error");
   });
 }
 
-
-function setBackendBusy(nextBusy: boolean) {
-  backendBusy = nextBusy;
-  const canStartRace = backendSession
-    ? backendSession.isHost && !backendRaceStarted
-    : canStartLocalRace();
-  if (backendHostBtn) backendHostBtn.disabled = nextBusy;
-  if (backendJoinBtn) backendJoinBtn.disabled = nextBusy;
-  if (backendStartBtn) backendStartBtn.disabled = nextBusy || !canStartRace;
-  const hasInvite = (backendLobbyLinkInput?.value?.trim().length ?? 0) > 0;
-  if (backendCopyInviteBtn) backendCopyInviteBtn.disabled = nextBusy || !hasInvite;
-  if (backendOpenInviteBtn) backendOpenInviteBtn.disabled = nextBusy || !hasInvite;
-}
-
-function toErrorText(error: unknown): string {
-  if (error instanceof BackendApiError) {
-    const payload = error.payload as { error?: string };
-    const reason = typeof payload?.error === "string" ? payload.error : "request_failed";
-    return `HTTP ${error.status}: ${reason}`;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return "unknown_error";
-}
-
-function getPlayerName(): string {
-  const raw = backendPlayerNameInput?.value?.trim() ?? "";
-  return raw.length > 0 ? raw : "Player";
-}
-
-async function copyInviteLink() {
-  const inviteUrl =
-    (backendLobbyLinkInput?.value?.trim() ?? "") ||
-    (backendSession ? buildLobbyInviteUrl(backendSession.lobbyId) : "");
-  if (inviteUrl.length === 0) {
-    setBackendStatusText("Backend: no invite link yet");
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(inviteUrl);
-    setBackendStatusText("Backend: invite link copied");
-  } catch (error) {
-    setBackendStatusText(`Backend: invite copy failed (${toErrorText(error)})`);
-  }
-}
-
-function openInviteLink() {
-  const inviteUrl =
-    (backendLobbyLinkInput?.value?.trim() ?? "") ||
-    (backendSession ? buildLobbyInviteUrl(backendSession.lobbyId) : "");
-  if (inviteUrl.length === 0) {
-    setBackendStatusText("Backend: no invite link yet");
-    return;
-  }
-  window.open(inviteUrl, "_blank", "noopener,noreferrer");
-}
-
-function requestAutoJoinFromInvite() {
-  if (inviteAutoJoinRequested) return;
-  if (backendSession) return;
-  inviteAutoJoinRequested = true;
-  setBackendStatusText("Backend: joining from invite...");
-  void joinLobby();
+function openSession(
+  response: { lobby: PublicLobby; playerId: string; playerToken: string },
+  reason: string
+) {
+  backendSession = {
+    lobbyId: response.lobby.lobbyId,
+    playerId: response.playerId,
+    playerToken: response.playerToken,
+    revision: response.lobby.revision,
+    isHost: response.lobby.hostPlayerId === response.playerId
+  };
+  applyLobbyState(response.lobby, reason);
+  void connectBackendSocket(reason);
 }
 
 async function hostLobby() {
   if (backendBusy) return;
+  showNotice(null);
   setBackendBusy(true);
-  setBackendStatusText("Backend: creating lobby...");
+  setStatus("creating lobby...");
   logMultiplayerClient("lobby.host.start");
   try {
-    const name = getPlayerName();
-    const composition = getComposition();
-    const created = await backendClient.createLobby(name, {
+    const created = await backendClient.createLobby(getPlayerName(), {
       trackId: "oval16_3lanes",
-      totalCars: composition.totalCars,
-      humanCars: composition.humanCars,
-      botCars: composition.botCars,
-      raceLaps: composition.raceLaps
+      totalCars: 2,
+      humanCars: 2,
+      botCars: 0,
+      raceLaps: 5
     });
-    backendSession = {
-      lobbyId: created.lobby.lobbyId,
-      playerId: created.playerId,
-      playerToken: created.playerToken,
-      revision: created.lobby.revision,
-      isHost: true
-    };
-    backendRaceStarted = created.lobby.status === "IN_RACE";
-    syncCompositionFromLobby(created.lobby);
-    if (backendLobbyIdInput) backendLobbyIdInput.value = created.lobby.lobbyId;
-    syncLobbyUrl(created.lobby.lobbyId);
-    updateInviteUi(created.lobby.lobbyId);
-    setBackendStatusText(`Backend: hosted ${created.lobby.lobbyId} (rev ${created.lobby.revision})`);
+    mode = "online";
+    openSession(created, "host");
+    navigate({ name: "lobby", id: created.lobby.lobbyId });
     logMultiplayerClient("lobby.host.success");
-    void connectBackendSocket("host");
   } catch (error) {
-    setBackendStatusText(`Backend: host failed (${toErrorText(error)})`);
+    showNotice(`Could not create the lobby (${toErrorText(error)}).`);
     logMultiplayerClient("lobby.host.failed", { error: toErrorText(error) });
   } finally {
     setBackendBusy(false);
   }
 }
 
-async function joinLobby() {
-  if (backendBusy) return;
-  const lobbyId = backendLobbyIdInput?.value?.trim() ?? "";
-  if (lobbyId.length === 0) {
-    setBackendStatusText("Backend: enter Lobby ID first");
-    return;
-  }
+// Joins (or, with a stored token for this tab, rejoins) a lobby named by the URL.
+async function joinLobbyById(lobbyId: string) {
+  if (joining) return;
+  joining = true;
   setBackendBusy(true);
-  setBackendStatusText(`Backend: joining ${lobbyId}...`);
+  setStatus(`joining ${lobbyId}...`);
   logMultiplayerClient("lobby.join.start", { requestedLobbyId: lobbyId });
   try {
-    const joined = await backendClient.joinLobby(lobbyId, getPlayerName());
-    backendSession = {
-      lobbyId: joined.lobby.lobbyId,
-      playerId: joined.playerId,
-      playerToken: joined.playerToken,
-      revision: joined.lobby.revision,
-      isHost: false
-    };
-    backendRaceStarted = joined.lobby.status === "IN_RACE";
-    syncCompositionFromLobby(joined.lobby);
-    syncLobbyUrl(joined.lobby.lobbyId);
-    updateInviteUi(joined.lobby.lobbyId);
-    setBackendStatusText(`Backend: joined ${joined.lobby.lobbyId} (rev ${joined.lobby.revision})`);
+    const joined = await backendClient.joinLobby(lobbyId, getPlayerName(), loadStoredToken(lobbyId));
+    openSession(joined, "join");
     logMultiplayerClient("lobby.join.success");
-    void connectBackendSocket("join");
   } catch (error) {
-    setBackendStatusText(`Backend: join failed (${toErrorText(error)})`);
+    clearStoredSession(lobbyId);
     logMultiplayerClient("lobby.join.failed", { error: toErrorText(error) });
+    kickToHome(`Could not join the lobby (${toErrorText(error)}).`);
   } finally {
+    joining = false;
     setBackendBusy(false);
   }
 }
 
+function extractLobbyId(input: string): string {
+  const text = input.trim();
+  try {
+    const route = parseRoute(new URL(text).pathname);
+    if (route.name === "lobby" || route.name === "lobbyRace") return route.id;
+  } catch {
+    // not a URL: treat as a bare lobby code
+  }
+  return text;
+}
+
 async function startRace() {
   if (backendBusy) return;
-  if (!backendSession) {
-    if (!canStartLocalRace()) {
-      setBackendStatusText("Local: start requires exactly 1 human (use multiplayer for >1).");
-      return;
-    }
-    setBackendBusy(true);
-    setBackendStatusText("Local: starting race...");
-    try {
-      if (game) {
-        game.destroy(true);
-        game = null;
-      }
-      await ensureGameStarted();
-      setBackendStatusText("Local: race started");
-    } finally {
-      setBackendBusy(false);
-    }
+  if (mode === "solo") {
+    soloRaceRequested = true;
+    navigate({ name: "soloRace" });
     return;
   }
-  if (!backendSession.isHost) {
-    setBackendStatusText("Backend: only host can start race");
-    return;
-  }
+  if (!backendSession?.isHost) return;
   setBackendBusy(true);
-  setBackendStatusText("Backend: starting race...");
+  setStatus("starting race...");
   logMultiplayerClient("race.start.requested");
   try {
-    const started = await backendClient.startRace(
-      backendSession.lobbyId,
-      backendSession.playerToken
-    );
-    backendSession.revision = started.lobby.revision;
-    backendRaceStarted = started.lobby.status === "IN_RACE";
-    setBackendStatusText(`Backend: race started (rev ${backendSession.revision})`);
+    const started = await backendClient.startRace(backendSession.lobbyId, backendSession.playerToken);
+    applyLobbyState(started.lobby, "start");
     logMultiplayerClient("race.start.accepted");
   } catch (error) {
-    setBackendStatusText(`Backend: start failed (${toErrorText(error)})`);
+    setStatus(`start failed (${toErrorText(error)})`);
     logMultiplayerClient("race.start.failed", { error: toErrorText(error) });
   } finally {
     setBackendBusy(false);
   }
 }
 
+async function changeSettings() {
+  const humanCars = Number.parseInt(lobbyHumans.value, 10);
+  const botCars = Number.parseInt(lobbyBots.value, 10);
+  const raceLaps = Math.max(1, Math.min(999, Number.parseInt(lobbyLaps.value, 10) || 1));
+  if (mode === "solo") {
+    soloSettings.botCars = botCars;
+    soloSettings.raceLaps = raceLaps;
+    renderLobby();
+    return;
+  }
+  if (!backendSession?.isHost) return;
+  try {
+    const updated = await backendClient.updateSettings(
+      backendSession.lobbyId,
+      backendSession.playerToken,
+      { humanCars, botCars, raceLaps }
+    );
+    applyLobbyState(updated.lobby, "settings");
+  } catch (error) {
+    setStatus(`settings rejected (${toErrorText(error)})`);
+    renderLobby();
+  }
+}
+
+async function copyInviteLink() {
+  if (!lobbyInviteLink.value) return;
+  try {
+    await navigator.clipboard.writeText(lobbyInviteLink.value);
+    setStatus("invite link copied");
+  } catch (error) {
+    setStatus(`invite copy failed (${toErrorText(error)})`);
+  }
+}
+
 async function submitTurnAction(action: BackendTurnAction) {
-  if (!backendSession || !backendRaceStarted || backendBusy) return;
+  if (!backendSession || lastLobby?.status !== "IN_RACE" || backendBusy) return;
   let revision = backendSession.revision;
   const clientCommandId = makeCommandId();
   logMultiplayerClient("turn.submit.start", { clientCommandId, action: action.type });
@@ -594,9 +716,6 @@ async function submitTurnAction(action: BackendTurnAction) {
         // The race.state / race.ended events can arrive before this response: never
         // move the revision backwards or overwrite an end-of-race status.
         backendSession.revision = Math.max(backendSession.revision, result.revision);
-        if (backendRaceStarted) {
-          setBackendStatusText(`Backend: turn synced (rev ${result.revision})`);
-        }
         logMultiplayerClient("turn.submit.applied", { clientCommandId, revision: result.revision });
         return;
       }
@@ -609,11 +728,9 @@ async function submitTurnAction(action: BackendTurnAction) {
         });
         continue;
       }
+      backendSession.revision = result.revision;
       if (result.error === "lobby_not_in_race") {
-        backendRaceStarted = false;
-        setBackendBusy(backendBusy);
-        backendSession.revision = result.revision;
-        setBackendStatusText("Backend: lobby not in race");
+        setStatus("lobby not in race");
         logMultiplayerClient("turn.submit.rejected", {
           clientCommandId,
           reason: "lobby_not_in_race"
@@ -621,8 +738,7 @@ async function submitTurnAction(action: BackendTurnAction) {
         return;
       }
       if (result.error === "not_active_player") {
-        backendSession.revision = result.revision;
-        setBackendStatusText("Backend: not your turn");
+        setStatus("not your turn");
         logMultiplayerClient("turn.submit.rejected", {
           clientCommandId,
           reason: "not_active_player"
@@ -630,11 +746,10 @@ async function submitTurnAction(action: BackendTurnAction) {
         void rehydrateLobbyState("not-active-player");
         return;
       }
-      backendSession.revision = result.revision;
-      setBackendStatusText(
+      setStatus(
         result.error === "invalid_action"
-          ? `Backend: move rejected (${result.reason ?? "invalid"})`
-          : `Backend: turn rejected (${result.error})`
+          ? `move rejected (${result.reason ?? "invalid"})`
+          : `turn rejected (${result.error})`
       );
       logMultiplayerClient("turn.submit.rejected", {
         clientCommandId,
@@ -644,7 +759,7 @@ async function submitTurnAction(action: BackendTurnAction) {
       void rehydrateLobbyState("turn-rejected");
       return;
     } catch (error) {
-      setBackendStatusText(`Backend: turn submit failed (${toErrorText(error)})`);
+      setStatus(`turn submit failed (${toErrorText(error)})`);
       logMultiplayerClient("turn.submit.failed", {
         clientCommandId,
         error: toErrorText(error)
@@ -654,68 +769,49 @@ async function submitTurnAction(action: BackendTurnAction) {
     }
   }
 
-  setBackendStatusText(`Backend: turn stale (rev ${backendSession.revision})`);
+  setStatus(`turn stale (rev ${backendSession.revision})`);
   logMultiplayerClient("turn.submit.give_up", { clientCommandId });
 }
 
-async function ensureGameStarted() {
-  if (game) return;
-  const { startGame } = await import("./game");
-  game = startGame(app, getComposition());
-}
+// ---- wiring --------------------------------------------------------------------------------
 
-async function restartGame() {
-  disconnectBackendSocket();
-  backendSession = null;
-  backendRaceStarted = false;
-  setBackendBusy(backendBusy);
-  syncLobbyUrl(null);
-  updateInviteUi(null);
-  if (backendLobbyIdInput) backendLobbyIdInput.value = "";
-  if (game) {
-    game.destroy(true);
-    game = null;
+el("homeQuickBtn").addEventListener("click", () => {
+  showNotice(null);
+  navigate({ name: "solo" });
+});
+el("homeCreateBtn").addEventListener("click", () => void hostLobby());
+el("homeJoinBtn").addEventListener("click", () => {
+  const id = extractLobbyId(homeJoinCode.value);
+  if (id.length === 0) {
+    showNotice("Enter a lobby code first.");
+    return;
   }
-  await ensureGameStarted();
+  showNotice(null);
+  navigate({ name: "lobby", id });
+});
+homeName.addEventListener("change", () => {
+  try {
+    window.localStorage.setItem("srp:name", getPlayerName());
+  } catch {
+    // ignore
+  }
+});
+
+for (const input of [lobbyHumans, lobbyBots, lobbyLaps]) {
+  input.addEventListener("change", () => void changeSettings());
 }
+lobbyStartBtn.addEventListener("click", () => void startRace());
+lobbyCopyBtn.addEventListener("click", () => void copyInviteLink());
+lobbyLeaveBtn.addEventListener("click", () => navigate({ name: "home" }));
 
-void ensureGameStarted();
-
-restartBtn.addEventListener("click", () => {
-  restartGame();
+el("resultsLobbyBtn").addEventListener("click", () => {
+  if (mode === "online" && backendSession) {
+    navigate({ name: "lobby", id: backendSession.lobbyId });
+  } else {
+    navigate({ name: "solo" });
+  }
 });
-
-humanCountSelect.addEventListener("change", () => {
-  setBackendBusy(backendBusy);
-});
-
-botCountSelect.addEventListener("change", () => {
-  setBackendBusy(backendBusy);
-});
-
-toggleCarsMovesBtn?.addEventListener("click", () => {
-  window.dispatchEvent(new Event("srp:toggle-cars-moves"));
-});
-
-backendHostBtn?.addEventListener("click", () => {
-  void hostLobby();
-});
-
-backendJoinBtn?.addEventListener("click", () => {
-  void joinLobby();
-});
-
-backendStartBtn?.addEventListener("click", () => {
-  void startRace();
-});
-
-backendCopyInviteBtn?.addEventListener("click", () => {
-  void copyInviteLink();
-});
-
-backendOpenInviteBtn?.addEventListener("click", () => {
-  openInviteLink();
-});
+el("resultsHomeBtn").addEventListener("click", () => navigate({ name: "home" }));
 
 window.addEventListener("srp:local-turn-action", (event) => {
   const custom = event as CustomEvent<BackendTurnAction>;
@@ -723,19 +819,36 @@ window.addEventListener("srp:local-turn-action", (event) => {
   void submitTurnAction(custom.detail);
 });
 
+window.addEventListener("srp:race-finished", (event) => {
+  const winner = (event as CustomEvent<{ winnerCarId: number | null }>).detail?.winnerCarId ?? null;
+  showResults(winner);
+});
+
+// The scene starts listening only after it is built: hand it the latest lobby state.
+window.addEventListener("srp:scene-ready", () => {
+  if (mode !== "online" || !backendSession || !lastLobby) return;
+  window.dispatchEvent(
+    new CustomEvent<BackendLobbyStateEventDetail>("srp:backend-lobby-state", {
+      detail: { lobby: lastLobby, source: "scene-ready", localPlayerId: backendSession.playerId }
+    })
+  );
+});
+
+// Keyboard shortcut next to the scene's F (forwardIndex overlay).
+window.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() !== "c" || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (document.body.dataset.screen !== "race") return;
+  window.dispatchEvent(new Event("srp:toggle-cars-moves"));
+});
+
 window.addEventListener("beforeunload", () => {
   disconnectBackendSocket();
 });
 
-setBackendStatusText(`Backend: ready (${backendApiBaseUrl})`);
-setBackendBusy(false);
-
-const lobbyIdFromUrl = getLobbyIdFromUrl();
-if (lobbyIdFromUrl) {
-  if (backendLobbyIdInput) backendLobbyIdInput.value = lobbyIdFromUrl;
-  updateInviteUi(lobbyIdFromUrl);
-  setBackendStatusText(`Backend: invite loaded (${lobbyIdFromUrl})`);
-  requestAutoJoinFromInvite();
-} else {
-  updateInviteUi(null);
+try {
+  homeName.value = window.localStorage.getItem("srp:name") || homeName.value;
+} catch {
+  // ignore
 }
+setStatus(`ready (${backendApiBaseUrl})`);
+startRouter((route, source) => void handleRoute(route, source));
