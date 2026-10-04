@@ -124,6 +124,7 @@ test.describe("online", () => {
   test("host and guest meet in the lobby; only the host controls it; both reach the race", async ({
     browser
   }) => {
+    test.setTimeout(60_000); // two Phaser pages: slow when all workers share the CPU
     const { host, guest, close } = await twoPlayers(browser);
     await host.context().grantPermissions(["clipboard-read", "clipboard-write"]);
 

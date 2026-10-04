@@ -89,6 +89,7 @@ describe("spawnSystem", () => {
     expect(cars[1]?.isBot).toBe(false);
     expect(tokens).toHaveLength(2);
     expect(tokens[0]?.car).toBe(cars[0]);
+    expect(tokens.map((t) => t.sprite)).toEqual(["car-red", "car-blue"]);
 
     const carA = cars[0]!;
     const carB = cars[1]!;
