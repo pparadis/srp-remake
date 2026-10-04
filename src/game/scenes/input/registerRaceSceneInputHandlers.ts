@@ -4,8 +4,7 @@ import type { TargetInfo } from "../../systems/movementSystem";
 import type { Car } from "../../types/car";
 import type { TrackCell } from "../../types/track";
 import type { PitModal } from "../ui/PitModal";
-import { resolvePlayerDragDrop, type ResolvePlayerDragDropParams } from "../turns/resolvePlayerDragDrop";
-import type { BackendTurnAction } from "../../../net/backendApi";
+import { resolvePlayerDragDrop } from "../turns/resolvePlayerDragDrop";
 
 export interface RegisterRaceSceneInputHandlersParams {
   scene: Phaser.Scene;
@@ -25,15 +24,8 @@ export interface RegisterRaceSceneInputHandlersParams {
   setHudText: (text: string) => void;
   copyCellId: (cellId: string) => void;
   toggleForwardIndexOverlay: () => void;
-  openPitModal: (
-    cell: TrackCell,
-    origin: { x: number; y: number },
-    originCellId: string,
-    distance: number
-  ) => void;
-  addLog: (line: string) => void;
-  advanceTurnAndRefresh: () => void;
-  onTurnAction?: (action: BackendTurnAction) => void;
+  openPitModal: (cell: TrackCell, origin: { x: number; y: number }) => void;
+  onMove: (targetCellId: string) => void;
   canControlActiveCar?: () => boolean;
   onUnauthorizedControlAttempt?: () => void;
   hoverMaxDist: number;
@@ -60,9 +52,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     copyCellId,
     toggleForwardIndexOverlay,
     openPitModal,
-    addLog,
-    advanceTurnAndRefresh,
-    onTurnAction,
+    onMove,
     canControlActiveCar,
     onUnauthorizedControlAttempt,
     hoverMaxDist,
@@ -126,7 +116,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
       getValidTargets(),
       obj === token
     );
-    const dropParams: ResolvePlayerDragDropParams = {
+    resolvePlayerDragDrop({
       activeCar,
       token,
       origin,
@@ -134,20 +124,9 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
       validation,
       cellMap,
       activeHalo: activeHalos.get(activeCar.carId) ?? null,
-      onOpenPitModal: (cell, dragOrigin, originCellId, distance) => {
-        openPitModal(cell, dragOrigin, originCellId, distance);
-      },
-      onLog: (line) => addLog(line),
-      onAdvanceTurnAndRefresh: () => advanceTurnAndRefresh()
-    };
-    if (onTurnAction) {
-      resolvePlayerDragDrop({
-        ...dropParams,
-        onTurnAction
-      });
-    } else {
-      resolvePlayerDragDrop(dropParams);
-    }
+      onOpenPitModal: openPitModal,
+      onMove
+    });
     setDragOrigin(null);
   });
 

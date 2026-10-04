@@ -18,6 +18,10 @@ const DEFAULT_SETUPS: Car["setup"][] = [
   { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wingFrontDeg: 4, wingRearDeg: 10 }
 ];
 
+export function carColor(index: number): number {
+  return DEFAULT_COLORS[index % DEFAULT_COLORS.length] ?? DEFAULT_COLORS[0]!;
+}
+
 export function buildSpawnSlots(track: TrackData): TrackCell[] {
   const byId = new Map<string, TrackCell>();
   for (const cell of track.cells) {
@@ -107,7 +111,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
       moveCycle: createMoveCycle()
     };
     cars.push(car);
-    const color = (DEFAULT_COLORS[i % DEFAULT_COLORS.length] ?? DEFAULT_COLORS[0])!;
+    const color = carColor(i);
     tokens.push({ car, color });
   }
 

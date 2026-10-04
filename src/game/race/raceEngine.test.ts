@@ -215,6 +215,23 @@ describe("decideBotAction", () => {
     expect(applyAction(ctx, state, decision.action).ok).toBe(true);
   });
 
+  it("pits when worn out in the pit lane, keeping its own setup", () => {
+    const state = newRace(5, [
+      { isBot: true, ownerId: "BOT1" },
+      { isBot: false, ownerId: "P2" }
+    ]);
+    const car = getActiveCar(state);
+    car.cellId = "Z01_L0_00";
+    car.tire = 10;
+    car.fuel = 10;
+
+    const decision = decideBotAction(ctx, state);
+
+    expect(decision.action).toMatchObject({ type: "pit", setup: car.setup });
+    expect(applyAction(ctx, state, decision.action).ok).toBe(true);
+    expect(car).toMatchObject({ tire: 100, fuel: 100, state: "PITTING", pitServiced: true });
+  });
+
   it("skips an inactive car without evaluating targets", () => {
     const state = newRace();
     getActiveCar(state).state = "DNF";
