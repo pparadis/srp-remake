@@ -35,6 +35,15 @@ sudo apt install -y podman podman-compose
 
 ## Run
 
+Without containers (no Podman/Docker needed), from the repo root:
+
+```bash
+npm --prefix backend ci
+npm --prefix backend run dev   # API + WebSocket on http://localhost:3001, reloads on change
+```
+
+With containers:
+
 1. Build and start:
 
 ```bash
@@ -99,8 +108,13 @@ Expected shape:
 
 ## Notes
 
-- This is a scaffold for local development and protocol exploration.
-- Current turn route enforces `revision` and `clientCommandId` dedupe, but does not yet run full game-rule validation.
+- Lobbies and races live in memory only; restarting the backend ends them.
+- The turn route checks, in order: token, `revision`, active seat, then the game rules (shared race engine).
+  A refused turn is a `409` with `{ ok: false, error, reason? }`; `error` is one of `stale_revision`,
+  `lobby_not_in_race`, `not_active_player` or `invalid_action` (with the engine's `reason`, e.g.
+  `invalid_target`, `moves_available`, `not_pit_box`, `invalid_setup`). Refusals are deduped by
+  `clientCommandId` like successes. A malformed payload is a `400`.
+- Turn actions: `{ type: "move", targetCellId }`, `{ type: "pit", targetCellId, setup }`, `{ type: "skip" }`.
 
 ## Multiplayer Logging
 
@@ -134,14 +148,11 @@ VITE_BACKEND_API_BASE_URL=http://localhost:3001 npm run dev
 ```
 
 3. Open two browser tabs on the frontend URL.
-4. In tab A:
-   - Click `Host local lobby`.
-   - Copy `Lobby ID`.
-   - Click `Start race`.
-5. In tab B:
-   - Paste same `Lobby ID`.
-   - Click `Join lobby`.
-6. Drive turns locally; each human move/skip/pit action is submitted to backend and status updates are shown in `Backend: ...` text.
+4. In tab A, set the number of humans to 2, then click `Host local lobby` and copy the `Lobby ID` (or the invite link).
+5. In tab B, paste the same `Lobby ID` and click `Join lobby`.
+6. In tab A, click `Start race` (a human seat nobody joined is played by a bot).
+7. Drag your car on your turn. The move is sent to the server, validated, and both tabs redraw from the
+   server's state; bots play on the server. Status updates are shown in `Backend: ...` text.
 
 ## Troubleshooting
 

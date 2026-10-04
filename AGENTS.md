@@ -5,6 +5,10 @@ Project guide for Codex and other automation.
 ## Repo Overview
 
 - Game prototype in `src/` (Phaser).
+- Race engine in `src/game/race/raceEngine.ts` (no Phaser): validates and applies a turn, bots, pit penalties,
+  laps and winner. Single-player (`RaceScene`) and the multiplayer server (`backend/`) both run it, so a rule
+  change goes in `src/game/systems/*` or the engine, with tests, and applies to both.
+- Backend in `backend/` (Fastify + WebSocket): authoritative lobbies and races; bundles the shared engine.
 - Track data in `public/tracks/`.
 - Track generator in `tools/`; track validation in `src/validation/`.
 - Docs in `docs/`.
@@ -49,7 +53,9 @@ Project guide for Codex and other automation.
 
 1. Regenerate track: `npm run gen:track`
 2. Validate track: `npm run validate:track`
-3. Run tests: `npm test`
+3. Run tests: `npm test` (frontend), `npm run backend:test` (backend)
+4. Multiplayer: run the backend next to the dev server (`npm --prefix backend run dev`); check it with
+   `npm run backend:build` (typecheck + bundle).
 
 ## Troubleshooting
 

@@ -266,13 +266,19 @@ Built:
 - Lobby create/join by link, deterministic seats, bot seat fill, `raceLaps` setting.
 - Player tokens with expiry; host disconnect ends the lobby and revokes tokens.
 - Turn submission with `revision` checks, `clientCommandId` dedupe and active-seat ownership.
-- WebSocket sync (`lobby.state`, `race.started`, `race.state`, `turn.applied`, `race.ended`) with client reconnect and rehydrate.
+- The server is authoritative over the race: it runs the shared race engine (`src/game/race`), so every
+  move, pit stop (with its setup) and skip is validated against the real rules. An illegal action is refused
+  with `409 invalid_action` + a `reason` and changes nothing.
+- The server runs the bots (same heuristic as single-player), counts laps and ends the race at `raceLaps`
+  (`race.ended` with `winnerCarId`).
+- The public `raceState` carries full car state (cell, tire, fuel, setup, pit state, move budget, laps), and
+  the client renders it as-is (non-optimistic: input is locked until the server answers).
+- WebSocket sync (`lobby.state`, `race.started`, `race.state`, `turn.applied`, `race.ended`) with client
+  reconnect and rehydrate.
 
-Not built yet (the server is authoritative over turn order only, not over the race):
+Not built yet:
 
-- Server race state has no car position, tire, fuel or pit state, and no game rules: any `targetCellId` is accepted as-is.
-- Server bots always skip.
-- No lap counting or win detection online.
-- Clients only move the remote car token; they don't apply tire/fuel/lap changes from remote turns.
 - Host force-skip and rematch.
-- Client UX: sync/reconnect banner.
+- Rejoining after a page reload (the client keeps its player token in memory only).
+- Client UX: a visible sync/reconnect banner (the status line shows the connection state).
+- Rate limiting of turn submissions.
