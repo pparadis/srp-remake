@@ -68,6 +68,42 @@ describe("BackendApiClient", () => {
   });
 });
 
+describe("submitTurn rejections", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const rejection = {
+    ok: false,
+    lobbyId: "L1",
+    playerId: "p1",
+    clientCommandId: "c1",
+    revision: 3,
+    error: "invalid_action",
+    reason: "invalid_target"
+  };
+
+  it("returns a refused turn (409 with a result body) instead of throwing", async () => {
+    stubFetch(409, JSON.stringify(rejection));
+
+    const result = await new BackendApiClient("http://api.test").submitTurn("L1", "tok", 3, "c1", { type: "skip" });
+
+    expect(result).toEqual(rejection);
+  });
+
+  it("still throws for other failures", async () => {
+    stubFetch(409, JSON.stringify({ error: "Race already started or finished." }));
+    await expect(new BackendApiClient("http://api.test").submitTurn("L1", "tok", 3, "c1", { type: "skip" })).rejects.toBeInstanceOf(
+      BackendApiError
+    );
+
+    stubFetch(400, JSON.stringify({ ...rejection }));
+    await expect(new BackendApiClient("http://api.test").submitTurn("L1", "tok", 3, "c1", { type: "skip" })).rejects.toMatchObject({
+      status: 400
+    });
+  });
+});
+
 describe("resolveBackendWsBaseUrl", () => {
   it("derives ws/wss from the API base URL", () => {
     expect(resolveBackendWsBaseUrl("http://localhost:3001")).toBe("ws://localhost:3001");
