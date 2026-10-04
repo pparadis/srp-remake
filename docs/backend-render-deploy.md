@@ -2,15 +2,30 @@
 
 Minimal setup for hosting the backend API on Render.
 
-## Service Setup
+## Service Setup (Docker, recommended)
 
-- Create a new **Web Service** from this repo.
-- Leave **Root Directory** empty (the repo root): the backend bundles the shared
-  game engine from `src/game` and the track data from `public/tracks`.
-- Runtime: `Node`.
+The backend bundles the shared game engine from `src/game` and the track data from
+`public/tracks`, so the Docker build context must be the **repo root**, not `backend/`.
 
-## Build and Start
+- Create a new **Web Service** from this repo, runtime **Docker**.
+- **Root Directory**: leave empty.
+- **Dockerfile Path**: `backend/Dockerfile`
+- **Docker Build Context Directory**: `.`
 
+A context of `backend/` (for example from setting Root Directory to `backend`) fails with
+`"/public/tracks": not found` / `"/src/game": not found`. Render injects `PORT`; the server
+reads it, and listens on `HOST` (default `0.0.0.0`).
+
+Check an image locally the same way Render builds it:
+
+```bash
+podman build -f backend/Dockerfile -t srp-api .
+podman run --rm -e PORT=10000 -p 10000:10000 srp-api   # curl localhost:10000/health
+```
+
+## Service Setup (Node runtime, alternative)
+
+- **Root Directory**: empty (repo root). Runtime: `Node`.
 - **Build Command**
 
 ```bash
