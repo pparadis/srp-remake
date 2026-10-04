@@ -3,6 +3,8 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import type { BackendConfig } from "../src/config.js";
 import { createApp } from "../src/server.js";
+import type { RaceState } from "../src/types.js";
+import { legalMove, playRaceToEnd } from "./helpers.js";
 
 const TEST_CONFIG: BackendConfig = {
   HOST: "127.0.0.1",
@@ -118,6 +120,7 @@ test("websocket ordering: race.started before race.state, turn.applied before ra
     payload: { playerToken: createdBody.playerToken }
   });
   assert.equal(startRes.statusCode, 200);
+  const startState = (startRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState;
 
   await waitFor(() => events.some((e) => e.event === "race.started"), 3000);
   await waitFor(() => events.some((e) => e.event === "race.state"), 3000);
@@ -135,7 +138,7 @@ test("websocket ordering: race.started before race.state, turn.applied before ra
       playerToken: createdBody.playerToken,
       clientCommandId: "ordering-host-cmd-1",
       revision: 0,
-      action: { type: "skip" }
+      action: legalMove(startState)
     }
   });
   assert.equal(turnRes.statusCode, 200);
@@ -193,6 +196,7 @@ test("two clients receive same turn.applied revision", async (t) => {
     payload: { playerToken: createdBody.playerToken }
   });
   assert.equal(startRes.statusCode, 200);
+  const startState = (startRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState;
 
   const turnRes = await app.inject({
     method: "POST",
@@ -201,7 +205,7 @@ test("two clients receive same turn.applied revision", async (t) => {
       playerToken: createdBody.playerToken,
       clientCommandId: "sync-host-cmd-1",
       revision: 0,
-      action: { type: "skip" }
+      action: legalMove(startState)
     }
   });
   assert.equal(turnRes.statusCode, 200);
@@ -259,6 +263,7 @@ test("websocket broadcasts backend bot turns after human submit", async (t) => {
     payload: { playerToken: createdBody.playerToken }
   });
   assert.equal(startRes.statusCode, 200);
+  const startState = (startRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState;
 
   const turnRes = await app.inject({
     method: "POST",
@@ -267,7 +272,7 @@ test("websocket broadcasts backend bot turns after human submit", async (t) => {
       playerToken: createdBody.playerToken,
       clientCommandId: "host-cmd-with-bots-1",
       revision: 0,
-      action: { type: "skip" }
+      action: legalMove(startState)
     }
   });
   assert.equal(turnRes.statusCode, 200);
@@ -357,4 +362,48 @@ test("reconnect websocket receives hydration race.state snapshot", async (t) => 
   await waitFor(() => second.events.some((e) => e.event === "race.state"), 3000);
   second.ws.close(1000, "done");
   await waitForClose(second.ws);
+});
+
+test("websocket announces race.ended with the winner after the final turn", async (t) => {
+  const app = await createListeningTestApp();
+  t.after(async () => {
+    await app.close();
+  });
+
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: {
+      name: "Host",
+      settings: { totalCars: 2, humanCars: 1, botCars: 1, raceLaps: 1 }
+    }
+  });
+  const createdBody = createdRes.json() as { lobby: { lobbyId: string }; playerToken: string };
+  const { ws, events } = connectAndCollect(app, createdBody.lobby.lobbyId, createdBody.playerToken);
+  await waitForWsOpen(ws);
+
+  const startRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
+    payload: { playerToken: createdBody.playerToken }
+  });
+  assert.equal(startRes.statusCode, 200);
+
+  const finished = await playRaceToEnd(app, createdBody.lobby.lobbyId, createdBody.playerToken);
+  await waitFor(() => events.some((e) => e.event === "race.ended"), 3000);
+
+  const ended = events.find((e) => e.event === "race.ended")?.payload as {
+    reason: string;
+    winnerCarId: number;
+    lobby: { status: string };
+  };
+  assert.equal(ended.reason, "race_finished");
+  assert.equal(ended.winnerCarId, finished.raceState.winnerCarId);
+  assert.equal(ended.lobby.status, "FINISHED");
+  // The final board state is broadcast before the race is closed.
+  const endedIndex = events.findIndex((e) => e.event === "race.ended");
+  assert.ok(events.slice(0, endedIndex).some((e) => e.event === "race.state"));
+
+  ws.close(1000, "done");
+  await waitForClose(ws);
 });

@@ -1,8 +1,20 @@
 import { randomUUID } from "node:crypto";
+import {
+  applyAction,
+  createRace,
+  decideBotAction,
+  getActiveCar,
+  type ApplyResult,
+  type BotTurnDecision
+} from "../../src/game/race/raceEngine";
+import { getRaceContext, knownTrackIds } from "./tracks.js";
 import type {
   Lobby,
   LobbyPlayer,
+  RaceCarState,
+  RaceSeatInfo,
   RaceState,
+  ServerRace,
   TurnSubmitAction,
   LobbySettings,
   LobbyTerminationReason,
@@ -27,6 +39,9 @@ function normalizeSettings(
   base = DEFAULT_SETTINGS
 ): LobbySettings {
   const trackId = input?.trackId?.trim() || base.trackId;
+  if (!getRaceContext(trackId)) {
+    throw new LobbyError(400, `Unknown trackId "${trackId}" (available: ${knownTrackIds().join(", ")}).`);
+  }
   let humanCars = clampInt(input?.humanCars ?? base.humanCars, 0, 11);
   let botCars = clampInt(input?.botCars ?? base.botCars, 0, 11);
 
@@ -54,6 +69,20 @@ function toPublicPlayer(player: LobbyPlayer): PublicLobbyPlayer {
   };
 }
 
+function toPublicRaceState(lobby: Lobby): RaceState | undefined {
+  const race = lobby.race;
+  if (!race) return undefined;
+  const { engine, seats } = race;
+  return {
+    trackId: lobby.settings.trackId,
+    raceLaps: engine.raceLaps,
+    turnIndex: race.turnIndex,
+    activeSeatIndex: engine.turn.index,
+    winnerCarId: engine.winnerCarId,
+    cars: engine.cars.map((car, i): RaceCarState => ({ ...car, ...seats[i]! }))
+  };
+}
+
 export function toPublicLobby(lobby: Lobby): PublicLobby {
   const publicLobby: PublicLobby = {
     lobbyId: lobby.lobbyId,
@@ -69,8 +98,9 @@ export function toPublicLobby(lobby: Lobby): PublicLobby {
   if (lobby.terminationReason !== undefined) {
     publicLobby.terminationReason = lobby.terminationReason;
   }
-  if (lobby.raceState !== undefined) {
-    publicLobby.raceState = lobby.raceState;
+  const raceState = toPublicRaceState(lobby);
+  if (raceState !== undefined) {
+    publicLobby.raceState = raceState;
   }
 
   return publicLobby;
@@ -114,37 +144,36 @@ export class LobbyStore {
     throw new LobbyError(409, "No human seats remaining in lobby settings.");
   }
 
-  private buildInitialRaceState(lobby: Lobby): RaceState {
+  private buildInitialRace(lobby: Lobby): ServerRace {
+    const ctx = getRaceContext(lobby.settings.trackId);
+    if (!ctx) {
+      throw new LobbyError(400, `Unknown trackId "${lobby.settings.trackId}".`);
+    }
     const playersBySeat = new Map<number, LobbyPlayer>();
     for (const player of lobby.players) {
       playersBySeat.set(player.seatIndex, player);
     }
 
     let botCounter = 0;
-    const cars = Array.from({ length: lobby.settings.totalCars }, (_, seatIndex) => {
+    const seats = Array.from({ length: lobby.settings.totalCars }, (_, seatIndex): RaceSeatInfo => {
       const player = playersBySeat.get(seatIndex);
-      const isBot = !player;
-      if (isBot) {
-        botCounter += 1;
-      }
+      if (!player) botCounter += 1;
       return {
-        carId: seatIndex + 1,
         seatIndex,
         playerId: player?.playerId ?? null,
-        name: player?.name ?? `Bot ${botCounter}`,
-        isBot,
-        lapCount: 0,
-        actionsTaken: 0
+        name: player?.name ?? `Bot ${botCounter}`
       };
     });
 
-    return {
-      trackId: lobby.settings.trackId,
-      raceLaps: lobby.settings.raceLaps,
-      turnIndex: 0,
-      activeSeatIndex: 0,
-      cars
-    };
+    const engine = createRace(
+      ctx,
+      seats.map((seat) => ({
+        isBot: seat.playerId === null,
+        ownerId: seat.playerId ?? `BOT${seat.seatIndex + 1}`
+      })),
+      lobby.settings.raceLaps
+    );
+    return { engine, seats, turnIndex: 0 };
   }
 
   findPlayerByToken(lobby: Lobby, playerToken: string): LobbyPlayer | undefined {
@@ -305,7 +334,7 @@ export class LobbyStore {
 
     lobby.status = "IN_RACE";
     lobby.revision = 0;
-    lobby.raceState = this.buildInitialRaceState(lobby);
+    lobby.race = this.buildInitialRace(lobby);
     lobby.updatedAt = Date.now();
     return lobby;
   }
@@ -317,33 +346,45 @@ export class LobbyStore {
     return lobby;
   }
 
-  getActiveRaceCar(lobbyId: string) {
-    const lobby = this.getLobbyOrThrow(lobbyId);
-    const raceState = lobby.raceState;
-    if (!raceState) return undefined;
-    return raceState.cars[raceState.activeSeatIndex];
+  // The seat whose turn it is (carId = seatIndex + 1), or undefined outside a race.
+  getActiveRaceSeat(lobbyId: string): (RaceSeatInfo & { isBot: boolean }) | undefined {
+    const race = this.getLobbyOrThrow(lobbyId).race;
+    if (!race) return undefined;
+    const car = getActiveCar(race.engine);
+    const seat = race.seats[car.carId - 1];
+    return seat ? { ...seat, isBot: car.isBot } : undefined;
   }
 
-  applyTurnAction(lobbyId: string, action: TurnSubmitAction): Lobby {
+  // Validates `action` with the shared race engine and applies it for the active
+  // car. A rejected action changes nothing. The caller bumps the revision.
+  applyTurnAction(lobbyId: string, action: TurnSubmitAction): ApplyResult {
     const lobby = this.getLobbyOrThrow(lobbyId);
-    const raceState = lobby.raceState;
-    if (!raceState || raceState.cars.length === 0) {
+    const race = lobby.race;
+    const ctx = getRaceContext(lobby.settings.trackId);
+    if (!race || !ctx) {
       throw new LobbyError(409, "Race state not initialized.");
     }
 
-    const activeCar = raceState.cars[raceState.activeSeatIndex];
-    if (!activeCar) {
-      throw new LobbyError(409, "Active seat is out of bounds.");
+    const result = applyAction(ctx, race.engine, action);
+    if (!result.ok) return result;
+
+    race.turnIndex += 1;
+    if (race.engine.winnerCarId !== null) {
+      lobby.status = "FINISHED";
+      lobby.terminationReason = "race_finished";
     }
-
-    activeCar.actionsTaken += 1;
-    activeCar.lastAction =
-      action.targetCellId === undefined ? { type: action.type } : { ...action };
-
-    raceState.turnIndex += 1;
-    raceState.activeSeatIndex = (raceState.activeSeatIndex + 1) % raceState.cars.length;
     lobby.updatedAt = Date.now();
-    return lobby;
+    return result;
+  }
+
+  // What the shared bot heuristic would play for the active car. Changes nothing.
+  decideBotTurn(lobbyId: string): BotTurnDecision {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    const ctx = getRaceContext(lobby.settings.trackId);
+    if (!lobby.race || !ctx) {
+      throw new LobbyError(409, "Race state not initialized.");
+    }
+    return decideBotAction(ctx, lobby.race.engine);
   }
 
   terminateLobby(lobbyId: string, reason: LobbyTerminationReason): Lobby {

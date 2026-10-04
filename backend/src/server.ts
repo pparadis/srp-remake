@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { loadConfig, type BackendConfig } from "./config.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
-import type { LobbySettings, TurnCommandResult, TurnSubmitAction } from "./types.js";
+import type { Lobby, LobbySettings, TurnCommandResult, TurnSubmitAction } from "./types.js";
 
 const WS_OPEN = 1;
 const API_V1_PREFIX = "/api/v1";
@@ -75,17 +75,19 @@ const StartRaceSchema = z.object({
   playerToken: z.string().min(1)
 });
 
-const TurnActionSchema = z
-  .object({
-    type: z.enum(["move", "pit", "skip"]),
-    targetCellId: z.string().min(1).optional()
-  })
-  .transform(
-    (action): TurnSubmitAction =>
-      action.targetCellId === undefined
-        ? { type: action.type }
-        : { type: action.type, targetCellId: action.targetCellId }
-  );
+// Shape only; the race engine enforces the PSI/wing limits and every game rule.
+const CarSetupSchema = z.object({
+  compound: z.enum(["soft", "hard"]),
+  psi: z.object({ fl: z.number(), fr: z.number(), rl: z.number(), rr: z.number() }),
+  wingFrontDeg: z.number(),
+  wingRearDeg: z.number()
+});
+
+const TurnActionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("skip") }),
+  z.object({ type: z.literal("move"), targetCellId: z.string().min(1) }),
+  z.object({ type: z.literal("pit"), targetCellId: z.string().min(1), setup: CarSetupSchema })
+]);
 
 const SubmitTurnSchema = z.object({
   playerToken: z.string().min(1),
@@ -136,15 +138,18 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   function summarizeRaceState(lobbyId: string) {
     const lobby = lobbyStore.getLobby(lobbyId);
-    if (!lobby?.raceState) return null;
+    if (!lobby?.race) return null;
+    const { engine, seats } = lobby.race;
     return {
-      turnIndex: lobby.raceState.turnIndex,
-      activeSeatIndex: lobby.raceState.activeSeatIndex,
-      cars: lobby.raceState.cars.map((car) => ({
-        seatIndex: car.seatIndex,
-        playerId: car.playerId,
+      turnIndex: lobby.race.turnIndex,
+      activeSeatIndex: engine.turn.index,
+      winnerCarId: engine.winnerCarId,
+      cars: engine.cars.map((car, i) => ({
+        seatIndex: seats[i]?.seatIndex,
+        playerId: seats[i]?.playerId ?? null,
         isBot: car.isBot,
-        actionsTaken: car.actionsTaken
+        cellId: car.cellId,
+        lapCount: car.lapCount ?? 0
       }))
     };
   }
@@ -226,45 +231,77 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     socketsByLobby.delete(lobbyId);
   }
 
+  // After an applied turn: tell everyone, and close the race when someone won.
+  function announceTurn(lobby: Lobby, event: AppliedTurnEvent) {
+    broadcast(lobby.lobbyId, "turn.applied", event);
+    broadcast(lobby.lobbyId, "race.state", toPublicLobby(lobby));
+    const winnerCarId = lobby.race?.engine.winnerCarId ?? null;
+    if (winnerCarId !== null) {
+      logMultiplayer("race.end", {
+        lobbyId: lobby.lobbyId,
+        reason: "race_finished",
+        winnerCarId,
+        revision: lobby.revision,
+        turnIndex: lobby.race?.turnIndex ?? null
+      });
+      broadcast(lobby.lobbyId, "race.ended", {
+        reason: "race_finished",
+        winnerCarId,
+        lobby: toPublicLobby(lobby)
+      });
+    }
+  }
+
   function runPendingBotTurns(lobbyId: string) {
     while (true) {
       const lobby = lobbyStore.getLobby(lobbyId);
-      if (!lobby || lobby.status !== "IN_RACE" || !lobby.raceState) {
+      if (!lobby || lobby.status !== "IN_RACE" || !lobby.race) {
         return;
       }
 
-      const activeCar = lobbyStore.getActiveRaceCar(lobbyId);
-      if (!activeCar || !activeCar.isBot) {
+      const activeSeat = lobbyStore.getActiveRaceSeat(lobbyId);
+      if (!activeSeat || !activeSeat.isBot) {
         return;
       }
 
-      // Bots always skip until the backend knows the movement rules.
-      const action: TurnSubmitAction = { type: "skip" };
-      lobbyStore.applyTurnAction(lobbyId, action);
+      const decision = lobbyStore.decideBotTurn(lobbyId);
+      const applied = lobbyStore.applyTurnAction(lobbyId, decision.action);
+      if (!applied.ok) {
+        // The shared heuristic only proposes legal actions; stop rather than spin.
+        logMultiplayer("turn.bot.rejected", {
+          lobbyId,
+          seatIndex: activeSeat.seatIndex,
+          reason: applied.reason
+        });
+        return;
+      }
       const updatedLobby = lobbyStore.incrementRevision(lobbyId);
-      const playerId = `BOT${activeCar.seatIndex + 1}`;
-      const clientCommandId = `bot-${updatedLobby.revision}-${activeCar.seatIndex}`;
-      const botEvent: AppliedTurnEvent = {
+      const playerId = `BOT${activeSeat.seatIndex + 1}`;
+      const clientCommandId = `bot-${updatedLobby.revision}-${activeSeat.seatIndex}`;
+      announceTurn(updatedLobby, {
         ok: true,
         lobbyId,
         playerId,
         clientCommandId,
         revision: updatedLobby.revision,
-        applied: action,
+        applied: decision.action,
         source: "bot",
-        seatIndex: activeCar.seatIndex
-      };
-      broadcast(lobbyId, "turn.applied", botEvent);
-      broadcast(lobbyId, "race.state", toPublicLobby(updatedLobby));
+        seatIndex: activeSeat.seatIndex
+      });
       logMultiplayer("turn.bot.applied", {
         lobbyId,
         playerId,
-        seatIndex: activeCar.seatIndex,
+        seatIndex: activeSeat.seatIndex,
         revision: updatedLobby.revision,
-        turnIndex: updatedLobby.raceState?.turnIndex ?? null,
+        turnIndex: updatedLobby.race?.turnIndex ?? null,
         clientCommandId,
-        activeSeatIndex: updatedLobby.raceState?.activeSeatIndex ?? null,
-        applied: action,
+        activeSeatIndex: updatedLobby.race?.engine.turn.index ?? null,
+        applied: decision.action,
+        botTrace: {
+          selectedCellId: decision.trace?.selectedCellId ?? null,
+          lowResources: decision.trace?.lowResources ?? null,
+          candidates: decision.trace?.candidates.length ?? 0
+        },
         raceSummary: summarizeRaceState(lobbyId)
       });
     }
@@ -273,6 +310,10 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof LobbyError) {
       reply.code(error.statusCode).send({ error: error.message });
+      return;
+    }
+    if (error instanceof z.ZodError) {
+      reply.code(400).send({ error: "invalid_request", issues: error.issues });
       return;
     }
     app.log.error(error);
@@ -295,7 +336,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       playerId: host.playerId,
       seatIndex: host.seatIndex,
       revision: lobby.revision,
-      turnIndex: lobby.raceState?.turnIndex ?? null,
+      turnIndex: lobby.race?.turnIndex ?? null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     return reply.code(201).send({
@@ -328,7 +369,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       playerId: player.playerId,
       seatIndex: player.seatIndex,
       revision: lobby.revision,
-      turnIndex: lobby.raceState?.turnIndex ?? null
+      turnIndex: lobby.race?.turnIndex ?? null
     });
     return {
       lobby: toPublicLobby(lobby),
@@ -351,7 +392,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       playerId: player.playerId,
       seatIndex: player.seatIndex,
       revision: lobby.revision,
-      turnIndex: lobby.raceState?.turnIndex ?? null,
+      turnIndex: lobby.race?.turnIndex ?? null,
       tokenFingerprint: tokenFingerprint(player.playerToken),
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
@@ -376,7 +417,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     logMultiplayer("lobby.settings.update", {
       lobbyId: lobby.lobbyId,
       revision: lobby.revision,
-      turnIndex: lobby.raceState?.turnIndex ?? null,
+      turnIndex: lobby.race?.turnIndex ?? null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     return { lobby: publicLobby };
@@ -392,11 +433,12 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     logMultiplayer("race.start", {
       lobbyId: lobby.lobbyId,
       revision: lobby.revision,
-      turnIndex: lobby.raceState?.turnIndex ?? null,
-      activeSeatIndex: lobby.raceState?.activeSeatIndex ?? null,
+      turnIndex: lobby.race?.turnIndex ?? null,
+      activeSeatIndex: lobby.race?.engine.turn.index ?? null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
-    return { lobby: publicLobby };
+    runPendingBotTurns(lobby.lobbyId);
+    return { lobby: toPublicLobby(lobby) };
   });
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/turns`, async (request, reply) => {
@@ -425,7 +467,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         playerId: player.playerId,
         seatIndex: player.seatIndex,
         revision: deduped.revision,
-        turnIndex: lobby.raceState?.turnIndex ?? null,
+        turnIndex: lobby.race?.turnIndex ?? null,
         clientCommandId: body.clientCommandId
       });
       return deduped;
@@ -447,7 +489,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         playerId: player.playerId,
         seatIndex: player.seatIndex,
         revision: lobby.revision,
-        turnIndex: lobby.raceState?.turnIndex ?? null,
+        turnIndex: lobby.race?.turnIndex ?? null,
         clientCommandId: body.clientCommandId,
         reason: "lobby_not_in_race"
       });
@@ -469,7 +511,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         playerId: player.playerId,
         seatIndex: player.seatIndex,
         revision: lobby.revision,
-        turnIndex: lobby.raceState?.turnIndex ?? null,
+        turnIndex: lobby.race?.turnIndex ?? null,
         clientCommandId: body.clientCommandId,
         reason: "stale_revision",
         expectedRevision: lobby.revision,
@@ -479,8 +521,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       return reply.code(409).send(result);
     }
 
-    const activeCar = lobbyStore.getActiveRaceCar(lobby.lobbyId);
-    if (!activeCar || activeCar.playerId !== player.playerId) {
+    const activeSeat = lobbyStore.getActiveRaceSeat(lobby.lobbyId);
+    if (!activeSeat || activeSeat.playerId !== player.playerId) {
       result = {
         ok: false,
         lobbyId: lobby.lobbyId,
@@ -495,16 +537,42 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         playerId: player.playerId,
         seatIndex: player.seatIndex,
         revision: lobby.revision,
-        turnIndex: lobby.raceState?.turnIndex ?? null,
+        turnIndex: lobby.race?.turnIndex ?? null,
         clientCommandId: body.clientCommandId,
         reason: "not_active_player",
-        activeSeatIndex: lobby.raceState?.activeSeatIndex ?? null,
+        activeSeatIndex: lobby.race?.engine.turn.index ?? null,
         raceSummary: summarizeRaceState(lobby.lobbyId)
       });
       return reply.code(409).send(result);
     }
 
-    lobbyStore.applyTurnAction(lobby.lobbyId, body.action);
+    // The shared race engine validates the move against the real rules.
+    const applied = lobbyStore.applyTurnAction(lobby.lobbyId, body.action);
+    if (!applied.ok) {
+      result = {
+        ok: false,
+        lobbyId: lobby.lobbyId,
+        playerId: player.playerId,
+        clientCommandId: body.clientCommandId,
+        revision: lobby.revision,
+        error: "invalid_action",
+        reason: applied.reason
+      };
+      dedupedResults.set(dedupeKey, result);
+      logMultiplayer("turn.submit.rejected", {
+        lobbyId: lobby.lobbyId,
+        playerId: player.playerId,
+        seatIndex: player.seatIndex,
+        revision: lobby.revision,
+        turnIndex: lobby.race?.turnIndex ?? null,
+        clientCommandId: body.clientCommandId,
+        reason: "invalid_action",
+        engineReason: applied.reason,
+        action: body.action.type
+      });
+      return reply.code(409).send(result);
+    }
+
     const updatedLobby = lobbyStore.incrementRevision(lobby.lobbyId);
     result = {
       ok: true,
@@ -515,16 +583,15 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       applied: body.action
     };
     dedupedResults.set(dedupeKey, result);
-    broadcast(lobby.lobbyId, "turn.applied", result);
-    broadcast(lobby.lobbyId, "race.state", toPublicLobby(updatedLobby));
+    announceTurn(updatedLobby, result);
     logMultiplayer("turn.submit.applied", {
       lobbyId: lobby.lobbyId,
       playerId: player.playerId,
       seatIndex: player.seatIndex,
       revision: updatedLobby.revision,
-      turnIndex: updatedLobby.raceState?.turnIndex ?? null,
+      turnIndex: updatedLobby.race?.turnIndex ?? null,
       clientCommandId: body.clientCommandId,
-      activeSeatIndex: updatedLobby.raceState?.activeSeatIndex ?? null,
+      activeSeatIndex: updatedLobby.race?.engine.turn.index ?? null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     runPendingBotTurns(lobby.lobbyId);
@@ -576,7 +643,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       playerId: player.playerId,
       seatIndex: player.seatIndex,
       revision: lobby.revision,
-      turnIndex: lobby.raceState?.turnIndex ?? null
+      turnIndex: lobby.race?.turnIndex ?? null
     });
     const publicLobby = toPublicLobby(lobby);
     ws.send(JSON.stringify({ event: "lobby.state", payload: publicLobby }));
@@ -594,7 +661,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
           playerId: result.player.playerId,
           seatIndex: result.player.seatIndex,
           revision: result.lobby.revision,
-          turnIndex: result.lobby.raceState?.turnIndex ?? null
+          turnIndex: result.lobby.race?.turnIndex ?? null
         });
         broadcast(lobbyId, "lobby.state", toPublicLobby(result.lobby));
         if (result.player.isHost && result.lobby.status !== "FINISHED") {
@@ -604,7 +671,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
             lobbyId,
             reason: "host_disconnected",
             revision: ended.revision,
-            turnIndex: ended.raceState?.turnIndex ?? null
+            turnIndex: ended.race?.turnIndex ?? null
           });
           broadcast(lobbyId, "race.ended", {
             reason: "host_disconnected",
