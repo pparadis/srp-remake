@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import type { Car } from "../../types/car";
+import { SETUP_LIMITS } from "../../constants";
 import { TextButton } from "./TextButton";
 
 interface PitModalTexts {
@@ -195,7 +196,7 @@ export class PitModal {
 
   private adjustPsi(delta: number) {
     if (!this.modalSetup) return;
-    const clamp = (v: number) => Math.max(15, Math.min(35, v + delta));
+    const clamp = (v: number) => Math.max(SETUP_LIMITS.psi.min, Math.min(SETUP_LIMITS.psi.max, v + delta));
     this.modalSetup.psi.fl = clamp(this.modalSetup.psi.fl);
     this.modalSetup.psi.fr = clamp(this.modalSetup.psi.fr);
     this.modalSetup.psi.rl = clamp(this.modalSetup.psi.rl);
@@ -205,7 +206,7 @@ export class PitModal {
 
   private adjustWing(delta: number) {
     if (!this.modalSetup) return;
-    const clamp = (v: number) => Math.max(0, Math.min(20, v + delta));
+    const clamp = (v: number) => Math.max(SETUP_LIMITS.wingDeg.min, Math.min(SETUP_LIMITS.wingDeg.max, v + delta));
     this.modalSetup.wingFrontDeg = clamp(this.modalSetup.wingFrontDeg);
     this.modalSetup.wingRearDeg = clamp(this.modalSetup.wingRearDeg);
     this.refreshModalValues();
