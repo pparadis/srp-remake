@@ -14,8 +14,12 @@ Minimal setup for hosting the backend API on Render.
 - **Build Command**
 
 ```bash
-npm --prefix backend ci && npm --prefix backend run build
+npm --prefix backend ci --include=dev && npm --prefix backend run build
 ```
+
+`--include=dev` is required: Render sets `NODE_ENV=production`, which makes `npm ci` skip
+devDependencies, but the build needs `typescript` and `esbuild`. Without it the build fails
+with `tsc: not found`.
 
 - **Start Command**
 
@@ -56,3 +60,10 @@ Expected:
 ```json
 { "ok": true, "lobbies": 0 }
 ```
+
+## Frontend (GitHub Pages)
+
+`.github/workflows/deploy-pages.yml` builds the frontend with `VITE_BACKEND_API_BASE_URL`
+pointing at the Render service (`https://srp-remake.onrender.com`). The WebSocket URL is
+derived from it. Without this the deployed site falls back to `http://localhost:3001` and
+online lobbies cannot connect. Change the URL there if the service is renamed.
