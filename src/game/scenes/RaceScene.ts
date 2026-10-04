@@ -4,6 +4,8 @@ import type { Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
 import {
   INNER_MAIN_LANE,
+  MOVE_BUDGET,
+  MOVE_RATES,
   OUTER_MAIN_LANE,
   REG_BOT_CARS,
   REG_HUMAN_CARS,
@@ -59,15 +61,6 @@ export class RaceScene extends Phaser.Scene {
     infoPos: { x: 14, y: 14 },
     debugHintPos: { x: 14, y: 36 },
     cyclePosY: 10
-  };
-  private static readonly MOVE_RATES = {
-    softTire: 0.5,
-    hardTire: 0.35,
-    fuel: 0.45
-  };
-  private static readonly MOVE_BUDGET = {
-    baseMax: 9,
-    zeroResourceMax: 4
   };
   private static readonly BOT_LOG_LIMIT = 1000;
   private static readonly HUD_LABELS = {
@@ -629,13 +622,13 @@ export class RaceScene extends Phaser.Scene {
     const occupied = new Set(this.cars.map((c) => c.cellId));
     const baseMaxSteps =
       car.tire === 0 || car.fuel === 0
-        ? RaceScene.MOVE_BUDGET.zeroResourceMax
-        : RaceScene.MOVE_BUDGET.baseMax;
+        ? MOVE_BUDGET.zeroResourceMax
+        : MOVE_BUDGET.baseMax;
     const remainingBudget = getRemainingBudget(car.moveCycle);
     const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
     const tireRate =
-      car.setup.compound === "soft" ? RaceScene.MOVE_RATES.softTire : RaceScene.MOVE_RATES.hardTire;
-    const fuelRate = RaceScene.MOVE_RATES.fuel;
+      car.setup.compound === "soft" ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
+    const fuelRate = MOVE_RATES.fuel;
     return computeValidTargets(
       this.trackIndex,
       car.cellId,
@@ -983,8 +976,8 @@ export class RaceScene extends Phaser.Scene {
       activeCar: this.activeCar,
       validTargets: this.validTargets,
       botDecisionCount: this.botDecisionLog.length,
-      moveBudget: RaceScene.MOVE_BUDGET,
-      moveRates: RaceScene.MOVE_RATES,
+      moveBudget: MOVE_BUDGET,
+      moveRates: MOVE_RATES,
       disallowPitBoxTargets: this.activeCar.pitServiced
     });
   }
