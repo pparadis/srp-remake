@@ -275,10 +275,14 @@ Built:
   the client renders it as-is (non-optimistic: input is locked until the server answers).
 - WebSocket sync (`lobby.state`, `race.started`, `race.state`, `turn.applied`, `race.ended`) with client
   reconnect and rehydrate.
+- Play again: `POST /api/v1/lobbies/:lobbyId/reset` (host only, body `{ playerToken }`) returns a lobby that
+  finished by `race_finished` to `WAITING` (race state, winner and `terminationReason` cleared, `revision`
+  bumped; players, tokens and settings kept) and broadcasts `lobby.state`. `409` if the lobby is not
+  `FINISHED` or was closed (host disconnect: tokens are revoked, it stays dead); `403` for a non-host.
 
 Not built yet:
 
-- Host force-skip and rematch.
+- Host force-skip.
 - Rejoining after a page reload (the client keeps its player token in memory only).
 - Client UX: a visible sync/reconnect banner (the status line shows the connection state).
 - Rate limiting of turn submissions.

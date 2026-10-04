@@ -223,11 +223,15 @@ export class RaceScene extends Phaser.Scene {
     this.applyCarsAndMovesVisibility();
     this.updateExternalToggleLabel();
     this.setUIFixed();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    // game.destroy() emits DESTROY, not SHUTDOWN: without both, a dead scene keeps
+    // reacting to lobby events (the next online race would hit its destroyed sprites).
+    const removeWindowListeners = () => {
       window.removeEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
       window.removeEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
       window.removeEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
-    });
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, removeWindowListeners);
+    this.events.once(Phaser.Scenes.Events.DESTROY, removeWindowListeners);
     window.addEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
     window.addEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
     window.addEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);

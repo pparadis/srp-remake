@@ -44,6 +44,9 @@ const lobbyInviteBlock = el("lobbyInviteBlock");
 const lobbyInviteLink = el<HTMLInputElement>("lobbyInviteLink");
 const lobbyCopyBtn = el<HTMLButtonElement>("lobbyCopyBtn");
 const lobbyStartBtn = el<HTMLButtonElement>("lobbyStartBtn");
+const lobbyPlayAgainBtn = el<HTMLButtonElement>("lobbyPlayAgainBtn");
+const resultsPlayAgainBtn = el<HTMLButtonElement>("resultsPlayAgainBtn");
+const resultsWait = el("resultsWait");
 const lobbyLeaveBtn = el<HTMLButtonElement>("lobbyLeaveBtn");
 const results = el("results");
 const resultsWinner = el("resultsWinner");
@@ -225,9 +228,18 @@ function renderLobby() {
   lobbyHumans.disabled = lobbyBots.disabled = lobbyLaps.disabled = !editable;
   lobbyStartBtn.disabled = backendBusy || !isHost || !waiting;
   lobbyStartBtn.hidden = online && !isHost;
+  const canPlayAgain = online && lobby?.status === "FINISHED" && lobby.terminationReason === "race_finished";
+  lobbyPlayAgainBtn.hidden = !(canPlayAgain && isHost);
+  lobbyPlayAgainBtn.disabled = backendBusy;
   lobbyNote.hidden = !(online && lobby && lobby.status !== "WAITING");
   lobbyNote.textContent =
-    lobby?.status === "IN_RACE" ? "Race in progress." : "Race finished. Create a new lobby to race again.";
+    lobby?.status === "IN_RACE"
+      ? "Race in progress."
+      : canPlayAgain
+        ? isHost
+          ? "Race finished."
+          : "Race finished. Waiting for host to start another race."
+        : "This lobby is closed.";
 
   lobbyPlayers.replaceChildren(
     ...(lobby?.players ?? []).map((player) => {
@@ -274,6 +286,9 @@ function showResults(winnerCarId: number | null) {
   const car = lastLobby?.raceState?.cars.find((candidate) => candidate.carId === winnerCarId);
   const who = car ? car.name : mode === "solo" ? (winnerCarId === 1 ? "you" : "bot") : "";
   resultsWinner.textContent = `Car ${winnerCarId ?? "?"}${who ? ` (${who})` : ""} wins`;
+  const online = mode === "online" && backendSession !== null;
+  resultsPlayAgainBtn.hidden = !(online && backendSession!.isHost);
+  resultsWait.hidden = !(online && !backendSession!.isHost);
   results.hidden = false;
 }
 
@@ -376,7 +391,9 @@ function syncOnlineScreen() {
 function applyLobbyState(lobby: PublicLobby, source: string) {
   if (!backendSession) return;
   if (lobby.lobbyId !== backendSession.lobbyId) return;
-  backendSession.revision = Math.max(backendSession.revision, lobby.revision);
+  // A new race restarts the server's revision at 0, so do not keep the old race's count.
+  const newRace = lobby.status === "IN_RACE" && lastLobby?.status !== "IN_RACE";
+  backendSession.revision = newRace ? lobby.revision : Math.max(backendSession.revision, lobby.revision);
   backendSession.isHost = lobby.hostPlayerId === backendSession.playerId;
   lastLobby = lobby;
   storeSession(backendSession);
@@ -666,6 +683,22 @@ async function startRace() {
   }
 }
 
+async function playAgain() {
+  if (backendBusy || !backendSession?.isHost) return;
+  setBackendBusy(true);
+  setStatus("resetting lobby...");
+  logMultiplayerClient("lobby.reset.requested");
+  try {
+    const reset = await backendClient.resetLobby(backendSession.lobbyId, backendSession.playerToken);
+    applyLobbyState(reset.lobby, "reset");
+  } catch (error) {
+    setStatus(`play again failed (${toErrorText(error)})`);
+    logMultiplayerClient("lobby.reset.failed", { error: toErrorText(error) });
+  } finally {
+    setBackendBusy(false);
+  }
+}
+
 async function changeSettings() {
   const humanCars = Number.parseInt(lobbyHumans.value, 10);
   const botCars = Number.parseInt(lobbyBots.value, 10);
@@ -804,6 +837,8 @@ for (const input of [lobbyHumans, lobbyBots, lobbyLaps]) {
   input.addEventListener("change", () => void changeSettings());
 }
 lobbyStartBtn.addEventListener("click", () => void startRace());
+lobbyPlayAgainBtn.addEventListener("click", () => void playAgain());
+resultsPlayAgainBtn.addEventListener("click", () => void playAgain());
 lobbyCopyBtn.addEventListener("click", () => void copyInviteLink());
 lobbyLeaveBtn.addEventListener("click", () => navigate({ name: "home" }));
 

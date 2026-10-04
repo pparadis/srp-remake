@@ -173,3 +173,79 @@ test("a pit stop needs a legal setup; a valid one refills the car and costs the 
   assert.equal(lobby.raceState.activeSeatIndex, 0);
   assert.deepEqual([car.state, car.pitTurnsRemaining, car.pitExitBoost], ["ACTIVE", 0, true]);
 });
+
+test("reset: only the host may reset, only a naturally finished lobby, and a reset lobby races again", async (t) => {
+  const store = new LobbyStore();
+  const app = await createApp(TEST_CONFIG, { logger: false, lobbyStore: store });
+  t.after(() => app.close());
+  const post = async (lobbyId: string, action: string, playerToken: string) =>
+    app.inject({ method: "POST", url: `/api/v1/lobbies/${lobbyId}/${action}`, payload: { playerToken } });
+  const create = async () =>
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/v1/lobbies",
+        payload: { name: "Host", settings: { totalCars: 3, humanCars: 2, botCars: 1, raceLaps: 1 } }
+      })
+    ).json() as { lobby: { lobbyId: string }; playerToken: string };
+
+  const { lobby, playerToken } = await create();
+  const id = lobby.lobbyId;
+  const guest = (
+    await app.inject({ method: "POST", url: `/api/v1/lobbies/${id}/join`, payload: { name: "Guest" } })
+  ).json() as { playerToken: string };
+
+  // WAITING and IN_RACE lobbies cannot be reset
+  assert.equal((await post(id, "reset", playerToken)).statusCode, 409);
+  await post(id, "start", playerToken);
+  assert.equal((await post(id, "reset", playerToken)).statusCode, 409);
+
+  // Finish the race by hand (two humans alternate; seat 2 is a bot played by the server).
+  const tokens = [playerToken, guest.playerToken];
+  for (let i = 0; i < 600; i += 1) {
+    const state = await readLobby(app, id, playerToken);
+    if (state.status === "FINISHED") break;
+    await app.inject({
+      method: "POST",
+      url: `/api/v1/lobbies/${id}/turns`,
+      payload: {
+        playerToken: tokens[state.raceState.activeSeatIndex],
+        clientCommandId: `one-${i}`,
+        revision: state.revision,
+        action: legalMove(state.raceState)
+      }
+    });
+  }
+  const finished = await readLobby(app, id, playerToken);
+  assert.equal(finished.status, "FINISHED");
+
+  assert.equal((await post(id, "reset", guest.playerToken)).statusCode, 403);
+  assert.equal((await post(id, "reset", "bogus")).statusCode, 401);
+  assert.equal((await post(id, "start", playerToken)).statusCode, 409);
+
+  const reset = await post(id, "reset", playerToken);
+  assert.equal(reset.statusCode, 200);
+  const waiting = await readLobby(app, id, playerToken);
+  assert.equal(waiting.status, "WAITING");
+  assert.equal(waiting.revision, finished.revision + 1);
+  assert.equal(waiting.terminationReason, undefined);
+  assert.equal(waiting.raceState, undefined);
+  // guest token still works, and a second reset is refused
+  assert.equal((await readLobby(app, id, guest.playerToken)).status, "WAITING");
+  assert.equal((await post(id, "reset", playerToken)).statusCode, 409);
+
+  // a fresh race on the same lobby: new engine state, no winner, zero laps
+  assert.equal((await post(id, "start", playerToken)).statusCode, 200);
+  const second = await readLobby(app, id, playerToken);
+  assert.equal(second.status, "IN_RACE");
+  assert.equal(second.raceState.winnerCarId, null);
+  assert.ok(second.raceState.cars.every((car) => (car.lapCount ?? 0) === 0));
+
+  // a terminated lobby stays dead
+  const dead = await create();
+  store.terminateLobby(dead.lobby.lobbyId, "host_disconnected");
+  const refused = await post(dead.lobby.lobbyId, "reset", dead.playerToken);
+  assert.equal(refused.statusCode, 409);
+  assert.match((refused.json() as { error: string }).error, /closed/);
+  assert.equal(store.getLobby(dead.lobby.lobbyId)?.status, "FINISHED");
+});
