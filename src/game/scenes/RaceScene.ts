@@ -33,7 +33,8 @@ import type { HudCar, HudSnapshot } from "../../ui/hud";
 import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
 import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
-import { drawTrack as drawTrackGraphics, headingOf, laneColor } from "./rendering/trackRenderer";
+import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
+import { spriteRotation } from "./rendering/heading";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
 import {
   appendBotDecisionEntry,
@@ -411,7 +412,7 @@ export class RaceScene extends Phaser.Scene {
 
     // Kenney cars point up; the sprite alone is rotated so the badge stays upright.
     const body = this.add.image(0, 0, spriteKey).setDisplaySize(15, 28);
-    body.setRotation(headingOf(cell, this.cellMap).angle() + Math.PI / 2);
+    body.setRotation(spriteRotation(cell, this.cellMap));
     const badge = this.add.circle(0, 0, 5.5, 0x0b0f14, 0.85);
     const label = this.add.text(0, 0, String(car.carId), {
       fontFamily: "monospace",
@@ -479,7 +480,7 @@ export class RaceScene extends Phaser.Scene {
       const token = this.carTokens.get(car.carId);
       if (!token) continue;
       const body = token.first as Phaser.GameObjects.Image;
-      body.setRotation(headingOf(cell, this.cellMap).angle() + Math.PI / 2);
+      body.setRotation(spriteRotation(cell, this.cellMap));
       const halo = this.activeHalos.get(car.carId);
       if (token.x === cell.pos.x && token.y === cell.pos.y) continue;
       // slide to the new cell (already there after a drag-drop, so only bots and remote turns animate)
@@ -696,10 +697,28 @@ export class RaceScene extends Phaser.Scene {
     if (this.debugButtons) this.debugButtons.setFixed();
   }
 
+  // Fit the track between the HUD columns (read from the DOM) and above the bottom buttons.
   private centerTrack() {
-    const center = this.getTrackCenter();
-    if (!center) return;
-    this.cameras.main.centerOn(center.x, center.y);
+    const xs = this.track.cells.map((c) => c.pos.x);
+    const ys = this.track.cells.map((c) => c.pos.y);
+    if (xs.length === 0 || ys.length === 0) return;
+    const pad = 20; // curbs
+    const [minX, maxX] = [Math.min(...xs) - pad, Math.max(...xs) + pad];
+    const [minY, maxY] = [Math.min(...ys) - pad, Math.max(...ys) + pad];
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const edge = (sel: string, side: "left" | "right") => {
+      const r = document.querySelector(sel)?.getBoundingClientRect();
+      return r && r.width > 0 ? (side === "left" ? r.right + 10 : w - r.left + 10) : 0;
+    };
+    const gl = edge(".hud-left", "left");
+    const gr = edge(".hud-right", "right");
+    const bottom = 50;
+    const zoom = Phaser.Math.Clamp(Math.min((w - gl - gr) / (maxX - minX), (h - bottom) / (maxY - minY)), 0.4, 1);
+    const cam = this.cameras.main;
+    cam.setZoom(zoom);
+    cam.centerOn((minX + maxX) / 2 - (gl - gr) / 2 / zoom, (minY + maxY) / 2 + bottom / 2 / zoom);
+    this.layoutUI();
   }
 
   private getTrackCenter(): { x: number; y: number } | null {
@@ -752,6 +771,16 @@ export class RaceScene extends Phaser.Scene {
     if (this.debugButtons) {
       this.debugButtons.layout(w, h, ui.padding, ui.bottomButtonYPad);
     }
+    // Fixed (scrollFactor 0) objects are zoomed with the camera; undo that so the UI keeps its size.
+    const z = this.cameras.main.zoom;
+    const k = 1 / z;
+    const texts = [this.skipButton?.getText(), ...(this.debugButtons?.getTexts() ?? [])];
+    for (const t of texts) {
+      if (t) t.setScale(k).setPosition(w / 2 + (t.x - w / 2) * k, h / 2 + (t.y - h / 2) * k);
+    }
+    const origin = { x: (w / 2) * (1 - k), y: (h / 2) * (1 - k) };
+    this.gFrame?.setScale(k).setPosition(origin.x, origin.y);
+    this.pitModal?.getContainer().setScale(k).setPosition(origin.x, origin.y);
   }
 
   private createPitModal() {
