@@ -5,7 +5,6 @@ import { trackSchema } from "../../validation/trackSchema";
 import {
   INNER_MAIN_LANE,
   OUTER_MAIN_LANE,
-  PIT_LANE,
   REG_BOT_CARS,
   REG_HUMAN_CARS,
   REG_RACE_LAPS,
@@ -14,7 +13,7 @@ import {
 import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
 import { computeMoveSpend, getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
-import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets } from "../systems/pitSystem";
+import { advancePitPenalty, applyPitStop } from "../systems/pitSystem";
 import { spawnCars } from "../systems/spawnSystem";
 import { sortCarsByProgress } from "../systems/orderingSystem";
 import {
@@ -181,18 +180,10 @@ export class RaceScene extends Phaser.Scene {
     }
     this.cellMap = new Map(this.track.cells.map((c) => [c.id, c]));
     this.trackIndex = buildTrackIndex(this.track);
-    const rawTotal = Number(this.registry.get(REG_TOTAL_CARS) ?? 1);
-    const rawHumans = Number(this.registry.get(REG_HUMAN_CARS) ?? 1);
-    const rawBots = Number(this.registry.get(REG_BOT_CARS) ?? 0);
-    const rawRaceLaps = Number(this.registry.get(REG_RACE_LAPS) ?? 5);
-    this.totalCars = Number.isNaN(rawTotal) ? 1 : Math.max(1, Math.min(11, rawTotal));
-    this.humanCars = Number.isNaN(rawHumans) ? 1 : Math.max(0, Math.min(this.totalCars, rawHumans));
-    this.botCars = Number.isNaN(rawBots)
-      ? 0
-      : Math.max(0, Math.min(this.totalCars - this.humanCars, rawBots));
-    this.raceLapTarget = Number.isNaN(rawRaceLaps)
-      ? 5
-      : Math.max(1, Math.min(999, Math.trunc(rawRaceLaps)));
+    this.totalCars = this.registry.get(REG_TOTAL_CARS);
+    this.humanCars = this.registry.get(REG_HUMAN_CARS);
+    this.botCars = this.registry.get(REG_BOT_CARS);
+    this.raceLapTarget = this.registry.get(REG_RACE_LAPS);
 
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
@@ -645,8 +636,6 @@ export class RaceScene extends Phaser.Scene {
     const tireRate =
       car.setup.compound === "soft" ? RaceScene.MOVE_RATES.softTire : RaceScene.MOVE_RATES.hardTire;
     const fuelRate = RaceScene.MOVE_RATES.fuel;
-    const activeCell = this.cellMap.get(car.cellId);
-    const inPitLane = activeCell?.laneIndex === PIT_LANE;
     return computeValidTargets(
       this.trackIndex,
       car.cellId,
@@ -654,7 +643,7 @@ export class RaceScene extends Phaser.Scene {
       maxSteps,
       {
         allowPitExitSkip: car.pitExitBoost,
-        disallowPitBoxTargets: shouldDisallowPitBoxTargets(car, inPitLane)
+        disallowPitBoxTargets: car.pitServiced
       },
       {
         tireRate,
@@ -986,7 +975,6 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private buildDebugSnapshot() {
-    const inPitLane = (this.cellMap.get(this.activeCar.cellId)?.laneIndex ?? -1) === PIT_LANE;
     return buildGameDebugSnapshot({
       buildInfo: this.buildInfo,
       track: this.track,
@@ -997,7 +985,7 @@ export class RaceScene extends Phaser.Scene {
       botDecisionCount: this.botDecisionLog.length,
       moveBudget: RaceScene.MOVE_BUDGET,
       moveRates: RaceScene.MOVE_RATES,
-      disallowPitBoxTargets: shouldDisallowPitBoxTargets(this.activeCar, inPitLane)
+      disallowPitBoxTargets: this.activeCar.pitServiced
     });
   }
 

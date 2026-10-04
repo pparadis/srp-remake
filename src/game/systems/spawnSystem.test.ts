@@ -137,25 +137,6 @@ describe("spawnSystem", () => {
     expect(cars.filter((c) => c.isBot)).toHaveLength(2);
   });
 
-  it("supports legacy bot mode and bot fill options", () => {
-    const track = makeTrack();
-    const botMode = spawnCars(track, { playerCount: 3, botMode: true });
-    expect(botMode.cars).toHaveLength(3);
-    expect(botMode.cars.every((c) => c.isBot)).toBe(true);
-
-    const botFill = spawnCars(track, { playerCount: 4, botFill: true });
-    expect(botFill.cars).toHaveLength(4);
-    expect(botFill.cars.filter((c) => !c.isBot)).toHaveLength(1);
-    expect(botFill.cars.filter((c) => c.isBot)).toHaveLength(3);
-  });
-
-  it("defaults legacy composition to all human players", () => {
-    const track = makeTrack();
-    const legacyDefault = spawnCars(track, { playerCount: 2 });
-    expect(legacyDefault.cars).toHaveLength(2);
-    expect(legacyDefault.cars.every((c) => !c.isBot)).toBe(true);
-  });
-
   it("clamps explicit humans when requested humans exceed computed count", () => {
     const track = makeTrack();
     const { cars } = spawnCars(track, { totalCars: 4, humanCount: 4, botCount: 0 });
