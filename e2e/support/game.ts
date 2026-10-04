@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
-const BACKEND_ORIGIN = "http://localhost:3001";
+// eslint-disable-next-line no-undef -- Node-side Playwright code
+const BACKEND_ORIGIN = `http://localhost:${process.env.E2E_BACKEND_PORT ?? "3001"}`;
 
 /** Collects console errors and uncaught page errors; assert `errors` is empty at the end of a test. */
 export function collectErrors(page: Page): string[] {

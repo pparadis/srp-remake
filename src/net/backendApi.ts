@@ -164,6 +164,13 @@ export class BackendApiClient {
     });
   }
 
+  // Host only: a finished (not closed) lobby goes back to WAITING.
+  resetLobby(lobbyId: string, playerToken: string): Promise<StartRaceResponse> {
+    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/reset`, {
+      playerToken
+    });
+  }
+
   updateSettings(
     lobbyId: string,
     playerToken: string,

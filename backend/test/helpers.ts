@@ -36,7 +36,7 @@ export async function readLobby(app: InjectApp, lobbyId: string, playerToken: st
 }
 
 // Submits legal moves for the (only) human seat until the race ends; returns the final lobby.
-export async function playRaceToEnd(app: InjectApp, lobbyId: string, playerToken: string) {
+export async function playRaceToEnd(app: InjectApp, lobbyId: string, playerToken: string, idPrefix = "play") {
   for (let i = 0; i < 400; i += 1) {
     const lobby = await readLobby(app, lobbyId, playerToken);
     if (lobby.status === "FINISHED") return lobby;
@@ -45,7 +45,7 @@ export async function playRaceToEnd(app: InjectApp, lobbyId: string, playerToken
       url: `/api/v1/lobbies/${lobbyId}/turns`,
       payload: {
         playerToken,
-        clientCommandId: `play-${i}`,
+        clientCommandId: `${idPrefix}-${i}`,
         revision: lobby.revision,
         action: legalMove(lobby.raceState)
       }

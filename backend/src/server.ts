@@ -77,6 +77,8 @@ const StartRaceSchema = z.object({
   playerToken: z.string().min(1)
 });
 
+const ResetLobbySchema = StartRaceSchema;
+
 // Shape only; the race engine enforces the PSI/wing limits and every game rule.
 const CarSetupSchema = z.object({
   compound: z.enum(["soft", "hard"]),
@@ -441,6 +443,19 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     });
     runPendingBotTurns(lobby.lobbyId);
     return { lobby: toPublicLobby(lobby) };
+  });
+
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/reset`, async (request) => {
+    const params = LobbyPathSchema.parse(request.params);
+    const body = ResetLobbySchema.parse(request.body);
+    const lobby = lobbyStore.resetLobby(params.lobbyId, body.playerToken);
+    const publicLobby = toPublicLobby(lobby);
+    broadcast(lobby.lobbyId, "lobby.state", publicLobby);
+    logMultiplayer("lobby.reset", {
+      lobbyId: lobby.lobbyId,
+      revision: lobby.revision
+    });
+    return { lobby: publicLobby };
   });
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/turns`, async (request, reply) => {

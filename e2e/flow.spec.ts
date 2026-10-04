@@ -144,6 +144,7 @@ test.describe("online", () => {
 
     // guest cannot start or edit; host edits are broadcast
     await expect(guest.getByTestId("lobby-start")).toBeHidden();
+    await expect(guest.getByTestId("lobby-play-again")).toBeHidden();
     await expect(guest.getByTestId("lobby-laps")).toBeDisabled();
     await setLobbySettings(host, { laps: 3 });
     await expect(guest.getByTestId("lobby-laps")).toHaveValue("3");

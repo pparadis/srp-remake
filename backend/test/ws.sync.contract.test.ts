@@ -407,3 +407,97 @@ test("websocket announces race.ended with the winner after the final turn", asyn
   ws.close(1000, "done");
   await waitForClose(ws);
 });
+
+test("reset returns a finished lobby to waiting for everyone, and it can race again", async (t) => {
+  const app = await createListeningTestApp();
+  t.after(() => app.close());
+
+  const created = (
+    await app.inject({
+      method: "POST",
+      url: "/api/v1/lobbies",
+      payload: { name: "Host", settings: { totalCars: 3, humanCars: 2, botCars: 1, raceLaps: 1 } }
+    })
+  ).json() as { lobby: { lobbyId: string }; playerToken: string };
+  const lobbyId = created.lobby.lobbyId;
+  const joined = (
+    await app.inject({ method: "POST", url: `/api/v1/lobbies/${lobbyId}/join`, payload: { name: "Guest" } })
+  ).json() as { playerToken: string };
+  const url = (action: string) => `/api/v1/lobbies/${lobbyId}/${action}`;
+  const hostBody = { playerToken: created.playerToken };
+  const readUrl = `/api/v1/lobbies/${lobbyId}?playerToken=${created.playerToken}`;
+
+  const guest = connectAndCollect(app, lobbyId, joined.playerToken);
+  const host = connectAndCollect(app, lobbyId, created.playerToken);
+  await waitForWsOpen(guest.ws);
+  await waitForWsOpen(host.ws);
+
+  // The two humans take turns, so each submits when its seat is active.
+  const tokens = [created.playerToken, joined.playerToken];
+  await app.inject({ method: "POST", url: url("start"), payload: hostBody });
+  for (let i = 0; i < 600; i += 1) {
+    const lobby = (
+      await app.inject({ method: "GET", url: readUrl })
+    ).json() as { lobby: { status: string; revision: number; raceState: RaceState } };
+    if (lobby.lobby.status === "FINISHED") break;
+    const seat = lobby.lobby.raceState.activeSeatIndex;
+    await app.inject({
+      method: "POST",
+      url: url("turns"),
+      payload: {
+        playerToken: tokens[seat],
+        clientCommandId: `r1-${i}`,
+        revision: lobby.lobby.revision,
+        action: legalMove(lobby.lobby.raceState)
+      }
+    });
+  }
+  await waitFor(() => guest.events.some((e) => e.event === "race.ended"), 3000);
+
+  const guestReset = await app.inject({ method: "POST", url: url("reset"), payload: { playerToken: joined.playerToken } });
+  assert.equal(guestReset.statusCode, 403);
+
+  const mark = guest.events.length;
+  const reset = await app.inject({ method: "POST", url: url("reset"), payload: hostBody });
+  assert.equal(reset.statusCode, 200);
+  const resetLobby = (reset.json() as { lobby: Record<string, unknown> & { players: Array<{ connected: boolean }> } }).lobby;
+  assert.equal(resetLobby.status, "WAITING");
+  assert.equal(resetLobby.raceState, undefined);
+  assert.equal(resetLobby.terminationReason, undefined);
+  assert.deepEqual(resetLobby.players.map((p) => p.connected), [true, true]);
+
+  // Both sockets stay open and hear about it.
+  await waitFor(() => guest.events.slice(mark).some((e) => e.event === "lobby.state"), 3000);
+  await waitFor(() => host.events.some((e, i) => i > 0 && e.event === "lobby.state" && (e.payload as { status: string }).status === "WAITING"), 3000);
+  const waiting = guest.events.slice(mark).find((e) => e.event === "lobby.state")!.payload as { status: string };
+  assert.equal(waiting.status, "WAITING");
+  assert.equal(guest.ws.readyState, 1);
+
+  // Settings are kept; the same players race again to a finish.
+  const restart = await app.inject({ method: "POST", url: url("start"), payload: hostBody });
+  assert.equal(restart.statusCode, 200);
+  assert.equal((restart.json() as { lobby: { status: string } }).lobby.status, "IN_RACE");
+  for (let i = 0; i < 600; i += 1) {
+    const lobby = (
+      await app.inject({ method: "GET", url: readUrl })
+    ).json() as { lobby: { status: string; revision: number; raceState: RaceState } };
+    if (lobby.lobby.status === "FINISHED") break;
+    await app.inject({
+      method: "POST",
+      url: url("turns"),
+      payload: {
+        playerToken: tokens[lobby.lobby.raceState.activeSeatIndex],
+        clientCommandId: `r2-${i}`,
+        revision: lobby.lobby.revision,
+        action: legalMove(lobby.lobby.raceState)
+      }
+    });
+  }
+  const end = await app.inject({ method: "GET", url: readUrl });
+  assert.equal((end.json() as { lobby: { status: string } }).lobby.status, "FINISHED");
+
+  guest.ws.close(1000, "done");
+  await waitForClose(guest.ws);
+  host.ws.close(1000, "done");
+  await waitForClose(host.ws);
+});

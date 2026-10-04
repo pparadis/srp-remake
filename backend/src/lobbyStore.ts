@@ -339,6 +339,33 @@ export class LobbyStore {
     return lobby;
   }
 
+  // Host-only "play again": a naturally finished lobby goes back to WAITING with its
+  // players, tokens and settings intact. A terminated lobby stays dead.
+  resetLobby(lobbyId: string, hostToken: string): Lobby {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    if (lobby.status === "FINISHED" && lobby.terminationReason !== "race_finished") {
+      throw new LobbyError(409, "Lobby was closed and cannot be reset.");
+    }
+    if (lobby.status !== "FINISHED") {
+      throw new LobbyError(409, "Only a finished race can be reset.");
+    }
+
+    const host = this.findPlayerByToken(lobby, hostToken);
+    if (!host) {
+      throw new LobbyError(401, "Invalid player token for this lobby.");
+    }
+    if (!host.isHost) {
+      throw new LobbyError(403, "Only host can reset the lobby.");
+    }
+
+    lobby.status = "WAITING";
+    delete lobby.race;
+    delete lobby.terminationReason;
+    lobby.revision += 1;
+    lobby.updatedAt = Date.now();
+    return lobby;
+  }
+
   incrementRevision(lobbyId: string): Lobby {
     const lobby = this.getLobbyOrThrow(lobbyId);
     lobby.revision += 1;

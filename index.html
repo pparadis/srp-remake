@@ -100,6 +100,15 @@
           <button id="lobbyStartBtn" data-testid="lobby-start" type="button" class="primary">
             Start race
           </button>
+          <button
+            id="lobbyPlayAgainBtn"
+            data-testid="lobby-play-again"
+            type="button"
+            class="primary"
+            hidden
+          >
+            Play again
+          </button>
           <button id="lobbyLeaveBtn" data-testid="lobby-leave" type="button">Leave</button>
         </div>
       </div>
@@ -125,6 +134,9 @@
             </thead>
             <tbody></tbody>
           </table>
+          <p id="resultsWait" data-testid="results-wait" hidden>
+            Waiting for host to start another race
+          </p>
           <div class="row">
             <button
               id="resultsLobbyBtn"
@@ -133,6 +145,15 @@
               class="primary"
             >
               Back to lobby
+            </button>
+            <button
+              id="resultsPlayAgainBtn"
+              data-testid="results-play-again"
+              type="button"
+              class="primary"
+              hidden
+            >
+              Play again
             </button>
             <button id="resultsHomeBtn" data-testid="results-home" type="button">Home</button>
           </div>
