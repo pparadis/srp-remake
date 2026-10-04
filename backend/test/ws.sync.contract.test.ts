@@ -321,13 +321,29 @@ test("reconnect websocket receives hydration race.state snapshot", async (t) => 
   const createdRes = await app.inject({
     method: "POST",
     url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    payload: {
+      name: "Host",
+      settings: {
+        totalCars: 2,
+        humanCars: 2,
+        botCars: 0,
+        raceLaps: 5
+      }
+    }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
     lobby: { lobbyId: string };
     playerToken: string;
   };
+
+  const joinRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
+    payload: { name: "Guest" }
+  });
+  assert.equal(joinRes.statusCode, 200);
+  const joinBody = joinRes.json() as { playerToken: string };
 
   const startRes = await app.inject({
     method: "POST",
@@ -336,13 +352,14 @@ test("reconnect websocket receives hydration race.state snapshot", async (t) => 
   });
   assert.equal(startRes.statusCode, 200);
 
-  const first = connectAndCollect(app, createdBody.lobby.lobbyId, createdBody.playerToken);
+  // Reconnect as a guest: a host disconnect ends the lobby by design.
+  const first = connectAndCollect(app, createdBody.lobby.lobbyId, joinBody.playerToken);
   await waitForWsOpen(first.ws);
   await waitFor(() => first.events.some((e) => e.event === "race.state"), 3000);
   first.ws.close(1000, "reconnect");
   await waitForClose(first.ws);
 
-  const second = connectAndCollect(app, createdBody.lobby.lobbyId, createdBody.playerToken);
+  const second = connectAndCollect(app, createdBody.lobby.lobbyId, joinBody.playerToken);
   await waitForWsOpen(second.ws);
   await waitFor(() => second.events.some((e) => e.event === "lobby.state"), 3000);
   await waitFor(() => second.events.some((e) => e.event === "race.state"), 3000);
