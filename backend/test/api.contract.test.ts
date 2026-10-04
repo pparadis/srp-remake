@@ -3,6 +3,8 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import type { BackendConfig } from "../src/config.js";
 import { createApp } from "../src/server.js";
+import type { RaceState } from "../src/types.js";
+import { legalMove } from "./helpers.js";
 
 const TEST_CONFIG: BackendConfig = {
   HOST: "127.0.0.1",
@@ -111,6 +113,8 @@ test("runs bot turns on backend", async (t) => {
     payload: { playerToken: createdBody.playerToken }
   });
   assert.equal(startRes.statusCode, 200);
+  const startState = (startRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState;
+  const hostMove = legalMove(startState);
 
   const turnRes = await app.inject({
     method: "POST",
@@ -119,7 +123,7 @@ test("runs bot turns on backend", async (t) => {
       playerToken: createdBody.playerToken,
       clientCommandId: "host-turn-with-bots",
       revision: 0,
-      action: { type: "skip" }
+      action: hostMove
     }
   });
   assert.equal(turnRes.statusCode, 200);
@@ -135,21 +139,19 @@ test("runs bot turns on backend", async (t) => {
   const readBody = readRes.json() as {
     lobby: {
       revision: number;
-      raceState?: {
-        turnIndex: number;
-        activeSeatIndex: number;
-        cars: Array<{ actionsTaken: number }>;
-      };
+      raceState: RaceState;
     };
   };
+  const raceState = readBody.lobby.raceState;
   assert.equal(readBody.lobby.revision, 3);
-  assert.equal(readBody.lobby.raceState?.turnIndex, 3);
-  assert.equal(readBody.lobby.raceState?.activeSeatIndex, 0);
-  assert.equal(readBody.lobby.raceState?.cars[0]?.actionsTaken, 1);
-  assert.equal(readBody.lobby.raceState?.cars[1]?.actionsTaken, 1);
-  assert.equal(readBody.lobby.raceState?.cars[2]?.actionsTaken, 1);
-
-
+  assert.equal(raceState.turnIndex, 3);
+  assert.equal(raceState.activeSeatIndex, 0);
+  // The host's move was validated and applied, and both bots drove for real.
+  assert.equal(raceState.cars[0]?.cellId, hostMove.type === "move" ? hostMove.targetCellId : "");
+  for (const seat of [0, 1, 2]) {
+    assert.notEqual(raceState.cars[seat]?.cellId, startState.cars[seat]?.cellId);
+    assert.ok((raceState.cars[seat]?.tire ?? 100) < 100);
+  }
 });
 
 test("supports lobby create, settings patch, and join contracts", async (t) => {
@@ -311,14 +313,8 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
         raceLaps: number;
         turnIndex: number;
         activeSeatIndex: number;
-        cars: Array<{
-          carId: number;
-          seatIndex: number;
-          playerId: string | null;
-          name: string;
-          isBot: boolean;
-          lapCount: number;
-        }>;
+        winnerCarId: number | null;
+        cars: RaceState["cars"];
       };
     };
   };
@@ -327,24 +323,23 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   assert.equal(startBody.lobby.raceState.turnIndex, 0);
   assert.equal(startBody.lobby.raceState.activeSeatIndex, 0);
   assert.equal(startBody.lobby.raceState.cars.length, 4);
-  assert.deepEqual(startBody.lobby.raceState.cars[0], {
-    carId: 1,
-    seatIndex: 0,
-    playerId: createdBody.playerId,
-    name: "Host",
-    isBot: false,
-    lapCount: 0,
-    actionsTaken: 0
-  });
-  assert.deepEqual(startBody.lobby.raceState.cars[1], {
-    carId: 2,
-    seatIndex: 1,
-    playerId: joinBody.playerId,
-    name: "Guest",
-    isBot: false,
-    lapCount: 0,
-    actionsTaken: 0
-  });
+  assert.equal(startBody.lobby.raceState.winnerCarId, null);
+  const [hostCar, guestCar] = startBody.lobby.raceState.cars;
+  assert.deepEqual(
+    [hostCar?.carId, hostCar?.seatIndex, hostCar?.playerId, hostCar?.name, hostCar?.isBot, hostCar?.lapCount],
+    [1, 0, createdBody.playerId, "Host", false, 0]
+  );
+  assert.deepEqual(
+    [guestCar?.carId, guestCar?.seatIndex, guestCar?.playerId, guestCar?.name, guestCar?.isBot, guestCar?.lapCount],
+    [2, 1, joinBody.playerId, "Guest", false, 0]
+  );
+  // Full car state for rendering: fresh tires/fuel, on the grid, nothing spent.
+  assert.deepEqual(
+    [hostCar?.tire, hostCar?.fuel, hostCar?.state, hostCar?.pitServiced, hostCar?.pitTurnsRemaining],
+    [100, 100, "ACTIVE", false, 0]
+  );
+  assert.equal(hostCar?.cellId, "Z01_L1_00");
+  assert.deepEqual(hostCar?.moveCycle, { index: 0, spent: [0, 0, 0, 0, 0] });
   assert.equal(startBody.lobby.raceState.cars[2]?.isBot, true);
   assert.equal(startBody.lobby.raceState.cars[2]?.playerId, null);
   assert.equal(startBody.lobby.raceState.cars[3]?.isBot, true);
@@ -374,7 +369,7 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   assert.ok(reconnectBody.lobby.raceState);
 });
 
-test("enforces active turn ownership and mutates authoritative race state", async (t) => {
+test("enforces active turn ownership and applies validated moves to the authoritative race state", async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
@@ -424,6 +419,8 @@ test("enforces active turn ownership and mutates authoritative race state", asyn
     payload: { playerToken: createdBody.playerToken }
   });
   assert.equal(startRes.statusCode, 200);
+  const startState = (startRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState;
+  const hostMove = legalMove(startState);
 
   const hostTurnRes = await app.inject({
     method: "POST",
@@ -432,7 +429,7 @@ test("enforces active turn ownership and mutates authoritative race state", asyn
       playerToken: createdBody.playerToken,
       clientCommandId: "host-turn-1",
       revision: 0,
-      action: { type: "skip" }
+      action: hostMove
     }
   });
   assert.equal(hostTurnRes.statusCode, 200);
@@ -480,6 +477,12 @@ test("enforces active turn ownership and mutates authoritative race state", asyn
   assert.equal(hostOutOfTurnDedupeBody.error, "not_active_player");
   assert.equal(hostOutOfTurnDedupeBody.revision, 1);
 
+  const afterHostRes = await app.inject({
+    method: "GET",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(joinBody.playerToken)}`
+  });
+  const guestMove = legalMove((afterHostRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState);
+
   const guestTurnRes = await app.inject({
     method: "POST",
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
@@ -487,7 +490,7 @@ test("enforces active turn ownership and mutates authoritative race state", asyn
       playerToken: joinBody.playerToken,
       clientCommandId: "guest-turn-1",
       revision: 1,
-      action: { type: "skip" }
+      action: guestMove
     }
   });
   assert.equal(guestTurnRes.statusCode, 200);
@@ -500,20 +503,12 @@ test("enforces active turn ownership and mutates authoritative race state", asyn
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(createdBody.playerToken)}`
   });
   assert.equal(readRes.statusCode, 200);
-  const readBody = readRes.json() as {
-    lobby: {
-      raceState?: {
-        turnIndex: number;
-        activeSeatIndex: number;
-        cars: Array<{ seatIndex: number; actionsTaken: number }>;
-      };
-    };
-  };
+  const raceState = (readRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState;
 
-  assert.equal(readBody.lobby.raceState?.turnIndex, 2);
-  assert.equal(readBody.lobby.raceState?.activeSeatIndex, 0);
-  assert.equal(readBody.lobby.raceState?.cars[0]?.actionsTaken, 1);
-  assert.equal(readBody.lobby.raceState?.cars[1]?.actionsTaken, 1);
+  assert.equal(raceState.turnIndex, 2);
+  assert.equal(raceState.activeSeatIndex, 0);
+  assert.equal(raceState.cars[0]?.cellId, hostMove.type === "move" ? hostMove.targetCellId : "");
+  assert.equal(raceState.cars[1]?.cellId, guestMove.type === "move" ? guestMove.targetCellId : "");
 });
 
 test("enforces turn idempotency and stale revision contract", async (t) => {
@@ -540,12 +535,13 @@ test("enforces turn idempotency and stale revision contract", async (t) => {
     payload: { playerToken: createdBody.playerToken }
   });
   assert.equal(startRes.statusCode, 200);
+  const startState = (startRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState;
 
   const turnPayload = {
     playerToken: createdBody.playerToken,
     clientCommandId: "cmd-1",
     revision: 0,
-    action: { type: "skip" }
+    action: legalMove(startState)
   };
 
   const turnRes = await app.inject({
