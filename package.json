@@ -21,11 +21,7 @@
     "backend:logs": "podman-compose logs -f api",
     "backend:restart": "npm run backend:down && npm run backend:up",
     "backend:test": "npm --prefix backend test",
-    "backend:build": "npm --prefix backend run build",
-    "backend:up:docker": "docker-compose up --build api",
-    "backend:down:docker": "docker-compose down",
-    "backend:logs:docker": "docker-compose logs -f api",
-    "backend:restart:docker": "npm run backend:down:docker && npm run backend:up:docker"
+    "backend:build": "npm --prefix backend run build"
   },
   "devDependencies": {
     "@typescript-eslint/parser": "^8.26.0",
