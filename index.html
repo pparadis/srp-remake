@@ -107,10 +107,24 @@
 
     <section id="screen-race" data-screen="race" class="screen">
       <div id="app" data-testid="race-canvas"></div>
+      <div id="hud" data-testid="hud"></div>
       <div id="results" data-testid="results" hidden>
         <div class="card">
           <h1>Race finished</h1>
           <p id="resultsWinner" data-testid="results-winner"></p>
+          <table class="hud-standings" data-testid="results-standings">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th></th>
+                <th>Car</th>
+                <th>Lap</th>
+                <th>Gap</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
           <div class="row">
             <button
               id="resultsLobbyBtn"

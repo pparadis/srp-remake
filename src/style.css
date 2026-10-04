@@ -192,3 +192,326 @@ body[data-screen="race"] #screen-race {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ---- Race HUD (DOM overlay). Container ignores the mouse so drags reach the canvas. ---- */
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-size: 12px;
+  color: #c7d1db;
+  z-index: 5;
+}
+
+#hud .hud-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  border-radius: 16px;
+  background: rgba(15, 20, 27, 0.92);
+  border: 1px solid #2a3642;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+#hud .hud-banner.is-mine {
+  border-color: #4cd964;
+  color: #eaffef;
+}
+
+#hud .hud-banner.is-finished {
+  border-color: #ffe066;
+  color: #ffe066;
+}
+
+#hud .hud-left,
+#hud .hud-right {
+  position: absolute;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 210px;
+}
+
+#hud .hud-left {
+  left: 10px;
+}
+
+#hud .hud-right {
+  right: 10px;
+  width: 250px;
+}
+
+#hud .hud-card,
+#hud .hud-standings,
+#hud .hud-feed {
+  background: rgba(15, 20, 27, 0.92);
+  border: 1px solid #2a3642;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.hud-card-head,
+.hud-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-name {
+  flex: 1 1 auto;
+  font-weight: bold;
+  color: #e6eef6;
+}
+
+.hud-chip {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  flex: none;
+}
+
+.hud-lap {
+  font-size: 26px;
+  font-weight: bold;
+  color: #fff;
+  margin-top: 4px;
+}
+
+.hud-pos {
+  font-size: 16px;
+  color: #8fb0cc;
+  margin-bottom: 6px;
+}
+
+.hud-meter {
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.hud-meter > span:first-child {
+  flex: 1 1 auto;
+}
+
+.hud-bar {
+  flex: 1 0 100%;
+  height: 6px;
+  background: #0b0f14;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hud-bar i {
+  display: block;
+  height: 100%;
+}
+
+.hud-ok {
+  color: #4cd964;
+}
+
+.hud-warn {
+  color: #ffb020;
+}
+
+.hud-crit {
+  color: #ff4d4d;
+}
+
+.hud-bar i.hud-ok {
+  background: #4cd964;
+}
+
+.hud-bar i.hud-warn {
+  background: #ffb020;
+}
+
+.hud-bar i.hud-crit {
+  background: #ff4d4d;
+}
+
+.hud-compound {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  color: #0b0f14;
+}
+
+.hud-compound.is-soft {
+  background: #ff5a5a;
+}
+
+.hud-compound.is-hard {
+  background: #e6eef6;
+}
+
+.hud-state {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #ffb020;
+  color: #0b0f14;
+}
+
+.hud-pips {
+  display: flex;
+  gap: 4px;
+  flex: 1 0 100%;
+}
+
+.hud-pips i {
+  flex: 1 1 0;
+  text-align: center;
+  font-style: normal;
+  font-size: 11px;
+  border: 1px solid #2a3642;
+  border-radius: 4px;
+  padding: 1px 0;
+  color: #6b7f92;
+}
+
+.hud-pips i.is-used {
+  background: #1d4f7a;
+  color: #fff;
+}
+
+.hud-pips i.is-current {
+  border-color: #ffe066;
+  color: #ffe066;
+}
+
+.hud-hint {
+  white-space: nowrap;
+  font-size: 10px;
+  color: #9fb0bf;
+  text-shadow: 0 0 3px #0b0f14;
+}
+
+.hud-standings {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.hud-standings th {
+  font-size: 10px;
+  font-weight: normal;
+  text-align: left;
+  color: #6b7f92;
+  padding: 0 3px;
+}
+
+.hud-standings th:nth-child(1),
+.hud-standings td:nth-child(1) {
+  width: 16px;
+}
+
+.hud-standings th:nth-child(2),
+.hud-standings td:nth-child(2) {
+  width: 14px;
+}
+
+.hud-standings th:nth-child(4),
+.hud-standings td:nth-child(4) {
+  width: 34px;
+}
+
+.hud-standings th:nth-child(5),
+.hud-standings td:nth-child(5) {
+  width: 34px;
+}
+
+.hud-standings th:nth-child(6),
+.hud-standings td:nth-child(6) {
+  width: 28px;
+}
+
+.hud-standings td {
+  padding: 2px 3px;
+  white-space: nowrap;
+}
+
+.hud-standings td:nth-child(3) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-standings td:nth-child(5),
+.hud-standings td:nth-child(6) {
+  color: #8fb0cc;
+}
+
+.hud-standings tr.is-me {
+  color: #fff;
+  font-weight: bold;
+}
+
+.hud-standings tr.is-active td {
+  background: rgba(255, 224, 102, 0.18);
+}
+
+#hud .hud-feed {
+  pointer-events: auto;
+}
+
+.hud-feed summary {
+  cursor: pointer;
+  color: #8fb0cc;
+}
+
+.hud-feed ol {
+  margin: 6px 0 0;
+  padding-left: 26px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.hud-tooltip {
+  position: fixed;
+  transform: translate(14px, -34px);
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(11, 15, 20, 0.95);
+  border: 1px solid #ffe066;
+  white-space: nowrap;
+}
+
+.hud-debug {
+  position: absolute;
+  left: 10px;
+  bottom: 60px;
+  margin: 0;
+  padding: 6px 8px;
+  background: rgba(15, 20, 27, 0.92);
+  border: 1px solid #2a3642;
+  font-size: 11px;
+}
+
+#results .hud-standings {
+  min-width: 320px;
+}
+
+@media (max-width: 1100px) {
+  #hud .hud-left,
+  #hud .hud-right {
+    width: 170px;
+  }
+
+  #hud .hud-right {
+    width: 215px;
+  }
+
+  .hud-lap {
+    font-size: 20px;
+  }
+
+  .hud-standings td {
+    padding: 1px 3px;
+    font-size: 11px;
+  }
+}
