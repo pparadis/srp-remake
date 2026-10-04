@@ -27,8 +27,6 @@ npm run start
 - `HOST=0.0.0.0`
 - `CORS_ALLOWED_ORIGINS=<frontend origin(s)>`
 - `PLAYER_TOKEN_TTL_SECONDS=86400`
-- `ADMIN_DEBUG_ENABLED=false`
-- `ADMIN_DEBUG_TOKEN=<set only if ADMIN_DEBUG_ENABLED=true>`
 
 Example `CORS_ALLOWED_ORIGINS`:
 

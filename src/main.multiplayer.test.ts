@@ -94,7 +94,6 @@ function setupDom() {
           <input id="backendLobbyLinkInput" value="" />
           <button id="backendCopyInviteBtn" type="button">Copy invite</button>
           <button id="backendOpenInviteBtn" type="button">Open invite</button>
-          <button id="backendCopyMpDebugBtn" type="button">Copy multiplayer debug</button>
           <span id="backendStatus"></span>
         </section>
       </div>
