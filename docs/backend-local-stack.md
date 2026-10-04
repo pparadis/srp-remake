@@ -64,13 +64,10 @@ npm run backend:logs
 npm --prefix backend test
 ```
 
-## Docker Compose Fallback
+## Docker Instead of Podman
 
-If your machine has Docker Compose instead of Podman Compose:
-
-```bash
-npm run backend:up:docker
-```
+The scripts use `podman-compose`. With Docker, run the same commands
+directly, e.g. `docker compose up --build api` / `docker compose down`.
 
 ## Health Check
 
