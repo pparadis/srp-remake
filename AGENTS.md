@@ -56,6 +56,7 @@ Project guide for Codex and other automation.
 3. Run tests: `npm test` (frontend), `npm run backend:test` (backend)
 4. Multiplayer: run the backend next to the dev server (`npm --prefix backend run dev`); check it with
    `npm run backend:build` (typecheck + bundle).
+5. E2E (Playwright, starts backend + dev server itself): `npm run test:e2e`
 
 ## Troubleshooting
 

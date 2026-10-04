@@ -47,6 +47,15 @@ import { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
 import type { AppliedTurnSummary, BackendTurnAction, PublicLobby } from "../../net/backendApi";
 import { toEngineRace } from "../../net/raceSync";
 
+declare global {
+  interface Window {
+    __srp?: {
+      state: () => ReturnType<typeof buildGameDebugSnapshot>;
+      cellScreenPos: (cellId: string) => { x: number; y: number } | null;
+    };
+  }
+}
+
 type CellMap = Map<string, TrackCell>;
 
 
@@ -295,6 +304,25 @@ export class RaceScene extends Phaser.Scene {
       hoverMaxDist: RaceScene.HUD.hoverMaxDist,
       dragSnapDist: 18
     });
+
+    if (import.meta.env.DEV || import.meta.env.MODE === "test") {
+      // e2e hook: read-only state + cell -> page coordinates for real mouse drags
+      window.__srp = {
+        state: () => this.buildDebugSnapshot(),
+        cellScreenPos: (cellId) => {
+          const cell = this.cellMap.get(cellId);
+          if (!cell) return null;
+          const cam = this.cameras.main;
+          const rect = this.game.canvas.getBoundingClientRect();
+          const sx = rect.width / this.scale.width;
+          const sy = rect.height / this.scale.height;
+          return {
+            x: rect.left + (cell.pos.x - cam.worldView.x) * cam.zoom * sx,
+            y: rect.top + (cell.pos.y - cam.worldView.y) * cam.zoom * sy
+          };
+        }
+      };
+    }
   }
 
   // Local seats: humans first, then bots.
