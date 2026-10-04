@@ -1,11 +1,7 @@
 import type Phaser from "phaser";
-import { PIT_LANE } from "../../constants";
-import { applyMove } from "../../systems/moveCommitSystem";
 import { type MoveValidationResult } from "../../systems/moveValidationSystem";
 import type { Car } from "../../types/car";
 import type { TrackCell } from "../../types/track";
-import type { TargetInfo } from "../../systems/movementSystem";
-import type { BackendTurnAction } from "../../../net/backendApi";
 
 export interface ResolvePlayerDragDropParams {
   activeCar: Car;
@@ -15,53 +11,22 @@ export interface ResolvePlayerDragDropParams {
   validation: MoveValidationResult;
   cellMap: Map<string, TrackCell>;
   activeHalo: Phaser.GameObjects.Ellipse | null;
-  onOpenPitModal: (
-    cell: TrackCell,
-    origin: { x: number; y: number },
-    originCellId: string,
-    distance: number
-  ) => void;
-  onLog: (line: string) => void;
-  onAdvanceTurnAndRefresh: () => void;
-  onTurnAction?: (action: BackendTurnAction) => void;
+  onOpenPitModal: (cell: TrackCell, origin: { x: number; y: number }) => void;
+  onMove: (targetCellId: string) => void;
 }
 
+// Decides what a drop means. It never changes the car: a move is handed to
+// `onMove` (the race engine applies it), a pit stop opens the setup modal first.
 export function resolvePlayerDragDrop(params: ResolvePlayerDragDropParams): void {
-  const {
-    activeCar,
-    token,
-    origin,
-    nearestCell,
-    validation,
-    cellMap,
-    activeHalo,
-    onOpenPitModal,
-    onLog,
-    onAdvanceTurnAndRefresh
-  } = params;
+  const { activeCar, token, origin, nearestCell, validation, cellMap, activeHalo } = params;
 
   if (validation.ok && nearestCell && validation.info && validation.moveSpend != null) {
-    const info: TargetInfo = validation.info;
-    const prevCellId = activeCar.cellId;
-    activeCar.cellId = nearestCell.id;
     token.setPosition(nearestCell.pos.x, nearestCell.pos.y);
-    activeCar.pitExitBoost = false;
-    if (nearestCell.laneIndex !== PIT_LANE) {
-      activeCar.pitServiced = false;
-    }
     if (validation.isPitStop) {
-      onOpenPitModal(nearestCell, origin, prevCellId, validation.moveSpend);
+      params.onOpenPitModal(nearestCell, origin);
       return;
     }
-    const fromCell = cellMap.get(prevCellId);
-    if (fromCell) {
-      applyMove(activeCar, fromCell, nearestCell, info, validation.moveSpend);
-    } else {
-      applyMove(activeCar, nearestCell, nearestCell, info, validation.moveSpend);
-    }
-    params.onTurnAction?.({ type: "move", targetCellId: nearestCell.id });
-    onLog(`Car ${activeCar.carId} moved to ${nearestCell.id}.`);
-    onAdvanceTurnAndRefresh();
+    params.onMove(nearestCell.id);
     return;
   }
 

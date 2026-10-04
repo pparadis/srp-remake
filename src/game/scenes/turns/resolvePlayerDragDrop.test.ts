@@ -76,15 +76,13 @@ function makeOkValidation(moveSpend: number, isPitStop = false): MoveValidationR
 }
 
 describe("resolvePlayerDragDrop", () => {
-  it("applies normal move and advances turn", () => {
+  it("hands a normal move to the engine without touching the car", () => {
     const car = makeCar({ cellId: "A", pitExitBoost: true, pitServiced: true });
     const fromCell = makeCell("A", 1, 10, 20);
     const toCell = makeCell("B", 2, 100, 200);
     const token = makeToken(15, 25);
     const onOpenPitModal = vi.fn();
-    const onLog = vi.fn();
-    const onAdvanceTurnAndRefresh = vi.fn();
-    const onTurnAction = vi.fn();
+    const onMove = vi.fn();
 
     resolvePlayerDragDrop({
       activeCar: car,
@@ -98,31 +96,26 @@ describe("resolvePlayerDragDrop", () => {
       ]),
       activeHalo: makeHalo(15, 25),
       onOpenPitModal,
-      onLog,
-      onAdvanceTurnAndRefresh,
-      onTurnAction
+      onMove
     });
 
-    expect(car.cellId).toBe("B");
-    expect(car.pitExitBoost).toBe(false);
-    expect(car.pitServiced).toBe(false);
+    expect(onMove).toHaveBeenCalledWith("B");
+    expect(onOpenPitModal).not.toHaveBeenCalled();
     expect(token.x).toBe(100);
     expect(token.y).toBe(200);
-    expect(onOpenPitModal).not.toHaveBeenCalled();
-    expect(onAdvanceTurnAndRefresh).toHaveBeenCalledTimes(1);
-    expect(onLog).toHaveBeenCalledWith("Car 1 moved to B.");
-    expect(onTurnAction).toHaveBeenCalledWith({ type: "move", targetCellId: "B" });
+    expect(car).toMatchObject({ cellId: "A", pitExitBoost: true, pitServiced: true });
   });
 
-  it("opens pit modal for pit stop instead of advancing turn", () => {
-    const car = makeCar({ cellId: "A", pitServiced: true });
+  it("opens the pit modal for a pit stop instead of moving", () => {
+    const car = makeCar({ cellId: "A", pitServiced: false });
     const pitCell = makeCell("P1", PIT_LANE, 30, 40);
+    const token = makeToken(10, 20);
     const onOpenPitModal = vi.fn();
-    const onAdvanceTurnAndRefresh = vi.fn();
+    const onMove = vi.fn();
 
     resolvePlayerDragDrop({
       activeCar: car,
-      token: makeToken(10, 20),
+      token,
       origin: { x: 10, y: 20 },
       nearestCell: pitCell,
       validation: makeOkValidation(1, true),
@@ -132,13 +125,14 @@ describe("resolvePlayerDragDrop", () => {
       ]),
       activeHalo: null,
       onOpenPitModal,
-      onLog: vi.fn(),
-      onAdvanceTurnAndRefresh
+      onMove
     });
 
-    expect(car.cellId).toBe("P1");
-    expect(onOpenPitModal).toHaveBeenCalledWith(pitCell, { x: 10, y: 20 }, "A", 1);
-    expect(onAdvanceTurnAndRefresh).not.toHaveBeenCalled();
+    expect(onOpenPitModal).toHaveBeenCalledWith(pitCell, { x: 10, y: 20 });
+    expect(onMove).not.toHaveBeenCalled();
+    expect(car.cellId).toBe("A");
+    expect(token.x).toBe(30);
+    expect(token.y).toBe(40);
   });
 
   it("resets token and halo to current active cell when validation fails", () => {
@@ -146,6 +140,7 @@ describe("resolvePlayerDragDrop", () => {
     const currentCell = makeCell("A", 1, 11, 22);
     const token = makeToken(99, 99);
     const halo = makeHalo(99, 99);
+    const onMove = vi.fn();
 
     resolvePlayerDragDrop({
       activeCar: car,
@@ -156,10 +151,10 @@ describe("resolvePlayerDragDrop", () => {
       cellMap: new Map([["A", currentCell]]),
       activeHalo: halo,
       onOpenPitModal: vi.fn(),
-      onLog: vi.fn(),
-      onAdvanceTurnAndRefresh: vi.fn()
+      onMove
     });
 
+    expect(onMove).not.toHaveBeenCalled();
     expect(token.x).toBe(11);
     expect(token.y).toBe(22);
     expect(halo.x).toBe(11);
@@ -180,8 +175,7 @@ describe("resolvePlayerDragDrop", () => {
       cellMap: new Map(),
       activeHalo: halo,
       onOpenPitModal: vi.fn(),
-      onLog: vi.fn(),
-      onAdvanceTurnAndRefresh: vi.fn()
+      onMove: vi.fn()
     });
 
     expect(token.x).toBe(7);
