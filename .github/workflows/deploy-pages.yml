@@ -33,6 +33,7 @@ jobs:
       - name: Build
         env:
           GIT_SHA: ${{ github.sha }}
+          VITE_BACKEND_API_BASE_URL: https://srp-remake.onrender.com
         run: npm run build
 
       - name: Setup Pages
