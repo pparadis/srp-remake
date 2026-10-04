@@ -14,7 +14,7 @@ import {
 } from "../constants";
 import type { TargetInfo } from "../systems/movementSystem";
 import { computeMoveSpend, getRemainingBudget } from "../systems/moveBudgetSystem";
-import { carColor } from "../systems/spawnSystem";
+import { carSprite } from "../systems/spawnSystem";
 import {
   applyAction,
   computeTargets,
@@ -34,7 +34,7 @@ import { StandingsPanel } from "./ui/StandingsPanel";
 import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
 import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
-import { drawTrack as drawTrackGraphics } from "./rendering/trackRenderer";
+import { drawTrack as drawTrackGraphics, headingOf, laneColor } from "./rendering/trackRenderer";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
 import {
   appendBotDecisionEntry,
@@ -52,6 +52,8 @@ declare global {
     __srp?: {
       state: () => ReturnType<typeof buildGameDebugSnapshot>;
       cellScreenPos: (cellId: string) => { x: number; y: number } | null;
+      /** Stops the looping halo pulse so screenshots are deterministic. */
+      freezeAnimations: () => void;
       status: () => {
         raceLaps: number;
         winnerCarId: number | null;
@@ -66,6 +68,7 @@ type CellMap = Map<string, TrackCell>;
 
 
 export class RaceScene extends Phaser.Scene {
+  private static readonly MOVE_TWEEN_MS = 280;
   private static readonly UI = {
     padding: 10,
     logPanel: { width: 290, height: 180, radius: 8 },
@@ -96,6 +99,7 @@ export class RaceScene extends Phaser.Scene {
   private race: RaceState = { cars: [], turn: { order: [], index: 0 }, raceLaps: 5, winnerCarId: null };
 
   private gTrack!: Phaser.GameObjects.Graphics;
+  private trackImage?: Phaser.GameObjects.Image;
   private gTargets!: Phaser.GameObjects.Graphics;
   private gFrame!: Phaser.GameObjects.Graphics;
   private txtInfo!: Phaser.GameObjects.Text;
@@ -209,6 +213,8 @@ export class RaceScene extends Phaser.Scene {
     this.humanCars = this.registry.get(REG_HUMAN_CARS);
     this.botCars = this.registry.get(REG_BOT_CARS);
 
+    const grassCenter = this.getTrackCenter() ?? { x: 0, y: 0 };
+    this.add.tileSprite(grassCenter.x, grassCenter.y, 4000, 3000, "grass").setDepth(-10);
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
     this.gFrame = this.add.graphics();
@@ -321,6 +327,11 @@ export class RaceScene extends Phaser.Scene {
           canControl: this.canLocalControlActiveCar() && !this.raceFinished,
           activeOwnerId: this.activeCar.ownerId
         }),
+        freezeAnimations: () => {
+          this.activeHaloTween?.stop();
+          this.activeHaloTween = null;
+          for (const halo of this.activeHalos.values()) halo.setScale(1).setAlpha(1);
+        },
         cellScreenPos: (cellId) => {
           const cell = this.cellMap.get(cellId);
           if (!cell) return null;
@@ -350,7 +361,7 @@ export class RaceScene extends Phaser.Scene {
 
   private startRace(raceLaps: number) {
     this.race = createRace(this.ctx, this.buildSeats(), raceLaps);
-    this.race.cars.forEach((car, i) => this.spawnCarToken(car, carColor(i)));
+    this.race.cars.forEach((car, i) => this.spawnCarToken(car, carSprite(i)));
   }
 
   private initCars() {
@@ -427,7 +438,7 @@ export class RaceScene extends Phaser.Scene {
     this.race = toEngineRace(raceState);
     if (this.carTokens.size !== this.cars.length) {
       this.clearCarVisuals();
-      this.cars.forEach((car, i) => this.spawnCarToken(car, carColor(i)));
+      this.cars.forEach((car, i) => this.spawnCarToken(car, carSprite(i)));
     }
     if (this.raceFinished && !wasFinished) {
       const winner = this.cars.find((car) => car.carId === this.winnerCarId);
@@ -452,27 +463,28 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
-  private spawnCarToken(car: Car, color: number) {
+  private spawnCarToken(car: Car, spriteKey: string) {
     const cell = this.cellMap.get(car.cellId);
     if (!cell) return;
-    const halo = this.add.ellipse(cell.pos.x, cell.pos.y, 34, 22);
+    const halo = this.add.ellipse(cell.pos.x, cell.pos.y, 40, 26);
     halo.setStrokeStyle(3, 0xfff27a, 0.95);
     halo.setFillStyle(0xfff27a, 0.08);
     halo.setVisible(false);
     halo.setDepth(60);
     this.activeHalos.set(car.carId, halo);
 
-    const body = this.add.rectangle(0, 0, 26, 16, color, 1);
-    body.setStrokeStyle(2, 0x1a1a1a, 1);
-
+    // Kenney cars point up; the sprite alone is rotated so the badge stays upright.
+    const body = this.add.image(0, 0, spriteKey).setDisplaySize(15, 28);
+    body.setRotation(headingOf(cell, this.cellMap).angle() + Math.PI / 2);
+    const badge = this.add.circle(0, 0, 5.5, 0x0b0f14, 0.85);
     const label = this.add.text(0, 0, String(car.carId), {
       fontFamily: "monospace",
-      fontSize: "12px",
-      color: "#0b0f14"
+      fontSize: "9px",
+      color: "#ffffff"
     });
     label.setOrigin(0.5, 0.5);
 
-    const token = this.add.container(cell.pos.x, cell.pos.y, [body, label]);
+    const token = this.add.container(cell.pos.x, cell.pos.y, [body, badge, label]);
     token.setDepth(50);
     token.setSize(28, 18);
     token.setInteractive({ useHandCursor: true });
@@ -529,8 +541,21 @@ export class RaceScene extends Phaser.Scene {
     for (const car of this.cars) {
       const cell = this.cellMap.get(car.cellId);
       if (!cell) continue;
-      this.carTokens.get(car.carId)?.setPosition(cell.pos.x, cell.pos.y);
-      this.activeHalos.get(car.carId)?.setPosition(cell.pos.x, cell.pos.y);
+      const token = this.carTokens.get(car.carId);
+      if (!token) continue;
+      const body = token.first as Phaser.GameObjects.Image;
+      body.setRotation(headingOf(cell, this.cellMap).angle() + Math.PI / 2);
+      const halo = this.activeHalos.get(car.carId);
+      if (token.x === cell.pos.x && token.y === cell.pos.y) continue;
+      // slide to the new cell (already there after a drag-drop, so only bots and remote turns animate)
+      this.tweens.killTweensOf([token, halo].filter(Boolean));
+      this.tweens.add({
+        targets: [token, halo].filter(Boolean),
+        x: cell.pos.x,
+        y: cell.pos.y,
+        duration: RaceScene.MOVE_TWEEN_MS,
+        ease: "Sine.easeInOut"
+      });
     }
   }
 
@@ -668,21 +693,15 @@ export class RaceScene extends Phaser.Scene {
     this.gTargets.clear();
     this.clearTargetCostLabels();
     if (!this.showCarsAndMoves) return;
-    this.gTargets.lineStyle(2, 0xffffff, 0.35);
-
     for (const [cellId, info] of this.validTargets) {
       const cell = this.cellMap.get(cellId);
       if (!cell) continue;
 
-      const ringRadius = 12 + Math.max(0, 9 - info.distance);
-      const dotRadius = 10;
-      const color = info.isPitTrigger ? 0xffe066 : 0x66ccff;
-      this.gTargets.lineStyle(2, color, 0.8);
-      this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, ringRadius);
-      this.gTargets.fillStyle(color, 0.9);
-      this.gTargets.fillCircle(cell.pos.x, cell.pos.y, dotRadius);
-      this.gTargets.lineStyle(1, 0x0b0f14, 0.95);
-      this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, dotRadius);
+      const color = info.isPitTrigger ? 0xffe066 : laneColor(cell.laneIndex);
+      this.gTargets.fillStyle(color, 0.4);
+      this.gTargets.fillCircle(cell.pos.x, cell.pos.y, 10);
+      this.gTargets.lineStyle(2, color, 0.95);
+      this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 10);
 
       const costLabel = this.add.text(
         cell.pos.x,
@@ -691,8 +710,10 @@ export class RaceScene extends Phaser.Scene {
         {
           fontFamily: "monospace",
           fontSize: "11px",
-          color: "#0b0f14",
-          fontStyle: "bold"
+          color: "#ffffff",
+          fontStyle: "bold",
+          stroke: "#0b0f14",
+          strokeThickness: 3
         }
       );
       costLabel.setOrigin(0.5, 0.5);
@@ -1107,6 +1128,17 @@ export class RaceScene extends Phaser.Scene {
       showForwardIndex: this.showForwardIndex,
       renderForwardIndexOverlay: () => this.renderForwardIndexOverlay()
     });
+    // Bake into a texture: a Graphics object is re-tessellated every frame, the static track is not worth that.
+    const key = "track-baked";
+    this.trackImage?.destroy();
+    if (this.textures.exists(key)) this.textures.remove(key);
+    const xs = this.track.cells.map((c) => c.pos.x);
+    const ys = this.track.cells.map((c) => c.pos.y);
+    const w = Math.ceil(Math.max(...xs) + 100);
+    const h = Math.ceil(Math.max(...ys) + 100);
+    this.gTrack.generateTexture(key, w, h);
+    this.gTrack.clear();
+    this.trackImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(-5);
   }
 
   private findNearestCell(x: number, y: number, maxDist: number): TrackCell | null {

@@ -54,7 +54,7 @@ export async function setLobbySettings(page: Page, s: { bots?: number; laps?: nu
 
 /** Waits until the race scene is built and exposes its test hook. */
 export async function waitForRace(page: Page) {
-  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator("canvas")).toBeVisible({ timeout: 20_000 });
   await page.waitForFunction(() => window.__srp !== undefined && window.__srp.state().cars.length > 0);
 }
 

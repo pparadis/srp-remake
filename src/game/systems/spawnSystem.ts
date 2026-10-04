@@ -10,7 +10,8 @@ interface SpawnOptions {
   botCount?: number;
 }
 
-const DEFAULT_COLORS = [0xe94cff, 0x35d0c7, 0xffc857, 0xff6b6b];
+// Texture keys loaded in BootScene (public/assets/kenney).
+export const CAR_SPRITES = ["car-red", "car-blue", "car-yellow", "car-green", "car-black", "car-orange"] as const;
 const DEFAULT_SETUPS: Car["setup"][] = [
   { compound: "soft", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 },
   { compound: "hard", psi: { fl: 24, fr: 24, rl: 22, rr: 22 }, wingFrontDeg: 5, wingRearDeg: 11 },
@@ -18,8 +19,8 @@ const DEFAULT_SETUPS: Car["setup"][] = [
   { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wingFrontDeg: 4, wingRearDeg: 10 }
 ];
 
-export function carColor(index: number): number {
-  return DEFAULT_COLORS[index % DEFAULT_COLORS.length] ?? DEFAULT_COLORS[0]!;
+export function carSprite(index: number): string {
+  return CAR_SPRITES[index % CAR_SPRITES.length]!;
 }
 
 export function buildSpawnSlots(track: TrackData): TrackCell[] {
@@ -87,7 +88,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
   botCount = Math.min(botCount, count - humanCount);
 
   const cars: Car[] = [];
-  const tokens: Array<{ car: Car; color: number }> = [];
+  const tokens: Array<{ car: Car; sprite: string }> = [];
 
   for (let i = 0; i < count; i += 1) {
     const cell = slots[i];
@@ -111,8 +112,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
       moveCycle: createMoveCycle()
     };
     cars.push(car);
-    const color = carColor(i);
-    tokens.push({ car, color });
+    tokens.push({ car, sprite: carSprite(i) });
   }
 
   return { cars, tokens };
