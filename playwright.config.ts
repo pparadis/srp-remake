@@ -23,6 +23,8 @@ export default defineConfig({
     {
       command: `npm run dev -- --port ${port} --strictPort`,
       url: `http://localhost:${port}`,
+      // vite.config.ts serves under /<repo>/ on GitHub Actions (for Pages); the specs use root paths.
+      env: { VITE_BASE_PATH: "/" },
       reuseExistingServer: !process.env.CI
     }
   ]
