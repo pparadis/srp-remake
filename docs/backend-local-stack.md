@@ -4,9 +4,9 @@ Containerized local multiplayer backend stack.
 
 ## Stack
 
-- `Node.js 20` + `TypeScript`
+- `Node.js 24` + `TypeScript`
 - `Fastify` + `@fastify/websocket`
-- `Redis` for dedupe cache (`clientCommandId`)
+- In-memory lobby state and `clientCommandId` dedupe (lost on restart)
 - `Podman + Podman Compose` orchestration (primary)
 
 ## Prerequisites
@@ -21,14 +21,11 @@ sudo apt install -y podman podman-compose
 ## Services
 
 - `api` (`localhost:3001`)
-- `redis` (`localhost:6379`)
 
 ## API Env Vars
 
 - `HOST` (default `0.0.0.0`)
 - `PORT` (default `3001`)
-- `REDIS_URL` (default `redis://redis:6379`)
-- `DEDUPE_TTL_SECONDS` (default `3600`)
 - `CORS_ALLOWED_ORIGINS` (default `*`)
   - Use comma-separated origins for stricter production setup.
   - Example: `https://your-frontend.example.com,http://localhost:5173`
@@ -102,7 +99,6 @@ Expected shape:
 ```json
 {
   "ok": true,
-  "redis": true,
   "lobbies": 0
 }
 ```
@@ -186,7 +182,7 @@ VITE_BACKEND_API_BASE_URL=http://localhost:3001 npm run dev
 - Podman reports container name already in use:
 
 ```bash
-podman rm -f srp-remake_api_1 srp-remake_redis_1
+podman rm -f srp-remake_api_1
 npm run backend:up
 ```
 

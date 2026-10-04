@@ -2,15 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import type { BackendConfig } from "../src/config.js";
-import { MemoryDedupeStore } from "../src/dedupeStore.js";
 import { createApp } from "../src/server.js";
-import type { TurnCommandResult } from "../src/types.js";
 
 const TEST_CONFIG: BackendConfig = {
   HOST: "127.0.0.1",
   PORT: 3001,
-  REDIS_URL: "redis://127.0.0.1:6399",
-  DEDUPE_TTL_SECONDS: 120,
   CORS_ALLOWED_ORIGINS: "*",
   PLAYER_TOKEN_TTL_SECONDS: 86400,
   ADMIN_DEBUG_ENABLED: false,
@@ -24,9 +20,7 @@ type WsEvent = {
 
 async function createListeningTestApp() {
   const app = await createApp(TEST_CONFIG, {
-    logger: false,
-    dedupeStore: new MemoryDedupeStore<TurnCommandResult>(),
-    redis: null
+    logger: false
   });
   await app.listen({ host: "127.0.0.1", port: 0 });
   return app;

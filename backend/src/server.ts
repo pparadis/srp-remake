@@ -2,11 +2,9 @@ import Fastify from "fastify";
 import websocket from "@fastify/websocket";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { createClient } from "redis";
 import { z } from "zod";
 import { loadConfig, type BackendConfig } from "./config.js";
 import { decideBotTurnAction, type BotTurnTrace } from "./botTurnEngine.js";
-import { MemoryDedupeStore, RedisDedupeStore, type DedupeStore } from "./dedupeStore.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
 import type { LobbySettings, TurnCommandResult, TurnSubmitAction } from "./types.js";
 
@@ -41,8 +39,6 @@ type AppliedTurnEvent = {
 
 type CreateAppOptions = {
   logger?: boolean;
-  dedupeStore?: DedupeStore<TurnCommandResult>;
-  redis?: ReturnType<typeof createClient> | null;
 };
 
 const LobbySettingsPatchSchema = z.object({
@@ -124,30 +120,11 @@ const AdminTimelineQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional()
 });
 
-async function createDedupeStore(redisUrl: string): Promise<{
-  dedupeStore: DedupeStore<TurnCommandResult>;
-  redis: ReturnType<typeof createClient> | null;
-}> {
-  const redis = createClient({ url: redisUrl });
-  try {
-    await redis.connect();
-    return { dedupeStore: new RedisDedupeStore<TurnCommandResult>(redis), redis };
-  } catch {
-    try {
-      await redis.disconnect();
-    } catch {
-      // no-op
-    }
-    return { dedupeStore: new MemoryDedupeStore<TurnCommandResult>(), redis: null };
-  }
-}
-
 export async function createApp(config: BackendConfig, options: CreateAppOptions = {}) {
   const app = Fastify({ logger: options.logger ?? true });
   const lobbyStore = new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000);
-  const { dedupeStore, redis } = options.dedupeStore
-    ? { dedupeStore: options.dedupeStore, redis: options.redis ?? null }
-    : await createDedupeStore(config.REDIS_URL);
+  // Lives as long as the in-memory lobbies it dedupes for.
+  const dedupedResults = new Map<string, TurnCommandResult>();
   const socketsByLobby = new Map<string, Set<LobbySocket>>();
   const timelineByLobby = new Map<string, TimelineEntry[]>();
   const timelineMaxEntries = 500;
@@ -347,7 +324,6 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   app.get("/health", async () => ({
     ok: true,
-    redis: redis?.isReady ?? false,
     lobbies: lobbyStore.count()
   }));
 
@@ -483,7 +459,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     }
 
     const dedupeKey = `dedupe:${params.lobbyId}:${player.playerId}:${body.clientCommandId}`;
-    const deduped = await dedupeStore.get(dedupeKey);
+    const deduped = dedupedResults.get(dedupeKey);
     if (deduped) {
       logMultiplayer("turn.submit.deduped", {
         lobbyId: lobby.lobbyId,
@@ -506,7 +482,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         revision: lobby.revision,
         error: "lobby_not_in_race"
       };
-      await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
+      dedupedResults.set(dedupeKey, result);
       logMultiplayer("turn.submit.rejected", {
         lobbyId: lobby.lobbyId,
         playerId: player.playerId,
@@ -528,7 +504,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         revision: lobby.revision,
         error: "stale_revision"
       };
-      await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
+      dedupedResults.set(dedupeKey, result);
       logMultiplayer("turn.submit.rejected", {
         lobbyId: lobby.lobbyId,
         playerId: player.playerId,
@@ -554,7 +530,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         revision: lobby.revision,
         error: "not_active_player"
       };
-      await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
+      dedupedResults.set(dedupeKey, result);
       logMultiplayer("turn.submit.rejected", {
         lobbyId: lobby.lobbyId,
         playerId: player.playerId,
@@ -579,7 +555,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       revision: updatedLobby.revision,
       applied: body.action
     };
-    await dedupeStore.set(dedupeKey, result, config.DEDUPE_TTL_SECONDS);
+    dedupedResults.set(dedupeKey, result);
     broadcast(lobby.lobbyId, "turn.applied", result);
     broadcast(lobby.lobbyId, "race.state", toPublicLobby(updatedLobby));
     logMultiplayer("turn.submit.applied", {
@@ -709,12 +685,6 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         // Lobby may already be gone; ignore close handling errors.
       }
     });
-  });
-
-  app.addHook("onClose", async () => {
-    if (redis) {
-      await redis.disconnect();
-    }
   });
 
   return app;
