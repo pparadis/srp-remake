@@ -33,3 +33,7 @@ coverage/
 # Keep generated tracks in version control
 !public/tracks/
 !public/tracks/*.json
+
+# Playwright
+playwright-report/
+test-results/

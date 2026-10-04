@@ -32,7 +32,7 @@ export default [
     }
   },
   {
-    files: ["tools/**/*.mjs", "*.config.js", "*.config.cjs", "*.config.mjs"],
+    files: ["tools/**/*.mjs", "playwright.config.ts", "*.config.js", "*.config.cjs", "*.config.mjs"],
     languageOptions: {
       globals: {
         ...globals.node
