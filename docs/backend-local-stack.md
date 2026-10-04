@@ -6,6 +6,7 @@ Containerized local multiplayer backend stack.
 
 - `Node.js 24` + `TypeScript`
 - `Fastify` + `@fastify/websocket`
+- Shares the game engine (`src/game/race`) and track data with the browser; `npm run backend:build` bundles them with esbuild, and the container is built from the repo root.
 - In-memory lobby state and `clientCommandId` dedupe (lost on restart)
 - `Podman + Podman Compose` orchestration (primary)
 
