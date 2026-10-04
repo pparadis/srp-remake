@@ -6,7 +6,7 @@ Project guide for Codex and other automation.
 
 - Game prototype in `src/` (Phaser).
 - Track data in `public/tracks/`.
-- Tools in `tools/` (track generator + validation).
+- Track generator in `tools/`; track validation in `src/validation/`.
 - Docs in `docs/`.
 
 ## Key Rules (Current)
