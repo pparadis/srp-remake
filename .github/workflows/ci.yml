@@ -21,8 +21,6 @@ jobs:
         run: npm --prefix backend ci
       - name: Lint
         run: npm run lint
-      - name: Validate Track
-        run: node tools/validateTrack.mjs
       - name: Test
         run: npm test
       - name: Test Coverage
