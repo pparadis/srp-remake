@@ -4,7 +4,7 @@ FROM node:24-alpine AS build
 WORKDIR /app/backend
 
 COPY backend/package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY backend/tsconfig.json ./
 COPY backend/src ./src
@@ -17,9 +17,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY backend/package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build /app/backend/dist ./dist
 
+# Don't run as root.
+USER node
 EXPOSE 3001
-CMD ["npm", "run", "start"]
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3001/health || exit 1
+CMD ["node", "dist/server.js"]

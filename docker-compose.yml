@@ -12,3 +12,9 @@ services:
       PLAYER_TOKEN_TTL_SECONDS: 86400
     ports:
       - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 3

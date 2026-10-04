@@ -16,7 +16,7 @@ Containerized local multiplayer backend stack.
 
 ```bash
 sudo apt update
-sudo apt install -y podman podman-compose
+sudo apt install -y podman podman-compose uidmap
 ```
 
 ## Services
@@ -42,9 +42,9 @@ npm --prefix backend ci
 npm --prefix backend run dev   # API + WebSocket on http://localhost:3001, reloads on change
 ```
 
-With containers:
+With containers (Podman, rootless):
 
-1. Build and start:
+1. Build and start (the first build takes a minute; wait for `(healthy)` in `podman ps`):
 
 ```bash
 npm run backend:up
@@ -73,6 +73,14 @@ npm run backend:logs
 ```bash
 npm --prefix backend test
 ```
+
+## Container Notes
+
+- The image is built from the repo root (`docker-compose.yml` sets the context) so it can bundle the shared
+  game engine; it uses `npm ci` (lockfile-exact) and a multi-stage build (~180 MB).
+- It runs as the non-root `node` user, with `node` as PID 1 and a `/health` healthcheck (`podman ps` shows
+  `(healthy)`). The server shuts down cleanly on SIGTERM, so `podman stop` takes ~2 s.
+- Rootless Podman prints a harmless `"/" is not a shared mount` warning.
 
 ## Docker Instead of Podman
 

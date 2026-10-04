@@ -694,6 +694,15 @@ async function bootstrap() {
   const config = loadConfig();
   const app = await createApp(config);
   await app.listen({ host: config.HOST, port: config.PORT });
+
+  // As PID 1 in a container, Node ignores SIGTERM unless it handles it; without
+  // this `podman stop` waits for the force-kill timeout.
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.once(signal, () => {
+      app.log.info({ signal }, "shutting down");
+      void app.close().finally(() => process.exit(0));
+    });
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
