@@ -8,10 +8,6 @@ interface SpawnOptions {
   totalCars?: number;
   humanCount?: number;
   botCount?: number;
-  // Legacy options kept for compatibility.
-  playerCount?: number;
-  botMode?: boolean;
-  botFill?: boolean;
 }
 
 const DEFAULT_COLORS = [0xe94cff, 0x35d0c7, 0xffc857, 0xff6b6b];
@@ -77,46 +73,20 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
   const slots = buildSpawnSlots(track);
   const maxSlots = Math.max(1, slots.length);
 
-  const hasExplicitComposition =
-    options.totalCars != null || options.humanCount != null || options.botCount != null;
-
-  let requestedTotal = 1;
-  let humanCount = 1;
-  let botCount = 0;
-
-  if (hasExplicitComposition) {
-    requestedTotal = Math.max(1, Math.min(options.totalCars ?? ((options.humanCount ?? 0) + (options.botCount ?? 0)), maxSlots));
-    humanCount = Math.max(0, Math.min(options.humanCount ?? requestedTotal, requestedTotal));
-    botCount = Math.max(0, Math.min(options.botCount ?? (requestedTotal - humanCount), requestedTotal - humanCount));
-  } else {
-    const desiredCount = Math.max(1, Math.min(options.playerCount ?? 1, maxSlots));
-    const botMode = options.botMode ?? false;
-    const botFill = options.botFill ?? false;
-    requestedTotal = desiredCount;
-    if (botMode) {
-      humanCount = 0;
-      botCount = desiredCount;
-    } else if (botFill) {
-      humanCount = 1;
-      botCount = Math.max(0, desiredCount - 1);
-    } else {
-      humanCount = desiredCount;
-      botCount = 0;
-    }
-  }
+  const requestedTotal = Math.max(1, Math.min(options.totalCars ?? ((options.humanCount ?? 0) + (options.botCount ?? 0)), maxSlots));
+  const humanCount = Math.max(0, Math.min(options.humanCount ?? requestedTotal, requestedTotal));
+  let botCount = Math.max(0, Math.min(options.botCount ?? (requestedTotal - humanCount), requestedTotal - humanCount));
 
   const count = Math.max(1, Math.min(requestedTotal, humanCount + botCount, maxSlots));
   // `humanCount` is already clamped to `requestedTotal`, and `count` is
   // constrained by `humanCount + botCount`, so only bot count may need trimming.
   botCount = Math.min(botCount, count - humanCount);
 
-  const orderedSlots = slots;
-
   const cars: Car[] = [];
   const tokens: Array<{ car: Car; color: number }> = [];
 
   for (let i = 0; i < count; i += 1) {
-    const cell = orderedSlots[i];
+    const cell = slots[i];
     if (!cell) continue;
     const setup = (DEFAULT_SETUPS[i % DEFAULT_SETUPS.length] ?? DEFAULT_SETUPS[0])!;
     const isBot = i >= humanCount;

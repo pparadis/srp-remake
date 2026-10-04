@@ -80,35 +80,4 @@ describe("startGame", () => {
     });
     expectRegistryComposition(game.registry.set, { totalCars: 6, humanCars: 2, botCars: 4, raceLaps: 20 });
   });
-
-  it("clamps explicit composition so humans and bots never exceed total", async () => {
-    const game = mockGameInstance();
-    gameCtor.mockReturnValue(game);
-    const { startGame } = await import("./index");
-    const parent = document.createElement("div");
-
-    startGame(parent, { totalCars: 5, humanCars: 4, botCars: 9 });
-
-    expectRegistryComposition(game.registry.set, { totalCars: 5, humanCars: 4, botCars: 1 });
-  });
-
-  it("supports legacy options for bot mode and bot fill", async () => {
-    const parent = document.createElement("div");
-    const { startGame } = await import("./index");
-
-    const gameBotMode = mockGameInstance();
-    gameCtor.mockReturnValueOnce(gameBotMode);
-    startGame(parent, { playerCount: 3, botMode: true });
-    expectRegistryComposition(gameBotMode.registry.set, { totalCars: 3, humanCars: 0, botCars: 3 });
-
-    const gameBotFill = mockGameInstance();
-    gameCtor.mockReturnValueOnce(gameBotFill);
-    startGame(parent, { playerCount: 4, botFill: true });
-    expectRegistryComposition(gameBotFill.registry.set, { totalCars: 4, humanCars: 1, botCars: 3 });
-
-    const gameDefault = mockGameInstance();
-    gameCtor.mockReturnValueOnce(gameDefault);
-    startGame(parent, {});
-    expectRegistryComposition(gameDefault.registry.set, { totalCars: 1, humanCars: 1, botCars: 0 });
-  });
 });

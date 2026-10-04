@@ -27,7 +27,3 @@ export function advancePitPenalty(car: Car) {
   }
   return true;
 }
-
-export function shouldDisallowPitBoxTargets(car: Car, _inPitLane: boolean) {
-  return car.pitServiced;
-}

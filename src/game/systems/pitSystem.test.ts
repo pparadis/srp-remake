@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advancePitPenalty, applyPitStop, shouldDisallowPitBoxTargets, shouldOpenPitModal } from "./pitSystem";
+import { advancePitPenalty, applyPitStop, shouldOpenPitModal } from "./pitSystem";
 import type { Car } from "../types/car";
 import type { TrackCell, TrackTag } from "../types/track";
 
@@ -102,18 +102,5 @@ describe("pitSystem", () => {
     expect(car.pitTurnsRemaining).toBe(1);
     expect(car.state).toBe("PITTING");
     expect(car.pitExitBoost).toBe(false);
-  });
-
-  it("disallows pit box targets after service", () => {
-    const car = makeCar();
-    car.pitServiced = true;
-    expect(shouldDisallowPitBoxTargets(car, false)).toBe(true);
-    expect(shouldDisallowPitBoxTargets(car, true)).toBe(true);
-  });
-
-  it("allows pit box targets when not serviced", () => {
-    const car = makeCar();
-    car.pitServiced = false;
-    expect(shouldDisallowPitBoxTargets(car, false)).toBe(false);
   });
 });
