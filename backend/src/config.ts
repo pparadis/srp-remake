@@ -4,9 +4,7 @@ const ConfigSchema = z.object({
   HOST: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().int().positive().default(3001),
   CORS_ALLOWED_ORIGINS: z.string().default("*"),
-  PLAYER_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
-  ADMIN_DEBUG_ENABLED: z.coerce.boolean().default(false),
-  ADMIN_DEBUG_TOKEN: z.string().default("")
+  PLAYER_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(86400)
 });
 
 export type BackendConfig = z.infer<typeof ConfigSchema>;

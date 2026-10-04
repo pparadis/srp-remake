@@ -159,26 +159,6 @@ body {
   text-overflow: ellipsis;
 }
 
-.control-debug {
-  color: #9fb0bf;
-  font-size: 12px;
-}
-
-.control-debug > summary {
-  cursor: pointer;
-  user-select: none;
-}
-
-.control-debug[open] {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.control-debug[open] > summary {
-  margin-right: 4px;
-}
-
 #multiplayerCard .control-row + .control-row {
   margin-top: 6px;
 }

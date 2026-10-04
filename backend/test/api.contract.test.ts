@@ -8,9 +8,7 @@ const TEST_CONFIG: BackendConfig = {
   HOST: "127.0.0.1",
   PORT: 3001,
   CORS_ALLOWED_ORIGINS: "*",
-  PLAYER_TOKEN_TTL_SECONDS: 86400,
-  ADMIN_DEBUG_ENABLED: false,
-  ADMIN_DEBUG_TOKEN: ""
+  PLAYER_TOKEN_TTL_SECONDS: 86400
 };
 
 async function createTestApp() {
@@ -82,71 +80,8 @@ test("supports CORS preflight on v1 endpoints", async (t) => {
   assert.match(String(res.headers["access-control-allow-methods"] ?? ""), /POST/);
 });
 
-test("exposes admin timeline when debug endpoint is enabled", async (t) => {
-  const app = await createApp(
-    {
-      ...TEST_CONFIG,
-      ADMIN_DEBUG_ENABLED: true,
-      ADMIN_DEBUG_TOKEN: "secret-token"
-    },
-    {
-      logger: false
-    }
-  );
-  t.after(async () => {
-    await app.close();
-  });
-
-  const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host" }
-  });
-  assert.equal(createdRes.statusCode, 201);
-  const createdBody = createdRes.json() as { lobby: { lobbyId: string }; playerToken: string };
-
-  const startRes = await app.inject({
-    method: "POST",
-    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
-    payload: { playerToken: createdBody.playerToken }
-  });
-  assert.equal(startRes.statusCode, 200);
-
-  const unauthorizedRes = await app.inject({
-    method: "GET",
-    url: `/admin/lobbies/${createdBody.lobby.lobbyId}/timeline`
-  });
-  assert.equal(unauthorizedRes.statusCode, 401);
-
-  const timelineRes = await app.inject({
-    method: "GET",
-    url: `/admin/lobbies/${createdBody.lobby.lobbyId}/timeline?limit=10`,
-    headers: { authorization: "Bearer secret-token" }
-  });
-  assert.equal(timelineRes.statusCode, 200);
-  const body = timelineRes.json() as {
-    lobbyId: string;
-    count: number;
-    returned: number;
-    entries: Array<{ event: string }>;
-  };
-  assert.equal(body.lobbyId, createdBody.lobby.lobbyId);
-  assert.ok(body.count >= 1);
-  assert.ok(body.returned >= 1);
-  assert.ok(body.entries.some((entry) => entry.event === "lobby.create"));
-});
-
-test("runs bot turns on backend and records bot traces in admin timeline", async (t) => {
-  const app = await createApp(
-    {
-      ...TEST_CONFIG,
-      ADMIN_DEBUG_ENABLED: true,
-      ADMIN_DEBUG_TOKEN: "secret-token"
-    },
-    {
-      logger: false
-    }
-  );
+test("runs bot turns on backend", async (t) => {
+  const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
@@ -214,35 +149,7 @@ test("runs bot turns on backend and records bot traces in admin timeline", async
   assert.equal(readBody.lobby.raceState?.cars[1]?.actionsTaken, 1);
   assert.equal(readBody.lobby.raceState?.cars[2]?.actionsTaken, 1);
 
-  const timelineRes = await app.inject({
-    method: "GET",
-    url: `/admin/lobbies/${createdBody.lobby.lobbyId}/timeline?limit=50`,
-    headers: { authorization: "Bearer secret-token" }
-  });
-  assert.equal(timelineRes.statusCode, 200);
-  const timelineBody = timelineRes.json() as {
-    entries: Array<{
-      event: string;
-      context?: Record<string, unknown>;
-    }>;
-  };
-  const botAppliedEntries = timelineBody.entries.filter((entry) => entry.event === "turn.bot.applied");
-  assert.equal(botAppliedEntries.length, 2);
 
-  const botSeatIndexes: number[] = [];
-  for (const entry of botAppliedEntries) {
-    const context = entry.context ?? {};
-    assert.equal(typeof context.playerId, "string");
-    assert.match(String(context.playerId), /^BOT\d+$/);
-    const botTrace = context.botTrace as Record<string, unknown> | undefined;
-    assert.ok(botTrace);
-    assert.equal(botTrace?.policyVersion, "v0.skip_only");
-    assert.equal(botTrace?.reason, "movement_targets_unavailable_in_backend_state");
-    assert.equal(typeof botTrace?.seatIndex, "number");
-    botSeatIndexes.push(Number(botTrace?.seatIndex));
-  }
-  botSeatIndexes.sort((a, b) => a - b);
-  assert.deepEqual(botSeatIndexes, [1, 2]);
 });
 
 test("supports lobby create, settings patch, and join contracts", async (t) => {

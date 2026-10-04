@@ -4,7 +4,6 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { loadConfig, type BackendConfig } from "./config.js";
-import { decideBotTurnAction, type BotTurnTrace } from "./botTurnEngine.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
 import type { LobbySettings, TurnCommandResult, TurnSubmitAction } from "./types.js";
 
@@ -18,13 +17,6 @@ type LobbySocket = {
   on(event: "close", listener: () => void): void;
 };
 
-type TimelineEntry = {
-  seq: number;
-  at: number;
-  event: string;
-  context: Record<string, unknown>;
-};
-
 type AppliedTurnEvent = {
   ok: true;
   lobbyId: string;
@@ -34,7 +26,6 @@ type AppliedTurnEvent = {
   applied: TurnSubmitAction;
   source?: "human" | "bot";
   seatIndex?: number;
-  botTrace?: BotTurnTrace;
 };
 
 type CreateAppOptions = {
@@ -116,19 +107,12 @@ const LobbyReadQuerySchema = z.object({
   playerToken: z.string().min(1)
 });
 
-const AdminTimelineQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(500).optional()
-});
-
 export async function createApp(config: BackendConfig, options: CreateAppOptions = {}) {
   const app = Fastify({ logger: options.logger ?? true });
   const lobbyStore = new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000);
   // Lives as long as the in-memory lobbies it dedupes for.
   const dedupedResults = new Map<string, TurnCommandResult>();
   const socketsByLobby = new Map<string, Set<LobbySocket>>();
-  const timelineByLobby = new Map<string, TimelineEntry[]>();
-  const timelineMaxEntries = 500;
-  let timelineSeq = 1;
   let wsConnectionSeq = 1;
   const allowedOrigins = config.CORS_ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
@@ -165,27 +149,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     };
   }
 
-  function recordTimeline(lobbyId: string, event: string, context: Record<string, unknown>) {
-    const entry: TimelineEntry = {
-      seq: timelineSeq++,
-      at: Date.now(),
-      event,
-      context
-    };
-    const items = timelineByLobby.get(lobbyId) ?? [];
-    items.push(entry);
-    if (items.length > timelineMaxEntries) {
-      items.splice(0, items.length - timelineMaxEntries);
-    }
-    timelineByLobby.set(lobbyId, items);
-  }
-
   function logMultiplayer(event: string, context: Record<string, unknown>) {
     app.log.info({ event, ...context }, "multiplayer_event");
-    const lobbyId = context.lobbyId;
-    if (typeof lobbyId === "string" && lobbyId.length > 0) {
-      recordTimeline(lobbyId, event, context);
-    }
   }
 
   app.addHook("onRequest", async (request, reply) => {
@@ -222,11 +187,6 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   function broadcast(lobbyId: string, event: string, payload: unknown) {
     const set = socketsByLobby.get(lobbyId);
-    recordTimeline(lobbyId, `broadcast.${event}`, {
-      lobbyId,
-      audience: set?.size ?? 0,
-      raceSummary: summarizeRaceState(lobbyId)
-    });
     if (!set) return;
     const data = JSON.stringify({ event, payload });
     const staleSockets: LobbySocket[] = [];
@@ -278,7 +238,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         return;
       }
 
-      const { action, trace } = decideBotTurnAction(lobby.raceState, activeCar);
+      // Bots always skip until the backend knows the movement rules.
+      const action: TurnSubmitAction = { type: "skip" };
       lobbyStore.applyTurnAction(lobbyId, action);
       const updatedLobby = lobbyStore.incrementRevision(lobbyId);
       const playerId = `BOT${activeCar.seatIndex + 1}`;
@@ -291,8 +252,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         revision: updatedLobby.revision,
         applied: action,
         source: "bot",
-        seatIndex: activeCar.seatIndex,
-        botTrace: trace
+        seatIndex: activeCar.seatIndex
       };
       broadcast(lobbyId, "turn.applied", botEvent);
       broadcast(lobbyId, "race.state", toPublicLobby(updatedLobby));
@@ -305,7 +265,6 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         clientCommandId,
         activeSeatIndex: updatedLobby.raceState?.activeSeatIndex ?? null,
         applied: action,
-        botTrace: trace,
         raceSummary: summarizeRaceState(lobbyId)
       });
     }
@@ -570,34 +529,6 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     });
     runPendingBotTurns(lobby.lobbyId);
     return result;
-  });
-
-  app.get("/admin/lobbies/:lobbyId/timeline", async (request, reply) => {
-    if (!config.ADMIN_DEBUG_ENABLED) {
-      return reply.code(404).send({ error: "not_found" });
-    }
-
-    const params = LobbyPathSchema.parse(request.params);
-    const query = AdminTimelineQuerySchema.parse(request.query);
-    const auth = request.headers.authorization;
-    if (config.ADMIN_DEBUG_TOKEN.length > 0) {
-      const expected = `Bearer ${config.ADMIN_DEBUG_TOKEN}`;
-      if (auth !== expected) {
-        return reply.code(401).send({ error: "unauthorized" });
-      }
-    }
-
-    const items = timelineByLobby.get(params.lobbyId) ?? [];
-    const limit = query.limit ?? 200;
-    const entries = items.slice(Math.max(0, items.length - limit));
-    const lobby = lobbyStore.getLobby(params.lobbyId);
-    return {
-      lobbyId: params.lobbyId,
-      count: items.length,
-      returned: entries.length,
-      entries,
-      snapshot: lobby ? toPublicLobby(lobby) : null
-    };
   });
 
   app.get("/ws", { websocket: true }, (socket, request) => {

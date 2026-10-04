@@ -31,10 +31,6 @@ sudo apt install -y podman podman-compose
   - Example: `https://your-frontend.example.com,http://localhost:5173`
 - `PLAYER_TOKEN_TTL_SECONDS` (default `86400`)
   - Player tokens expire after this duration.
-- `ADMIN_DEBUG_ENABLED` (default `false`)
-  - Enables `GET /admin/lobbies/:lobbyId/timeline`.
-- `ADMIN_DEBUG_TOKEN` (default empty)
-  - Optional bearer token required by admin timeline endpoint when set.
 
 ## Run
 
@@ -68,18 +64,6 @@ npm run backend:logs
 npm --prefix backend test
 ```
 
-5. Deterministic sync repro (fixed `clientCommandId`s):
-
-```bash
-npm run backend:repro:sync
-```
-
-Optional env vars:
-
-- `BACKEND_BASE_URL` (default `http://localhost:3001`)
-- `BACKEND_ADMIN_DEBUG_TOKEN` (if timeline endpoint requires auth)
-- `REPRO_TIMELINE_LIMIT` (default `40`)
-
 ## Docker Compose Fallback
 
 If your machine has Docker Compose instead of Podman Compose:
@@ -112,19 +96,7 @@ Expected shape:
 - `POST /api/v1/lobbies/:lobbyId/start`
 - `POST /api/v1/lobbies/:lobbyId/turns`
 - `GET /ws` (websocket with `lobbyId` + `playerToken` query)
-- `GET /admin/lobbies/:lobbyId/timeline` (dev/admin debug endpoint)
 
-## Bruno Collection
-
-- Collection path: `bruno/`
-- Environment file: `bruno/environments/local.bru`
-- Request flow (in order): `bruno/v1/00-health.bru` to `bruno/v1/07-submit-turn-stale.bru`
-- Optional lobby read check: `bruno/v1/03a-read-lobby.bru`
-
-Notes:
-
-- Run `01 Create Lobby` before requests that require `{{lobbyId}}` and `{{hostPlayerToken}}`.
-- The collection stores `lobbyId`, `hostPlayerToken`, and `guestPlayerToken` from responses.
 - Render deployment guide: `docs/backend-render-deploy.md`
 
 ## Notes
@@ -142,10 +114,6 @@ Notes:
   - API lifecycle (`host/join/start/turn submit`)
   - websocket lifecycle (`ws connecting/open/close/reconnect`)
   - rehydrate lifecycle (`rehydrate start/success/fail`)
-- Backend maintains a per-lobby timeline ring buffer (last 500 events).
-- UI button `Copy multiplayer debug` exports:
-  - client timeline + session state
-  - backend timeline snapshot (when admin endpoint is enabled/reachable)
 
 ## Local Client Smoke Test
 
@@ -187,7 +155,7 @@ npm run backend:up
 ```
 
 - Browser works on `localhost` but tooling fails on `127.0.0.1`:
-  - Use `http://localhost:3001` consistently for frontend and Bruno on WSL setups.
+  - Use `http://localhost:3001` consistently for frontend and tooling on WSL setups.
 
 - Frontend CORS errors:
   - Confirm backend exposes `CORS_ALLOWED_ORIGINS` for your frontend origin.
