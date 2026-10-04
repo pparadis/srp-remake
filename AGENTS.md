@@ -40,7 +40,7 @@ Project guide for Codex and other automation.
 
 ## Validation & Tests
 
-- Track validation: `node tools/validateTrack.mjs`
+- Track validation: `npm run validate:track` (runs `src/validation` tests; also runs before every build)
   - Checks spine lane existence, contiguous forwardIndex, and monotonic `next[]`.
 - Tests: `npm test`
 - CI: GitHub Actions runs validation, tests, and build (`.github/workflows/ci.yml`).
@@ -48,7 +48,7 @@ Project guide for Codex and other automation.
 ## Common Tasks
 
 1. Regenerate track: `npm run gen:track`
-2. Validate track: `node tools/validateTrack.mjs`
+2. Validate track: `npm run validate:track`
 3. Run tests: `npm test`
 
 ## Troubleshooting

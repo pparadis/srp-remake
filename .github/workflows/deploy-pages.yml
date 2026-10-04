@@ -30,9 +30,6 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Validate Track
-        run: node tools/validateTrack.mjs
-
       - name: Build
         env:
           GIT_SHA: ${{ github.sha }}
