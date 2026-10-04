@@ -20,8 +20,7 @@ export interface RegisterRaceSceneInputHandlersParams {
   findNearestCell: (x: number, y: number, maxDist: number) => TrackCell | null;
   recomputeTargets: () => void;
   drawTargets: () => void;
-  makeHudText: (cell: TrackCell | null) => string;
-  setHudText: (text: string) => void;
+  setHoverCell: (cell: TrackCell | null) => void;
   copyCellId: (cellId: string) => void;
   toggleForwardIndexOverlay: () => void;
   openPitModal: (cell: TrackCell, origin: { x: number; y: number }) => void;
@@ -47,8 +46,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     findNearestCell,
     recomputeTargets,
     drawTargets,
-    makeHudText,
-    setHudText,
+    setHoverCell,
     copyCellId,
     toggleForwardIndexOverlay,
     openPitModal,
@@ -132,7 +130,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
 
   scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
     const cell = findNearestCell(pointer.worldX, pointer.worldY, hoverMaxDist);
-    setHudText(makeHudText(cell));
+    setHoverCell(cell);
   });
 
   scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -147,5 +145,4 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     toggleForwardIndexOverlay();
   });
 
-  setHudText(makeHudText(null));
 }

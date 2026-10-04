@@ -34,10 +34,16 @@ Project guide for Codex and other automation.
 - Lap increments when `forwardIndex` wraps (from higher to lower) on non‑pit lanes.
 - Decision made: no `START_FINISH` landing requirement; increment on wrap for non‑pit lanes.
 
+## Race HUD
+
+- The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
+  `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceScene.emitHud()` sends. Add HUD data to the
+  snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
+
 ## Debugging Tools
 
 - In‑game debug:
-  - Press `F` to toggle forwardIndex overlay.
+  - Press `F` to toggle forwardIndex overlay (also shows full cell debug text in the HUD); `C` toggles cars+moves.
   - “Copy debug” button copies a JSON snapshot with car + movement context.
   - “Copy bot debug” button copies structured bot decision traces.
 - Snapshot includes `version` + `gitSha` for reproducibility.

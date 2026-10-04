@@ -106,7 +106,7 @@ test.describe("solo", () => {
       cars: window.__srp!.state().cars.map((c) => c.lapCount),
       laps: window.__srp!.status().raceLaps
     }));
-    // TODO(phase 3): assert the DOM HUD shows "Lap 0/2" once it exists
+    await expect(page.getByTestId("hud-lap")).toHaveText("Lap 0 / 2");
     expect(snapshot).toEqual({ cars: [0, 0, 0, 0], laps: 2 });
     expect(errors).toEqual([]);
   });

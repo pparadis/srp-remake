@@ -12,6 +12,9 @@ interface SpawnOptions {
 
 // Texture keys loaded in BootScene (public/assets/kenney).
 export const CAR_SPRITES = ["car-red", "car-blue", "car-yellow", "car-green", "car-black", "car-orange"] as const;
+// Same order as CAR_SPRITES, for the DOM HUD chips.
+const CAR_COLORS = ["#e5484d", "#3b86c4", "#f5d90a", "#4cd964", "#3a3f47", "#ff8a3d"];
+export const carColor = (index: number) => CAR_COLORS[index % CAR_COLORS.length]!;
 const DEFAULT_SETUPS: Car["setup"][] = [
   { compound: "soft", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 },
   { compound: "hard", psi: { fl: 24, fr: 24, rl: 22, rr: 22 }, wingFrontDeg: 5, wingRearDeg: 11 },

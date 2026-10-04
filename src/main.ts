@@ -1,4 +1,5 @@
 import "./style.css";
+import { mountHud, renderHud, renderResults, type HudSnapshot } from "./ui/hud";
 import {
   BackendApiClient,
   BackendApiError,
@@ -46,6 +47,8 @@ const lobbyStartBtn = el<HTMLButtonElement>("lobbyStartBtn");
 const lobbyLeaveBtn = el<HTMLButtonElement>("lobbyLeaveBtn");
 const results = el("results");
 const resultsWinner = el("resultsWinner");
+const hud = el("hud");
+mountHud(hud);
 
 let game: ReturnType<typeof import("./game").startGame> | null = null;
 let gameStarting = false;
@@ -817,6 +820,12 @@ window.addEventListener("srp:local-turn-action", (event) => {
   const custom = event as CustomEvent<BackendTurnAction>;
   if (!custom.detail) return;
   void submitTurnAction(custom.detail);
+});
+
+window.addEventListener("srp:hud", (event) => {
+  const snapshot = (event as CustomEvent<HudSnapshot>).detail;
+  renderHud(hud, snapshot);
+  renderResults(document.body, snapshot);
 });
 
 window.addEventListener("srp:race-finished", (event) => {

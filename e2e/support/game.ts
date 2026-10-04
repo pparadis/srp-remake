@@ -183,6 +183,22 @@ export async function expectSameCars(pages: Page[]) {
     .toBe(1);
 }
 
+/** Standings as the HUD shows them: car id, lap and gap per row, in order. */
+export const hudStandings = (page: Page) =>
+  page.evaluate(() =>
+    JSON.stringify(
+      [...document.querySelectorAll('[data-testid="hud-standing-row"]')]
+        .map((row) => [row.getAttribute("data-car-id"), ...[...row.children].slice(3, 5).map((td) => td.textContent)])
+    )
+  );
+
+/** Every page's HUD shows the same standings order, laps and gaps. */
+export async function expectSameHud(pages: Page[]) {
+  await expect
+    .poll(async () => new Set(await Promise.all(pages.map(hudStandings))).size, { timeout: 10_000 })
+    .toBe(1);
+}
+
 /** Lets whoever has the turn play, checking after each turn that all pages agree. */
 export async function playOnlineRace(pages: Page[], opts: { maxTurns?: number; stopAfter?: number } = {}) {
   const maxTurns = opts.maxTurns ?? 300;
@@ -192,6 +208,7 @@ export async function playOnlineRace(pages: Page[], opts: { maxTurns?: number; s
     if (!mover) return;
     await playMyTurn(mover);
     await expectSameCars(pages);
+    await expectSameHud(pages);
   }
   throw new Error(`race not finished after ${maxTurns} turns`);
 }
