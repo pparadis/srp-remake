@@ -2,15 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import type { BackendConfig } from "../src/config.js";
-import { MemoryDedupeStore } from "../src/dedupeStore.js";
 import { createApp } from "../src/server.js";
-import type { TurnCommandResult } from "../src/types.js";
 
 const TEST_CONFIG: BackendConfig = {
   HOST: "127.0.0.1",
   PORT: 3001,
-  REDIS_URL: "redis://127.0.0.1:6399",
-  DEDUPE_TTL_SECONDS: 120,
   CORS_ALLOWED_ORIGINS: "*",
   PLAYER_TOKEN_TTL_SECONDS: 86400,
   ADMIN_DEBUG_ENABLED: false,
@@ -19,9 +15,7 @@ const TEST_CONFIG: BackendConfig = {
 
 async function createTestApp() {
   return createApp(TEST_CONFIG, {
-    logger: false,
-    dedupeStore: new MemoryDedupeStore<TurnCommandResult>(),
-    redis: null
+    logger: false
   });
 }
 
@@ -96,9 +90,7 @@ test("exposes admin timeline when debug endpoint is enabled", async (t) => {
       ADMIN_DEBUG_TOKEN: "secret-token"
     },
     {
-      logger: false,
-      dedupeStore: new MemoryDedupeStore<TurnCommandResult>(),
-      redis: null
+      logger: false
     }
   );
   t.after(async () => {
@@ -152,9 +144,7 @@ test("runs bot turns on backend and records bot traces in admin timeline", async
       ADMIN_DEBUG_TOKEN: "secret-token"
     },
     {
-      logger: false,
-      dedupeStore: new MemoryDedupeStore<TurnCommandResult>(),
-      redis: null
+      logger: false
     }
   );
   t.after(async () => {
@@ -695,9 +685,7 @@ test("rejects expired player token", async (t) => {
       PLAYER_TOKEN_TTL_SECONDS: 1
     },
     {
-      logger: false,
-      dedupeStore: new MemoryDedupeStore<TurnCommandResult>(),
-      redis: null
+      logger: false
     }
   );
   t.after(async () => {

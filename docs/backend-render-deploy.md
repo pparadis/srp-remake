@@ -25,8 +25,6 @@ npm run start
 ## Required Environment Variables
 
 - `HOST=0.0.0.0`
-- `REDIS_URL=<your render redis url>`
-- `DEDUPE_TTL_SECONDS=3600`
 - `CORS_ALLOWED_ORIGINS=<frontend origin(s)>`
 - `PLAYER_TOKEN_TTL_SECONDS=86400`
 - `ADMIN_DEBUG_ENABLED=false`
@@ -57,5 +55,5 @@ curl https://<your-render-service>/health
 Expected:
 
 ```json
-{ "ok": true, "redis": true, "lobbies": 0 }
+{ "ok": true, "lobbies": 0 }
 ```
