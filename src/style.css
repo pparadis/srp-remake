@@ -193,6 +193,11 @@ body[data-screen="race"] #screen-race {
   text-overflow: ellipsis;
 }
 
+/* The race screen has its own HUD; the status line would sit on the canvas buttons. */
+body[data-screen="race"] #statusLine {
+  display: none;
+}
+
 /* ---- Race HUD (DOM overlay). Container ignores the mouse so drags reach the canvas. ---- */
 #hud {
   position: absolute;

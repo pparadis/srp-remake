@@ -102,3 +102,30 @@ test("race screen with the HUD looks right", async ({ page }) => {
     timeout: 20_000
   });
 });
+
+for (const size of [
+  { width: 1280, height: 800 },
+  { width: 1024, height: 700 }
+]) {
+  test(`HUD stays clear of the track with 11 cars at ${size.width}x${size.height}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await quickRace(page, { bots: 10, laps: 1 });
+    await page.getByTestId("hud-feed").locator("summary").click(); // open drawer = largest HUD
+    await expect(tid(page, "hud-standing-row")).toHaveCount(11);
+    await expect(tid(page, "status-line")).toBeHidden();
+
+    const track = await page.evaluate(async () => {
+      const data = await (await fetch("/tracks/oval16_3lanes.json")).json();
+      const pts = (data.cells as { id: string }[]).map((c) => window.__srp!.cellScreenPos(c.id)!);
+      const xs = pts.map((p) => p.x);
+      const ys = pts.map((p) => p.y);
+      return { l: Math.min(...xs), r: Math.max(...xs), t: Math.min(...ys), b: Math.max(...ys) };
+    });
+    for (const id of ["hud-card", "hud-standings", "hud-feed"]) {
+      const box = (await tid(page, id).boundingBox())!;
+      const apart =
+        box.x + box.width <= track.l || box.x >= track.r || box.y + box.height <= track.t || box.y >= track.b;
+      expect(apart, `${id} ${JSON.stringify(box)} vs track ${JSON.stringify(track)}`).toBe(true);
+    }
+  });
+}

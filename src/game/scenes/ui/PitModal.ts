@@ -168,6 +168,10 @@ export class PitModal {
     this.active = false;
   }
 
+  getContainer() {
+    return this.modal;
+  }
+
   setFixed() {
     if (typeof (this.modal as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor === "function") {
       (this.modal as unknown as { setScrollFactor: (x: number, y?: number) => unknown }).setScrollFactor(0);

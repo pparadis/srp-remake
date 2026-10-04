@@ -2,6 +2,8 @@ import Phaser from "phaser";
 import type { TrackCell, TrackData } from "../../types/track";
 import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE } from "../../constants";
 
+import { headingOf } from "./heading";
+
 type CellMap = Map<string, TrackCell>;
 
 export function laneColor(laneIndex: number): number {
@@ -222,20 +224,11 @@ function drawSeparator(
   }
 }
 
-function headingOf(cell: TrackCell, cellMap: CellMap): Phaser.Math.Vector2 {
-  const next = cell.next.map((id) => cellMap.get(id)).find((c) => c && c.laneIndex === cell.laneIndex)
-    ?? cellMap.get(cell.next[0] ?? "");
-  const v = next
-    ? new Phaser.Math.Vector2(next.pos.x - cell.pos.x, next.pos.y - cell.pos.y)
-    : new Phaser.Math.Vector2(1, 0);
-  return v.normalize();
-}
-
 // Filled rectangle centred on c, `along` long in direction t and `across` wide.
 function fillQuad(
   g: Phaser.GameObjects.Graphics,
   c: { x: number; y: number },
-  t: Phaser.Math.Vector2,
+  t: { x: number; y: number },
   along: number,
   across: number,
   stroke = false
@@ -347,4 +340,3 @@ export function drawTrack(params: DrawTrackParams): void {
   renderForwardIndexOverlay();
 }
 
-export { headingOf };

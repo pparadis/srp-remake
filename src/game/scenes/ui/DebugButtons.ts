@@ -50,6 +50,10 @@ export class DebugButtons {
     }
   }
 
+  getTexts() {
+    return [this.copyDebugButton, this.copyBotDebugButton, this.copyBotDebugShortButton].map((b) => b.getText());
+  }
+
   setFixed() {
     this.copyDebugButton.setFixed();
     this.copyBotDebugButton.setFixed();
