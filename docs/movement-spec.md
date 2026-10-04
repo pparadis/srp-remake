@@ -1,6 +1,8 @@
 # Movement Spec (v0)
 
 This doc summarizes the current movement rules implemented in `src/game/systems/movementSystem.ts`.
+The turn flow around them (validate, apply, pit penalty, laps, winner) lives in `src/game/race/raceEngine.ts`
+and is shared by single-player and the multiplayer server.
 
 ## Core Model
 
