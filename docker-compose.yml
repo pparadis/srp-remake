@@ -2,7 +2,8 @@ services:
   api:
     image: localhost/srp-remake-api:dev
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
       HOST: 0.0.0.0

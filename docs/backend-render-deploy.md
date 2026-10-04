@@ -5,7 +5,8 @@ Minimal setup for hosting the backend API on Render.
 ## Service Setup
 
 - Create a new **Web Service** from this repo.
-- Set **Root Directory** to `backend`.
+- Leave **Root Directory** empty (the repo root): the backend bundles the shared
+  game engine from `src/game` and the track data from `public/tracks`.
 - Runtime: `Node`.
 
 ## Build and Start
@@ -13,13 +14,13 @@ Minimal setup for hosting the backend API on Render.
 - **Build Command**
 
 ```bash
-npm ci && npm run build
+npm --prefix backend ci && npm --prefix backend run build
 ```
 
 - **Start Command**
 
 ```bash
-npm run start
+npm --prefix backend run start
 ```
 
 ## Required Environment Variables
