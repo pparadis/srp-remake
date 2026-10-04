@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { BackendConfig } from "../src/config.js";
+import { LobbyStore } from "../src/lobbyStore.js";
 import { createApp } from "../src/server.js";
 import type { RaceState } from "../src/types.js";
 import { legalMove, playRaceToEnd, readLobby } from "./helpers.js";
@@ -120,4 +121,55 @@ test("the server plays the race to a winner and then closes it", async (t) => {
   const late = await submit({ type: "skip" }, "after-finish", finished.revision);
   assert.equal(late.statusCode, 409);
   assert.equal((late.json() as { error: string }).error, "lobby_not_in_race");
+});
+
+test("a pit stop needs a legal setup; a valid one refills the car and costs the next turn", async (t) => {
+  const store = new LobbyStore();
+  const app = await createApp(TEST_CONFIG, { logger: false, lobbyStore: store });
+  t.after(() => app.close());
+  const createdRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    payload: { name: "Host", settings: { totalCars: 2, humanCars: 1, botCars: 1, raceLaps: 3 } }
+  });
+  const created = createdRes.json() as { lobby: { lobbyId: string }; playerToken: string };
+  const { lobbyId } = created.lobby;
+  await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${lobbyId}/start`,
+    payload: { playerToken: created.playerToken }
+  });
+  // Park the host's worn car in the pit lane, one step before the first pit box.
+  const hostCar = store.getLobby(lobbyId)!.race!.engine.cars[0]!;
+  Object.assign(hostCar, { cellId: "Z01_L0_00", tire: 20, fuel: 25 });
+  const setup = { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wingFrontDeg: 4, wingRearDeg: 10 };
+  const pit = (payloadSetup: unknown, clientCommandId: string, revision: number) =>
+    app.inject({
+      method: "POST",
+      url: `/api/v1/lobbies/${lobbyId}/turns`,
+      payload: {
+        playerToken: created.playerToken,
+        clientCommandId,
+        revision,
+        action: { type: "pit", targetCellId: "Z02_L0_00", setup: payloadSetup }
+      }
+    });
+
+  const badSetup = await pit({ ...setup, psi: { ...setup.psi, fl: 99 } }, "pit-bad", 0);
+  assert.equal(badSetup.statusCode, 409);
+  assert.equal((badSetup.json() as { reason: string }).reason, "invalid_setup");
+  assert.equal(hostCar.tire, 20);
+
+  const ok = await pit(setup, "pit-ok", 0);
+  assert.equal(ok.statusCode, 200);
+  const lobby = await readLobby(app, lobbyId, created.playerToken);
+  const car = lobby.raceState.cars[0]!;
+  assert.deepEqual(
+    [car.cellId, car.tire, car.fuel, car.pitServiced, car.setup.compound, car.setup.wingFrontDeg],
+    ["Z02_L0_00", 100, 100, true, "hard", 4]
+  );
+  // The stop cost the host a turn: the bot played twice before it was the host's again.
+  assert.equal(lobby.revision, 3);
+  assert.equal(lobby.raceState.activeSeatIndex, 0);
+  assert.deepEqual([car.state, car.pitTurnsRemaining, car.pitExitBoost], ["ACTIVE", 0, true]);
 });

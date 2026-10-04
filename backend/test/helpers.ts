@@ -7,19 +7,14 @@ import {
   type RaceState as EngineRaceState
 } from "../../src/game/race/raceEngine";
 import type { TrackData } from "../../src/game/types/track";
+import { toEngineRace } from "../../src/net/raceSync";
 import type { RaceState } from "../src/types.js";
 
 const ctx = createRaceContext(track as unknown as TrackData);
 
-// Rebuilds the engine state from the server's public race state.
+// Rebuilds the engine state from the server's public race state (as the client does).
 export function toEngineState(raceState: RaceState): EngineRaceState {
-  const cars = raceState.cars.map(({ seatIndex: _s, playerId: _p, name: _n, ...car }) => car);
-  return {
-    cars,
-    turn: { order: cars.map((car) => car.carId), index: raceState.activeSeatIndex },
-    raceLaps: raceState.raceLaps,
-    winnerCarId: raceState.winnerCarId
-  };
+  return toEngineRace(raceState);
 }
 
 // A legal move for the seat whose turn it is (the lowest-id reachable cell).

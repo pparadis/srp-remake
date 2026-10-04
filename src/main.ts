@@ -5,6 +5,7 @@ import {
   resolveBackendBaseUrl,
   resolveBackendWsBaseUrl,
   type PublicLobby,
+  type AppliedTurnSummary,
   type BackendTurnAction
 } from "./net/backendApi";
 
@@ -61,7 +62,7 @@ type BackendTurnAppliedEventDetail = {
   lobbyId: string;
   playerId: string;
   revision: number;
-  applied: BackendTurnAction;
+  applied: AppliedTurnSummary;
 };
 
 let backendSession: BackendSession | null = null;
@@ -305,8 +306,10 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
       if (lobby && typeof lobby === "object" && "lobbyId" in lobby) {
         applyLobbyState(lobby as PublicLobby, "race.ended");
       }
+      const winnerCarId = (payload as { winnerCarId?: unknown }).winnerCarId;
       if (typeof reason === "string") {
-        setBackendStatusText(`Backend: race ended (${reason})`);
+        const winner = typeof winnerCarId === "number" ? `, car ${winnerCarId} wins` : "";
+        setBackendStatusText(`Backend: race ended (${reason}${winner})`);
       }
     }
   }
@@ -588,8 +591,12 @@ async function submitTurnAction(action: BackendTurnAction) {
         action
       );
       if (result.ok) {
-        backendSession.revision = result.revision;
-        setBackendStatusText(`Backend: turn synced (rev ${result.revision})`);
+        // The race.state / race.ended events can arrive before this response: never
+        // move the revision backwards or overwrite an end-of-race status.
+        backendSession.revision = Math.max(backendSession.revision, result.revision);
+        if (backendRaceStarted) {
+          setBackendStatusText(`Backend: turn synced (rev ${result.revision})`);
+        }
         logMultiplayerClient("turn.submit.applied", { clientCommandId, revision: result.revision });
         return;
       }
@@ -623,11 +630,18 @@ async function submitTurnAction(action: BackendTurnAction) {
         void rehydrateLobbyState("not-active-player");
         return;
       }
-      setBackendStatusText(`Backend: turn rejected (${result.error})`);
+      backendSession.revision = result.revision;
+      setBackendStatusText(
+        result.error === "invalid_action"
+          ? `Backend: move rejected (${result.reason ?? "invalid"})`
+          : `Backend: turn rejected (${result.error})`
+      );
       logMultiplayerClient("turn.submit.rejected", {
         clientCommandId,
-        reason: result.error
+        reason: result.error,
+        engineReason: result.reason
       });
+      void rehydrateLobbyState("turn-rejected");
       return;
     } catch (error) {
       setBackendStatusText(`Backend: turn submit failed (${toErrorText(error)})`);
@@ -635,6 +649,7 @@ async function submitTurnAction(action: BackendTurnAction) {
         clientCommandId,
         error: toErrorText(error)
       });
+      void rehydrateLobbyState("turn-failed");
       return;
     }
   }

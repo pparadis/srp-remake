@@ -44,15 +44,11 @@ import {
   type BotDecisionLogEntry
 } from "./debug/botDecisionDebug";
 import { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
-import type { BackendTurnAction, PublicLobby } from "../../net/backendApi";
+import type { AppliedTurnSummary, BackendTurnAction, PublicLobby } from "../../net/backendApi";
+import { toEngineRace } from "../../net/raceSync";
 
 type CellMap = Map<string, TrackCell>;
 
-function toBackendAction(action: RaceAction): BackendTurnAction {
-  return action.type === "skip"
-    ? { type: "skip" }
-    : { type: action.type, targetCellId: action.targetCellId };
-}
 
 export class RaceScene extends Phaser.Scene {
   private static readonly UI = {
@@ -110,6 +106,8 @@ export class RaceScene extends Phaser.Scene {
   private totalCars = 1;
   private humanCars = 1;
   private botCars = 0;
+  // Multiplayer: after sending a turn, wait for the server's race.state before accepting input.
+  private awaitingServerUntil = 0;
   private backendLobbyId: string | null = null;
   private localPlayerId: string | null = null;
   private botDecisionLog: BotDecisionLogEntry[] = [];
@@ -153,7 +151,7 @@ export class RaceScene extends Phaser.Scene {
     const custom = event as CustomEvent<{
       lobbyId?: string;
       playerId?: string;
-      applied?: BackendTurnAction;
+      applied?: AppliedTurnSummary;
     }>;
     const detail = custom.detail;
     if (
@@ -349,12 +347,26 @@ export class RaceScene extends Phaser.Scene {
   private canLocalControlActiveCar(): boolean {
     if (!this.isBackendAuthoritativeMode()) return true;
     if (!this.localPlayerId) return false;
+    if (Date.now() < this.awaitingServerUntil) return false;
     return this.activeCar.ownerId === this.localPlayerId;
   }
 
+  // Locks input until the server answers; unlocks by itself if it never does.
+  private awaitServer() {
+    const waitMs = 5000;
+    this.awaitingServerUntil = Date.now() + waitMs;
+    this.time.delayedCall(waitMs, () => {
+      if (this.awaitingServerUntil === 0 || Date.now() < this.awaitingServerUntil) return;
+      this.awaitingServerUntil = 0;
+      this.refreshAfterTurn();
+    });
+  }
+
+  // Multiplayer: the server owns the race. Replace our state with its snapshot and redraw.
   private applyBackendLobbyState(lobby: PublicLobby, localPlayerId: string | null) {
     this.backendLobbyId = lobby.lobbyId;
     this.localPlayerId = localPlayerId;
+    this.awaitingServerUntil = 0;
     if (
       lobby.settings.totalCars !== this.totalCars ||
       lobby.settings.humanCars !== this.humanCars ||
@@ -366,59 +378,36 @@ export class RaceScene extends Phaser.Scene {
         lobby.settings.botCars
       );
     }
-    if (lobby.status !== "IN_RACE" || !lobby.raceState) return;
-    const targetIndex = Phaser.Math.Clamp(
-      lobby.raceState.activeSeatIndex,
-      0,
-      Math.max(0, this.turn.order.length - 1)
-    );
-    this.race.raceLaps = Math.max(1, Math.min(999, Math.trunc(lobby.settings.raceLaps)));
+    const raceState = lobby.raceState;
+    if (!raceState || (lobby.status !== "IN_RACE" && lobby.status !== "FINISHED")) return;
 
-    const localCarsById = new Map(this.cars.map((car) => [car.carId, car]));
-    for (const raceCar of lobby.raceState.cars) {
-      const localCar = localCarsById.get(raceCar.carId);
-      if (!localCar) continue;
-      localCar.ownerId = raceCar.playerId ?? `BOT${raceCar.seatIndex + 1}`;
-      localCar.isBot = raceCar.isBot;
-      localCar.lapCount = raceCar.lapCount;
+    const wasFinished = this.raceFinished;
+    this.race = toEngineRace(raceState);
+    if (this.carTokens.size !== this.cars.length) {
+      this.clearCarVisuals();
+      this.cars.forEach((car, i) => this.spawnCarToken(car, carColor(i)));
     }
-
-    this.turn.index = targetIndex;
-
-    this.updateActiveCarVisuals();
-    if (this.activeCar.isBot || !this.canLocalControlActiveCar()) {
-      this.validTargets = new Map();
-      this.updateSkipButtonState();
-    } else {
-      this.validTargets = this.computeTargetsForCar(this.activeCar);
-      this.updateSkipButtonState();
+    if (this.raceFinished && !wasFinished) {
+      const winner = this.cars.find((car) => car.carId === this.winnerCarId);
+      this.addLog(
+        `Race finished. Car ${this.winnerCarId} wins (${winner?.lapCount ?? 0}/${this.raceLapTarget} laps).`
+      );
     }
-    this.drawTargets();
-    this.updateCycleHud();
-    this.updateStandings();
+    this.refreshAfterTurn();
   }
 
-  private applyBackendTurnApplied(lobbyId: string, playerId: string, action: BackendTurnAction) {
+  // Remote and own turns alike arrive as events; the board itself redraws from race.state.
+  private applyBackendTurnApplied(lobbyId: string, playerId: string, action: AppliedTurnSummary) {
     if (this.backendLobbyId && lobbyId !== this.backendLobbyId) return;
-    if (lobbyId.length === 0 || playerId.length === 0) return;
-
     const car = this.cars.find((candidate) => candidate.ownerId === playerId);
     if (!car) return;
-    if (action.type !== "move" && action.type !== "pit") return;
-    if (!action.targetCellId) return;
-
-    const targetCell = this.cellMap.get(action.targetCellId);
-    if (!targetCell) return;
-    car.cellId = targetCell.id;
-    const token = this.carTokens.get(car.carId);
-    if (token) {
-      token.setPosition(targetCell.pos.x, targetCell.pos.y);
+    if (action.type === "skip") {
+      this.addLog(`Car ${car.carId} skipped (no moves).`);
+    } else if (action.type === "pit") {
+      this.addLog(`Car ${car.carId} pit stop at ${action.targetCellId ?? "?"}.`);
+    } else {
+      this.addLog(`Car ${car.carId} moved to ${action.targetCellId ?? "?"}.`);
     }
-    const halo = this.activeHalos.get(car.carId);
-    if (halo) {
-      halo.setPosition(targetCell.pos.x, targetCell.pos.y);
-    }
-    this.updateStandings();
   }
 
   private spawnCarToken(car: Car, color: number) {
@@ -457,6 +446,13 @@ export class RaceScene extends Phaser.Scene {
   // Applies the active car's action through the engine. The engine rejects anything
   // invalid and leaves the state untouched; either way the scene re-renders from it.
   private applyLocalAction(action: RaceAction): boolean {
+    if (this.isBackendAuthoritativeMode()) {
+      // Multiplayer: the server validates and applies it; its race.state redraws the board.
+      this.awaitServer();
+      this.emitLocalTurnAction(action);
+      this.refreshAfterTurn();
+      return true;
+    }
     const result = applyAction(this.ctx, this.race, action);
     if (!result.ok) {
       this.addLog(`Action rejected (${result.reason}).`);
@@ -464,7 +460,6 @@ export class RaceScene extends Phaser.Scene {
       return false;
     }
     for (const line of result.log) this.addLog(line);
-    this.emitLocalTurnAction(toBackendAction(action));
     this.refreshAfterTurn();
     return true;
   }

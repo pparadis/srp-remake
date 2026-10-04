@@ -30,6 +30,8 @@ type AppliedTurnEvent = {
 
 type CreateAppOptions = {
   logger?: boolean;
+  // Lets tests set up lobby state directly (e.g. park a car in the pit lane).
+  lobbyStore?: LobbyStore;
 };
 
 const LobbySettingsPatchSchema = z.object({
@@ -111,7 +113,7 @@ const LobbyReadQuerySchema = z.object({
 
 export async function createApp(config: BackendConfig, options: CreateAppOptions = {}) {
   const app = Fastify({ logger: options.logger ?? true });
-  const lobbyStore = new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000);
+  const lobbyStore = options.lobbyStore ?? new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000);
   // Lives as long as the in-memory lobbies it dedupes for.
   const dedupedResults = new Map<string, TurnCommandResult>();
   const socketsByLobby = new Map<string, Set<LobbySocket>>();

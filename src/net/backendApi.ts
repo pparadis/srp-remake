@@ -1,7 +1,30 @@
-export type BackendTurnAction =
-  | { type: "move"; targetCellId?: string }
-  | { type: "pit"; targetCellId?: string }
-  | { type: "skip"; targetCellId?: string };
+import type { RaceAction, RejectReason } from "../game/race/raceEngine";
+import type { Car } from "../game/types/car";
+
+// What a client submits for its turn; identical to the race engine's action.
+export type BackendTurnAction = RaceAction;
+
+// A turn as announced to everyone (the pit setup is not needed to render a log line).
+export interface AppliedTurnSummary {
+  type: "move" | "pit" | "skip";
+  targetCellId?: string;
+}
+
+// The engine's Car plus who drives it, as the server reports it.
+export interface PublicRaceCar extends Car {
+  seatIndex: number;
+  playerId: string | null;
+  name: string;
+}
+
+export interface PublicRaceState {
+  trackId: string;
+  raceLaps: number;
+  turnIndex: number;
+  activeSeatIndex: number;
+  winnerCarId: number | null;
+  cars: PublicRaceCar[];
+}
 
 export interface PublicLobby {
   lobbyId: string;
@@ -10,7 +33,7 @@ export interface PublicLobby {
   createdAt: number;
   updatedAt: number;
   revision: number;
-  terminationReason?: "host_disconnected";
+  terminationReason?: "host_disconnected" | "race_finished";
   settings: {
     trackId: string;
     totalCars: number;
@@ -25,20 +48,7 @@ export interface PublicLobby {
     seatIndex: number;
     isHost: boolean;
   }>;
-  raceState?: {
-    trackId: string;
-    raceLaps: number;
-    turnIndex: number;
-    activeSeatIndex: number;
-    cars: Array<{
-      carId: number;
-      seatIndex: number;
-      playerId: string | null;
-      name: string;
-      isBot: boolean;
-      lapCount: number;
-    }>;
-  };
+  raceState?: PublicRaceState;
 }
 
 export interface CreateLobbyResponse {
@@ -70,7 +80,7 @@ export type SubmitTurnResponse =
       playerId: string;
       clientCommandId: string;
       revision: number;
-      applied: BackendTurnAction;
+      applied: AppliedTurnSummary;
     }
   | {
       ok: false;
@@ -78,7 +88,9 @@ export type SubmitTurnResponse =
       playerId: string;
       clientCommandId: string;
       revision: number;
-      error: "stale_revision" | "lobby_not_in_race" | "not_active_player";
+      error: "stale_revision" | "lobby_not_in_race" | "not_active_player" | "invalid_action";
+      // Why the race engine refused an `invalid_action`.
+      reason?: RejectReason;
     };
 
 export class BackendApiError extends Error {
@@ -90,6 +102,15 @@ export class BackendApiError extends Error {
     this.status = status;
     this.payload = payload;
   }
+}
+
+function isTurnRejection(payload: unknown): payload is SubmitTurnResponse {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    (payload as { ok?: unknown }).ok === false &&
+    typeof (payload as { error?: unknown }).error === "string"
+  );
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -148,19 +169,26 @@ export class BackendApiClient {
     return this.request("GET", path);
   }
 
-  submitTurn(
+  // A refused turn is a 409 whose body says why; hand that back instead of throwing.
+  async submitTurn(
     lobbyId: string,
     playerToken: string,
     revision: number,
     clientCommandId: string,
     action: BackendTurnAction
   ): Promise<SubmitTurnResponse> {
-    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/turns`, {
-      playerToken,
-      revision,
-      clientCommandId,
-      action
-    });
+    try {
+      return await this.request<SubmitTurnResponse>(
+        "POST",
+        `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/turns`,
+        { playerToken, revision, clientCommandId, action }
+      );
+    } catch (error) {
+      if (error instanceof BackendApiError && error.status === 409 && isTurnRejection(error.payload)) {
+        return error.payload;
+      }
+      throw error;
+    }
   }
 }
 
