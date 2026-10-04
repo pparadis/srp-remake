@@ -3,7 +3,8 @@
 ## Docs
 
 - Movement rules: `docs/movement-spec.md`
-- Deferred decisions: `docs/explore-later.md`
+- Multiplayer: `docs/multiplayer-spec.md` (see its Status section)
+- Bots: `docs/bot-system.md`, `docs/bot-lookahead-spec.md`
 - Backend local stack: `docs/backend-local-stack.md`
 
 ## Development

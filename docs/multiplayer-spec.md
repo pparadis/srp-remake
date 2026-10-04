@@ -209,15 +209,7 @@ Payload requirement for v0:
 ## Observability
 
 - Add `matchId`, `lobbyId`, `revision`, `turnIndex` to logs.
-- Keep bot decision logs server-side and fetch on demand.
-- Add a lightweight admin endpoint to dump current authoritative state.
-
-## Admin Debug Endpoint Scope (v0)
-
-- Endpoint is intended for debugging operations only (not gameplay clients).
-- Default policy: disabled in production.
-- If explicitly enabled in production, require HTTPS, static admin bearer token (`Authorization: Bearer <token>`), rate limit, request audit logging, and secret redaction (`playerToken`, auth headers) from payload/logs.
-- Recommended endpoint shape: `GET /admin/lobbies/:lobbyId/state`.
+- Never log player tokens; use a short hash (`tokenFingerprint`) instead.
 
 ## Deployment Notes
 
@@ -237,8 +229,7 @@ Payload requirement for v0:
 7. Host disconnect: `end lobby/race immediately` ("if he dies, he dies").
 8. Action idempotency: `clientCommandId + server dedupe cache` is required for turn submissions.
 9. Seat model: `deterministic seatIndex-driven spawn + turn order + rematch preservation`.
-10. Admin endpoint: `disabled in prod by default`; if enabled, require bearer auth + HTTPS.
-11. Transport fallback: `SSE deferred`; revisit only if concrete WebSocket compatibility issues appear in production-like environments.
+10. Transport fallback: `SSE deferred`; revisit only if concrete WebSocket compatibility issues appear in production-like environments.
 
 ## Delivery Plan
 
@@ -268,53 +259,20 @@ Payload requirement for v0:
 - Rejoin flow.
 - Document timeout policy for post-v0 (optional auto-skip).
 
-## Current Gap Vs Target
+## Status
 
-This is the concrete delta between current implementation and the authoritative multiplayer model above.
+Built:
 
-1. Frontend transport subscription is missing:
+- Lobby create/join by link, deterministic seats, bot seat fill, `raceLaps` setting.
+- Player tokens with expiry; host disconnect ends the lobby and revokes tokens.
+- Turn submission with `revision` checks, `clientCommandId` dedupe and active-seat ownership.
+- WebSocket sync (`lobby.state`, `race.started`, `race.state`, `turn.applied`, `race.ended`) with client reconnect and rehydrate.
 
-- Client does not open `/ws`, so `lobby.state`, `race.started`, `turn.applied`, and `race.ended` broadcasts are not consumed.
+Not built yet (the server is authoritative over turn order only, not over the race):
 
-2. Backend race authority is incomplete:
-
-- `POST /api/v1/lobbies/:lobbyId/turns` currently accepts action + bumps `revision`, but does not mutate authoritative car/turn/race state.
-
-3. Authoritative match snapshot is missing from lobby state:
-
-- Current lobby model stores settings/players/revision, but no server-owned `raceState` payload for hydration.
-
-4. Clients still simulate race logic locally:
-
-- Each client spawns cars and advances turns locally, which causes divergence across clients.
-
-5. Bot execution is still client-side:
-
-- Bots must execute only on server to preserve deterministic authority.
-
-6. Turn ownership enforcement is incomplete:
-
-- Backend must enforce that only the player owning the active human seat can submit a turn.
-
-7. Reconnect hydration is incomplete:
-
-- Client reconnect/join should receive latest authoritative `race.state` and fully rehydrate instead of continuing local simulation.
-
-## Implementation Checklist (From Locked Decisions)
-
-1. Add host-only `Force Skip Active Player` action in race UI and server API.
-2. Ensure lobby ids are high-entropy UUID-like tokens and never sequential.
-3. Keep lobby roster/settings alive across race end and expose `Rematch`.
-4. On rematch, reset match state while preserving players and host.
-5. Document inactivity TTL for lobbies and token invalidation behavior.
-6. Persist and rebroadcast `raceLaps` for lobby state, race start, and rematch.
-7. On host disconnect, close the lobby and broadcast terminal reason `host_disconnected`.
-8. Add `(playerId, clientCommandId)` dedupe storage and replay same result for duplicate submits.
-9. Implement authoritative seat assignment and bot-fill rules based on ascending `seatIndex`.
-10. Gate admin state-dump endpoint behind environment flag and bearer-token auth.
-11. Add frontend websocket session flow and consume `lobby.state`, `race.started`, `race.state`, `turn.applied`, and `race.ended`.
-12. Add server-side authoritative `raceState` to lobby and include it in API/WS payloads.
-13. Move turn application logic to backend (apply move/pit/skip, advance active seat, update lap/win).
-14. Enforce active-turn ownership checks on backend turn submission.
-15. Move bot turn execution to backend and broadcast resulting authoritative state/events.
-16. Rehydrate client race scene from server `race.state` on join/reconnect and after websocket resubscribe.
+- Server race state has no car position, tire, fuel or pit state, and no game rules: any `targetCellId` is accepted as-is.
+- Server bots always skip.
+- No lap counting or win detection online.
+- Clients only move the remote car token; they don't apply tire/fuel/lap changes from remote turns.
+- Host force-skip and rematch.
+- Client UX: sync/reconnect banner.
