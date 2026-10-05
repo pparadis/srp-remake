@@ -3,8 +3,9 @@ import websocket from "@fastify/websocket";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
-import { loadConfig, type BackendConfig } from "./config.js";
+import { DEFAULT_HOST_GRACE_SECONDS, loadConfig, type BackendConfig } from "./config.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
+import type { BotPolicy } from "../../src/game/systems/botSystem";
 import type { Lobby, LobbySettings, TurnCommandResult, TurnSubmitAction } from "./types.js";
 
 const WS_OPEN = 1;
@@ -24,7 +25,8 @@ type AppliedTurnEvent = {
   clientCommandId: string;
   revision: number;
   applied: TurnSubmitAction;
-  source?: "human" | "bot";
+  // "bot" = a bot seat, "timeout" = the turn timer expired, "force_skip" = the host skipped a stuck player.
+  source?: "human" | "bot" | "timeout" | "force_skip";
   seatIndex?: number;
 };
 
@@ -39,7 +41,10 @@ const LobbySettingsPatchSchema = z.object({
   totalCars: z.number().int().min(1).max(11).optional(),
   humanCars: z.number().int().min(0).max(11).optional(),
   botCars: z.number().int().min(0).max(11).optional(),
-  raceLaps: z.number().int().min(1).max(999).optional()
+  raceLaps: z.number().int().min(1).max(999).optional(),
+  turnTimerSec: z
+    .union([z.literal(0), z.literal(30), z.literal(60), z.literal(120)])
+    .optional()
 });
 
 function toSettingsPatch(
@@ -55,6 +60,7 @@ function toSettingsPatch(
   if (settings.humanCars !== undefined) patch.humanCars = settings.humanCars;
   if (settings.botCars !== undefined) patch.botCars = settings.botCars;
   if (settings.raceLaps !== undefined) patch.raceLaps = settings.raceLaps;
+  if (settings.turnTimerSec !== undefined) patch.turnTimerSec = settings.turnTimerSec;
   return patch;
 }
 
@@ -78,6 +84,12 @@ const StartRaceSchema = z.object({
 });
 
 const ResetLobbySchema = StartRaceSchema;
+
+const ForceSkipSchema = z.object({
+  playerToken: z.string().min(1),
+  // The revision the host saw; refuses the skip if the stuck player moved in the meantime.
+  revision: z.number().int().min(0).optional()
+});
 
 // Shape only; the race engine enforces the PSI/wing limits and every game rule.
 const CarSetupSchema = z.object({
@@ -118,7 +130,14 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   const lobbyStore = options.lobbyStore ?? new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000);
   // Lives as long as the in-memory lobbies it dedupes for.
   const dedupedResults = new Map<string, TurnCommandResult>();
-  const socketsByLobby = new Map<string, Set<LobbySocket>>();
+  // lobby -> player -> open sockets. A player is connected while at least one socket is open,
+  // so an old socket closing after a reconnect does not mark a live player as gone.
+  const socketsByLobby = new Map<string, Map<string, Set<LobbySocket>>>();
+  const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const hostGraceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const timeScale = config.TURN_TIMER_TIME_SCALE ?? 1;
+  const hostGraceMs = (config.HOST_GRACE_SECONDS ?? DEFAULT_HOST_GRACE_SECONDS) * 1000;
+  let closing = false;
   let wsConnectionSeq = 1;
   const allowedOrigins = config.CORS_ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
@@ -179,64 +198,127 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     }
   });
 
-  function addSocket(lobbyId: string, socket: LobbySocket) {
-    const set = socketsByLobby.get(lobbyId) ?? new Set<LobbySocket>();
-    set.add(socket);
-    socketsByLobby.set(lobbyId, set);
+  function addSocket(lobbyId: string, playerId: string, socket: LobbySocket) {
+    const players = socketsByLobby.get(lobbyId) ?? new Map<string, Set<LobbySocket>>();
+    const sockets = players.get(playerId) ?? new Set<LobbySocket>();
+    sockets.add(socket);
+    players.set(playerId, sockets);
+    socketsByLobby.set(lobbyId, players);
   }
 
-  function removeSocket(lobbyId: string, socket: LobbySocket) {
-    const set = socketsByLobby.get(lobbyId);
-    if (!set) return;
-    set.delete(socket);
-    if (set.size === 0) {
-      socketsByLobby.delete(lobbyId);
+  // Returns how many sockets the player still has open.
+  function removeSocket(lobbyId: string, playerId: string, socket: LobbySocket): number {
+    const players = socketsByLobby.get(lobbyId);
+    const sockets = players?.get(playerId);
+    if (!players || !sockets) return 0;
+    sockets.delete(socket);
+    if (sockets.size === 0) {
+      players.delete(playerId);
+      if (players.size === 0) socketsByLobby.delete(lobbyId);
     }
+    return sockets.size;
   }
 
   function broadcast(lobbyId: string, event: string, payload: unknown) {
-    const set = socketsByLobby.get(lobbyId);
-    if (!set) return;
+    const players = socketsByLobby.get(lobbyId);
+    if (!players) return;
     const data = JSON.stringify({ event, payload });
-    const staleSockets: LobbySocket[] = [];
-    for (const socket of set) {
-      if (socket.readyState !== WS_OPEN) {
-        staleSockets.push(socket);
-        continue;
+    for (const sockets of players.values()) {
+      for (const socket of sockets) {
+        if (socket.readyState !== WS_OPEN) continue;
+        try {
+          socket.send(data);
+        } catch {
+          // The close handler drops it.
+        }
       }
-
-      try {
-        socket.send(data);
-      } catch {
-        staleSockets.push(socket);
-      }
-    }
-
-    for (const socket of staleSockets) {
-      set.delete(socket);
-    }
-    if (set.size === 0) {
-      socketsByLobby.delete(lobbyId);
     }
   }
 
   function closeLobbySockets(lobbyId: string, closeCode = 4001, reason = "lobby_closed") {
-    const set = socketsByLobby.get(lobbyId);
-    if (!set) return;
-    for (const socket of set) {
-      if (socket.readyState === WS_OPEN) {
-        try {
-          socket.close(closeCode, reason);
-        } catch {
-          // Ignore close races.
+    const players = socketsByLobby.get(lobbyId);
+    if (!players) return;
+    for (const sockets of players.values()) {
+      for (const socket of sockets) {
+        if (socket.readyState === WS_OPEN) {
+          try {
+            socket.close(closeCode, reason);
+          } catch {
+            // Ignore close races.
+          }
         }
       }
     }
     socketsByLobby.delete(lobbyId);
   }
 
+  function clearTurnTimer(lobbyId: string) {
+    const timer = turnTimers.get(lobbyId);
+    if (timer) clearTimeout(timer);
+    turnTimers.delete(lobbyId);
+    lobbyStore.setTurnDeadline(lobbyId, undefined);
+  }
+
+  // (Re)arms the AFK timer when the active seat is a human and the lobby has a timer; clears it
+  // otherwise. Called before a state is broadcast so the state carries turnRemainingMs.
+  function armTurnTimer(lobbyId: string) {
+    clearTurnTimer(lobbyId);
+    const lobby = lobbyStore.getLobby(lobbyId);
+    if (closing || !lobby || lobby.status !== "IN_RACE" || lobby.settings.turnTimerSec === 0) return;
+    const seat = lobbyStore.getActiveRaceSeat(lobbyId);
+    if (!seat || seat.isBot) return;
+    const delayMs = Math.max(1, Math.round(lobby.settings.turnTimerSec * 1000 * timeScale));
+    const revision = lobby.revision;
+    lobbyStore.setTurnDeadline(lobbyId, Date.now() + delayMs);
+    const timer = setTimeout(() => {
+      turnTimers.delete(lobbyId);
+      const current = lobbyStore.getLobby(lobbyId);
+      // Anything that moved the race on since arming already re-armed (or cleared) the timer.
+      if (!current || current.status !== "IN_RACE" || current.revision !== revision) return;
+      logMultiplayer("turn.timeout", { lobbyId, revision, seatIndex: seat.seatIndex });
+      playBotTurnFor(lobbyId, "autopilot", "timeout");
+      runPendingBotTurns(lobbyId);
+    }, delayMs);
+    timer.unref();
+    turnTimers.set(lobbyId, timer);
+  }
+
+  function cancelHostGrace(lobbyId: string) {
+    const timer = hostGraceTimers.get(lobbyId);
+    if (timer) clearTimeout(timer);
+    hostGraceTimers.delete(lobbyId);
+  }
+
+  function terminateForHost(lobbyId: string) {
+    clearTurnTimer(lobbyId);
+    const ended = lobbyStore.terminateLobby(lobbyId, "host_disconnected");
+    logMultiplayer("race.end", {
+      lobbyId,
+      reason: "host_disconnected",
+      revision: ended.revision,
+      turnIndex: ended.race?.turnIndex ?? null
+    });
+    broadcast(lobbyId, "race.ended", { reason: "host_disconnected", lobby: toPublicLobby(ended) });
+    closeLobbySockets(lobbyId, 4001, "host_disconnected");
+  }
+
+  // The host's last socket closed (often just a page reload): give them time to come back.
+  function startHostGrace(lobbyId: string) {
+    cancelHostGrace(lobbyId);
+    if (closing) return;
+    const timer = setTimeout(() => {
+      hostGraceTimers.delete(lobbyId);
+      const lobby = lobbyStore.getLobby(lobbyId);
+      if (!lobby || lobby.status === "FINISHED") return;
+      terminateForHost(lobbyId);
+    }, hostGraceMs);
+    timer.unref();
+    hostGraceTimers.set(lobbyId, timer);
+  }
+
   // After an applied turn: tell everyone, and close the race when someone won.
   function announceTurn(lobby: Lobby, event: AppliedTurnEvent) {
+    armTurnTimer(lobby.lobbyId);
     broadcast(lobby.lobbyId, "turn.applied", event);
     broadcast(lobby.lobbyId, "race.state", toPublicLobby(lobby));
     const winnerCarId = lobby.race?.engine.winnerCarId ?? null;
@@ -256,58 +338,66 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     }
   }
 
-  function runPendingBotTurns(lobbyId: string) {
-    while (true) {
-      const lobby = lobbyStore.getLobby(lobbyId);
-      if (!lobby || lobby.status !== "IN_RACE" || !lobby.race) {
-        return;
-      }
+  // Plays one turn for the active seat with a bot policy and announces it. Bots use "normal";
+  // the turn timer and the host's force-skip hand a human seat to the "autopilot".
+  function playBotTurnFor(
+    lobbyId: string,
+    policy: BotPolicy,
+    source: "bot" | "timeout" | "force_skip"
+  ): boolean {
+    const lobby = lobbyStore.getLobby(lobbyId);
+    if (!lobby || lobby.status !== "IN_RACE" || !lobby.race) return false;
+    const activeSeat = lobbyStore.getActiveRaceSeat(lobbyId);
+    if (!activeSeat) return false;
 
-      const activeSeat = lobbyStore.getActiveRaceSeat(lobbyId);
-      if (!activeSeat || !activeSeat.isBot) {
-        return;
-      }
-
-      const decision = lobbyStore.decideBotTurn(lobbyId);
-      const applied = lobbyStore.applyTurnAction(lobbyId, decision.action);
-      if (!applied.ok) {
-        // The shared heuristic only proposes legal actions; stop rather than spin.
-        logMultiplayer("turn.bot.rejected", {
-          lobbyId,
-          seatIndex: activeSeat.seatIndex,
-          reason: applied.reason
-        });
-        return;
-      }
-      const updatedLobby = lobbyStore.incrementRevision(lobbyId);
-      const playerId = `BOT${activeSeat.seatIndex + 1}`;
-      const clientCommandId = `bot-${updatedLobby.revision}-${activeSeat.seatIndex}`;
-      announceTurn(updatedLobby, {
-        ok: true,
+    const decision = lobbyStore.decideBotTurn(lobbyId, policy);
+    const applied = lobbyStore.applyTurnAction(lobbyId, decision.action);
+    if (!applied.ok) {
+      // The shared heuristic only proposes legal actions; stop rather than spin.
+      logMultiplayer("turn.bot.rejected", {
         lobbyId,
-        playerId,
-        clientCommandId,
-        revision: updatedLobby.revision,
-        applied: decision.action,
-        source: "bot",
-        seatIndex: activeSeat.seatIndex
-      });
-      logMultiplayer("turn.bot.applied", {
-        lobbyId,
-        playerId,
         seatIndex: activeSeat.seatIndex,
-        revision: updatedLobby.revision,
-        turnIndex: updatedLobby.race?.turnIndex ?? null,
-        clientCommandId,
-        activeSeatIndex: updatedLobby.race?.engine.turn.index ?? null,
-        applied: decision.action,
-        botTrace: {
-          selectedCellId: decision.trace?.selectedCellId ?? null,
-          lowResources: decision.trace?.lowResources ?? null,
-          candidates: decision.trace?.candidates.length ?? 0
-        },
-        raceSummary: summarizeRaceState(lobbyId)
+        source,
+        reason: applied.reason
       });
+      return false;
+    }
+    const updatedLobby = lobbyStore.incrementRevision(lobbyId);
+    const playerId = activeSeat.playerId ?? `BOT${activeSeat.seatIndex + 1}`;
+    const clientCommandId = `${source}-${updatedLobby.revision}-${activeSeat.seatIndex}`;
+    announceTurn(updatedLobby, {
+      ok: true,
+      lobbyId,
+      playerId,
+      clientCommandId,
+      revision: updatedLobby.revision,
+      applied: decision.action,
+      source,
+      seatIndex: activeSeat.seatIndex
+    });
+    logMultiplayer("turn.bot.applied", {
+      lobbyId,
+      playerId,
+      seatIndex: activeSeat.seatIndex,
+      source,
+      revision: updatedLobby.revision,
+      turnIndex: updatedLobby.race?.turnIndex ?? null,
+      clientCommandId,
+      activeSeatIndex: updatedLobby.race?.engine.turn.index ?? null,
+      applied: decision.action,
+      botTrace: {
+        selectedCellId: decision.trace?.selectedCellId ?? null,
+        lowResources: decision.trace?.lowResources ?? null,
+        candidates: decision.trace?.candidates.length ?? 0
+      },
+      raceSummary: summarizeRaceState(lobbyId)
+    });
+    return true;
+  }
+
+  function runPendingBotTurns(lobbyId: string) {
+    while (lobbyStore.getActiveRaceSeat(lobbyId)?.isBot) {
+      if (!playBotTurnFor(lobbyId, "normal", "bot")) return;
     }
   }
 
@@ -431,6 +521,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const params = LobbyPathSchema.parse(request.params);
     const body = StartRaceSchema.parse(request.body);
     const lobby = lobbyStore.startRace(params.lobbyId, body.playerToken);
+    armTurnTimer(lobby.lobbyId);
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "race.started", publicLobby);
     broadcast(lobby.lobbyId, "race.state", publicLobby);
@@ -449,6 +540,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const params = LobbyPathSchema.parse(request.params);
     const body = ResetLobbySchema.parse(request.body);
     const lobby = lobbyStore.resetLobby(params.lobbyId, body.playerToken);
+    clearTurnTimer(lobby.lobbyId);
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, "lobby.state", publicLobby);
     logMultiplayer("lobby.reset", {
@@ -456,6 +548,33 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       revision: lobby.revision
     });
     return { lobby: publicLobby };
+  });
+
+  // Host only: the host plays one autopilot turn for a stuck human seat.
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/force-skip`, async (request) => {
+    const params = LobbyPathSchema.parse(request.params);
+    const body = ForceSkipSchema.parse(request.body);
+    const lobby = lobbyStore.getLobby(params.lobbyId);
+    if (!lobby) {
+      throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
+    }
+    const host = lobbyStore.findPlayerByToken(lobby, body.playerToken);
+    if (!host) {
+      throw new LobbyError(401, "Invalid player token for this lobby.");
+    }
+    if (!host.isHost) {
+      throw new LobbyError(403, "Only host can force-skip a turn.");
+    }
+    const activeSeat = lobbyStore.getActiveRaceSeat(lobby.lobbyId);
+    if (lobby.status !== "IN_RACE" || !activeSeat || activeSeat.isBot) {
+      throw new LobbyError(409, "Force-skip needs a running race with a human seat to play.");
+    }
+    if (body.revision !== undefined && body.revision !== lobby.revision) {
+      throw new LobbyError(409, "The race moved on; nothing was skipped.");
+    }
+    playBotTurnFor(lobby.lobbyId, "autopilot", "force_skip");
+    runPendingBotTurns(lobby.lobbyId);
+    return { lobby: toPublicLobby(lobby) };
   });
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/turns`, async (request, reply) => {
@@ -652,8 +771,10 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       return;
     }
 
-    addSocket(lobbyId, ws);
+    addSocket(lobbyId, player.playerId, ws);
+    const wasConnected = player.connected;
     lobbyStore.setPlayerConnected(lobbyId, playerToken, true);
+    if (player.isHost) cancelHostGrace(lobbyId);
     logMultiplayer("ws.open", {
       wsConnId,
       lobbyId,
@@ -663,13 +784,22 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       turnIndex: lobby.race?.turnIndex ?? null
     });
     const publicLobby = toPublicLobby(lobby);
-    ws.send(JSON.stringify({ event: "lobby.state", payload: publicLobby }));
+    if (wasConnected) {
+      ws.send(JSON.stringify({ event: "lobby.state", payload: publicLobby }));
+    } else {
+      // Everyone (this socket included) learns the player is back.
+      broadcast(lobbyId, "lobby.state", publicLobby);
+    }
     if (publicLobby.raceState !== undefined) {
       ws.send(JSON.stringify({ event: "race.state", payload: publicLobby }));
     }
 
     ws.on("close", () => {
-      removeSocket(lobbyId, ws);
+      // A newer socket of the same player (reload/reconnect) keeps them connected.
+      if (removeSocket(lobbyId, player.playerId, ws) > 0) {
+        logMultiplayer("ws.close", { wsConnId, lobbyId, playerId: player.playerId, stillConnected: true });
+        return;
+      }
       try {
         const result = lobbyStore.setPlayerConnected(lobbyId, playerToken, false);
         logMultiplayer("ws.close", {
@@ -682,24 +812,19 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         });
         broadcast(lobbyId, "lobby.state", toPublicLobby(result.lobby));
         if (result.player.isHost && result.lobby.status !== "FINISHED") {
-          const ended = lobbyStore.terminateLobby(lobbyId, "host_disconnected");
-          logMultiplayer("race.end", {
-            wsConnId,
-            lobbyId,
-            reason: "host_disconnected",
-            revision: ended.revision,
-            turnIndex: ended.race?.turnIndex ?? null
-          });
-          broadcast(lobbyId, "race.ended", {
-            reason: "host_disconnected",
-            lobby: toPublicLobby(ended)
-          });
-          closeLobbySockets(lobbyId, 4001, "host_disconnected");
+          startHostGrace(lobbyId);
         }
       } catch {
         // Lobby may already be gone; ignore close handling errors.
       }
     });
+  });
+
+  // preClose runs before the sockets are torn down, so closing them cannot start new timers.
+  app.addHook("preClose", async () => {
+    closing = true;
+    for (const lobbyId of [...turnTimers.keys()]) clearTurnTimer(lobbyId);
+    for (const lobbyId of [...hostGraceTimers.keys()]) cancelHostGrace(lobbyId);
   });
 
   return app;
