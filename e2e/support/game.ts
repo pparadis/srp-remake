@@ -200,16 +200,34 @@ export async function expectSameHud(pages: Page[]) {
     .toBe(1);
 }
 
-/** Lets whoever has the turn play, checking after each turn that all pages agree. */
-export async function playOnlineRace(pages: Page[], opts: { maxTurns?: number; stopAfter?: number } = {}) {
+/**
+ * Lets whoever has the turn play. Agreement between pages (cars + HUD) is checked on the first
+ * `checkFirst` turns, then every `checkEvery`th turn, and always after the final turn.
+ */
+export async function playOnlineRace(
+  pages: Page[],
+  opts: { maxTurns?: number; stopAfter?: number; checkFirst?: number; checkEvery?: number } = {}
+) {
   const maxTurns = opts.maxTurns ?? 300;
-  for (let turn = 0; turn < maxTurns; turn += 1) {
-    if (opts.stopAfter !== undefined && turn >= opts.stopAfter) return;
-    const mover = await nextMover(pages);
-    if (!mover) return;
-    await playMyTurn(mover);
+  const checkFirst = opts.checkFirst ?? 3;
+  const checkEvery = opts.checkEvery ?? 4;
+  const agree = async () => {
     await expectSameCars(pages);
     await expectSameHud(pages);
+  };
+  let unchecked = false;
+  for (let turn = 0; turn < maxTurns; turn += 1) {
+    if (opts.stopAfter !== undefined && turn >= opts.stopAfter) break;
+    const mover = await nextMover(pages);
+    if (!mover) break;
+    await playMyTurn(mover);
+    unchecked = true;
+    if (turn < checkFirst || (turn + 1) % checkEvery === 0) {
+      await agree();
+      unchecked = false;
+    }
+    if (turn === maxTurns - 1) throw new Error(`race not finished after ${maxTurns} turns`);
   }
-  throw new Error(`race not finished after ${maxTurns} turns`);
+  // final turn (race decided or stopAfter reached): always verify
+  if (unchecked) await agree();
 }

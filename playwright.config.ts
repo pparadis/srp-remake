@@ -4,6 +4,8 @@ const port = process.env.E2E_PORT ?? "5173";
 // Override when 3001 is taken by a backend that may be out of date.
 const backendPort = process.env.E2E_BACKEND_PORT ?? "3001";
 const backendUrl = `http://localhost:${backendPort}`;
+// E2E_DEV=1: old behaviour, a Vite dev server (HMR, no build step) for local debugging.
+const useDevServer = !!process.env.E2E_DEV;
 
 export default defineConfig({
   testDir: "e2e",
@@ -25,11 +27,18 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI
     },
     {
-      command: `npm run dev -- --port ${port} --strictPort`,
+      // Default: build once in "test" mode (keeps the window.__srp hook) into dist-e2e and serve it statically,
+      // so there is no cold dev server. The backend URL is baked in at build time.
+      command: useDevServer
+        ? `npm run dev -- --port ${port} --strictPort`
+        : `npx vite build --mode test --outDir dist-e2e --emptyOutDir && npx vite preview --outDir dist-e2e --port ${port} --strictPort`,
       url: `http://localhost:${port}`,
+      timeout: 120_000,
       // vite.config.ts serves under /<repo>/ on GitHub Actions (for Pages); the specs use root paths.
       env: { VITE_BASE_PATH: "/", VITE_BACKEND_API_BASE_URL: backendUrl, VITE_BACKEND_WS_BASE_URL: "" },
-      reuseExistingServer: !process.env.CI
+      // A reused preview server would serve a stale build (and possibly another backend URL), so only the
+      // dev server, which always serves the current source, may be reused locally.
+      reuseExistingServer: useDevServer && !process.env.CI
     }
   ]
 });
