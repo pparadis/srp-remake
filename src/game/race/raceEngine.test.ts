@@ -265,3 +265,24 @@ describe("decideBotAction", () => {
     expect(state.winnerCarId).not.toBeNull();
   });
 });
+
+describe("decideBotAction autopilot policy", () => {
+  const seats = Array.from({ length: 3 }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}` }));
+
+  it("never goes further than Normal, never pits, and is always accepted by the engine", () => {
+    const state = createRace(ctx, seats, 2);
+    for (let i = 0; i < 400 && state.winnerCarId === null; i += 1) {
+      const normal = decideBotAction(ctx, state);
+      const auto = decideBotAction(ctx, state, "autopilot");
+      expect(auto.action.type).not.toBe("pit");
+      if (auto.action.type === "move" && normal.action.type === "move") {
+        const distance = (a: typeof auto) =>
+          a.targets.get((a.action as { targetCellId: string }).targetCellId)!.distance;
+        expect(distance(auto)).toBeLessThanOrEqual(distance(normal));
+      }
+      expect(decideBotAction(ctx, state, "autopilot").action).toEqual(auto.action);
+      // alternate who plays so the autopilot also drives real positions
+      expect(applyAction(ctx, state, (i % 2 === 0 ? auto : normal).action).ok).toBe(true);
+    }
+  });
+});

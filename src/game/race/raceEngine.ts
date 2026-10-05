@@ -4,7 +4,7 @@
 import { MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS } from "../constants";
 import type { Car, CarSetup } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
-import { decideBotActionWithTrace, type BotDecisionTrace } from "../systems/botSystem";
+import { decideBotActionWithTrace, type BotDecisionTrace, type BotPolicy } from "../systems/botSystem";
 import { applyMove } from "../systems/moveCommitSystem";
 import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
@@ -186,14 +186,18 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   return { ok: true, carId: car.carId, fromCellId, moveSpend, log };
 }
 
-// Picks the active (bot) car's action with the shared heuristic. Does not mutate state.
-export function decideBotAction(ctx: RaceContext, state: RaceState): BotTurnDecision {
+// Picks the active (bot) car's action with the shared heuristic (or the AFK "autopilot" policy). Does not mutate state.
+export function decideBotAction(
+  ctx: RaceContext,
+  state: RaceState,
+  policy: BotPolicy = "normal"
+): BotTurnDecision {
   const car = getActiveCar(state);
   if (car.state !== "ACTIVE") {
     return { action: { type: "skip" }, trace: null, targets: new Map(), skipNote: "inactive" };
   }
   const targets = computeTargets(ctx, state, car);
-  const { action, trace } = decideBotActionWithTrace(targets, car, ctx.cellMap);
+  const { action, trace } = decideBotActionWithTrace(targets, car, ctx.cellMap, policy);
   if (action.type === "skip") {
     return { action: { type: "skip" }, trace, targets, skipNote: "no-target" };
   }
