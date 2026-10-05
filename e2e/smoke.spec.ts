@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { collectErrors, quickRace } from "./support/game";
 
+// ~3 s alone, but 25-30 s when it shares the machine with the long multiplayer journeys (several
+// software-rendered Phaser canvases at once), which sat right on the default 30 s limit.
+test.setTimeout(90_000);
+
 test("home loads without starting a game, quick race builds the scene, no errors", async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto("/");
