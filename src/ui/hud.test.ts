@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { bannerText, gapLabel, mountHud, renderHud, renderResults, resourceLevel, type HudCar, type HudSnapshot } from "./hud";
+import { bannerText, formatCountdown, gapLabel, mountHud, renderHud, renderResults, resourceLevel, type HudCar, type HudSnapshot } from "./hud";
 
 const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   carId,
@@ -110,5 +110,16 @@ describe("hud", () => {
     const rows = document.querySelectorAll('[data-testid="results-row"]');
     expect(rows).toHaveLength(3);
     expect(rows[0]!.textContent).toContain("Car 1");
+  });
+});
+
+describe("formatCountdown", () => {
+  it("formats m:ss and rounds up", () => {
+    expect(formatCountdown(120_000)).toBe("2:00");
+    expect(formatCountdown(59_001)).toBe("1:00");
+    expect(formatCountdown(9_400)).toBe("0:10");
+    expect(formatCountdown(1)).toBe("0:01");
+    expect(formatCountdown(0)).toBe("0:00");
+    expect(formatCountdown(-5)).toBe("0:00");
   });
 });

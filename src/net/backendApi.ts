@@ -10,6 +10,12 @@ export interface AppliedTurnSummary {
   targetCellId?: string;
 }
 
+// Who decided a turn: absent for a human, "bot", or the server stepping in for a stuck player.
+export type TurnSource = "bot" | "timeout" | "force_skip";
+
+// Seconds a human seat has per turn before the server plays it (0 = no limit).
+export type TurnTimerSec = 0 | 30 | 60 | 120;
+
 // The engine's Car plus who drives it, as the server reports it.
 export interface PublicRaceCar extends Car {
   seatIndex: number;
@@ -24,6 +30,8 @@ export interface PublicRaceState {
   activeSeatIndex: number;
   winnerCarId: number | null;
   cars: PublicRaceCar[];
+  /** Time left for the active human seat, measured by the server; absent when the lobby has no timer. */
+  turnRemainingMs?: number;
 }
 
 export interface PublicLobby {
@@ -40,6 +48,7 @@ export interface PublicLobby {
     humanCars: number;
     botCars: number;
     raceLaps: number;
+    turnTimerSec: TurnTimerSec;
   };
   players: Array<{
     playerId: string;
@@ -117,11 +126,16 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
+// A sleeping free-plan server needs about a minute for its first response.
+export const REQUEST_TIMEOUT_MS = 90_000;
+
 export class BackendApiClient {
   private readonly baseUrl: string;
+  private readonly timeoutMs: number;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, timeoutMs = REQUEST_TIMEOUT_MS) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
+    this.timeoutMs = timeoutMs;
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -130,9 +144,16 @@ export class BackendApiClient {
       init.headers = { "Content-Type": "application/json" };
       init.body = JSON.stringify(body);
     }
-    const res = await fetch(`${this.baseUrl}${path}`, init);
-
-    const text = await res.text();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    let res: Response;
+    let text: string;
+    try {
+      res = await fetch(`${this.baseUrl}${path}`, { ...init, signal: controller.signal });
+      text = await res.text();
+    } finally {
+      clearTimeout(timer);
+    }
     let payload: unknown = {};
     if (text.length > 0) {
       try {
@@ -185,6 +206,19 @@ export class BackendApiClient {
   readLobby(lobbyId: string, playerToken: string): Promise<ReadLobbyResponse> {
     const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}?playerToken=${encodeURIComponent(playerToken)}`;
     return this.request("GET", path);
+  }
+
+  // Host only: the server plays one autopilot turn for the stuck human seat.
+  forceSkip(lobbyId: string, playerToken: string, revision?: number): Promise<StartRaceResponse> {
+    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/force-skip`, {
+      playerToken,
+      ...(revision !== undefined ? { revision } : {})
+    });
+  }
+
+  // Cheap request that wakes a sleeping server.
+  health(): Promise<unknown> {
+    return this.request("GET", "/health");
   }
 
   // A refused turn is a 409 whose body says why; hand that back instead of throwing.

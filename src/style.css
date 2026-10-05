@@ -520,3 +520,52 @@ body[data-screen="race"] #statusLine {
     font-size: 11px;
   }
 }
+
+#hud .hud-turnbar {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+#hud .hud-timer {
+  padding: 3px 12px;
+  border-radius: 12px;
+  background: rgba(15, 20, 27, 0.92);
+  border: 1px solid #2a3642;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+#hud .hud-timer.is-warn {
+  border-color: #ff9f43;
+  color: #ffb870;
+}
+
+#hud .hud-force-skip {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.connection-banner {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 6px 16px;
+  border-radius: 0 0 12px 12px;
+  background: #5a3b00;
+  border: 1px solid #ff9f43;
+  border-top: 0;
+  color: #ffe2b8;
+  font-size: 14px;
+}
+
+.connection-banner[hidden] {
+  display: none;
+}

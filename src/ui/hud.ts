@@ -54,6 +54,10 @@ const HEAD =
 
 const TEMPLATE = `
 <div class="hud-banner" data-testid="hud-banner"></div>
+<div class="hud-turnbar">
+  <span class="hud-timer" data-testid="hud-timer" hidden></span>
+  <button type="button" class="hud-force-skip" data-testid="hud-force-skip" hidden>Skip their turn</button>
+</div>
 <div class="hud-left">
   <section class="hud-card" data-testid="hud-card">
     <div class="hud-card-head">
@@ -91,6 +95,12 @@ export function resourceLevel(percent: number): "ok" | "warn" | "crit" {
   if (percent < 20) return "crit";
   if (percent < 40) return "warn";
   return "ok";
+}
+
+/** m:ss for a countdown; rounds up so it reads 0:01 until the very end. */
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 export function gapLabel(car: HudCar, ahead: HudCar | undefined): string {
