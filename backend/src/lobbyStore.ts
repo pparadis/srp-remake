@@ -7,6 +7,7 @@ import {
   type ApplyResult,
   type BotTurnDecision
 } from "../../src/game/race/raceEngine";
+import type { BotPolicy } from "../../src/game/systems/botSystem";
 import { getRaceContext, knownTrackIds } from "./tracks.js";
 import type {
   Lobby,
@@ -21,13 +22,15 @@ import type {
   PublicLobby,
   PublicLobbyPlayer
 } from "./types.js";
+import { TURN_TIMER_CHOICES } from "./types.js";
 
 const DEFAULT_SETTINGS: LobbySettings = {
   trackId: "oval16_3lanes",
   totalCars: 4,
   humanCars: 1,
   botCars: 3,
-  raceLaps: 5
+  raceLaps: 5,
+  turnTimerSec: 60
 };
 
 function clampInt(value: number, min: number, max: number): number {
@@ -56,7 +59,12 @@ function normalizeSettings(
   totalCars = humanCars + botCars;
 
   const raceLaps = clampInt(input?.raceLaps ?? base.raceLaps, 1, 999);
-  return { trackId, totalCars, humanCars, botCars, raceLaps };
+  const requestedTimer = input?.turnTimerSec ?? base.turnTimerSec;
+  const turnTimerSec = TURN_TIMER_CHOICES.find((choice) => choice === requestedTimer);
+  if (turnTimerSec === undefined) {
+    throw new LobbyError(400, `turnTimerSec must be one of ${TURN_TIMER_CHOICES.join(", ")}.`);
+  }
+  return { trackId, totalCars, humanCars, botCars, raceLaps, turnTimerSec };
 }
 
 function toPublicPlayer(player: LobbyPlayer): PublicLobbyPlayer {
@@ -79,7 +87,10 @@ function toPublicRaceState(lobby: Lobby): RaceState | undefined {
     turnIndex: race.turnIndex,
     activeSeatIndex: engine.turn.index,
     winnerCarId: engine.winnerCarId,
-    cars: engine.cars.map((car, i): RaceCarState => ({ ...car, ...seats[i]! }))
+    cars: engine.cars.map((car, i): RaceCarState => ({ ...car, ...seats[i]! })),
+    ...(race.turnDeadlineAt !== undefined
+      ? { turnRemainingMs: Math.max(0, race.turnDeadlineAt - Date.now()) }
+      : {})
   };
 }
 
@@ -366,6 +377,14 @@ export class LobbyStore {
     return lobby;
   }
 
+  // The server arms/clears the deadline of the active human seat; it is exposed as turnRemainingMs.
+  setTurnDeadline(lobbyId: string, deadlineAt: number | undefined) {
+    const race = this.getLobbyOrThrow(lobbyId).race;
+    if (!race) return;
+    if (deadlineAt === undefined) delete race.turnDeadlineAt;
+    else race.turnDeadlineAt = deadlineAt;
+  }
+
   incrementRevision(lobbyId: string): Lobby {
     const lobby = this.getLobbyOrThrow(lobbyId);
     lobby.revision += 1;
@@ -404,14 +423,14 @@ export class LobbyStore {
     return result;
   }
 
-  // What the shared bot heuristic would play for the active car. Changes nothing.
-  decideBotTurn(lobbyId: string): BotTurnDecision {
+  // What the shared bot heuristic (or the AFK autopilot) would play for the active car. Changes nothing.
+  decideBotTurn(lobbyId: string, policy: BotPolicy = "normal"): BotTurnDecision {
     const lobby = this.getLobbyOrThrow(lobbyId);
     const ctx = getRaceContext(lobby.settings.trackId);
     if (!lobby.race || !ctx) {
       throw new LobbyError(409, "Race state not initialized.");
     }
-    return decideBotAction(ctx, lobby.race.engine);
+    return decideBotAction(ctx, lobby.race.engine, policy);
   }
 
   terminateLobby(lobbyId: string, reason: LobbyTerminationReason): Lobby {

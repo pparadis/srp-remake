@@ -1,6 +1,9 @@
 import type { RaceAction, RaceState as EngineRaceState, RejectReason } from "../../src/game/race/raceEngine";
 import type { Car } from "../../src/game/types/car";
 
+export const TURN_TIMER_CHOICES = [0, 30, 60, 120] as const;
+export type TurnTimerSec = (typeof TURN_TIMER_CHOICES)[number];
+
 export type LobbyStatus = "WAITING" | "IN_RACE" | "FINISHED";
 export type LobbyTerminationReason = "host_disconnected" | "race_finished";
 
@@ -21,6 +24,8 @@ export interface RaceState {
   activeSeatIndex: number;
   winnerCarId: number | null;
   cars: RaceCarState[];
+  // Time left for the active human seat (server clock, so no client clock skew); absent without a timer.
+  turnRemainingMs?: number;
 }
 
 // Server-side race: the engine's state plus seat ownership (carId = seatIndex + 1).
@@ -28,6 +33,8 @@ export interface ServerRace {
   engine: EngineRaceState;
   seats: RaceSeatInfo[];
   turnIndex: number;
+  // Epoch ms at which the active human seat is auto-played; set by the server while a timer runs.
+  turnDeadlineAt?: number;
 }
 
 export interface LobbySettings {
@@ -36,6 +43,8 @@ export interface LobbySettings {
   humanCars: number;
   botCars: number;
   raceLaps: number;
+  // Seconds a human seat has per turn before it is auto-played; 0 = no limit.
+  turnTimerSec: TurnTimerSec;
 }
 
 export interface LobbyPlayer {

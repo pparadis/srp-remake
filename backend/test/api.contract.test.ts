@@ -642,8 +642,8 @@ test("websocket rejects unknown player token (1008 or transport-level 1006)", as
   }
 });
 
-test("host websocket disconnect revokes tokens and ends race", async (t) => {
-  const app = await createTestApp();
+test("host websocket disconnect revokes tokens and ends race after the grace period", async (t) => {
+  const app = await createApp({ ...TEST_CONFIG, HOST_GRACE_SECONDS: 0.3 }, { logger: false });
   await app.listen({ host: "127.0.0.1", port: 0 });
   t.after(async () => {
     await app.close();
@@ -652,13 +652,19 @@ test("host websocket disconnect revokes tokens and ends race", async (t) => {
   const createdRes = await app.inject({
     method: "POST",
     url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    payload: { name: "Host", settings: { totalCars: 2, humanCars: 2, botCars: 0 } }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
     lobby: { lobbyId: string };
     playerToken: string;
   };
+  const joinRes = await app.inject({
+    method: "POST",
+    url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
+    payload: { name: "Guest" }
+  });
+  const guestToken = (joinRes.json() as { playerToken: string }).playerToken;
 
   const startRes = await app.inject({
     method: "POST",
@@ -667,12 +673,10 @@ test("host websocket disconnect revokes tokens and ends race", async (t) => {
   });
   assert.equal(startRes.statusCode, 200);
 
-  const wsPrimary = new WebSocket(
-    `${wsBaseUrl(app)}/ws?lobbyId=${encodeURIComponent(createdBody.lobby.lobbyId)}&playerToken=${encodeURIComponent(createdBody.playerToken)}`
-  );
-  const wsObserver = new WebSocket(
-    `${wsBaseUrl(app)}/ws?lobbyId=${encodeURIComponent(createdBody.lobby.lobbyId)}&playerToken=${encodeURIComponent(createdBody.playerToken)}`
-  );
+  const socketUrl = (token: string) =>
+    `${wsBaseUrl(app)}/ws?lobbyId=${encodeURIComponent(createdBody.lobby.lobbyId)}&playerToken=${encodeURIComponent(token)}`;
+  const wsPrimary = new WebSocket(socketUrl(createdBody.playerToken));
+  const wsObserver = new WebSocket(socketUrl(guestToken));
 
   const waitForOpen = (ws: WebSocket) =>
     new Promise<void>((resolve, reject) => {
@@ -691,8 +695,8 @@ test("host websocket disconnect revokes tokens and ends race", async (t) => {
   wsPrimary.close(1000, "test_close");
   await waitForWsClose(wsPrimary);
 
-  // If the server enforces host-disconnect end-of-race, observer is closed with 4001.
-  // Some runtimes surface it as transport-level close codes, so this is best-effort.
+  // After the grace period the guest is closed with 4001 (best-effort: some runtimes surface
+  // it as a transport-level close code).
   const observerClosed = await waitForWsClose(wsObserver);
   if (observerClosed.code === 4001) {
     assert.equal(observerClosed.reason, "host_disconnected");
