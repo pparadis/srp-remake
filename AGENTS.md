@@ -40,6 +40,19 @@ Project guide for Codex and other automation.
   `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceScene.emitHud()` sends. Add HUD data to the
   snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
 
+## Online Sessions
+
+- Turn timer: lobby setting `turnTimerSec` (0|30|60|120, default 60). On expiry the server plays the stuck
+  human's turn with the `"autopilot"` bot policy (`src/game/systems/botSystem.ts`, deliberately mediocre); the
+  host can force it with `POST /lobbies/:id/force-skip`. A plain skip is illegal while moves exist.
+- A new lobby setting must be threaded through every site: `backend/src/types.ts`, the zod patch schema AND
+  `toSettingsPatch` in `server.ts`, `DEFAULT_SETTINGS` + `normalizeSettings` in `lobbyStore.ts`, the client type
+  in `src/net/backendApi.ts`, `index.html`, `src/main.ts`, and tests that assert on settings.
+- Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player.
+- Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
+  `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).
+  A reused local backend with real clocks breaks `e2e/afk.spec.ts`: use `E2E_BACKEND_PORT`.
+
 ## Debugging Tools
 
 - In‑game debug:
