@@ -44,7 +44,7 @@ import {
   type BotDecisionLogEntry
 } from "./debug/botDecisionDebug";
 import { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
-import type { AppliedTurnSummary, BackendTurnAction, PublicLobby } from "../../net/backendApi";
+import type { AppliedTurnSummary, BackendTurnAction, PublicLobby, TurnSource } from "../../net/backendApi";
 import { toEngineRace } from "../../net/raceSync";
 
 declare global {
@@ -157,6 +157,7 @@ export class RaceScene extends Phaser.Scene {
       lobbyId?: string;
       playerId?: string;
       applied?: AppliedTurnSummary;
+      source?: TurnSource;
     }>;
     const detail = custom.detail;
     if (
@@ -167,7 +168,7 @@ export class RaceScene extends Phaser.Scene {
     ) {
       return;
     }
-    this.applyBackendTurnApplied(detail.lobbyId, detail.playerId, detail.applied);
+    this.applyBackendTurnApplied(detail.lobbyId, detail.playerId, detail.applied, detail.source);
   };
   private readonly buildInfo = {
     version: "debug-snapshot-v3",
@@ -397,10 +398,18 @@ export class RaceScene extends Phaser.Scene {
   }
 
   // Remote and own turns alike arrive as events; the board itself redraws from race.state.
-  private applyBackendTurnApplied(lobbyId: string, playerId: string, action: AppliedTurnSummary) {
+  private applyBackendTurnApplied(
+    lobbyId: string,
+    playerId: string,
+    action: AppliedTurnSummary,
+    source?: TurnSource
+  ) {
     if (this.backendLobbyId && lobbyId !== this.backendLobbyId) return;
     const car = this.cars.find((candidate) => candidate.ownerId === playerId);
     if (!car) return;
+    if (source === "timeout" || source === "force_skip") {
+      this.addLog(`Car ${car.carId} was auto-played (${source === "timeout" ? "timeout" : "host skip"}).`);
+    }
     if (action.type === "skip") {
       this.addLog(`Car ${car.carId} skipped (no moves).`);
     } else if (action.type === "pit") {

@@ -1,5 +1,5 @@
 import "./style.css";
-import { mountHud, renderHud, renderResults, type HudSnapshot } from "./ui/hud";
+import { formatCountdown, mountHud, renderHud, renderResults, type HudSnapshot } from "./ui/hud";
 import {
   BackendApiClient,
   BackendApiError,
@@ -7,7 +7,9 @@ import {
   resolveBackendWsBaseUrl,
   type PublicLobby,
   type AppliedTurnSummary,
-  type BackendTurnAction
+  type BackendTurnAction,
+  type TurnSource,
+  type TurnTimerSec
 } from "./net/backendApi";
 import {
   currentRoute,
@@ -40,6 +42,9 @@ const lobbyHumans = el<HTMLSelectElement>("lobbyHumans");
 const lobbyHumansField = el("lobbyHumansField");
 const lobbyBots = el<HTMLSelectElement>("lobbyBots");
 const lobbyLaps = el<HTMLInputElement>("lobbyLaps");
+const lobbyTurnTimer = el<HTMLSelectElement>("lobbyTurnTimer");
+const lobbyTurnTimerField = el("lobbyTurnTimerField");
+const connectionBanner = el("connectionBanner");
 const lobbyInviteBlock = el("lobbyInviteBlock");
 const lobbyInviteLink = el<HTMLInputElement>("lobbyInviteLink");
 const lobbyCopyBtn = el<HTMLButtonElement>("lobbyCopyBtn");
@@ -52,6 +57,8 @@ const results = el("results");
 const resultsWinner = el("resultsWinner");
 const hud = el("hud");
 mountHud(hud);
+const hudTimer = hud.querySelector<HTMLElement>('[data-testid="hud-timer"]')!;
+const hudForceSkip = hud.querySelector<HTMLButtonElement>('[data-testid="hud-force-skip"]')!;
 
 let game: ReturnType<typeof import("./game").startGame> | null = null;
 let gameStarting = false;
@@ -83,6 +90,7 @@ type BackendTurnAppliedEventDetail = {
   playerId: string;
   revision: number;
   applied: AppliedTurnSummary;
+  source?: TurnSource;
 };
 
 let backendSession: BackendSession | null = null;
@@ -92,6 +100,11 @@ let backendReconnectTimer: number | null = null;
 let backendShouldReconnect = false;
 let backendReconnectAttempt = 0;
 let joining = false;
+let reconnecting = false;
+let wakingServer = false;
+// When the active human seat gets auto-played (local clock = receipt time + the server's remaining time).
+let turnDeadlineAt: number | null = null;
+const WAKE_NOTICE_DELAY_MS = 3000;
 
 function setStatus(text: string) {
   statusLine.textContent = text;
@@ -100,6 +113,60 @@ function setStatus(text: string) {
 function showNotice(text: string | null) {
   homeNotice.textContent = text ?? "";
   homeNotice.hidden = text === null;
+}
+
+function renderConnectionBanner() {
+  const hostAway =
+    mode === "online" &&
+    backendSession !== null &&
+    !backendSession.isHost &&
+    lastLobby !== null &&
+    lastLobby.status !== "FINISHED" &&
+    lastLobby.players.some((player) => player.isHost && !player.connected);
+  const text = wakingServer
+    ? "Waking the server, this can take up to a minute..."
+    : reconnecting
+      ? "Reconnecting..."
+      : hostAway
+        ? "Host disconnected: waiting for them to come back..."
+        : null;
+  connectionBanner.hidden = text === null;
+  connectionBanner.textContent = text ?? "";
+}
+
+// Shows the cold-start notice if `request` is still pending after a few seconds.
+async function withWakeNotice<T>(request: Promise<T>): Promise<T> {
+  const timer = window.setTimeout(() => {
+    wakingServer = true;
+    renderConnectionBanner();
+  }, WAKE_NOTICE_DELAY_MS);
+  try {
+    return await request;
+  } finally {
+    window.clearTimeout(timer);
+    wakingServer = false;
+    renderConnectionBanner();
+  }
+}
+
+function renderTurnTimer() {
+  const race = lastLobby?.raceState;
+  const live =
+    mode === "online" &&
+    backendSession !== null &&
+    lastLobby?.status === "IN_RACE" &&
+    race !== undefined &&
+    !raceOver &&
+    document.body.dataset.screen === "race";
+  const remainingMs = turnDeadlineAt === null ? null : turnDeadlineAt - Date.now();
+  hudTimer.hidden = !(live && remainingMs !== null);
+  if (live && remainingMs !== null) {
+    hudTimer.textContent = `Auto-play in ${formatCountdown(remainingMs)}`;
+    hudTimer.classList.toggle("is-warn", remainingMs < 10_000);
+  }
+  const activeCar = race?.cars.find((car) => car.seatIndex === race.activeSeatIndex);
+  const stuckHuman = activeCar?.playerId != null && activeCar.playerId !== backendSession?.playerId;
+  hudForceSkip.hidden = !(live && backendSession?.isHost && stuckHuman);
 }
 
 // sessionStorage is per tab: a reload rejoins with the same player token, a second tab is a new player.
@@ -221,11 +288,13 @@ function renderLobby() {
   lobbyPlayersBlock.hidden = !online;
   lobbyInviteBlock.hidden = !online;
   lobbyHumansField.hidden = !online;
+  lobbyTurnTimerField.hidden = !online;
+  lobbyTurnTimer.value = String(settings?.turnTimerSec ?? 60);
   lobbyHumans.value = String(settings?.humanCars ?? 1);
   lobbyBots.value = String(settings?.botCars ?? soloSettings.botCars);
   lobbyLaps.value = String(settings?.raceLaps ?? soloSettings.raceLaps);
   const editable = isHost && waiting && !backendBusy;
-  lobbyHumans.disabled = lobbyBots.disabled = lobbyLaps.disabled = !editable;
+  lobbyHumans.disabled = lobbyBots.disabled = lobbyLaps.disabled = lobbyTurnTimer.disabled = !editable;
   lobbyStartBtn.disabled = backendBusy || !isHost || !waiting;
   lobbyStartBtn.hidden = online && !isHost;
   const canPlayAgain = online && lobby?.status === "FINISHED" && lobby.terminationReason === "race_finished";
@@ -296,6 +365,7 @@ function showResults(winnerCarId: number | null) {
 
 function leaveOnline() {
   disconnectBackendSocket();
+  turnDeadlineAt = null;
   if (backendSession) clearStoredSession(backendSession.lobbyId);
   backendSession = null;
   lastLobby = null;
@@ -396,6 +466,8 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
   backendSession.revision = newRace ? lobby.revision : Math.max(backendSession.revision, lobby.revision);
   backendSession.isHost = lobby.hostPlayerId === backendSession.playerId;
   lastLobby = lobby;
+  const remainingMs = lobby.status === "IN_RACE" ? lobby.raceState?.turnRemainingMs : undefined;
+  turnDeadlineAt = remainingMs === undefined ? null : Date.now() + remainingMs;
   storeSession(backendSession);
   setStatus(`${source}: ${lobby.status.toLowerCase()} (rev ${lobby.revision})`);
   logMultiplayerClient("lobby.state.applied", {
@@ -409,6 +481,8 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
     })
   );
   if (document.body.dataset.screen === "lobby") renderLobby();
+  renderConnectionBanner();
+  renderTurnTimer();
   syncOnlineScreen();
 }
 
@@ -438,6 +512,8 @@ function scheduleBackendReconnect() {
   clearBackendReconnectTimer();
   const delayMs = Math.min(5000, 500 * 2 ** Math.min(backendReconnectAttempt, 5));
   backendReconnectAttempt += 1;
+  reconnecting = true;
+  renderConnectionBanner();
   setStatus(`ws reconnect in ${delayMs}ms`);
   logMultiplayerClient("ws.reconnect.scheduled", { delayMs, attempt: backendReconnectAttempt });
   backendReconnectTimer = window.setTimeout(() => {
@@ -483,6 +559,7 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
         typeof turnPayload.applied === "object"
       ) {
         const applied = turnPayload.applied as { type?: unknown; targetCellId?: unknown };
+        const source = (payload as { source?: unknown }).source;
         if (
           (applied.type === "move" || applied.type === "pit" || applied.type === "skip") &&
           (applied.targetCellId === undefined || typeof applied.targetCellId === "string")
@@ -496,7 +573,8 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
                 applied: {
                   type: applied.type,
                   ...(applied.targetCellId ? { targetCellId: applied.targetCellId } : {})
-                }
+                },
+                ...(source === "bot" || source === "timeout" || source === "force_skip" ? { source } : {})
               }
             })
           );
@@ -515,7 +593,9 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
 
 function disconnectBackendSocket() {
   backendShouldReconnect = false;
+  reconnecting = false;
   clearBackendReconnectTimer();
+  renderConnectionBanner();
   if (!backendSocket) return;
   const socket = backendSocket;
   backendSocket = null;
@@ -541,6 +621,8 @@ async function connectBackendSocket(reason: string) {
   socket.addEventListener("open", () => {
     if (backendSocket !== socket) return;
     backendReconnectAttempt = 0;
+    reconnecting = false;
+    renderConnectionBanner();
     setStatus("ws connected");
     logMultiplayerClient("ws.open", { reason });
     void rehydrateLobbyState("ws-open");
@@ -609,13 +691,16 @@ async function hostLobby() {
   setStatus("creating lobby...");
   logMultiplayerClient("lobby.host.start");
   try {
-    const created = await backendClient.createLobby(getPlayerName(), {
-      trackId: "oval16_3lanes",
-      totalCars: 2,
-      humanCars: 2,
-      botCars: 0,
-      raceLaps: 5
-    });
+    const created = await withWakeNotice(
+      backendClient.createLobby(getPlayerName(), {
+        trackId: "oval16_3lanes",
+        totalCars: 2,
+        humanCars: 2,
+        botCars: 0,
+        raceLaps: 5,
+        turnTimerSec: 60
+      })
+    );
     mode = "online";
     openSession(created, "host");
     navigate({ name: "lobby", id: created.lobby.lobbyId });
@@ -636,11 +721,17 @@ async function joinLobbyById(lobbyId: string) {
   setStatus(`joining ${lobbyId}...`);
   logMultiplayerClient("lobby.join.start", { requestedLobbyId: lobbyId });
   try {
-    const joined = await backendClient.joinLobby(lobbyId, getPlayerName(), loadStoredToken(lobbyId));
+    const joined = await withWakeNotice(
+      backendClient.joinLobby(lobbyId, getPlayerName(), loadStoredToken(lobbyId))
+    );
     openSession(joined, "join");
     logMultiplayerClient("lobby.join.success");
   } catch (error) {
-    clearStoredSession(lobbyId);
+    // Only a definite "your seat is gone" answer drops the stored seat. A network error or a
+    // timeout (e.g. reloading while the server wakes up) keeps it so the next attempt rejoins.
+    if (error instanceof BackendApiError && (error.status === 401 || error.status === 404)) {
+      clearStoredSession(lobbyId);
+    }
     logMultiplayerClient("lobby.join.failed", { error: toErrorText(error) });
     kickToHome(`Could not join the lobby (${toErrorText(error)}).`);
   } finally {
@@ -703,6 +794,7 @@ async function changeSettings() {
   const humanCars = Number.parseInt(lobbyHumans.value, 10);
   const botCars = Number.parseInt(lobbyBots.value, 10);
   const raceLaps = Math.max(1, Math.min(999, Number.parseInt(lobbyLaps.value, 10) || 1));
+  const turnTimerSec = Number.parseInt(lobbyTurnTimer.value, 10) as TurnTimerSec;
   if (mode === "solo") {
     soloSettings.botCars = botCars;
     soloSettings.raceLaps = raceLaps;
@@ -714,12 +806,27 @@ async function changeSettings() {
     const updated = await backendClient.updateSettings(
       backendSession.lobbyId,
       backendSession.playerToken,
-      { humanCars, botCars, raceLaps }
+      { humanCars, botCars, raceLaps, turnTimerSec }
     );
     applyLobbyState(updated.lobby, "settings");
   } catch (error) {
     setStatus(`settings rejected (${toErrorText(error)})`);
     renderLobby();
+  }
+}
+
+async function forceSkip() {
+  if (!backendSession?.isHost || hudForceSkip.disabled) return;
+  hudForceSkip.disabled = true;
+  try {
+    await backendClient.forceSkip(backendSession.lobbyId, backendSession.playerToken, backendSession.revision);
+    logMultiplayerClient("turn.force_skip.accepted");
+  } catch (error) {
+    // 409: the player moved just before the click; nothing to do.
+    setStatus(`skip failed (${toErrorText(error)})`);
+    logMultiplayerClient("turn.force_skip.failed", { error: toErrorText(error) });
+  } finally {
+    hudForceSkip.disabled = false;
   }
 }
 
@@ -833,9 +940,10 @@ homeName.addEventListener("change", () => {
   }
 });
 
-for (const input of [lobbyHumans, lobbyBots, lobbyLaps]) {
+for (const input of [lobbyHumans, lobbyBots, lobbyLaps, lobbyTurnTimer]) {
   input.addEventListener("change", () => void changeSettings());
 }
+hudForceSkip.addEventListener("click", () => void forceSkip());
 lobbyStartBtn.addEventListener("click", () => void startRace());
 lobbyPlayAgainBtn.addEventListener("click", () => void playAgain());
 resultsPlayAgainBtn.addEventListener("click", () => void playAgain());
@@ -895,4 +1003,7 @@ try {
   // ignore
 }
 setStatus(`ready (${backendApiBaseUrl})`);
+// Wake a sleeping server in the background; the answer does not matter.
+void backendClient.health().catch(() => undefined);
+window.setInterval(renderTurnTimer, 250);
 startRouter((route, source) => void handleRoute(route, source));

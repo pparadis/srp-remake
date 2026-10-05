@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import indexHtml from "../index.html?raw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const startGame = vi.fn();
 const createLobbyMock = vi.fn();
@@ -8,6 +8,7 @@ const joinLobbyMock = vi.fn();
 const startRaceMock = vi.fn();
 const readLobbyMock = vi.fn();
 const submitTurnMock = vi.fn();
+const forceSkipMock = vi.fn();
 
 vi.mock("./game", () => ({
   startGame: (...args: unknown[]) => startGame(...args)
@@ -45,6 +46,14 @@ vi.mock("./net/backendApi", () => ({
     submitTurn(...args: unknown[]) {
       return submitTurnMock(...args);
     }
+
+    health() {
+      return Promise.resolve({ ok: true });
+    }
+
+    forceSkip(...args: unknown[]) {
+      return forceSkipMock(...args);
+    }
   },
   BackendApiError: MockBackendApiError,
   resolveBackendBaseUrl: () => "http://localhost:3001",
@@ -52,10 +61,17 @@ vi.mock("./net/backendApi", () => ({
 }));
 
 class FakeWebSocket {
+  static instances: FakeWebSocket[] = [];
   readyState = 1;
   private listeners = new Map<string, Array<(event: unknown) => void>>();
 
-  constructor(_url: string) {}
+  constructor(_url: string) {
+    FakeWebSocket.instances.push(this);
+  }
+
+  emit(event: string, data: unknown = {}) {
+    for (const listener of this.listeners.get(event) ?? []) listener(data);
+  }
 
   addEventListener(event: string, listener: (event: unknown) => void) {
     const items = this.listeners.get(event) ?? [];
@@ -95,7 +111,8 @@ function makeLobby(lobbyId: string) {
       totalCars: 2,
       humanCars: 2,
       botCars: 0,
-      raceLaps: 5
+      raceLaps: 5,
+      turnTimerSec: 60 as const
     },
     players: [
       {
@@ -125,6 +142,9 @@ describe("main multiplayer screens", () => {
     startRaceMock.mockReset();
     readLobbyMock.mockReset();
     submitTurnMock.mockReset();
+    forceSkipMock.mockReset();
+    FakeWebSocket.instances = [];
+    window.sessionStorage.clear();
     startGame.mockReturnValue({ destroy: vi.fn() });
     vi.stubGlobal("WebSocket", FakeWebSocket);
     setupDom();
@@ -187,5 +207,114 @@ describe("main multiplayer screens", () => {
     expect(window.location.pathname).toBe("/");
     expect(byId("homeNotice").hidden).toBe(false);
     expect(byId("homeNotice").textContent).toContain("404");
+  });
+
+  describe("survivability", () => {
+    const banner = () => byId("connectionBanner");
+
+    async function joinAsGuest(lobbyId: string) {
+      joinLobbyMock.mockResolvedValue({
+        lobby: makeLobby(lobbyId),
+        playerId: "guest-player-id",
+        playerToken: "guest-token",
+        isReconnect: false
+      });
+      readLobbyMock.mockResolvedValue({ lobby: makeLobby(lobbyId), playerId: "guest-player-id" });
+      window.history.replaceState({}, "", `/lobby/${lobbyId}`);
+      await import("./main");
+      await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("shows a reconnecting banner while the socket is down and hides it when it is back", async () => {
+      vi.useFakeTimers();
+      await joinAsGuest("flaky");
+      expect(banner().hidden).toBe(true);
+
+      FakeWebSocket.instances[0]!.close(1006, "");
+      expect(banner().hidden).toBe(false);
+      expect(banner().textContent).toContain("Reconnecting");
+
+      await vi.advanceTimersByTimeAsync(600);
+      expect(FakeWebSocket.instances).toHaveLength(2);
+      FakeWebSocket.instances[1]!.emit("open");
+      expect(banner().hidden).toBe(true);
+    });
+
+    it("tells a guest while the host is away", async () => {
+      await joinAsGuest("hostaway");
+      const lobby = makeLobby("hostaway");
+      lobby.players[0]!.connected = false;
+      FakeWebSocket.instances[0]!.emit("message", {
+        data: JSON.stringify({ event: "lobby.state", payload: lobby })
+      });
+      expect(banner().hidden).toBe(false);
+      expect(banner().textContent).toContain("Host disconnected");
+
+      FakeWebSocket.instances[0]!.emit("message", {
+        data: JSON.stringify({ event: "lobby.state", payload: makeLobby("hostaway") })
+      });
+      expect(banner().hidden).toBe(true);
+    });
+
+    it("explains a slow cold start after 3 s and clears the message when the server answers", async () => {
+      vi.useFakeTimers();
+      let answer!: (value: unknown) => void;
+      joinLobbyMock.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+      readLobbyMock.mockResolvedValue({ lobby: makeLobby("slow"), playerId: "guest-player-id" });
+      window.history.replaceState({}, "", "/lobby/slow");
+      await import("./main");
+
+      await vi.advanceTimersByTimeAsync(2900);
+      expect(banner().hidden).toBe(true);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(banner().hidden).toBe(false);
+      expect(banner().textContent).toContain("Waking the server");
+
+      answer({ lobby: makeLobby("slow"), playerId: "guest-player-id", playerToken: "t", isReconnect: false });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(banner().hidden).toBe(true);
+    });
+
+    it("keeps the stored seat when the server cannot be reached, so a retry rejoins", async () => {
+      window.sessionStorage.setItem(
+        "srp:session:offline",
+        JSON.stringify({ lobbyId: "offline", playerToken: "kept-token" })
+      );
+      joinLobbyMock.mockRejectedValue(new TypeError("Failed to fetch"));
+      window.history.replaceState({}, "", "/lobby/offline");
+      await import("./main");
+
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe("home"));
+      expect(joinLobbyMock.mock.calls.at(-1)?.[2]).toBe("kept-token");
+      expect(window.sessionStorage.getItem("srp:session:offline")).toContain("kept-token");
+    });
+
+    it("drops the stored seat when the server says it is gone (401)", async () => {
+      window.sessionStorage.setItem(
+        "srp:session:gone",
+        JSON.stringify({ lobbyId: "gone", playerToken: "old-token" })
+      );
+      joinLobbyMock.mockRejectedValue(new MockBackendApiError(401, { error: "invalid" }));
+      window.history.replaceState({}, "", "/lobby/gone");
+      await import("./main");
+
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe("home"));
+      expect(window.sessionStorage.getItem("srp:session:gone")).toBeNull();
+    });
+
+    it("offers the host a turn timer select defaulting to 60 s", async () => {
+      const lobby = makeLobby("timer-lobby");
+      createLobbyMock.mockResolvedValue({ lobby, playerId: "host-player-id", playerToken: "host-token" });
+      await import("./main");
+      byId("homeCreateBtn").click();
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe("lobby"));
+      expect(byId<HTMLSelectElement>("lobbyTurnTimer").value).toBe("60");
+      expect(byId<HTMLSelectElement>("lobbyTurnTimer").disabled).toBe(false);
+      expect(byId("lobbyTurnTimerField").hidden).toBe(false);
+    });
   });
 });

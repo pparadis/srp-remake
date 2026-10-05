@@ -20,7 +20,7 @@ describe("BackendApiClient", () => {
   it("sends each call to its v1 route with a JSON body", async () => {
     const fetchMock = stubFetch(200, JSON.stringify({ ok: true }));
     const client = new BackendApiClient("http://api.test//");
-    const settings = { trackId: "t", totalCars: 2, humanCars: 1, botCars: 1, raceLaps: 3 };
+    const settings = { trackId: "t", totalCars: 2, humanCars: 1, botCars: 1, raceLaps: 3, turnTimerSec: 60 as const };
 
     await expect(client.createLobby("Host", settings)).resolves.toEqual({ ok: true });
     expect(lastCall(fetchMock)).toEqual({
@@ -122,5 +122,43 @@ describe("resolveBackendWsBaseUrl", () => {
   it("derives ws/wss from the API base URL", () => {
     expect(resolveBackendWsBaseUrl("http://localhost:3001")).toBe("ws://localhost:3001");
     expect(resolveBackendWsBaseUrl("https://api.example.com/")).toBe("wss://api.example.com");
+  });
+});
+
+describe("BackendApiClient timeouts and new routes", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("aborts a request that outlasts the timeout", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, init: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          })
+      )
+    );
+    const client = new BackendApiClient("http://api.test", 1000);
+    const pending = client.health();
+    const assertion = expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(1001);
+    await assertion;
+  });
+
+  it("calls force-skip with the revision and the health route", async () => {
+    const fetchMock = stubFetch(200, "{}");
+    const client = new BackendApiClient("http://api.test");
+    await client.forceSkip("L1", "tok", 7);
+    expect(lastCall(fetchMock)).toEqual({
+      url: "http://api.test/api/v1/lobbies/L1/force-skip",
+      method: "POST",
+      body: { playerToken: "tok", revision: 7 }
+    });
+    await client.health();
+    expect(lastCall(fetchMock)).toMatchObject({ url: "http://api.test/health", method: "GET" });
   });
 });

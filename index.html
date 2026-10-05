@@ -88,6 +88,15 @@
               value="5"
             />
           </label>
+          <label class="field" id="lobbyTurnTimerField">
+            <span>Turn timer</span>
+            <select id="lobbyTurnTimer" data-testid="lobby-turn-timer">
+              <option value="0">Off</option>
+              <option value="30">30 s</option>
+              <option value="60" selected>60 s</option>
+              <option value="120">2 min</option>
+            </select>
+          </label>
         </div>
         <div id="lobbyInviteBlock">
           <h2>Invite link</h2>
@@ -161,6 +170,13 @@
       </div>
     </section>
 
+    <div
+      id="connectionBanner"
+      class="connection-banner"
+      data-testid="connection-banner"
+      role="status"
+      hidden
+    ></div>
     <div id="statusLine" data-testid="status-line">ready</div>
     <script type="module" src="/src/main.ts"></script>
   </body>
