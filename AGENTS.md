@@ -62,7 +62,7 @@ Project guide for Codex and other automation.
 3. Run tests: `npm test` (frontend), `npm run backend:test` (backend)
 4. Multiplayer: run the backend next to the dev server (`npm --prefix backend run dev`); check it with
    `npm run backend:build` (typecheck + bundle).
-5. E2E (Playwright, starts backend + dev server itself): `npm run test:e2e`
+5. E2E (Playwright, starts backend itself and builds `vite build --mode test` into `dist-e2e/`, served by `vite preview`; always a fresh build, never a reused server, so it cannot be stale): `npm run test:e2e`. Ports: `E2E_PORT` (5173), `E2E_BACKEND_PORT` (3001). `E2E_DEV=1` uses the Vite dev server instead (reused if already running locally). CI shards it: `npm run test:e2e -- --shard=1/2`.
 
 ## Troubleshooting
 
