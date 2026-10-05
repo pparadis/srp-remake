@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Car } from "../types/car";
 import type { TargetInfo } from "./movementSystem";
-import { decideBotAction, decideBotActionWithTrace, evaluateBotTargets, pickBotMove } from "./botSystem";
+import {
+  decideBotAction,
+  decideBotActionWithTrace,
+  evaluateAutopilotTargets,
+  evaluateBotTargets,
+  pickBotMove
+} from "./botSystem";
 import type { TrackCell } from "../types/track";
 
 function makeCar(overrides: Partial<Car> = {}): Car {
@@ -139,5 +145,56 @@ describe("decideBotAction", () => {
     expect(result.action.type).toBe("pit");
     expect(result.trace.selectedCellId).toBe("P");
     expect(result.trace.candidates.some((candidate) => candidate.cellId === "P")).toBe(true);
+  });
+});
+
+describe("autopilot policy", () => {
+  const t = (distance: number, isPitTrigger = false): TargetInfo => ({
+    distance,
+    tireCost: 1,
+    fuelCost: 1,
+    isPitTrigger
+  });
+  const cells = (...list: TrackCell[]) => new Map(list.map((c) => [c.id, c]));
+
+  it("picks the non-pit target closest to the median distance", () => {
+    const car = makeCar();
+    const targets = makeTargets([
+      ["A", t(1)],
+      ["B", t(4)],
+      ["C", t(5)],
+      ["D", t(9)],
+      ["PIT", t(5, true)]
+    ]);
+    const cellMap = cells(makeCell("A0"), makeCell("A"), makeCell("B"), makeCell("C"), makeCell("D"), makeCell("PIT", 1, ["PIT_BOX"]));
+    // distances 1,4,5,9: lower median is 4
+    expect(evaluateAutopilotTargets(targets, car, cellMap).selectedCellId).toBe("B");
+    expect(decideBotAction(targets, car, cellMap, "autopilot")).toMatchObject({ type: "move", target: { id: "B" } });
+  });
+
+  it("prefers the current lane on a tie and is deterministic", () => {
+    const car = makeCar();
+    const targets = makeTargets([
+      ["A", t(3)],
+      ["B", t(3)]
+    ]);
+    const cellMap = cells(makeCell("A0", 1), makeCell("A", 2), makeCell("B", 1));
+    const first = evaluateAutopilotTargets(targets, car, cellMap);
+    expect(first.selectedCellId).toBe("B");
+    expect(evaluateAutopilotTargets(targets, car, cellMap)).toEqual(first);
+  });
+
+  it("never pits when a normal target exists, even when worn out", () => {
+    const car = makeCar({ tire: 5, fuel: 5 });
+    const targets = makeTargets([
+      ["A", t(2)],
+      ["PIT", t(6, true)]
+    ]);
+    const cellMap = cells(makeCell("A0"), makeCell("A"), makeCell("PIT", 1, ["PIT_BOX"]));
+    expect(decideBotAction(targets, car, cellMap, "autopilot").type).toBe("move");
+  });
+
+  it("skips only when there are no targets", () => {
+    expect(decideBotAction(new Map(), makeCar(), new Map(), "autopilot")).toEqual({ type: "skip" });
   });
 });

@@ -86,6 +86,50 @@ export function evaluateBotTargets(
   };
 }
 
+// "autopilot" is what the server plays for an AFK player: deliberately mediocre, so engaged
+// players always do better. It never pits and never takes more than a median-distance move.
+export type BotPolicy = "normal" | "autopilot";
+
+export function evaluateAutopilotTargets(
+  targets: Map<string, TargetInfo>,
+  car: Car,
+  cellMap: Map<string, TrackCell>
+): BotDecisionTrace {
+  const heuristics = { ...DEFAULTS };
+  const entries = Array.from(targets.entries()).sort(([a], [b]) => a.localeCompare(b));
+  // ponytail: if only pit boxes are reachable we still pick one (a skip would be rejected as
+  // moves_available and stall the race); the autopilot only avoids pitting when it has a choice.
+  const nonPit = entries.filter(([, info]) => !info.isPitTrigger);
+  const pool = nonPit.length > 0 ? nonPit : entries;
+  const distances = pool.map(([, info]) => info.distance).sort((a, b) => a - b);
+  const median = distances[Math.floor((distances.length - 1) / 2)] ?? 0;
+  const fromLane = cellMap.get(car.cellId)?.laneIndex;
+  const inPool = new Set(pool.map(([cellId]) => cellId));
+
+  let selectedCellId: string | null = null;
+  let bestScore = -Infinity;
+  const candidates: BotCandidateScore[] = [];
+  for (const [cellId, info] of entries) {
+    // Closest to the median first, then the current lane, then the shorter move.
+    const score = inPool.has(cellId)
+      ? -Math.abs(info.distance - median) * 1000 +
+        (cellMap.get(cellId)?.laneIndex === fromLane ? 100 : 0) -
+        info.distance
+      : -1e9;
+    candidates.push({ cellId, info, score });
+    if (score > bestScore) {
+      bestScore = score;
+      selectedCellId = cellId;
+    }
+  }
+  return {
+    lowResources: car.tire <= DEFAULTS.lowResourceThreshold || car.fuel <= DEFAULTS.lowResourceThreshold,
+    heuristics,
+    candidates,
+    selectedCellId
+  };
+}
+
 export function pickBotMove(
   targets: Map<string, TargetInfo>,
   car: Car,
@@ -101,9 +145,13 @@ export function pickBotMove(
 export function decideBotActionWithTrace(
   targets: Map<string, TargetInfo>,
   car: Car,
-  cellMap: Map<string, TrackCell>
+  cellMap: Map<string, TrackCell>,
+  policy: BotPolicy = "normal"
 ): BotDecisionResult {
-  const trace = evaluateBotTargets(targets, car);
+  const trace =
+    policy === "autopilot"
+      ? evaluateAutopilotTargets(targets, car, cellMap)
+      : evaluateBotTargets(targets, car);
   if (!trace.selectedCellId) return { action: { type: "skip" }, trace };
   const selected = trace.candidates.find((candidate) => candidate.cellId === trace.selectedCellId);
   if (!selected) return { action: { type: "skip" }, trace };
@@ -123,7 +171,8 @@ export function decideBotActionWithTrace(
 export function decideBotAction(
   targets: Map<string, TargetInfo>,
   car: Car,
-  cellMap: Map<string, TrackCell>
+  cellMap: Map<string, TrackCell>,
+  policy: BotPolicy = "normal"
 ): BotAction {
-  return decideBotActionWithTrace(targets, car, cellMap).action;
+  return decideBotActionWithTrace(targets, car, cellMap, policy).action;
 }
