@@ -547,6 +547,7 @@ body[data-screen="race"] #statusLine {
 }
 
 #hud .hud-force-skip {
+  pointer-events: auto;
   padding: 3px 10px;
   font-size: 12px;
 }

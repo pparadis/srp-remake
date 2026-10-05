@@ -69,7 +69,8 @@ test("resilience: the guest reloads mid-race and rejoins with the same state", a
   await close();
 });
 
-test("resilience: when the host closes their page the guest is told and sent home", async ({ browser }) => {
+// The backend under test gives a host HOST_GRACE_SECONDS=8 (playwright.config.ts) to come back.
+test("resilience: when the host closes their page the guest is warned, then told and sent home", async ({ browser }) => {
   const { host, guest, close } = await twoPlayers(browser);
   const guestErrors = guard(guest);
 
@@ -79,7 +80,10 @@ test("resilience: when the host closes their page the guest is told and sent hom
   await waitForRace(guest);
 
   await host.close();
-  await expect(guest.locator("body")).toHaveAttribute("data-screen", "home");
+  // First the guest is warned that the host is away; the lobby is only closed after the grace period.
+  await expect(guest.getByTestId("connection-banner")).toContainText(/host disconnected/i);
+  await expect(guest.locator("body")).toHaveAttribute("data-screen", "race");
+  await expect(guest.locator("body")).toHaveAttribute("data-screen", "home", { timeout: 20_000 });
   await expect(guest.getByTestId("home-notice")).toContainText(/host disconnected/i);
   await expect(guest).toHaveURL(/\/$/);
   await expect(guest.locator("canvas")).toHaveCount(0);

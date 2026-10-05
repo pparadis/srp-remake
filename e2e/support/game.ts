@@ -45,7 +45,11 @@ export async function setName(page: Page, name: string) {
   await page.getByTestId("home-name").press("Tab"); // fires change -> remembered for invite links
 }
 
-export async function setLobbySettings(page: Page, s: { bots?: number; laps?: number }) {
+export async function setLobbySettings(
+  page: Page,
+  s: { bots?: number; laps?: number; timer?: 0 | 30 | 60 | 120 }
+) {
+  if (s.timer !== undefined) await page.getByTestId("lobby-turn-timer").selectOption(String(s.timer));
   if (s.bots !== undefined) await page.getByTestId("lobby-bots").selectOption(String(s.bots));
   if (s.laps !== undefined) {
     await page.getByTestId("lobby-laps").fill(String(s.laps));
@@ -72,16 +76,17 @@ export async function quickRace(page: Page, opts: { bots?: number; laps?: number
   await startRace(page);
 }
 
-/** Host creates an online lobby; returns its invite URL. */
+/** Host creates an online lobby (turn timer Off unless `timer` is set); returns its invite URL. */
 export async function createLobby(
   page: Page,
-  opts: { name?: string; bots?: number; laps?: number } = {}
+  opts: { name?: string; bots?: number; laps?: number; timer?: 0 | 30 | 60 | 120 } = {}
 ): Promise<string> {
   await gotoHome(page);
   if (opts.name) await setName(page, opts.name);
   await page.getByTestId("home-create").click();
   await expect(page.getByTestId("lobby-title")).toBeVisible();
-  await setLobbySettings(page, opts);
+  // No turn timer unless a spec asks for one: journeys must not race the auto-play.
+  await setLobbySettings(page, { ...opts, timer: opts.timer ?? 0 });
   const invite = page.getByTestId("lobby-invite-link");
   await expect(invite).toHaveValue(/\/lobby\/[^/]+$/);
   return invite.inputValue();
