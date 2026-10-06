@@ -43,10 +43,17 @@ export function setupFactors(setup: CarSetup): { aeroFactor: number; psiFactor: 
   return { aeroFactor, psiFactor };
 }
 
+// Per-lane wear multipliers: the inner lane is hard on tires, the outer one on fuel.
+export function laneWearFactors(laneIndex: number): { tire: number; fuel: number } {
+  return {
+    tire: laneFactor(laneIndex, { inner: 1.05, middle: 1.0, outer: 0.98 }),
+    fuel: laneFactor(laneIndex, { inner: 0.98, middle: 1.0, outer: 1.03 })
+  };
+}
+
 function computeCosts(distance: number, laneIndex: number, costs: MovementCostContext): { tireCost: number; fuelCost: number } {
   const { aeroFactor, psiFactor } = setupFactors(costs.setup);
-  const tireLaneFactor = laneFactor(laneIndex, { inner: 1.05, middle: 1.0, outer: 0.98 });
-  const fuelLaneFactor = laneFactor(laneIndex, { inner: 0.98, middle: 1.0, outer: 1.03 });
+  const { tire: tireLaneFactor, fuel: fuelLaneFactor } = laneWearFactors(laneIndex);
 
   const tireCost = Math.round(distance * costs.tireRate * aeroFactor * psiFactor * tireLaneFactor);
   const fuelCost = Math.round(distance * costs.fuelRate * aeroFactor * fuelLaneFactor);

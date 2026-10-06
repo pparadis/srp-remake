@@ -24,3 +24,5 @@ export const SETUP_LIMITS = {
   psi: { min: 15, max: 35 },
   wingDeg: { min: 0, max: 20 }
 } as const;
+// One move cycle: this many moves share this much distance budget.
+export const MOVE_CYCLE = { moves: 5, budget: 40 } as const;
