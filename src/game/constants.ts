@@ -26,3 +26,6 @@ export const SETUP_LIMITS = {
 } as const;
 // One move cycle: this many moves share this much distance budget.
 export const MOVE_CYCLE = { moves: 5, budget: 40 } as const;
+
+// Extra move points per car passed when a boxed-in car squeezes past (see docs/movement-spec.md).
+export const SQUEEZE_SURCHARGE_PER_CAR = 2;

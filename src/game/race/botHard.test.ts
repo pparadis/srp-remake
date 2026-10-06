@@ -50,7 +50,8 @@ describe("hard bot lookahead", () => {
     expect(hard.targetCellId).not.toBe(normal.targetCellId);
     const normalProgress = progressAfterTwoTurns(blockedTrack("normal"), normal.targetCellId);
     const hardProgress = progressAfterTwoTurns(blockedTrack("hard"), hard.targetCellId);
-    expect(hardProgress).toBeGreaterThan(normalProgress + 3);
+    // The wall is softer since the squeeze rule (Normal squeezes past instead of losing the turn).
+    expect(hardProgress).toBeGreaterThan(normalProgress);
   });
 
   it("only considers the best few candidates and reports their lookahead values", () => {

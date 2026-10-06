@@ -1,7 +1,7 @@
 import type { TrackCell } from "../types/track";
 import type { CarSetup } from "../types/car";
 import type { TrackIndex } from "./trackIndex";
-import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE } from "../constants";
+import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE, SQUEEZE_SURCHARGE_PER_CAR } from "../constants";
 import { computeMoveSpend } from "./moveBudgetSystem";
 
 export interface TargetInfo {
@@ -10,6 +10,8 @@ export interface TargetInfo {
   tireCost: number;
   fuelCost: number;
   isPitTrigger: boolean;
+  // Set only for squeeze targets: number of cars passed (each adds SQUEEZE_SURCHARGE_PER_CAR move points).
+  squeezePassed?: number;
 }
 
 export interface MovementOptions {
@@ -220,5 +222,60 @@ export function computeValidTargets(
     }
   }
 
+  return targets;
+}
+
+// Boxed-in fallback: targets reachable by passing through occupied cells, main lanes only.
+// Call only when computeValidTargets is empty. Each passed car costs extra move points.
+export function computeSqueezeTargets(
+  trackIndex: TrackIndex,
+  startCellId: string,
+  occupied: Set<string>,
+  maxSteps: number,
+  costs: MovementCostContext
+): Map<string, TargetInfo> {
+  const { cellMap, spineLen } = trackIndex;
+  const startCell = cellMap.get(startCellId);
+  const targets = new Map<string, TargetInfo>();
+  if (!startCell || startCell.laneIndex === PIT_LANE) return targets;
+
+  const delta = (c: TrackCell) => (c.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
+  const occupiedDeltas = new Map<number, number[]>();
+  for (const id of occupied) {
+    const c = cellMap.get(id);
+    if (!c || id === startCellId || c.laneIndex === PIT_LANE) continue;
+    occupiedDeltas.set(c.laneIndex, [...(occupiedDeltas.get(c.laneIndex) ?? []), delta(c)]);
+  }
+
+  const dist = new Map<string, number>([[startCellId, 0]]);
+  const queue = [startCellId];
+  for (let i = 0; i < queue.length; i += 1) {
+    const id = queue[i]!;
+    const d = dist.get(id)!;
+    if (d >= maxSteps) continue;
+    for (const nextId of cellMap.get(id)?.next ?? []) {
+      const n = cellMap.get(nextId);
+      if (!n || n.laneIndex === PIT_LANE || dist.has(nextId)) continue;
+      dist.set(nextId, d + 1);
+      queue.push(nextId);
+    }
+  }
+
+  for (const [cellId, d] of dist) {
+    const cell = cellMap.get(cellId)!;
+    if (d <= 0 || occupied.has(cellId)) continue;
+    if (Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
+    const targetDelta = delta(cell);
+    if (targetDelta === 0) continue;
+    const lanes = new Set([startCell.laneIndex, cell.laneIndex]);
+    let passed = 0;
+    for (const lane of lanes) passed += (occupiedDeltas.get(lane) ?? []).filter((x) => x > 0 && x < targetDelta).length;
+    if (passed < 1) continue;
+    const moveSpend =
+      computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, targetDelta) + SQUEEZE_SURCHARGE_PER_CAR * passed;
+    if (moveSpend > maxSteps) continue;
+    const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
+    targets.set(cellId, { distance: d, moveSpend, tireCost, fuelCost, isPitTrigger: false, squeezePassed: passed });
+  }
   return targets;
 }
