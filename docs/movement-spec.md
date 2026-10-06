@@ -71,6 +71,12 @@ lane 2 at 7: distance 2, passes 1 car, move 2 + 2 = 4. To lane 1 at 7: distance 
 - `allowPitExitSkip`: allows a computed pit-exit target when starting from a pit box.
 - `disallowPitBoxTargets`: removes `PIT_BOX` cells from valid targets.
 
+## Laps
+
+Crossing the start line (a `forwardIndex` wrap on a non-pit lane, whatever the move distance) completes a lap. Cars
+behind the line at the start have `lapCount` -1, so their first crossing only starts lap 1. The race is won by the
+first car to reach `raceLaps` completed laps (see AGENTS.md "Lap Counting").
+
 ## Notes
 
 - Movement targets are computed independently each turn.

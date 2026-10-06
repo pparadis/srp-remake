@@ -27,7 +27,17 @@
   The first snapshot only seeds it (also the first server state when joining or rejoining online), so a
   reload never fires a toast or a sound. Lap toasts, low-resource beeps and the your-turn ping are for the
   local player's car only; the finish (confetti and fanfare) is for everyone.
-- The lap toast reads like the car card: "Lap 1 / 5 done", and "Final lap" when the last lap starts.
+- The lap toast names the lap you just started ("Lap 2 / 5"), "Final lap" when the last lap starts. The first
+  crossing of a car that started behind the line begins lap 1 silently; crossing after the last lap is the finish.
+
+## Laps, for players
+
+- A lap starts when you cross the start/finish line and the race ends when you cross it after the last lap, so
+  every car drives the same distance. The grid is staggered: the front row sits on the line and is in lap 1 at once;
+  cars in the rows behind show "Lap 0 / N" and "Cross the start line to begin lap 1" until their first crossing,
+  which costs them the few cells to the line (a pole sitter really is a little ahead).
+- A lap driven through the pit lane does not count: you pass the line without credit, so a stop costs a lap of progress
+  (the pit advice and the bots plan for it).
 - Confetti is drawn with Phaser graphics (`Confetti.ts`) and removes itself after about 3.5 s.
   `__srp.freezeAnimations()` also stops it, for screenshots.
 - Sound (`src/ui/sound.ts`) is a WebAudio synth without asset files. It stays silent until the first click
