@@ -33,12 +33,18 @@ function laneFactor(laneIndex: number, factors: { inner: number; middle: number;
   return 1;
 }
 
-function computeCosts(distance: number, laneIndex: number, costs: MovementCostContext): { tireCost: number; fuelCost: number } {
-  const aeroFactor = 1 + (costs.setup.wingFrontDeg + costs.setup.wingRearDeg) * 0.01;
-  const psi = costs.setup.psi;
+// Setup multipliers on per-cell wear (1 = no penalty). Exported so bots can project wear.
+export function setupFactors(setup: CarSetup): { aeroFactor: number; psiFactor: number } {
+  const aeroFactor = 1 + (setup.wingFrontDeg + setup.wingRearDeg) * 0.01;
+  const psi = setup.psi;
   const psiFactor =
     1 +
     (Math.abs(psi.fl - 32) + Math.abs(psi.fr - 32) + Math.abs(psi.rl - 32) + Math.abs(psi.rr - 32)) * 0.002;
+  return { aeroFactor, psiFactor };
+}
+
+function computeCosts(distance: number, laneIndex: number, costs: MovementCostContext): { tireCost: number; fuelCost: number } {
+  const { aeroFactor, psiFactor } = setupFactors(costs.setup);
   const tireLaneFactor = laneFactor(laneIndex, { inner: 1.05, middle: 1.0, outer: 0.98 });
   const fuelLaneFactor = laneFactor(laneIndex, { inner: 0.98, middle: 1.0, outer: 1.03 });
 
