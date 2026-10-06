@@ -81,7 +81,7 @@ Bots follow a simple heuristic per turn:
 1. Compute valid targets via `computeValidTargets(...)`.
 2. Discard targets disallowed by game state (pit boxes disallowed after service).
 3. Score remaining targets with a heuristic and choose the highest.
-4. If no valid targets, bot **skips**. A boxed-in car gets squeeze targets (extra move points per car passed, see `movement-spec.md`) from `computeTargets`, so it squeezes instead of skipping; scoring is unchanged and already uses `moveSpend`.
+4. If no valid targets, bot **skips**. A boxed-in car gets squeeze targets (extra move points per car passed, see `movement-spec.md`) from `computeTargets`, so it squeezes instead of skipping (also out of a blocked pit exit); scoring is unchanged and already uses `moveSpend`.
 
 ### Base heuristic score (Easy, and the starting point of Normal)
 
