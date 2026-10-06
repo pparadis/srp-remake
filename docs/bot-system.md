@@ -135,7 +135,7 @@ The base behaviours that still hold:
 
 `npx tsx tools/botBench.ts [--laps 5,8,12] [--lineup hard,normal,easy,autopilot]` plays deterministic headless races
 (`src/game/race/botBench.ts`; no randomness anywhere). Every rotation of the line-up is played on every lap count,
-so each policy gets each grid slot (the rear row starts behind the line and gets its first lap after one cell, the
+so each policy gets each grid slot (the rows behind the line start at lap count -1 and need 1-3 cells more than the front row, the
 cars alternate soft and hard tires). Cars play until all have crossed the line; the crossing order is the finishing
 order. Lower average finish is better.
 
@@ -144,22 +144,27 @@ Hard < Normal < Easy < Autopilot plus Hard's time budget. Numbers from this vers
 
 | Run                                         | Policy        | Win rate     | Avg finish | Avg moves to finish | ms / decision |
 | ------------------------------------------- | ------------- | ------------ | ---------- | ------------------- | ------------- |
-| 12 races (test set), 4 cars                 | Hard          | 58 %         | 1.42       | 35.4                | 1.7           |
-|                                             | Normal        | 25 %         | 2.00       | 35.7                | 0.03          |
-|                                             | Easy          | 17 %         | 2.58       | 44.3                | 0.04          |
-|                                             | Autopilot     | 0 %          | 4.00       | 67.2                | 0.04          |
-| 56 races, 4 cars, 3-20 laps                 | Hard          | 59 %         | 1.45       | 43.8                | 1.3           |
-|                                             | Normal        | 29 %         | 1.88       | 44.8                | 0.03          |
-|                                             | Easy          | 13 %         | 2.68       | 58.2                | 0.03          |
-|                                             | Autopilot     | 0 %          | 4.00       | 87.8                | 0.02          |
-| 56 races, 1 Hard vs 3 Normal                | Hard          | 30 %         | 2.23       | 42.8                | 1.3           |
-|                                             | Normal (each) | 23 %         | 2.59       | 44.0                | 0.02          |
-| 24 races, 8 cars (2 per policy), 3/5/8 laps | Hard          | 29 % per car | 2.92       | 19.7                | 3.0           |
-|                                             | Normal        | 17 %         | 3.38       | 20.4                | 0.03          |
-|                                             | Easy          | 4 %          | 4.21       | 21.9                | 0.05          |
-|                                             | Autopilot     | 0 %          | 7.50       | 35.2                | 0.04          |
+| 12 races (test set), 4 cars                 | Hard          | 58 %         | 1.42       | 36.2                | 2.1           |
+|                                             | Normal        | 42 %         | 1.67       | 36.7                | 0.04          |
+|                                             | Easy          | 0 %          | 2.92       | 46.8                | 0.05          |
+|                                             | Autopilot     | 0 %          | 4.00       | 70.5                | 0.04          |
+| 56 races, 4 cars, 3-20 laps                 | Hard          | 64 %         | 1.43       | 46.9                | 1.4           |
+|                                             | Normal        | 36 %         | 1.70       | 47.6                | 0.03          |
+|                                             | Easy          | 0 %          | 2.88       | 63.3                | 0.03          |
+|                                             | Autopilot     | 0 %          | 4.00       | 94.8                | 0.03          |
+| 56 races, 1 Hard vs 3 Normal                | Hard          | 32 %         | 2.25       | 46.0                | 1.6           |
+|                                             | Normal (each) | 23 %         | 2.58       | 47.0                | 0.03          |
+| 24 races, 8 cars (2 per policy), 3/5/8 laps | Hard          | 25 % per car | 2.79       | 22.9                | 3.3           |
+|                                             | Normal        | 17 %         | 3.13       | 23.2                | 0.03          |
+|                                             | Easy          | 8 %          | 4.58       | 25.6                | 0.05          |
+|                                             | Autopilot     | 0 %          | 7.50       | 40.7                | 0.04          |
 
-Other lap sets (5,8,12 / 4,7,10 / 3,6,9 / 5,6,7 / 6,8,10 / 4,5,9) all keep the ordering. How much better Hard can be
+The laps for the 56-race rows are 3-12, 14, 16, 18 and 20. Numbers were re-measured after the lap fix (every car
+covers the same distance from the start line; before it the rear grid row got a free lap, which skewed the early
+numbers). The default `botBench.ts` set (3,4,5,6 laps, 16 races) is too short and noisy to rank Hard above Normal
+(1.75 vs 1.56 now; 1.63 vs 2.00 before), the sets below and the 12-race test set keep the ordering.
+
+Other lap sets (5,8,12 / 4,7,10 / 3,6,9 / 5,6,7 / 6,8,10 / 4,5,9) all keep Hard first and Autopilot last, and Hard ahead of Normal ahead of Easy. How much better Hard can be
 is bounded by the game: a lone Normal car is already near the budget limit (40 per cycle), so the headroom is
 traffic, the pit stop and resource use, a few percent of the race; that shows as about 1 move in 45, and as a
 clear rank edge because finishing order is decided by small gaps.

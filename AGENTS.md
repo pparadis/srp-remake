@@ -32,8 +32,16 @@ Project guide for Codex and other automation.
 
 ## Lap Counting
 
-- Lap increments when `forwardIndex` wraps (from higher to lower) on non‑pit lanes.
-- Decision made: no `START_FINISH` landing requirement; increment on wrap for non‑pit lanes.
+- `Car.lapCount` is the number of COMPLETED laps. It increments when `forwardIndex` wraps (from higher to lower),
+  i.e. when the car crosses the start line, on non‑pit lanes. No `START_FINISH` landing requirement.
+- Everyone covers the same distance from the start line. The front row starts on the line (`lapCount` 0, already in
+  lap 1); cars in the rows behind the line (`forwardIndex` > 0) start at `-1`, and their first crossing (-1 to 0)
+  only begins lap 1: silent (no toast, sound or feed line). `lapCountAtSpawn` in `src/game/systems/lapProgress.ts`
+  sets it; the winner is the first car with `lapCount >= raceLaps`, so the rear row needs 1-3 cells more.
+- Display uses the lap in progress (`lapInProgress`, `hasStartedLap`, `hasFinishedRace` in `lapProgress.ts`): "Lap 1 / 5"
+  for pole, "Lap 0 / 5" plus a hint behind the line, "Finished" after the last crossing. Never show a negative lap.
+- Standings rank by `lapCount`, then further along the lap (higher `forwardIndex`); the HUD gap is in cells from the line,
+  `+NL` only from a full lap.
 
 ## Race HUD
 
