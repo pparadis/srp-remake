@@ -191,6 +191,8 @@ describe("hud", () => {
     expect(text(root, "hud-banner")).toBe("Boxed in - squeeze past (+2 points per car)");
     renderHud(root, snap({ hover: { ...hover, squeezePassed: 1, moveSpend: 4 } }));
     expect(text(root, "hud-tooltip")).toContain("Squeeze past 1 car - Move 4 (+2 points)");
+    renderHud(root, snap({ boxedIn: true, pitExitBlocked: true }));
+    expect(text(root, "hud-banner")).toBe("Pit exit blocked - squeeze out (+2 points per car)");
   });
 
   it("renders the mute toggle label", () => {
