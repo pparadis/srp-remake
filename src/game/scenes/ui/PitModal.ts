@@ -1,17 +1,28 @@
 import type Phaser from "phaser";
 import type { Car } from "../../types/car";
 import { SETUP_LIMITS } from "../../constants";
+import { formatStint } from "../../../ui/hud";
+import type { StintEstimate } from "../../systems/strategy";
 import { TextButton } from "./TextButton";
+
+export interface PitStints {
+  soft: StintEstimate;
+  hard: StintEstimate;
+}
 
 interface PitModalTexts {
   compound: Phaser.GameObjects.Text;
   psi: Phaser.GameObjects.Text;
   wing: Phaser.GameObjects.Text;
+  stintSoft: Phaser.GameObjects.Text;
+  stintHard: Phaser.GameObjects.Text;
 }
 
 export interface PitModalOpenOptions {
   setup: Car["setup"];
   bodyLines: string[];
+  /** Estimated stint on fresh tires and fuel for each compound at the setup being edited. */
+  stints: (setup: Car["setup"]) => PitStints;
   onConfirm: (setup: Car["setup"]) => void;
   onCancel: () => void;
 }
@@ -24,6 +35,7 @@ export class PitModal {
   private modalConfirm: Phaser.GameObjects.Text;
   private modalCancel: Phaser.GameObjects.Text;
   private modalSetup: Car["setup"] | null = null;
+  private stints: PitModalOpenOptions["stints"] | null = null;
   private modalValueTexts: PitModalTexts;
   private active = false;
 
@@ -32,9 +44,9 @@ export class PitModal {
 
     const panel = this.scene.add.graphics();
     panel.fillStyle(0x0f141b, 0.98);
-    panel.fillRoundedRect(320, 200, 460, 270, 10);
+    panel.fillRoundedRect(320, 200, 460, 330, 10);
     panel.lineStyle(1, 0x2a3642, 1);
-    panel.strokeRoundedRect(320, 200, 460, 270, 10);
+    panel.strokeRoundedRect(320, 200, 460, 330, 10);
 
     this.modalTitle = this.scene.add.text(350, 220, "Pit stop", {
       fontFamily: "monospace",
@@ -107,14 +119,25 @@ export class PitModal {
     wingMinus.on("pointerdown", () => this.adjustWing(-1));
     wingPlus.on("pointerdown", () => this.adjustWing(1));
 
+    const stintTitle = this.scene.add.text(labelX, fieldY + lineH * 3 + 14, "Stint on fresh tires and fuel", {
+      fontFamily: "monospace",
+      fontSize: "13px",
+      color: "#9fb0bf"
+    });
+    const stintStyle = { fontFamily: "monospace", fontSize: "13px", color: "#e6edf3" };
+    const stintSoft = this.scene.add.text(labelX, fieldY + lineH * 3 + 34, "", stintStyle);
+    const stintHard = this.scene.add.text(labelX, fieldY + lineH * 3 + 54, "", stintStyle);
+
     this.modalValueTexts = {
       compound: compoundValue,
       psi: psiValue,
-      wing: wingValue
+      wing: wingValue,
+      stintSoft,
+      stintHard
     };
 
-    this.modalConfirm = this.createModalButton(360, 435, "Confirm");
-    this.modalCancel = this.createModalButton(520, 435, "Cancel");
+    this.modalConfirm = this.createModalButton(360, 490, "Confirm");
+    this.modalCancel = this.createModalButton(520, 490, "Cancel");
 
     this.modal = this.scene.add.container(0, 0, [
       panel,
@@ -131,6 +154,9 @@ export class PitModal {
       wingValue,
       wingMinus,
       wingPlus,
+      stintTitle,
+      stintSoft,
+      stintHard,
       this.modalConfirm,
       this.modalCancel
     ]);
@@ -144,6 +170,7 @@ export class PitModal {
 
   open(options: PitModalOpenOptions) {
     this.modalSetup = structuredClone(options.setup);
+    this.stints = options.stints;
     this.modalBody.setText(options.bodyLines.join("\n"));
     this.refreshModalValues();
     this.modal.setVisible(true);
@@ -196,6 +223,14 @@ export class PitModal {
       `${this.modalSetup.psi.fl}/${this.modalSetup.psi.fr}/${this.modalSetup.psi.rl}/${this.modalSetup.psi.rr}`
     );
     this.modalValueTexts.wing.setText(`${this.modalSetup.wingFrontDeg}/${this.modalSetup.wingRearDeg}`);
+    if (!this.stints) return;
+    const stints = this.stints(this.modalSetup);
+    for (const compound of ["soft", "hard"] as const) {
+      const chosen = this.modalSetup.compound === compound;
+      const text = this.modalValueTexts[compound === "soft" ? "stintSoft" : "stintHard"];
+      text.setText(`${chosen ? ">" : " "} ${compound.padEnd(4)} ${formatStint(stints[compound])}`);
+      text.setColor(chosen ? "#ffe066" : "#9fb0bf");
+    }
   }
 
   private adjustPsi(delta: number) {

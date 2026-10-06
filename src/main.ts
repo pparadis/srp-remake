@@ -1,5 +1,6 @@
 import "./style.css";
-import { formatCountdown, mountHud, renderHud, renderResults, type HudSnapshot } from "./ui/hud";
+import { formatCountdown, mountHud, renderHud, renderMute, renderResults, showToast, type HudSnapshot } from "./ui/hud";
+import { currentlyMuted, initSound, setMuted } from "./ui/sound";
 import {
   BackendApiClient,
   BackendApiError,
@@ -60,6 +61,14 @@ const results = el("results");
 const resultsWinner = el("resultsWinner");
 const hud = el("hud");
 mountHud(hud);
+renderMute(hud, currentlyMuted());
+initSound();
+
+function toggleMute() {
+  setMuted(!currentlyMuted());
+  renderMute(hud, currentlyMuted());
+}
+hud.querySelector('[data-testid="hud-mute"]')!.addEventListener("click", toggleMute);
 const hudTimer = hud.querySelector<HTMLElement>('[data-testid="hud-timer"]')!;
 const hudForceSkip = hud.querySelector<HTMLButtonElement>('[data-testid="hud-force-skip"]')!;
 
@@ -986,6 +995,11 @@ window.addEventListener("srp:hud", (event) => {
   renderResults(document.body, snapshot);
 });
 
+window.addEventListener("srp:toast", (event) => {
+  const { text, kind } = (event as CustomEvent<{ text: string; kind: "lap" | "final" }>).detail;
+  showToast(hud, text, kind);
+});
+
 window.addEventListener("srp:race-finished", (event) => {
   const winner = (event as CustomEvent<{ winnerCarId: number | null }>).detail?.winnerCarId ?? null;
   showResults(winner);
@@ -1003,9 +1017,11 @@ window.addEventListener("srp:scene-ready", () => {
 
 // Keyboard shortcut next to the scene's F (forwardIndex overlay).
 window.addEventListener("keydown", (event) => {
-  if (event.key.toLowerCase() !== "c" || event.ctrlKey || event.metaKey || event.altKey) return;
+  const key = event.key.toLowerCase();
+  if ((key !== "c" && key !== "m") || event.ctrlKey || event.metaKey || event.altKey) return;
   if (document.body.dataset.screen !== "race") return;
-  window.dispatchEvent(new Event("srp:toggle-cars-moves"));
+  if (key === "m") toggleMute();
+  else window.dispatchEvent(new Event("srp:toggle-cars-moves"));
 });
 
 window.addEventListener("beforeunload", () => {

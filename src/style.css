@@ -570,3 +570,87 @@ body[data-screen="race"] #statusLine {
 .connection-banner[hidden] {
   display: none;
 }
+
+/* ---- Strategy readouts, mute toggle and toasts ---- */
+.hud-stint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #9fb0bf;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-advice {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #0b0f14;
+  background: #ffb020;
+}
+
+.hud-advice.is-pit-now {
+  background: #ff4d4d;
+  color: #fff;
+}
+
+.hud-advice[hidden],
+.hud-warning[hidden],
+.hud-toast[hidden] {
+  display: none;
+}
+
+.hud-warning {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #ff4d4d;
+}
+
+.hud-tooltip-warn {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+#hud .hud-mute {
+  pointer-events: auto;
+  align-self: flex-start;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+#hud .hud-toast {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 28px;
+  border-radius: 24px;
+  background: rgba(15, 20, 27, 0.94);
+  border: 2px solid #4cd964;
+  color: #eaffef;
+  font-size: 26px;
+  font-weight: bold;
+  white-space: nowrap;
+  animation: hud-toast-in 0.25s ease-out;
+}
+
+#hud .hud-toast.is-final {
+  border-color: #ffe066;
+  color: #ffe066;
+}
+
+@keyframes hud-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #hud .hud-toast {
+    animation: none;
+  }
+}

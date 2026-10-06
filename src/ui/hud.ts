@@ -1,4 +1,6 @@
 // Race HUD as a DOM overlay. `renderHud` is pure over the snapshot RaceScene emits as `srp:hud`.
+import { MOVE_BUDGET, MOVE_CYCLE } from "../game/constants";
+import type { PitAdvice, StintEstimate } from "../game/systems/strategy";
 
 export interface HudCar {
   carId: number;
@@ -19,6 +21,11 @@ export interface HudCar {
   cycleIndex: number;
   /** Move budget left in the cycle (of 40). */
   remaining: number;
+  /** A pit stop is done (and not repeatable until the car is back on the main lanes). */
+  pitServiced: boolean;
+  /** Racing left on the current tire and fuel at this car's setup (see strategy.ts). */
+  stint: Pick<StintEstimate, "laps" | "moves">;
+  advice: PitAdvice;
 }
 
 export interface HudHover {
@@ -30,6 +37,9 @@ export interface HudHover {
   tireCost: number;
   fuelCost: number;
   isPit: boolean;
+  /** The active car's tire and fuel (percent) before the move, to show what is left after it. */
+  tireBefore: number;
+  fuelBefore: number;
 }
 
 export interface HudSnapshot {
@@ -71,15 +81,20 @@ const TEMPLATE = `
       <div class="hud-bar"><i data-testid="hud-tire-bar"></i></div></div>
     <div class="hud-meter"><span data-testid="hud-fuel"></span>
       <div class="hud-bar"><i data-testid="hud-fuel-bar"></i></div></div>
+    <div class="hud-stint" data-testid="hud-stint"></div>
+    <div class="hud-advice" data-testid="hud-advice" hidden></div>
+    <div class="hud-warning" data-testid="hud-warning" hidden></div>
     <div class="hud-meter"><span>Moves</span><span data-testid="hud-budget"></span>
       <div class="hud-pips" data-testid="hud-pips"></div></div>
   </section>
-  <div class="hud-hint" data-testid="hud-hint">F: fwd overlay &middot; C: cars+moves</div>
+  <div class="hud-hint" data-testid="hud-hint">F: fwd overlay &middot; C: cars+moves &middot; M: sound</div>
+  <button type="button" class="hud-mute" data-testid="hud-mute" aria-pressed="false">Sound: on</button>
 </div>
 <div class="hud-right">
   <table class="hud-standings" data-testid="hud-standings">${HEAD}<tbody></tbody></table>
   <details class="hud-feed" data-testid="hud-feed"><summary>Race feed</summary><ol data-testid="hud-feed-list"></ol></details>
 </div>
+<div class="hud-toast" data-testid="hud-toast" role="status" hidden></div>
 <div class="hud-tooltip" data-testid="hud-tooltip" hidden></div>
 <pre class="hud-debug" data-testid="hud-debug" hidden></pre>
 `;
@@ -101,6 +116,66 @@ export function resourceLevel(percent: number): "ok" | "warn" | "crit" {
 export function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** "≈ 2.1 laps (~17 moves)": racing left until tire or fuel is empty. */
+export function formatStint(stint: Pick<StintEstimate, "laps" | "moves">): string {
+  if (stint.moves < 0.5) return "Empty: no stint left";
+  const laps = stint.laps < 0.1 ? "<0.1" : stint.laps.toFixed(1);
+  return `≈ ${laps} laps (~${Math.round(stint.moves)} moves)`;
+}
+
+const ADVICE_LABEL: Partial<Record<PitAdvice, string>> = { "pit-soon": "Pit this lap", "pit-now": "Pit now" };
+
+/** The cap that applies once tire or fuel is gone (raceEngine: zeroResourceMax), or null. */
+export function resourceWarning(car: Pick<HudCar, "tire" | "fuel">): string | null {
+  const gone = [car.tire <= 0 ? "tire" : null, car.fuel <= 0 ? "fuel" : null].filter(Boolean);
+  if (gone.length === 0) return null;
+  return `Out of ${gone.join(" and ")}: max ${MOVE_BUDGET.zeroResourceMax} moves`;
+}
+
+/** Tooltip content for a hovered target: the move and what tire and fuel are left after it. */
+export function renderTooltip(tip: HTMLElement, h: HudHover) {
+  const part = (label: string, before: number, cost: number) => {
+    const after = Math.max(0, before - cost);
+    const span = document.createElement("span");
+    span.className = `hud-${resourceLevel(after)}`;
+    span.textContent = `${label} ${Math.round(before)}% → ${Math.round(after)}%`;
+    return { span, empty: after <= 0 };
+  };
+  const nodes: Array<string | HTMLElement> = [`Move ${h.moveSpend} - `];
+  if (h.isPit) {
+    nodes.push("PIT stop: tire and fuel refilled");
+  } else {
+    const tire = part("tire", h.tireBefore, h.tireCost);
+    const fuel = part("fuel", h.fuelBefore, h.fuelCost);
+    nodes.push(tire.span, " - ", fuel.span);
+    const empties = [tire.empty && h.tireBefore > 0 ? "tire" : null, fuel.empty && h.fuelBefore > 0 ? "fuel" : null].filter(Boolean);
+    if (empties.length > 0) {
+      const warn = document.createElement("div");
+      warn.className = "hud-crit hud-tooltip-warn";
+      warn.textContent = `Empties your ${empties.join(" and ")}: max ${MOVE_BUDGET.zeroResourceMax} moves next`;
+      nodes.push(warn);
+    }
+  }
+  tip.replaceChildren(...nodes);
+}
+
+export function renderMute(root: Element, muted: boolean) {
+  const button = q(root, "hud-mute");
+  button.textContent = muted ? "Sound: off" : "Sound: on";
+  button.setAttribute("aria-pressed", String(muted));
+}
+
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+/** A short banner in the middle of the race screen ("Lap 2 / 5", "Final lap"). */
+export function showToast(root: Element, text: string, kind: "lap" | "final" = "lap", ms = 2500) {
+  const toast = q(root, "hud-toast");
+  toast.textContent = text;
+  toast.className = `hud-toast is-${kind}`;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (toast.hidden = true), ms);
 }
 
 export function gapLabel(car: HudCar, ahead: HudCar | undefined): string {
@@ -175,7 +250,17 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     const compound = q(root, "hud-compound");
     compound.textContent = me.compound.toUpperCase();
     compound.className = `hud-compound is-${me.compound}`;
-    q(root, "hud-budget").textContent = `${me.remaining} / 40`;
+    q(root, "hud-budget").textContent = `${me.remaining} / ${MOVE_CYCLE.budget}`;
+    q(root, "hud-stint").textContent = formatStint(me.stint);
+    const advice = q(root, "hud-advice");
+    const label = ADVICE_LABEL[me.advice];
+    advice.hidden = !label;
+    advice.textContent = label ?? "";
+    advice.className = `hud-advice is-${me.advice}`;
+    const warning = q(root, "hud-warning");
+    const warn = resourceWarning(me);
+    warning.hidden = warn === null;
+    warning.textContent = warn ?? "";
     q(root, "hud-pips").replaceChildren(
       ...me.cycle.map((spent, i) => {
         const pip = document.createElement("i");
@@ -206,7 +291,7 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
   tip.hidden = !s.hover;
   if (s.hover) {
     const h = s.hover;
-    tip.textContent = `Move ${h.moveSpend} - tire -${h.tireCost} - fuel -${h.fuelCost}${h.isPit ? " - PIT" : ""}`;
+    renderTooltip(tip, h);
     tip.style.left = `${h.x}px`;
     tip.style.top = `${h.y}px`;
   }

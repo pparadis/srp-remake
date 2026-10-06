@@ -1,5 +1,19 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { bannerText, formatCountdown, gapLabel, mountHud, renderHud, renderResults, resourceLevel, type HudCar, type HudSnapshot } from "./hud";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  bannerText,
+  formatCountdown,
+  formatStint,
+  gapLabel,
+  mountHud,
+  renderHud,
+  renderMute,
+  renderResults,
+  resourceLevel,
+  resourceWarning,
+  showToast,
+  type HudCar,
+  type HudSnapshot
+} from "./hud";
 
 const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   carId,
@@ -16,6 +30,9 @@ const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   cycle: [3, 0, 0, 0, 0],
   cycleIndex: 1,
   remaining: 37,
+  pitServiced: false,
+  stint: { laps: 2.14, moves: 17.2 },
+  advice: "ok",
   ...over
 });
 
@@ -95,13 +112,78 @@ describe("hud", () => {
     renderHud(
       root,
       snap({
-        hover: { x: 10, y: 20, distance: 4, moveSpend: 5, tireCost: 3, fuelCost: 2, isPit: true },
+        hover: { x: 10, y: 20, distance: 4, moveSpend: 5, tireCost: 3, fuelCost: 2, isPit: true, tireBefore: 50, fuelBefore: 60 },
         debugText: "cell: z1"
       })
     );
-    expect(text(root, "hud-tooltip")).toBe("Move 5 - tire -3 - fuel -2 - PIT");
+    expect(text(root, "hud-tooltip")).toBe("Move 5 - PIT stop: tire and fuel refilled");
     expect(text(root, "hud-debug")).toBe("cell: z1");
     expect(root.querySelectorAll('[data-testid="hud-feed-list"] li')).toHaveLength(1);
+  });
+
+  it("shows the stint estimate under the bars and hides the chips when nothing is due", () => {
+    renderHud(root, snap());
+    expect(text(root, "hud-stint")).toBe("≈ 2.1 laps (~17 moves)");
+    expect(root.querySelector('[data-testid="hud-advice"]')).toHaveProperty("hidden", true);
+    expect(root.querySelector('[data-testid="hud-warning"]')).toHaveProperty("hidden", true);
+    expect(formatStint({ laps: 0.04, moves: 0.8 })).toBe("≈ <0.1 laps (~1 moves)");
+    expect(formatStint({ laps: 0, moves: 0 })).toBe("Empty: no stint left");
+  });
+
+  it("shows the pit chips, and the zero-resource cap when a resource is gone", () => {
+    renderHud(root, snap({ cars: [car(2, { advice: "pit-soon" })] }));
+    expect(text(root, "hud-advice")).toBe("Pit this lap");
+    renderHud(root, snap({ cars: [car(2, { advice: "pit-now", fuel: 0 })] }));
+    expect(text(root, "hud-advice")).toBe("Pit now");
+    expect(root.querySelector('[data-testid="hud-advice"]')!.className).toContain("is-pit-now");
+    expect(text(root, "hud-warning")).toBe("Out of fuel: max 4 moves");
+    expect(resourceWarning({ tire: 0, fuel: 0 })).toBe("Out of tire and fuel: max 4 moves");
+    expect(resourceWarning({ tire: 1, fuel: 1 })).toBeNull();
+  });
+
+  it("tooltip shows tire and fuel before and after, coloured by the level they land on", () => {
+    const hover = { x: 1, y: 2, distance: 8, moveSpend: 7, tireCost: 5, fuelCost: 4, isPit: false, tireBefore: 63, fuelBefore: 30 };
+    renderHud(root, snap({ hover }));
+    expect(text(root, "hud-tooltip")).toBe("Move 7 - tire 63% → 58% - fuel 30% → 26%");
+    const spans = root.querySelectorAll('[data-testid="hud-tooltip"] span');
+    expect([...spans].map((s) => s.className)).toEqual(["hud-ok", "hud-warn"]);
+  });
+
+  it("tooltip warns when the move empties tire or fuel, but not when it already was empty", () => {
+    const base = { x: 1, y: 2, distance: 8, moveSpend: 7, tireCost: 5, fuelCost: 4, isPit: false };
+    renderHud(root, snap({ hover: { ...base, tireBefore: 4, fuelBefore: 80 } }));
+    expect(text(root, "hud-tooltip")).toContain("tire 4% → 0%");
+    expect(text(root, "hud-tooltip")).toContain("Empties your tire: max 4 moves next");
+    renderHud(root, snap({ hover: { ...base, tireBefore: 0, fuelBefore: 80 } }));
+    expect(text(root, "hud-tooltip")).not.toContain("Empties");
+  });
+
+  it("renders the mute toggle label", () => {
+    renderMute(root, true);
+    expect(text(root, "hud-mute")).toBe("Sound: off");
+    expect(root.querySelector('[data-testid="hud-mute"]')!.getAttribute("aria-pressed")).toBe("true");
+    renderMute(root, false);
+    expect(text(root, "hud-mute")).toBe("Sound: on");
+  });
+
+  describe("toast", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("shows, replaces and hides itself", () => {
+      const toast = root.querySelector('[data-testid="hud-toast"]') as HTMLElement;
+      expect(toast.hidden).toBe(true);
+      showToast(root, "Lap 1 / 3", "lap");
+      expect(toast.hidden).toBe(false);
+      vi.advanceTimersByTime(2000);
+      showToast(root, "Final lap", "final");
+      vi.advanceTimersByTime(2000); // the first timer must not hide the second toast
+      expect(toast.hidden).toBe(false);
+      expect(toast.textContent).toBe("Final lap");
+      expect(toast.className).toContain("is-final");
+      vi.advanceTimersByTime(600);
+      expect(toast.hidden).toBe(true);
+    });
   });
 
   it("renders the final standings into the results table", () => {
