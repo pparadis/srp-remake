@@ -61,9 +61,10 @@ export function isFinalLap(car: Car, plan: BotPlanContext): boolean {
   return (car.lapCount ?? 0) >= plan.raceLaps - 1;
 }
 
-function cellsUntilEmpty(tire: number, fuel: number, setup: CarSetup): number {
+// Cells of racing left before tire or fuel hits 0; `safety` shaves the projection for planning.
+export function cellsUntilEmpty(tire: number, fuel: number, setup: CarSetup, safety = SAFETY): number {
   const wear = wearPerCell(setup);
-  return Math.min(tire / wear.tire, fuel / wear.fuel) * SAFETY;
+  return Math.min(tire / wear.tire, fuel / wear.fuel) * safety;
 }
 
 // Cells the car must still cover and, at the current wear, how many of them it will crawl through

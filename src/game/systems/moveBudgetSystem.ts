@@ -1,11 +1,11 @@
-import { PIT_LANE } from "../constants";
+import { MOVE_CYCLE, PIT_LANE } from "../constants";
 
 export interface MoveCycle {
   index: number;
   spent: number[];
 }
 
-export function createMoveCycle(size = 5): MoveCycle {
+export function createMoveCycle(size: number = MOVE_CYCLE.moves): MoveCycle {
   return { index: 0, spent: Array.from({ length: size }, () => 0) };
 }
 
@@ -20,7 +20,7 @@ export function recordMove(cycle: MoveCycle, distance: number) {
   return false;
 }
 
-export function getRemainingBudget(cycle: MoveCycle, total = 40) {
+export function getRemainingBudget(cycle: MoveCycle, total: number = MOVE_CYCLE.budget) {
   const spent = cycle.spent.reduce((sum, v) => sum + v, 0);
   return Math.max(0, total - spent);
 }
