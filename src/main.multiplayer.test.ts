@@ -9,6 +9,7 @@ const startRaceMock = vi.fn();
 const readLobbyMock = vi.fn();
 const submitTurnMock = vi.fn();
 const forceSkipMock = vi.fn();
+const updateSettingsMock = vi.fn();
 
 vi.mock("./game", () => ({
   startGame: (...args: unknown[]) => startGame(...args)
@@ -53,6 +54,10 @@ vi.mock("./net/backendApi", () => ({
 
     forceSkip(...args: unknown[]) {
       return forceSkipMock(...args);
+    }
+
+    updateSettings(...args: unknown[]) {
+      return updateSettingsMock(...args);
     }
   },
   BackendApiError: MockBackendApiError,
@@ -112,7 +117,8 @@ function makeLobby(lobbyId: string) {
       humanCars: 2,
       botCars: 0,
       raceLaps: 5,
-      turnTimerSec: 60 as const
+      turnTimerSec: 60 as const,
+      botLevel: "normal" as "easy" | "normal" | "hard"
     },
     players: [
       {
@@ -304,6 +310,41 @@ describe("main multiplayer screens", () => {
 
       await vi.waitFor(() => expect(document.body.dataset.screen).toBe("home"));
       expect(window.sessionStorage.getItem("srp:session:gone")).toBeNull();
+    });
+
+    it("creates lobbies with the Normal bot level and hides the select while there are no bots", async () => {
+      const lobby = makeLobby("level-lobby");
+      createLobbyMock.mockResolvedValue({ lobby, playerId: "host-player-id", playerToken: "host-token" });
+      await import("./main");
+      byId("homeCreateBtn").click();
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe("lobby"));
+      expect(createLobbyMock.mock.calls.at(-1)?.[1]).toMatchObject({ botLevel: "normal" });
+      expect(byId<HTMLSelectElement>("lobbyBotLevel").value).toBe("normal");
+      expect(byId("lobbyBotLevelField").hidden).toBe(true); // botCars is 0
+      expect(document.querySelector('[data-testid="lobby-bot-level"]')).not.toBeNull();
+    });
+
+    it("lets the host pick the bot level and sends it with the other settings", async () => {
+      const lobby = makeLobby("level-lobby");
+      lobby.settings = { ...lobby.settings, totalCars: 3, humanCars: 2, botCars: 1, botLevel: "easy" as const };
+      createLobbyMock.mockResolvedValue({ lobby, playerId: "host-player-id", playerToken: "host-token" });
+      updateSettingsMock.mockImplementation(async (_id: string, _token: string, patch: { botLevel: string }) => ({
+        lobby: { ...lobby, settings: { ...lobby.settings, botLevel: patch.botLevel } }
+      }));
+      await import("./main");
+      byId("homeCreateBtn").click();
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe("lobby"));
+
+      const select = byId<HTMLSelectElement>("lobbyBotLevel");
+      expect(byId("lobbyBotLevelField").hidden).toBe(false);
+      expect(select.value).toBe("easy");
+      expect(select.disabled).toBe(false);
+
+      select.value = "hard";
+      select.dispatchEvent(new Event("change"));
+      await vi.waitFor(() => expect(updateSettingsMock).toHaveBeenCalled());
+      expect(updateSettingsMock.mock.calls.at(-1)?.[2]).toMatchObject({ botCars: 1, botLevel: "hard" });
+      await vi.waitFor(() => expect(select.value).toBe("hard"));
     });
 
     it("offers the host a turn timer select defaulting to 60 s", async () => {

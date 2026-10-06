@@ -20,7 +20,7 @@ describe("BackendApiClient", () => {
   it("sends each call to its v1 route with a JSON body", async () => {
     const fetchMock = stubFetch(200, JSON.stringify({ ok: true }));
     const client = new BackendApiClient("http://api.test//");
-    const settings = { trackId: "t", totalCars: 2, humanCars: 1, botCars: 1, raceLaps: 3, turnTimerSec: 60 as const };
+    const settings = { trackId: "t", totalCars: 2, humanCars: 1, botCars: 1, raceLaps: 3, turnTimerSec: 60 as const, botLevel: "normal" as const };
 
     await expect(client.createLobby("Host", settings)).resolves.toEqual({ ok: true });
     expect(lastCall(fetchMock)).toEqual({

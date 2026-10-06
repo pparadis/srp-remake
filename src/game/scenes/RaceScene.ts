@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { TrackData, TrackCell } from "../types/track";
-import type { Car } from "../types/car";
+import type { BotLevel, Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
 import {
   INNER_MAIN_LANE,
@@ -8,6 +8,7 @@ import {
   MOVE_RATES,
   OUTER_MAIN_LANE,
   REG_BOT_CARS,
+  REG_BOT_LEVEL,
   REG_HUMAN_CARS,
   REG_RACE_LAPS,
   REG_TOTAL_CARS
@@ -302,7 +303,11 @@ export class RaceScene extends Phaser.Scene {
   private buildSeats(): RaceSeat[] {
     const seats: RaceSeat[] = [
       ...Array.from({ length: this.humanCars }, (_, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
-      ...Array.from({ length: this.botCars }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}` }))
+      ...Array.from({ length: this.botCars }, (_, i) => ({
+        isBot: true,
+        ownerId: `BOT${i + 1}`,
+        botLevel: (this.registry.get(REG_BOT_LEVEL) as BotLevel | undefined) ?? "normal"
+      }))
     ];
     return seats.length > 0 ? seats : [{ isBot: false, ownerId: "P1" }];
   }

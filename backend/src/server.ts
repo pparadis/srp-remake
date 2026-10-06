@@ -6,7 +6,7 @@ import { z } from "zod";
 import { DEFAULT_HOST_GRACE_SECONDS, loadConfig, type BackendConfig } from "./config.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
 import type { BotPolicy } from "../../src/game/systems/botSystem";
-import type { Lobby, LobbySettings, TurnCommandResult, TurnSubmitAction } from "./types.js";
+import { BOT_LEVEL_CHOICES, type Lobby, type LobbySettings, type TurnCommandResult, type TurnSubmitAction } from "./types.js";
 
 const WS_OPEN = 1;
 const API_V1_PREFIX = "/api/v1";
@@ -44,7 +44,8 @@ const LobbySettingsPatchSchema = z.object({
   raceLaps: z.number().int().min(1).max(999).optional(),
   turnTimerSec: z
     .union([z.literal(0), z.literal(30), z.literal(60), z.literal(120)])
-    .optional()
+    .optional(),
+  botLevel: z.enum(BOT_LEVEL_CHOICES).optional()
 });
 
 function toSettingsPatch(
@@ -61,6 +62,7 @@ function toSettingsPatch(
   if (settings.botCars !== undefined) patch.botCars = settings.botCars;
   if (settings.raceLaps !== undefined) patch.raceLaps = settings.raceLaps;
   if (settings.turnTimerSec !== undefined) patch.turnTimerSec = settings.turnTimerSec;
+  if (settings.botLevel !== undefined) patch.botLevel = settings.botLevel;
   return patch;
 }
 
@@ -277,7 +279,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       if (!current || current.status !== "IN_RACE" || current.revision !== revision) return;
       logMultiplayer("turn.timeout", { lobbyId, revision, seatIndex: seat.seatIndex });
       playBotTurnFor(lobbyId, "autopilot", "timeout");
-      runPendingBotTurns(lobbyId);
+      void runPendingBotTurns(lobbyId);
     }, delayMs);
     timer.unref();
     turnTimers.set(lobbyId, timer);
@@ -338,11 +340,12 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     }
   }
 
-  // Plays one turn for the active seat with a bot policy and announces it. Bots use "normal";
-  // the turn timer and the host's force-skip hand a human seat to the "autopilot".
+  // Plays one turn for the active seat with a bot policy and announces it. Bots play at their own
+  // level (the lobby's botLevel); the turn timer and the host's force-skip hand a human seat to
+  // the "autopilot".
   function playBotTurnFor(
     lobbyId: string,
-    policy: BotPolicy,
+    policy: BotPolicy | undefined,
     source: "bot" | "timeout" | "force_skip"
   ): boolean {
     const lobby = lobbyStore.getLobby(lobbyId);
@@ -395,9 +398,14 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return true;
   }
 
-  function runPendingBotTurns(lobbyId: string) {
+  // Hard bots simulate a round per candidate (a few ms each, more with many cars), so give the
+  // event loop a turn between bots instead of playing them all in one go.
+  async function runPendingBotTurns(lobbyId: string) {
     while (lobbyStore.getActiveRaceSeat(lobbyId)?.isBot) {
-      if (!playBotTurnFor(lobbyId, "normal", "bot")) return;
+      if (!playBotTurnFor(lobbyId, undefined, "bot")) return;
+      if (lobbyStore.getLobby(lobbyId)?.settings.botLevel === "hard") {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
     }
   }
 
@@ -532,7 +540,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       activeSeatIndex: lobby.race?.engine.turn.index ?? null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
-    runPendingBotTurns(lobby.lobbyId);
+    await runPendingBotTurns(lobby.lobbyId);
     return { lobby: toPublicLobby(lobby) };
   });
 
@@ -573,7 +581,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       throw new LobbyError(409, "The race moved on; nothing was skipped.");
     }
     playBotTurnFor(lobby.lobbyId, "autopilot", "force_skip");
-    runPendingBotTurns(lobby.lobbyId);
+    await runPendingBotTurns(lobby.lobbyId);
     return { lobby: toPublicLobby(lobby) };
   });
 
@@ -730,7 +738,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       activeSeatIndex: updatedLobby.race?.engine.turn.index ?? null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
-    runPendingBotTurns(lobby.lobbyId);
+    await runPendingBotTurns(lobby.lobbyId);
     return result;
   });
 
