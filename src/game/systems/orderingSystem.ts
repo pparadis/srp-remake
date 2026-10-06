@@ -1,6 +1,7 @@
 import type { Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { buildLaneSequence } from "./laneSequence";
+import { lane1FwdByZoneOf, trackFwd } from "./trackIndex";
 
 export interface CarSortKey {
   lapCount: number;
@@ -15,7 +16,8 @@ export interface SortCarsOptions {
 
 export function getCellForwardIndex(cellId: string, cellMap: Map<string, TrackCell>): number {
   const cell = cellMap.get(cellId);
-  return cell ? cell.forwardIndex : -1;
+  // Pit cells are ranked by the lane-1 cell beside them (their own forwardIndex is another scale).
+  return cell ? trackFwd(cell, lane1FwdByZoneOf(cellMap)) : -1;
 }
 
 export function computeCarSortKey(

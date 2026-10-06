@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Car } from "../types/car";
 import type { TrackCell, TrackData, TrackTag } from "../types/track";
+import track from "../../../public/tracks/oval16_3lanes.json";
+import { createRaceContext } from "../race/raceEngine";
 import { buildProgressMap, computeCarSortKey, getCellForwardIndex, sortCarsByProgress } from "./orderingSystem";
 
 function makeCell(id: string, forwardIndex: number): TrackCell {
@@ -233,5 +235,33 @@ describe("buildProgressMap", () => {
     expect(progress.get("L2_0")).toBe(0);
     expect(progress.get("L2_1")).toBe(1.5);
     expect(progress.get("L2_2")).toBe(3);
+  });
+});
+
+// Pit cells have their own forwardIndex scale (entry 0, exit 27); ranking maps them to the lane-1 cell
+// of the same zone: entry beside Z28_L1 (just before the line), Z01_L0 beside Z01_L1 (the line).
+describe("sortCarsByProgress with pit-lane cars on the real track", () => {
+  const ctx = createRaceContext(track as unknown as TrackData);
+  const order = (...cars: Car[]) => sortCarsByProgress(cars, ctx.cellMap).map((c) => c.carId);
+
+  it("maps pit cells to the lane-1 position beside them", () => {
+    expect(getCellForwardIndex("Z28_L0_00", ctx.cellMap)).toBe(27);
+    expect(getCellForwardIndex("Z01_L0_00", ctx.cellMap)).toBe(0);
+    expect(getCellForwardIndex("Z02_L0_00", ctx.cellMap)).toBe(1);
+    expect(getCellForwardIndex("Z06_L0_00", ctx.cellMap)).toBe(5);
+    expect(getCellForwardIndex("Z07_L1_00", ctx.cellMap)).toBe(6);
+  });
+
+  it("a car at the pit entry (line not crossed yet) ranks behind one just past the line", () => {
+    expect(order(makeCar(1, "Z28_L0_00", 1), makeCar(2, "Z01_L1_00", 2))).toEqual([2, 1]);
+    // even against a car that crossed in the same lap at the line
+    expect(order(makeCar(1, "Z28_L0_00", 1), makeCar(2, "Z01_L2_00", 2), makeCar(3, "Z27_L1_00", 1))).toEqual([2, 1, 3]);
+  });
+
+  it("a car that crossed the line in the pit lane ranks like one that crossed on track", () => {
+    expect(order(makeCar(1, "Z01_L1_00", 2), makeCar(2, "Z01_L0_00", 2))).toEqual([1, 2]);
+    expect(order(makeCar(1, "Z01_L0_00", 2), makeCar(2, "Z28_L1_00", 1))).toEqual([1, 2]);
+    expect(order(makeCar(1, "Z02_L0_00", 2), makeCar(2, "Z01_L1_00", 2))).toEqual([1, 2]);
+    expect(order(makeCar(1, "Z02_L0_00", 2), makeCar(2, "Z03_L1_00", 2))).toEqual([2, 1]);
   });
 });
