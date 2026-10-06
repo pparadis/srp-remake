@@ -732,6 +732,7 @@ export class RaceScene extends Phaser.Scene {
       this.gTargets.fillCircle(cell.pos.x, cell.pos.y, 10);
       this.gTargets.lineStyle(2, color, 0.95);
       this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 10);
+      if (info.squeezePassed) this.strokeDashedRing(cell.pos.x, cell.pos.y, 13, 0xffb020);
       // Risk: the move leaves a resource under 20% (thin ring) or empty (thick ring).
       const left = this.resourcesAfter(info);
       if (!info.isPitTrigger && Math.min(left.tire, left.fuel) < 20) {
@@ -755,6 +756,18 @@ export class RaceScene extends Phaser.Scene {
       costLabel.setOrigin(0.5, 0.5);
       costLabel.setDepth(46);
       this.targetCostLabels.push(costLabel);
+    }
+  }
+
+  // Squeeze targets: dashed amber ring (Phaser graphics has no dash style, so draw arcs).
+  private strokeDashedRing(x: number, y: number, radius: number, color: number) {
+    this.gTargets.lineStyle(3, color, 1);
+    const dashes = 10;
+    for (let i = 0; i < dashes; i += 1) {
+      const a0 = (i / dashes) * Math.PI * 2;
+      this.gTargets.beginPath();
+      this.gTargets.arc(x, y, radius, a0, a0 + (Math.PI * 2) / dashes / 2);
+      this.gTargets.strokePath();
     }
   }
 
@@ -1236,6 +1249,7 @@ export class RaceScene extends Phaser.Scene {
       activeCarId: this.activeCar.carId,
       canControl: this.localCanControl(),
       cars: ordered.map((car) => this.hudCar(car)),
+      boxedIn: [...this.validTargets.values()].some((t) => t.squeezePassed !== undefined),
       hover:
         pos && target && this.hoverCell
           ? {
@@ -1245,6 +1259,7 @@ export class RaceScene extends Phaser.Scene {
               tireCost: target.tireCost,
               fuelCost: target.fuelCost,
               isPit: target.isPitTrigger,
+              ...(target.squeezePassed ? { squeezePassed: target.squeezePassed } : {}),
               tireBefore: this.activeCar.tire,
               fuelBefore: this.activeCar.fuel
             }

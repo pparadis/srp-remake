@@ -392,9 +392,9 @@ describe("decideBotAction autopilot policy", () => {
 
 describe("squeeze (boxed in)", () => {
   // Car 1 in the middle lane, blocker ahead in its lane and both neighbouring-lane cells ahead taken.
-  function boxedRace(level?: BotLevel) {
+  function boxedRace() {
     const state = newRace(5, [
-      { isBot: true, ownerId: "B1", botLevel: level },
+      { isBot: true, ownerId: "B1" },
       { isBot: true, ownerId: "B2" },
       { isBot: true, ownerId: "B3" },
       { isBot: true, ownerId: "B4" }

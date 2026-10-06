@@ -1,5 +1,5 @@
 // Race HUD as a DOM overlay. `renderHud` is pure over the snapshot RaceScene emits as `srp:hud`.
-import { MOVE_BUDGET, MOVE_CYCLE } from "../game/constants";
+import { MOVE_BUDGET, MOVE_CYCLE, SQUEEZE_SURCHARGE_PER_CAR } from "../game/constants";
 import type { PitAdvice, StintEstimate } from "../game/systems/strategy";
 
 export interface HudCar {
@@ -37,6 +37,8 @@ export interface HudHover {
   tireCost: number;
   fuelCost: number;
   isPit: boolean;
+  /** Set for a squeeze target: cars passed (each adds SQUEEZE_SURCHARGE_PER_CAR move points). */
+  squeezePassed?: number;
   /** The active car's tire and fuel (percent) before the move, to show what is left after it. */
   tireBefore: number;
   fuelBefore: number;
@@ -54,6 +56,8 @@ export interface HudSnapshot {
   /** All cars in standings order. */
   cars: HudCar[];
   hover: HudHover | null;
+  /** The active car is boxed in: only squeeze targets exist. */
+  boxedIn?: boolean;
   /** Full cell debug, only while the F overlay is on. */
   debugText: string | null;
   log: string[];
@@ -143,7 +147,10 @@ export function renderTooltip(tip: HTMLElement, h: HudHover) {
     span.textContent = `${label} ${Math.round(before)}% → ${Math.round(after)}%`;
     return { span, empty: after <= 0 };
   };
-  const nodes: Array<string | HTMLElement> = [`Move ${h.moveSpend} - `];
+  const squeeze = h.squeezePassed
+    ? `Squeeze past ${h.squeezePassed} car${h.squeezePassed > 1 ? "s" : ""} - Move ${h.moveSpend} (+${h.squeezePassed * SQUEEZE_SURCHARGE_PER_CAR} points) - `
+    : null;
+  const nodes: Array<string | HTMLElement> = [squeeze ?? `Move ${h.moveSpend} - `];
   if (h.isPit) {
     nodes.push("PIT stop: tire and fuel refilled");
   } else {
@@ -189,6 +196,9 @@ export function bannerText(s: HudSnapshot): string {
   if (s.finished) return `Race finished - ${winner ? winner.name : `Car ${s.winnerCarId}`} wins`;
   const active = s.cars.find((c) => c.carId === s.activeCarId);
   if (!active) return "";
+  if (active.carId === s.myCarId && s.canControl && s.boxedIn) {
+    return `Boxed in - squeeze past (+${SQUEEZE_SURCHARGE_PER_CAR} points per car)`;
+  }
   if (active.carId === s.myCarId) return s.canControl ? "Your turn - drag your car" : "Waiting for the server";
   if (active.isBot) return `Car ${active.carId} (bot) is playing`;
   return `Waiting for ${active.name}`;
@@ -237,7 +247,7 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
   const me = s.cars.find((c) => c.carId === s.myCarId);
   const banner = q(root, "hud-banner");
   banner.textContent = bannerText(s);
-  banner.className = `hud-banner${s.finished ? " is-finished" : s.canControl ? " is-mine" : ""}`;
+  banner.className = `hud-banner${s.finished ? " is-finished" : s.canControl ? (s.boxedIn ? " is-mine is-boxed" : " is-mine") : ""}`;
 
   q(root, "hud-card").hidden = !me;
   if (me) {

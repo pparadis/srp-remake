@@ -158,6 +158,15 @@ describe("hud", () => {
     expect(text(root, "hud-tooltip")).not.toContain("Empties");
   });
 
+  it("tooltip and banner describe a squeeze", () => {
+    const hover = { x: 1, y: 2, distance: 3, moveSpend: 7, tireCost: 5, fuelCost: 4, isPit: false, squeezePassed: 2, tireBefore: 63, fuelBefore: 30 };
+    renderHud(root, snap({ hover, boxedIn: true }));
+    expect(text(root, "hud-tooltip")).toBe("Squeeze past 2 cars - Move 7 (+4 points) - tire 63% → 58% - fuel 30% → 26%");
+    expect(text(root, "hud-banner")).toBe("Boxed in - squeeze past (+2 points per car)");
+    renderHud(root, snap({ hover: { ...hover, squeezePassed: 1, moveSpend: 4 } }));
+    expect(text(root, "hud-tooltip")).toContain("Squeeze past 1 car - Move 4 (+2 points)");
+  });
+
   it("renders the mute toggle label", () => {
     renderMute(root, true);
     expect(text(root, "hud-mute")).toBe("Sound: off");

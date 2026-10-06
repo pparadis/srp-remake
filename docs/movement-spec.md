@@ -41,6 +41,22 @@ and is shared by single-player and the multiplayer server.
   - Adjacent lanes do not block unless they are the chosen destination lane.
 - Occupied cells are not traversable during target search (except the start cell).
 
+## Squeeze (boxed in)
+
+Only when an ACTIVE car has no normal target at all, `computeTargets` (raceEngine) returns squeeze targets from
+`computeSqueezeTargets` instead of an empty map. When any normal target exists, squeeze is never offered.
+
+- BFS over `next[]` up to `maxSteps` ignores occupancy for traversal, but the target cell must be free.
+- Main lanes only (never PIT_ENTRY, pit lane or PIT_BOX), at most 1 lane change, `targetDelta > 0` (no backwards or pure sideways).
+- `passed` = occupied main-lane cells in the start lane or the target lane (a lane counts once) with `0 < delta < targetDelta`.
+  A squeeze target must have `passed >= 1`.
+- `moveSpend = computeMoveSpend(...) + SQUEEZE_SURCHARGE_PER_CAR (2) * passed`, and must be `<= maxSteps`
+  (remaining cycle budget / 9 cap). Tire and fuel costs stay the normal distance-based costs.
+- `TargetInfo.squeezePassed` is set only for squeeze targets. Skip is legal only when there are no targets at all.
+
+Example: car in lane 2 at forwardIndex 5, cars at 6 in lanes 1, 2 and 3. No normal target exists. Squeeze to
+lane 2 at 7: distance 2, passes 1 car, move 2 + 2 = 4. To lane 1 at 7: distance 3, passes 2 cars, move 3 + 4 = 7.
+
 ## Pit Rules
 
 - You may only enter pit via a `PIT_ENTRY` cell, and only from lane 1.
