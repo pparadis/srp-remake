@@ -293,6 +293,11 @@ body[data-screen="race"] #statusLine {
   margin-top: 4px;
 }
 
+.hud-lap-hint {
+  font-size: 12px;
+  color: #f5d90a;
+}
+
 .hud-pos {
   font-size: 16px;
   color: #8fb0cc;
