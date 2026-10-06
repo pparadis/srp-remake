@@ -12,7 +12,7 @@ const cellSchema = z.object({
   forwardIndex: z.number().int().min(0),
   pos: vec2Schema,
   next: z.array(z.string().min(1)),
-  tags: z.array(z.enum(["START_FINISH", "PIT_ENTRY", "PIT_BOX", "PIT_EXIT"])).optional()
+  tags: z.array(z.enum(["START_FINISH", "PIT_ENTRY", "PIT_BOX", "PIT_EXIT", "PIT_LINE"])).optional()
 });
 
 export const trackSchema = z.object({
