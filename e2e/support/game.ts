@@ -47,10 +47,12 @@ export async function setName(page: Page, name: string) {
 
 export async function setLobbySettings(
   page: Page,
-  s: { bots?: number; laps?: number; timer?: 0 | 30 | 60 | 120 }
+  s: { bots?: number; laps?: number; timer?: 0 | 30 | 60 | 120; botLevel?: "easy" | "normal" | "hard" }
 ) {
   if (s.timer !== undefined) await page.getByTestId("lobby-turn-timer").selectOption(String(s.timer));
   if (s.bots !== undefined) await page.getByTestId("lobby-bots").selectOption(String(s.bots));
+  // the level select only shows while there are bots, so set it after them
+  if (s.botLevel !== undefined) await page.getByTestId("lobby-bot-level").selectOption(s.botLevel);
   if (s.laps !== undefined) {
     await page.getByTestId("lobby-laps").fill(String(s.laps));
     await page.getByTestId("lobby-laps").press("Tab");
@@ -69,10 +71,17 @@ export async function startRace(page: Page) {
 }
 
 /** Home -> Quick race -> settings -> Start; ends on the Race screen. */
-export async function quickRace(page: Page, opts: { bots?: number; laps?: number } = {}) {
+export async function quickRace(
+  page: Page,
+  opts: { bots?: number; laps?: number; botLevel?: "easy" | "normal" | "hard" } = {}
+) {
   await gotoHome(page);
   await page.getByTestId("home-quick").click();
-  await setLobbySettings(page, { bots: opts.bots ?? 2, laps: opts.laps ?? 1 });
+  await setLobbySettings(page, {
+    bots: opts.bots ?? 2,
+    laps: opts.laps ?? 1,
+    ...(opts.botLevel ? { botLevel: opts.botLevel } : {})
+  });
   await startRace(page);
 }
 

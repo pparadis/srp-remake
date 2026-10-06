@@ -20,9 +20,15 @@ async function twoPlayers(browser: Browser) {
   return { host, guest, close: () => Promise.all([host.context().close(), guest.context().close()]) };
 }
 
-test("solo: a full 1-lap game against 2 bots, then race again", async ({ page }) => {
+test("solo: a full 1-lap game against 2 Hard bots, then race again", async ({ page }) => {
   const errors = guard(page);
-  await quickRace(page, { bots: 2, laps: 1 });
+  await quickRace(page, { bots: 2, laps: 1, botLevel: "hard" });
+  // the solo setting reached the scene: both bots are Hard, the player is not a bot
+  expect(await page.evaluate(() => window.__srp!.state().cars.map((c) => c.botLevel ?? null))).toEqual([
+    null,
+    "hard",
+    "hard"
+  ]);
   await playUntilFinished(page);
 
   await expect(page.getByTestId("results")).toBeVisible();
@@ -33,6 +39,7 @@ test("solo: a full 1-lap game against 2 bots, then race again", async ({ page })
   await page.getByTestId("results-back-lobby").click();
   await expect(page).toHaveURL(/\/solo$/);
   await expect(page.getByTestId("results")).toBeHidden();
+  await expect(page.getByTestId("lobby-bot-level")).toHaveValue("hard"); // the choice is kept
 
   // start again: a fresh race, nobody has a lap yet
   await page.getByTestId("lobby-start").click();

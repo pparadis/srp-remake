@@ -1,4 +1,18 @@
-# Bot Lookahead Spec (Draft)
+# Bot Lookahead Spec
+
+> **Status: implemented** as the Hard bot level (`src/game/race/botHard.ts`, see `docs/bot-system.md`). It
+> differs from this draft in these ways:
+>
+> - It looks one **round** ahead, not one ply, and **does model the opponents**: the candidate is applied with
+>   `applyAction` on a `structuredClone` of the race, then every other car answers with the Normal policy until it
+>   is the Hard car's turn again (the draft's "no opponent prediction" non-goal was dropped).
+> - Candidates are the top 8 by the Normal score, not every legal move.
+> - The score is not `S_now + 0.35 * S_next`: it is progress by laps and `forwardIndex`, minus 0.3x the rivals'
+>   mean progress, plus 0.8x the best forward gain available at the next turn, minus the projected crawl cost of
+>   running out of tire or fuel, plus a tenth of the Normal score's non-progress part (budget cycle, resource worth,
+>   pit plan). There is no `SKIP_PENALTY`: a blocked next turn simply has low mobility.
+> - There is no `lookaheadEnabled` flag; the level selects it. Ties break on the lower cell id.
+> - Pit timing is handled by the shared plan in `botPlan.ts` (see the bot-system doc), not by the lookahead alone.
 
 This document defines a future enhancement for bot decision quality using short-horizon lookahead.
 
