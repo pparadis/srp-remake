@@ -483,3 +483,51 @@ describe("squeeze (boxed in)", () => {
     expect(applyAction(ctx, state, decision.action).ok).toBe(true);
   });
 });
+
+describe("squeeze out of a blocked pit exit", () => {
+  function exitRace(exitSkip = false) {
+    const state = newRace(5, [
+      { isBot: true, ownerId: "B1" },
+      { isBot: true, ownerId: "B2" }
+    ]);
+    const car = state.cars[0]!;
+    car.cellId = "Z06_L0_00";
+    car.pitServiced = true;
+    car.pitExitBoost = exitSkip;
+    state.cars[1]!.cellId = "Z07_L1_00";
+    return { state, car };
+  }
+
+  it("rejects a skip while a squeeze exists, accepts it when the budget is too small", () => {
+    const { state, car } = exitRace();
+    expect([...computeTargets(ctx, state, car).keys()].sort()).toEqual(["Z08_L1_00", "Z09_L1_00"]);
+    expect(applyAction(ctx, state, { type: "skip" })).toEqual({ ok: false, reason: "moves_available" });
+    car.moveCycle.spent = [37, 0, 0, 0, 0];
+    car.moveCycle.index = 1;
+    expect(computeTargets(ctx, state, car).size).toBe(0);
+    expect(applyAction(ctx, state, { type: "skip" }).ok).toBe(true);
+  });
+
+  it("applies the squeeze: leaves the pit lane on lane 1, surcharged spend, pit state reset, no lap", () => {
+    const { state, car } = exitRace(true);
+    car.lapCount = 0;
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z08_L1_00" })).toMatchObject({ ok: true, moveSpend: 4 });
+    expect(car).toMatchObject({ cellId: "Z08_L1_00", pitServiced: false, pitExitBoost: false, lapCount: 0 });
+    expect(car.moveCycle.spent[0]).toBe(4);
+  });
+
+  it("gives a serviced car no pit-box targets and keeps the normal exit when free", () => {
+    const { state, car } = exitRace(true);
+    state.cars[1]!.cellId = "Z10_L1_00";
+    expect([...computeTargets(ctx, state, car).keys()]).toEqual(["Z07_L1_00"]);
+    car.cellId = "Z05_L0_00";
+    expect([...computeTargets(ctx, state, car).keys()]).toEqual(["Z06_L0_00"]);
+  });
+
+  it.each(["easy", "normal", "hard", "autopilot"] as const)("%s bot squeezes out instead of skipping", (level) => {
+    const { state } = exitRace();
+    const decision = decideBotAction(ctx, state, level);
+    expect(decision.action.type).toBe("move");
+    expect(applyAction(ctx, state, decision.action).ok).toBe(true);
+  });
+});
