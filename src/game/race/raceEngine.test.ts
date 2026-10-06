@@ -13,6 +13,7 @@ import {
   type RaceSeat,
   type RaceState
 } from "./raceEngine";
+import type { BotLevel } from "../types/car";
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const SEATS: RaceSeat[] = [
@@ -52,6 +53,15 @@ describe("createRace", () => {
     ]);
     expect(state.winnerCarId).toBeNull();
     expect(getActiveCar(state).carId).toBe(1);
+  });
+
+  it("gives bot seats their level (normal by default) and leaves humans without one", () => {
+    const state = newRace(5, [
+      { isBot: true, ownerId: "BOT1", botLevel: "hard" },
+      { isBot: true, ownerId: "BOT2" },
+      { isBot: false, ownerId: "P3", botLevel: "easy" }
+    ]);
+    expect(state.cars.map((c) => c.botLevel)).toEqual(["hard", "normal", undefined]);
   });
 
   it("rejects more seats than the track has spawn slots", () => {
@@ -215,21 +225,114 @@ describe("decideBotAction", () => {
     expect(applyAction(ctx, state, decision.action).ok).toBe(true);
   });
 
-  it("pits when worn out in the pit lane, keeping its own setup", () => {
+  const wornInPitLane = (level?: BotLevel) => {
     const state = newRace(5, [
-      { isBot: true, ownerId: "BOT1" },
+      { isBot: true, ownerId: "BOT1", ...(level ? { botLevel: level } : {}) },
       { isBot: false, ownerId: "P2" }
     ]);
     const car = getActiveCar(state);
     car.cellId = "Z01_L0_00";
     car.tire = 10;
     car.fuel = 10;
+    return { state, car };
+  };
 
+  it("pits when worn out in the pit lane, and fits the cheapest-to-run setup (Normal)", () => {
+    const { state, car } = wornInPitLane();
     const decision = decideBotAction(ctx, state);
 
-    expect(decision.action).toMatchObject({ type: "pit", setup: car.setup });
+    // Wings 0 and 32 psi cost nothing extra, and hard tires wear less than soft ones.
+    expect(decision.action).toMatchObject({
+      type: "pit",
+      setup: { compound: "hard", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wingFrontDeg: 0, wingRearDeg: 0 }
+    });
     expect(applyAction(ctx, state, decision.action).ok).toBe(true);
     expect(car).toMatchObject({ tire: 100, fuel: 100, state: "PITTING", pitServiced: true });
+  });
+
+  it("Easy pits at 10 and keeps its own setup", () => {
+    const { state, car } = wornInPitLane("easy");
+    const decision = decideBotAction(ctx, state);
+    expect(decision.action).toMatchObject({ type: "pit", setup: car.setup });
+    expect(applyAction(ctx, state, decision.action).ok).toBe(true);
+  });
+
+  describe("by level", () => {
+    const duo = (level: BotLevel | undefined) =>
+      newRace(5, [
+        { isBot: true, ownerId: "BOT1", ...(level ? { botLevel: level } : {}) },
+        { isBot: true, ownerId: "BOT2" }
+      ]);
+
+    it("reads the active car's level when no policy is passed", () => {
+      const viaCar = decideBotAction(ctx, duo("easy"));
+      expect(viaCar.action).toEqual(decideBotAction(ctx, duo(undefined), "easy").action);
+      expect(decideBotAction(ctx, duo(undefined)).action).toEqual(decideBotAction(ctx, duo(undefined), "normal").action);
+    });
+
+    it("lets an explicit policy override the car's level (the server's autopilot)", () => {
+      const state = duo("hard");
+      expect(decideBotAction(ctx, state, "autopilot").action).toEqual(
+        decideBotAction(ctx, duo("normal"), "autopilot").action
+      );
+    });
+
+    it("never mutates the race, also for the lookahead", () => {
+      for (const level of ["easy", "normal", "hard"] as const) {
+        const state = duo(level);
+        const before = JSON.stringify(state);
+        decideBotAction(ctx, state);
+        expect(JSON.stringify(state)).toBe(before);
+      }
+    });
+
+    it("always proposes an action the engine accepts", () => {
+      for (const level of ["easy", "normal", "hard"] as const) {
+        const state = createRace(ctx, Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: level })), 2);
+        for (let i = 0; i < 40 && state.winnerCarId === null; i += 1) {
+          expect(applyAction(ctx, state, decideBotAction(ctx, state).action).ok).toBe(true);
+        }
+      }
+    });
+  });
+
+  describe("pit planning (Normal)", () => {
+    // Long race, the car on the pit-entry feeder cell (lane 1, forwardIndex 26) and nearly empty.
+    const setup = (laps: number, lapCount: number, cellId: string, tire = 5, fuel = 20) => {
+      const state = newRace(laps, [
+        { isBot: true, ownerId: "BOT1" },
+        { isBot: false, ownerId: "P2" }
+      ]);
+      const car = getActiveCar(state);
+      Object.assign(car, { cellId, lapCount, tire, fuel });
+      return state;
+    };
+    const targetCell = (state: RaceState) => {
+      const action = decideBotAction(ctx, state).action;
+      if (action.type === "skip") throw new Error("unexpected skip");
+      return ctx.cellMap.get(action.targetCellId)!;
+    };
+
+    it("enters the pit lane when a stop is due and the entry is next", () => {
+      const cell = targetCell(setup(12, 4, "Z27_L1_00"));
+      expect(cell.tags).toContain("PIT_ENTRY");
+    });
+
+    it("does not stop in a race too short to repay it", () => {
+      const cell = targetCell(setup(3, 1, "Z27_L1_00", 20, 20));
+      expect(cell.laneIndex).not.toBe(0);
+    });
+
+    it("never enters the pit lane on the final lap", () => {
+      const cell = targetCell(setup(12, 11, "Z27_L1_00", 0, 0));
+      expect(cell.laneIndex).not.toBe(0);
+    });
+
+    it("drifts to lane 1 and lands exactly on the entry cell when a stop is due", () => {
+      // Z20_L2 is 8 cells before the feeder; the lane change costs one budget point, 9 in all.
+      const cell = targetCell(setup(12, 4, "Z20_L2_00"));
+      expect(cell.id).toBe("Z27_L1_00");
+    });
   });
 
   it("skips an inactive car without evaluating targets", () => {

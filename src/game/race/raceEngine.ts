@@ -2,9 +2,11 @@
 // Single-player (RaceScene) and the multiplayer server both drive a race through
 // `applyAction`, so the rules can't drift between them.
 import { MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS } from "../constants";
-import type { Car, CarSetup } from "../types/car";
+import type { BotLevel, Car, CarSetup } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
+import { buildPlanContext, IDEAL_PIT_SETUP } from "../systems/botPlan";
 import { decideBotActionWithTrace, type BotDecisionTrace, type BotPolicy } from "../systems/botSystem";
+import { decideHardBotAction } from "./botHard";
 import { applyMove } from "../systems/moveCommitSystem";
 import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
@@ -23,6 +25,8 @@ export interface RaceContext {
 export interface RaceSeat {
   isBot: boolean;
   ownerId: string;
+  // Difficulty of a bot seat; "normal" when omitted. Ignored for humans.
+  botLevel?: BotLevel;
 }
 
 export interface RaceState {
@@ -77,6 +81,7 @@ export function createRace(ctx: RaceContext, seats: RaceSeat[], raceLaps: number
     const seat = seats[i]!;
     car.isBot = seat.isBot;
     car.ownerId = seat.ownerId;
+    if (seat.isBot) car.botLevel = seat.botLevel ?? "normal";
   });
   return { cars, turn: createTurnState(cars), raceLaps, winnerCarId: null };
 }
@@ -186,27 +191,36 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   return { ok: true, carId: car.carId, fromCellId, moveSpend, log };
 }
 
-// Picks the active (bot) car's action with the shared heuristic (or the AFK "autopilot" policy). Does not mutate state.
+// Picks the active car's action with a bot policy: by default the car's own botLevel ("normal"
+// when it has none); the server passes "autopilot" to play an AFK human's turn. Does not mutate state.
 export function decideBotAction(
   ctx: RaceContext,
   state: RaceState,
-  policy: BotPolicy = "normal"
+  policy?: BotPolicy
 ): BotTurnDecision {
   const car = getActiveCar(state);
   if (car.state !== "ACTIVE") {
     return { action: { type: "skip" }, trace: null, targets: new Map(), skipNote: "inactive" };
   }
+  const level: BotPolicy = policy ?? car.botLevel ?? "normal";
   const targets = computeTargets(ctx, state, car);
-  const { action, trace } = decideBotActionWithTrace(targets, car, ctx.cellMap, policy);
+  const plan = buildPlanContext(ctx.trackIndex, state.raceLaps);
+  const { action, trace } = decideBotActionWithTrace(targets, car, ctx.cellMap, level, plan);
+  let decision: BotTurnDecision;
   if (action.type === "skip") {
     return { action: { type: "skip" }, trace, targets, skipNote: "no-target" };
   }
   if (action.type === "pit") {
-    return {
-      action: { type: "pit", targetCellId: action.target.id, setup: structuredClone(car.setup) },
-      trace,
-      targets
-    };
+    // Easy keeps whatever setup it has; Normal and Hard service with the cheapest-to-run one.
+    const setup = level === "easy" ? car.setup : IDEAL_PIT_SETUP;
+    decision = { action: { type: "pit", targetCellId: action.target.id, setup: structuredClone(setup) }, trace, targets };
+  } else {
+    decision = { action: { type: "move", targetCellId: action.target.id }, trace, targets };
   }
-  return { action: { type: "move", targetCellId: action.target.id }, trace, targets };
+  if (level !== "hard") return decision;
+  return decideHardBotAction(ctx, state, car, decision, {
+    applyAction,
+    computeTargets,
+    decideNormal: (c, s) => decideBotAction(c, s, "normal")
+  });
 }
