@@ -206,8 +206,53 @@ describe("laps and winning", () => {
     expect(car.lapCount).toBe(1);
     expect(state.winnerCarId).toBe(1);
     expect(getActiveCar(state).carId).toBe(1);
-    if (result.ok) expect(result.log.at(-1)).toBe("Race finished. Car 1 wins (1/1 laps).");
+    if (result.ok) expect(result.log.at(-1)).toBe("Race finished. Car 1 wins the 1-lap race.");
     expect(applyAction(ctx, state, { type: "skip" })).toEqual({ ok: false, reason: "race_finished" });
+  });
+});
+
+describe("laps from a staggered grid", () => {
+  const FOUR: RaceSeat[] = [
+    { isBot: false, ownerId: "P1" },
+    { isBot: false, ownerId: "P2" },
+    { isBot: false, ownerId: "P3" },
+    { isBot: false, ownerId: "P4" }
+  ];
+  // A move by the active car that ends past the start line (forwardIndex wraps).
+  const crossingTarget = (state: RaceState) => {
+    const car = getActiveCar(state);
+    const from = ctx.cellMap.get(car.cellId)!;
+    const hit = [...computeTargets(ctx, state, car).keys()].find(
+      (id) => ctx.cellMap.get(id)!.forwardIndex < from.forwardIndex
+    );
+    if (!hit) throw new Error("no crossing target");
+    return hit;
+  };
+
+  it("starts the front row at 0 laps done and the row behind the line at -1", () => {
+    expect(newRace(5, FOUR).cars.map((c) => c.lapCount)).toEqual([0, 0, 0, -1]);
+  });
+
+  it("the first crossing of a rear-grid car only starts lap 1: no lap, no win, even in a 1-lap race", () => {
+    const state = newRace(1, FOUR);
+    state.turn.index = 3;
+    const car = getActiveCar(state);
+    expect(car.carId).toBe(4);
+    const result = applyAction(ctx, state, { type: "move", targetCellId: crossingTarget(state) });
+    expect(result.ok).toBe(true);
+    expect(car.lapCount).toBe(0);
+    expect(state.winnerCarId).toBeNull();
+    if (result.ok) expect(result.log.join("\n")).not.toContain("Race finished");
+  });
+
+  it("a 1-lap race is won by the first car to cross the line after starting on it", () => {
+    const state = newRace(1, FOUR);
+    const [pole] = state.cars;
+    pole!.cellId = [...ctx.cellMap.values()].find((c) => c.laneIndex === 1 && c.forwardIndex === 27)!.id;
+    const result = applyAction(ctx, state, { type: "move", targetCellId: crossingTarget(state) });
+    expect(pole!.lapCount).toBe(1);
+    expect(state.winnerCarId).toBe(1);
+    if (result.ok) expect(result.log.at(-1)).toBe("Race finished. Car 1 wins the 1-lap race.");
   });
 });
 

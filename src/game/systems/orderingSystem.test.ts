@@ -38,15 +38,15 @@ function makeCar(carId: number, cellId: string, lapCount = 0): Car {
 }
 
 describe("sortCarsByProgress", () => {
-  it("orders by forwardIndex ascending when lapCount is equal", () => {
+  it("orders by forwardIndex descending (further along the lap is ahead) when lapCount is equal", () => {
     const cellMap = new Map<string, TrackCell>([
       ["A", makeCell("A", 10)],
       ["B", makeCell("B", 12)]
     ]);
     const cars = [makeCar(1, "A"), makeCar(2, "B")];
     const ordered = sortCarsByProgress(cars, cellMap);
-    expect(ordered[0]?.carId).toBe(1);
-    expect(ordered[1]?.carId).toBe(2);
+    expect(ordered[0]?.carId).toBe(2);
+    expect(ordered[1]?.carId).toBe(1);
   });
 
   it("orders by lapCount before forwardIndex", () => {
@@ -101,85 +101,29 @@ describe("sortCarsByProgress", () => {
     expect(ordered.map((c) => c.carId)).toEqual([1, 2]);
   });
 
-  it("uses initial placement exception for cars behind start/finish", () => {
-    const cellMap = new Map<string, TrackCell>([
-      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
-      ["B27", makeCell("B27", 27)],
-      ["B26", makeCell("B26", 26)]
-    ]);
-    const cars = [makeCar(1, "SF"), makeCar(2, "B26"), makeCar(3, "B27")];
+  const grid = new Map<string, TrackCell>([
+    ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
+    ["B27", makeCell("B27", 27)],
+    ["B26", makeCell("B26", 26)],
+    ["C05", makeCell("C05", 5)]
+  ]);
 
-    const ordered = sortCarsByProgress(cars, cellMap, {
-      turnOrder: [1, 2, 3],
-      turnIndex: 0
-    });
-
+  it("ranks the front row ahead of cars behind the line at the start (lapCount -1)", () => {
+    const cars = [makeCar(1, "SF", 0), makeCar(2, "B26", -1), makeCar(3, "B27", -1)];
+    const ordered = sortCarsByProgress(cars, grid, { turnOrder: [1, 2, 3], turnIndex: 0 });
     expect(ordered.map((c) => c.carId)).toEqual([1, 3, 2]);
   });
 
-  it("applies initial placement exception only before first turn", () => {
-    const cellMap = new Map<string, TrackCell>([
-      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
-      ["B27", makeCell("B27", 27)],
-      ["B26", makeCell("B26", 26)]
-    ]);
-    const cars = [makeCar(1, "SF"), makeCar(2, "B26"), makeCar(3, "B27")];
-    cars[0]!.moveCycle = { index: 1, spent: [1, 0, 0, 0, 0] };
-
-    const ordered = sortCarsByProgress(cars, cellMap, {
-      turnOrder: [1, 2, 3],
-      turnIndex: 1
-    });
-
-    expect(ordered.map((c) => c.carId)).toEqual([1, 2, 3]);
-  });
-
-  it("derives initial placement behind-start threshold from track forwardIndex range", () => {
-    const cellMap = new Map<string, TrackCell>([
-      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
-      ["B30", makeCell("B30", 30)],
-      ["B29", makeCell("B29", 29)]
-    ]);
-    const cars = [makeCar(1, "SF"), makeCar(2, "B29"), makeCar(3, "B30")];
-
-    const ordered = sortCarsByProgress(cars, cellMap, {
-      turnOrder: [1, 2, 3],
-      turnIndex: 0
-    });
-
+  it("keeps ranking sensible across the line: a car 5 cells into lap 1 leads one just over the line", () => {
+    // car 3 started at 27 and crossed the line (silent, -1 -> 0) to fwd 0; car 1 is 5 cells in.
+    const cars = [makeCar(3, "SF", 0), makeCar(1, "C05", 0), makeCar(2, "B26", -1)];
+    const ordered = sortCarsByProgress(cars, grid, { turnOrder: [1, 2, 3], turnIndex: 0 });
     expect(ordered.map((c) => c.carId)).toEqual([1, 3, 2]);
   });
 
-  it("uses normal forward ordering once race has started even at turn index 0", () => {
-    const cellMap = new Map<string, TrackCell>([
-      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
-      ["B27", makeCell("B27", 27)],
-      ["B26", makeCell("B26", 26)]
-    ]);
-    const cars = [makeCar(1, "SF", 1), makeCar(2, "B26", 1), makeCar(3, "B27", 1)];
-
-    const ordered = sortCarsByProgress(cars, cellMap, {
-      turnOrder: [1, 2, 3],
-      turnIndex: 0
-    });
-
-    expect(ordered.map((c) => c.carId)).toEqual([1, 2, 3]);
-  });
-
-  it("handles lap wrap ordering by forwardIndex when lap counts are equal", () => {
-    const cellMap = new Map<string, TrackCell>([
-      ["SF", { ...makeCell("SF", 0), tags: ["START_FINISH"] }],
-      ["A03", makeCell("A03", 3)],
-      ["A27", makeCell("A27", 27)]
-    ]);
-    const cars = [makeCar(1, "A27", 4), makeCar(2, "A03", 4), makeCar(3, "SF", 4)];
-
-    const ordered = sortCarsByProgress(cars, cellMap, {
-      turnOrder: [1, 2, 3],
-      turnIndex: 2
-    });
-
-    expect(ordered.map((c) => c.carId)).toEqual([3, 2, 1]);
+  it("a completed lap beats any position in the previous lap", () => {
+    const cars = [makeCar(1, "C05", 0), makeCar(2, "SF", 1)];
+    expect(sortCarsByProgress(cars, grid).map((c) => c.carId)).toEqual([2, 1]);
   });
 });
 

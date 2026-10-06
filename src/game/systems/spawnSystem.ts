@@ -3,6 +3,7 @@ import type { TrackCell, TrackData } from "../types/track";
 import { createMoveCycle } from "./moveBudgetSystem";
 import { MAIN_LANES, PIT_LANE } from "../constants";
 import { buildLaneSequence } from "./laneSequence";
+import { lapCountAtSpawn } from "./lapProgress";
 
 interface SpawnOptions {
   totalCars?: number;
@@ -104,7 +105,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
       ownerId: isBot ? `BOT${botIndex}` : `P${i + 1}`,
       isBot,
       cellId: cell.id,
-      lapCount: 0,
+      lapCount: lapCountAtSpawn(cell.forwardIndex),
       tire: 100,
       fuel: 100,
       setup: structuredClone(setup),

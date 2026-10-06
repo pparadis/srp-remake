@@ -53,6 +53,13 @@ describe("applyMove lap counting", () => {
     expect(car.lapCount).toBe(1);
   });
 
+  it("the first crossing of a car that started behind the line takes it from -1 to 0", () => {
+    const car = makeCar();
+    car.lapCount = -1;
+    applyMove(car, makeCell("Z28", 27), makeCell("Z01", 0), { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    expect(car.lapCount).toBe(0);
+  });
+
   it("does not increment lap without crossing", () => {
     const car = makeCar();
     const fromCell = makeCell("Z10", 10);
