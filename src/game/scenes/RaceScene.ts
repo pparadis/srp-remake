@@ -1250,6 +1250,7 @@ export class RaceScene extends Phaser.Scene {
       canControl: this.localCanControl(),
       cars: ordered.map((car) => this.hudCar(car)),
       boxedIn: [...this.validTargets.values()].some((t) => t.squeezePassed !== undefined),
+      pitExitBlocked: this.cellMap.get(this.activeCar.cellId)?.tags?.includes("PIT_EXIT") ?? false,
       hover:
         pos && target && this.hoverCell
           ? {

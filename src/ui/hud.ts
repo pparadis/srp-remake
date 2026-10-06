@@ -58,6 +58,8 @@ export interface HudSnapshot {
   hover: HudHover | null;
   /** The active car is boxed in: only squeeze targets exist. */
   boxedIn?: boolean;
+  /** With boxedIn: the car is stuck at the pit exit (squeezes out onto lane 1). */
+  pitExitBlocked?: boolean;
   /** Full cell debug, only while the F overlay is on. */
   debugText: string | null;
   log: string[];
@@ -197,6 +199,7 @@ export function bannerText(s: HudSnapshot): string {
   const active = s.cars.find((c) => c.carId === s.activeCarId);
   if (!active) return "";
   if (active.carId === s.myCarId && s.canControl && s.boxedIn) {
+    if (s.pitExitBlocked) return `Pit exit blocked - squeeze out (+${SQUEEZE_SURCHARGE_PER_CAR} points per car)`;
     return `Boxed in - squeeze past (+${SQUEEZE_SURCHARGE_PER_CAR} points per car)`;
   }
   if (active.carId === s.myCarId) return s.canControl ? "Your turn - drag your car" : "Waiting for the server";
