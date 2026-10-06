@@ -23,6 +23,7 @@ Project guide for Codex and other automation.
   - Lane-change moves may pass one target-lane blocker to merge into a gap, but cannot pass the next blocker.
   - Adjacent lanes do not block unless they are the target lane.
 - Occupied cells are non-traversable for movement target search (except the start cell).
+- Squeeze: only when a car has no normal target, `computeTargets` offers targets that pass cars (free target cell, main lanes, +2 move points per car passed); see `docs/movement-spec.md`.
 - Pit lane rules:
   - Entry only via `PIT_ENTRY` from lane 1 (inner race lane).
   - Pit entry allowed only at distance 1 (no multi-zone jump).

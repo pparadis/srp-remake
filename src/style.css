@@ -226,6 +226,11 @@ body[data-screen="race"] #statusLine {
   color: #eaffef;
 }
 
+#hud .hud-banner.is-boxed {
+  border-color: #ffb020;
+  color: #fff3d6;
+}
+
 #hud .hud-banner.is-finished {
   border-color: #ffe066;
   color: #ffe066;

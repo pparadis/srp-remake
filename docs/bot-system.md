@@ -81,7 +81,7 @@ Bots follow a simple heuristic per turn:
 1. Compute valid targets via `computeValidTargets(...)`.
 2. Discard targets disallowed by game state (pit boxes disallowed after service).
 3. Score remaining targets with a heuristic and choose the highest.
-4. If no valid targets, bot **skips**.
+4. If no valid targets, bot **skips**. A boxed-in car gets squeeze targets (extra move points per car passed, see `movement-spec.md`) from `computeTargets`, so it squeezes instead of skipping; scoring is unchanged and already uses `moveSpend`.
 
 ### Base heuristic score (Easy, and the starting point of Normal)
 
@@ -128,7 +128,7 @@ The base behaviours that still hold:
 
 - Bot selects the furthest target when resources are healthy.
 - Bot prefers pit box when resources are low.
-- Bot skips when no valid targets.
+- Bot skips only when there are no targets at all (no normal and no squeeze target).
 - Bot respects `disallowPitBoxTargets` after service.
 
 ## Benchmark
