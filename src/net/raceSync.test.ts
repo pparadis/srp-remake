@@ -48,6 +48,15 @@ describe("toEngineRace", () => {
     }
   });
 
+  it("carries a bot's level so the client engine state matches the server's", () => {
+    const race = toEngineRace({
+      ...snapshot,
+      cars: [car(1), car(2, { isBot: true, ownerId: "BOT2", playerId: null, botLevel: "hard" })]
+    });
+    expect(race.cars[0]?.botLevel).toBeUndefined();
+    expect(race.cars[1]?.botLevel).toBe("hard");
+  });
+
   it("derives the turn order from the cars and the active index from the active seat", () => {
     const race = toEngineRace(snapshot);
 

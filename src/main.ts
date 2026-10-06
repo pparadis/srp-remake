@@ -8,6 +8,7 @@ import {
   type PublicLobby,
   type AppliedTurnSummary,
   type BackendTurnAction,
+  type BotLevel,
   type TurnSource,
   type TurnTimerSec
 } from "./net/backendApi";
@@ -42,6 +43,8 @@ const lobbyHumans = el<HTMLSelectElement>("lobbyHumans");
 const lobbyHumansField = el("lobbyHumansField");
 const lobbyBots = el<HTMLSelectElement>("lobbyBots");
 const lobbyLaps = el<HTMLInputElement>("lobbyLaps");
+const lobbyBotLevel = el<HTMLSelectElement>("lobbyBotLevel");
+const lobbyBotLevelField = el("lobbyBotLevelField");
 const lobbyTurnTimer = el<HTMLSelectElement>("lobbyTurnTimer");
 const lobbyTurnTimerField = el("lobbyTurnTimerField");
 const connectionBanner = el("connectionBanner");
@@ -66,7 +69,11 @@ let backendBusy = false;
 let mode: "solo" | "online" = "solo";
 let soloRaceRequested = false;
 let raceOver = false;
-const soloSettings = { botCars: 3, raceLaps: 5 };
+const soloSettings: { botCars: number; raceLaps: number; botLevel: BotLevel } = {
+  botCars: 3,
+  raceLaps: 5,
+  botLevel: "normal"
+};
 const backendApiBaseUrl = resolveBackendBaseUrl();
 const backendWsBaseUrl = resolveBackendWsBaseUrl(backendApiBaseUrl);
 const backendClient = new BackendApiClient(backendApiBaseUrl);
@@ -241,14 +248,15 @@ function getPlayerName(): string {
 // What the game scene is built from: the lobby's settings online, the lobby card offline.
 function getComposition() {
   if (mode === "online" && lastLobby) {
-    const { totalCars, humanCars, botCars, raceLaps } = lastLobby.settings;
-    return { totalCars, humanCars, botCars, raceLaps };
+    const { totalCars, humanCars, botCars, raceLaps, botLevel } = lastLobby.settings;
+    return { totalCars, humanCars, botCars, raceLaps, botLevel };
   }
   return {
     totalCars: 1 + soloSettings.botCars,
     humanCars: 1,
     botCars: soloSettings.botCars,
-    raceLaps: soloSettings.raceLaps
+    raceLaps: soloSettings.raceLaps,
+    botLevel: soloSettings.botLevel
   };
 }
 
@@ -293,8 +301,12 @@ function renderLobby() {
   lobbyHumans.value = String(settings?.humanCars ?? 1);
   lobbyBots.value = String(settings?.botCars ?? soloSettings.botCars);
   lobbyLaps.value = String(settings?.raceLaps ?? soloSettings.raceLaps);
+  lobbyBotLevel.value = settings?.botLevel ?? soloSettings.botLevel;
+  // The select stays in the DOM; with no bots there is nothing for it to set.
+  lobbyBotLevelField.hidden = Number.parseInt(lobbyBots.value, 10) === 0;
   const editable = isHost && waiting && !backendBusy;
-  lobbyHumans.disabled = lobbyBots.disabled = lobbyLaps.disabled = lobbyTurnTimer.disabled = !editable;
+  lobbyHumans.disabled = lobbyBots.disabled = lobbyLaps.disabled = lobbyTurnTimer.disabled = lobbyBotLevel.disabled =
+    !editable;
   lobbyStartBtn.disabled = backendBusy || !isHost || !waiting;
   lobbyStartBtn.hidden = online && !isHost;
   const canPlayAgain = online && lobby?.status === "FINISHED" && lobby.terminationReason === "race_finished";
@@ -698,7 +710,8 @@ async function hostLobby() {
         humanCars: 2,
         botCars: 0,
         raceLaps: 5,
-        turnTimerSec: 60
+        turnTimerSec: 60,
+        botLevel: "normal"
       })
     );
     mode = "online";
@@ -795,9 +808,11 @@ async function changeSettings() {
   const botCars = Number.parseInt(lobbyBots.value, 10);
   const raceLaps = Math.max(1, Math.min(999, Number.parseInt(lobbyLaps.value, 10) || 1));
   const turnTimerSec = Number.parseInt(lobbyTurnTimer.value, 10) as TurnTimerSec;
+  const botLevel = lobbyBotLevel.value as BotLevel;
   if (mode === "solo") {
     soloSettings.botCars = botCars;
     soloSettings.raceLaps = raceLaps;
+    soloSettings.botLevel = botLevel;
     renderLobby();
     return;
   }
@@ -806,7 +821,7 @@ async function changeSettings() {
     const updated = await backendClient.updateSettings(
       backendSession.lobbyId,
       backendSession.playerToken,
-      { humanCars, botCars, raceLaps, turnTimerSec }
+      { humanCars, botCars, raceLaps, turnTimerSec, botLevel }
     );
     applyLobbyState(updated.lobby, "settings");
   } catch (error) {
@@ -940,7 +955,7 @@ homeName.addEventListener("change", () => {
   }
 });
 
-for (const input of [lobbyHumans, lobbyBots, lobbyLaps, lobbyTurnTimer]) {
+for (const input of [lobbyHumans, lobbyBots, lobbyLaps, lobbyTurnTimer, lobbyBotLevel]) {
   input.addEventListener("change", () => void changeSettings());
 }
 hudForceSkip.addEventListener("click", () => void forceSkip());

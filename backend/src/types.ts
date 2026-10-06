@@ -1,5 +1,5 @@
 import type { RaceAction, RaceState as EngineRaceState, RejectReason } from "../../src/game/race/raceEngine";
-import type { Car } from "../../src/game/types/car";
+import { BOT_LEVELS, type BotLevel, type Car } from "../../src/game/types/car";
 
 export const TURN_TIMER_CHOICES = [0, 30, 60, 120] as const;
 export type TurnTimerSec = (typeof TURN_TIMER_CHOICES)[number];
@@ -37,6 +37,9 @@ export interface ServerRace {
   turnDeadlineAt?: number;
 }
 
+export const BOT_LEVEL_CHOICES = BOT_LEVELS;
+export type { BotLevel };
+
 export interface LobbySettings {
   trackId: string;
   totalCars: number;
@@ -45,6 +48,8 @@ export interface LobbySettings {
   raceLaps: number;
   // Seconds a human seat has per turn before it is auto-played; 0 = no limit.
   turnTimerSec: TurnTimerSec;
+  // Difficulty of every bot in the race.
+  botLevel: BotLevel;
 }
 
 export interface LobbyPlayer {

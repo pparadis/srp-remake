@@ -1,13 +1,15 @@
 import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { RaceScene } from "./scenes/RaceScene";
-import { REG_BOT_CARS, REG_HUMAN_CARS, REG_RACE_LAPS, REG_TOTAL_CARS } from "./constants";
+import { REG_BOT_CARS, REG_BOT_LEVEL, REG_HUMAN_CARS, REG_RACE_LAPS, REG_TOTAL_CARS } from "./constants";
+import type { BotLevel } from "./types/car";
 
 export interface GameOptions {
   totalCars: number;
   humanCars: number;
   botCars: number;
   raceLaps: number;
+  botLevel?: BotLevel;
 }
 
 export function startGame(parent: HTMLElement, options: GameOptions) {
@@ -30,5 +32,6 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   game.registry.set(REG_HUMAN_CARS, options.humanCars);
   game.registry.set(REG_BOT_CARS, options.botCars);
   game.registry.set(REG_RACE_LAPS, options.raceLaps);
+  game.registry.set(REG_BOT_LEVEL, options.botLevel ?? "normal");
   return game;
 }

@@ -22,7 +22,7 @@ import type {
   PublicLobby,
   PublicLobbyPlayer
 } from "./types.js";
-import { TURN_TIMER_CHOICES } from "./types.js";
+import { BOT_LEVEL_CHOICES, TURN_TIMER_CHOICES } from "./types.js";
 
 const DEFAULT_SETTINGS: LobbySettings = {
   trackId: "oval16_3lanes",
@@ -30,7 +30,8 @@ const DEFAULT_SETTINGS: LobbySettings = {
   humanCars: 1,
   botCars: 3,
   raceLaps: 5,
-  turnTimerSec: 60
+  turnTimerSec: 60,
+  botLevel: "normal"
 };
 
 function clampInt(value: number, min: number, max: number): number {
@@ -64,7 +65,12 @@ function normalizeSettings(
   if (turnTimerSec === undefined) {
     throw new LobbyError(400, `turnTimerSec must be one of ${TURN_TIMER_CHOICES.join(", ")}.`);
   }
-  return { trackId, totalCars, humanCars, botCars, raceLaps, turnTimerSec };
+  const requestedLevel = input?.botLevel ?? base.botLevel;
+  const botLevel = BOT_LEVEL_CHOICES.find((choice) => choice === requestedLevel);
+  if (botLevel === undefined) {
+    throw new LobbyError(400, `botLevel must be one of ${BOT_LEVEL_CHOICES.join(", ")}.`);
+  }
+  return { trackId, totalCars, humanCars, botCars, raceLaps, turnTimerSec, botLevel };
 }
 
 function toPublicPlayer(player: LobbyPlayer): PublicLobbyPlayer {
@@ -180,7 +186,8 @@ export class LobbyStore {
       ctx,
       seats.map((seat) => ({
         isBot: seat.playerId === null,
-        ownerId: seat.playerId ?? `BOT${seat.seatIndex + 1}`
+        ownerId: seat.playerId ?? `BOT${seat.seatIndex + 1}`,
+        botLevel: lobby.settings.botLevel
       })),
       lobby.settings.raceLaps
     );
@@ -424,7 +431,7 @@ export class LobbyStore {
   }
 
   // What the shared bot heuristic (or the AFK autopilot) would play for the active car. Changes nothing.
-  decideBotTurn(lobbyId: string, policy: BotPolicy = "normal"): BotTurnDecision {
+  decideBotTurn(lobbyId: string, policy?: BotPolicy): BotTurnDecision {
     const lobby = this.getLobbyOrThrow(lobbyId);
     const ctx = getRaceContext(lobby.settings.trackId);
     if (!lobby.race || !ctx) {

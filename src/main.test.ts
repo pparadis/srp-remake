@@ -50,6 +50,11 @@ describe("main (solo flow)", () => {
     const laps = byId<HTMLInputElement>("lobbyLaps");
     laps.value = "2";
     laps.dispatchEvent(new Event("change"));
+    const level = byId<HTMLSelectElement>("lobbyBotLevel");
+    expect(level.value).toBe("normal");
+    expect(byId("lobbyBotLevelField").hidden).toBe(false);
+    level.value = "hard";
+    level.dispatchEvent(new Event("change"));
 
     byId("lobbyStartBtn").click();
     expect(window.location.pathname).toBe("/solo/race");
@@ -58,7 +63,8 @@ describe("main (solo flow)", () => {
         totalCars: 3,
         humanCars: 1,
         botCars: 2,
-        raceLaps: 2
+        raceLaps: 2,
+        botLevel: "hard"
       });
     });
 

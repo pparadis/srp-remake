@@ -1,5 +1,5 @@
 import type { RaceAction, RejectReason } from "../game/race/raceEngine";
-import type { Car } from "../game/types/car";
+import type { BotLevel, Car } from "../game/types/car";
 
 // What a client submits for its turn; identical to the race engine's action.
 export type BackendTurnAction = RaceAction;
@@ -15,6 +15,7 @@ export type TurnSource = "bot" | "timeout" | "force_skip";
 
 // Seconds a human seat has per turn before the server plays it (0 = no limit).
 export type TurnTimerSec = 0 | 30 | 60 | 120;
+export type { BotLevel };
 
 // The engine's Car plus who drives it, as the server reports it.
 export interface PublicRaceCar extends Car {
@@ -49,6 +50,7 @@ export interface PublicLobby {
     botCars: number;
     raceLaps: number;
     turnTimerSec: TurnTimerSec;
+    botLevel: BotLevel;
   };
   players: Array<{
     playerId: string;
