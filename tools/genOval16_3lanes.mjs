@@ -133,6 +133,8 @@ for (const z of pitZones) {
   if (z === 28) pitCell.tags.push("PIT_ENTRY");
   if (z === 2 || z === 3) pitCell.tags.push("PIT_BOX");
   if (z === 6) pitCell.tags.push("PIT_EXIT");
+  // The start/finish line extends across the pit lane: the pit cell under it is where a lap is credited.
+  if (z === 1) pitCell.tags.push("PIT_LINE");
 
   cells.push(pitCell);
 }

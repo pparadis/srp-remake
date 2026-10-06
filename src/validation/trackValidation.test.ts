@@ -13,7 +13,7 @@ function getCell(copy: TrackData, id: string) {
   return cell;
 }
 
-function removeTag(copy: TrackData, tag: "START_FINISH" | "PIT_ENTRY" | "PIT_BOX" | "PIT_EXIT") {
+function removeTag(copy: TrackData, tag: "START_FINISH" | "PIT_ENTRY" | "PIT_BOX" | "PIT_EXIT" | "PIT_LINE") {
   for (const cell of copy.cells) {
     if (!cell.tags) continue;
     cell.tags = cell.tags.filter((t) => t !== tag);
@@ -119,6 +119,28 @@ describe("trackValidation", () => {
         removeTag(copy, "PIT_EXIT");
       },
       expected: "expected 1 PIT_EXIT, got 0"
+    },
+    {
+      name: "missing pit line",
+      mutate: (copy: TrackData) => {
+        removeTag(copy, "PIT_LINE");
+      },
+      expected: "expected 1 PIT_LINE, got 0"
+    },
+    {
+      name: "pit line in a main lane",
+      mutate: (copy: TrackData) => {
+        getCell(copy, "Z01_L0_00").laneIndex = 1;
+      },
+      expected: "PIT_LINE must be in lane 0"
+    },
+    {
+      name: "pit line on the pit entry",
+      mutate: (copy: TrackData) => {
+        removeTag(copy, "PIT_LINE");
+        getCell(copy, "Z28_L0_00").tags = ["PIT_ENTRY", "PIT_LINE"];
+      },
+      expected: "PIT_LINE cannot be the PIT_ENTRY cell"
     },
     {
       name: "pit entry in wrong lane",

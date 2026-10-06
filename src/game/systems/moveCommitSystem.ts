@@ -10,20 +10,34 @@ function clamp01to100(value: number) {
   return value;
 }
 
+/**
+ * True when a move from `fromCell` to `targetCell` crosses the start line, which spans every lane.
+ * Main lanes: forwardIndex wraps. Pit lane: the move starts before the PIT_LINE cell and lands on or
+ * beyond it (pit forwardIndex rises along the pit lane, so a jump to a box over the line counts); the
+ * move from lane 1 onto the pit entry and the pit exit onto lane 1 never count.
+ */
+export function crossesStartLine(fromCell: TrackCell, targetCell: TrackCell, pitLineFwd: number | null): boolean {
+  if (fromCell.laneIndex !== PIT_LANE && targetCell.laneIndex !== PIT_LANE) {
+    return fromCell.forwardIndex > targetCell.forwardIndex;
+  }
+  return (
+    pitLineFwd !== null &&
+    fromCell.laneIndex === PIT_LANE &&
+    targetCell.laneIndex === PIT_LANE &&
+    fromCell.forwardIndex < pitLineFwd &&
+    targetCell.forwardIndex >= pitLineFwd
+  );
+}
+
 export function applyMove(
   car: Car,
   fromCell: TrackCell,
   targetCell: TrackCell,
   info: TargetInfo,
-  moveSpend: number
+  moveSpend: number,
+  pitLineFwd: number | null = null
 ) {
-  const crossesStart =
-    fromCell.laneIndex !== PIT_LANE &&
-    targetCell.laneIndex !== PIT_LANE &&
-    fromCell.forwardIndex > targetCell.forwardIndex;
-  if (crossesStart) {
-    car.lapCount = (car.lapCount ?? 0) + 1;
-  }
+  if (crossesStartLine(fromCell, targetCell, pitLineFwd)) car.lapCount = (car.lapCount ?? 0) + 1;
   car.cellId = targetCell.id;
   car.pitExitBoost = false;
   if (targetCell.laneIndex !== PIT_LANE) {

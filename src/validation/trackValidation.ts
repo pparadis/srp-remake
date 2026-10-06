@@ -82,6 +82,13 @@ export function validateTrack(track: TrackData): string[] {
   for (const c of pitEntry) {
     if (c.laneIndex !== PIT_LANE) errors.push(`PIT_ENTRY must be in lane ${PIT_LANE}: ${c.id}`);
   }
+  const pitLine = cells.filter((c) => (c.tags ?? []).includes("PIT_LINE"));
+  if (pitLine.length !== 1) errors.push(`expected 1 PIT_LINE, got ${pitLine.length}`);
+  for (const c of pitLine) {
+    if (c.laneIndex !== PIT_LANE) errors.push(`PIT_LINE must be in lane ${PIT_LANE}: ${c.id}`);
+    // A car must be able to come from a cell before the line, so it cannot be the entry itself.
+    if ((c.tags ?? []).includes("PIT_ENTRY")) errors.push(`PIT_LINE cannot be the PIT_ENTRY cell: ${c.id}`);
+  }
   for (const c of pitExit) {
     if (c.laneIndex !== PIT_LANE) errors.push(`PIT_EXIT must be in lane ${PIT_LANE}: ${c.id}`);
   }

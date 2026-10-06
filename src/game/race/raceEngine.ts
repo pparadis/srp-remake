@@ -8,7 +8,7 @@ import type { TrackCell, TrackData } from "../types/track";
 import { buildPlanContext, IDEAL_PIT_SETUP } from "../systems/botPlan";
 import { decideBotActionWithTrace, type BotDecisionTrace, type BotPolicy } from "../systems/botSystem";
 import { decideHardBotAction } from "./botHard";
-import { applyMove } from "../systems/moveCommitSystem";
+import { applyMove, crossesStartLine } from "../systems/moveCommitSystem";
 import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
 import { computeSqueezeTargets, computeValidTargets, type TargetInfo } from "../systems/movementSystem";
@@ -170,12 +170,14 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
     }
     if (action.type === "move") {
       if (check.isPitStop) return { ok: false, reason: "use_pit_action" };
-      applyMove(car, fromCell, targetCell, check.info, check.moveSpend);
+      applyMove(car, fromCell, targetCell, check.info, check.moveSpend, ctx.trackIndex.pitLineFwd);
       moveSpend = check.moveSpend;
       log.push(`Car ${car.carId} moved to ${targetCell.id}.`);
     } else {
       if (!check.isPitStop) return { ok: false, reason: "not_pit_box" };
       if (!isValidSetup(action.setup)) return { ok: false, reason: "invalid_setup" };
+      // A jump from the entry to a box can pass the pit line cell: that is a lap crossing too.
+      if (crossesStartLine(fromCell, targetCell, ctx.trackIndex.pitLineFwd)) car.lapCount = (car.lapCount ?? 0) + 1;
       applyPitStop(car, targetCell.id, structuredClone(action.setup));
       recordMove(car.moveCycle, check.moveSpend);
       moveSpend = check.moveSpend;
