@@ -32,8 +32,13 @@ Project guide for Codex and other automation.
 
 ## Lap Counting
 
-- `Car.lapCount` is the number of COMPLETED laps. It increments when `forwardIndex` wraps (from higher to lower),
-  i.e. when the car crosses the start line, on non‑pit lanes. No `START_FINISH` landing requirement.
+- `Car.lapCount` is the number of COMPLETED laps. It increments by exactly one when the car crosses the start line,
+  in ANY lane (the line spans the pit lane too, as in F1). No `START_FINISH` landing requirement.
+  - Main lanes: `forwardIndex` wraps (from higher to lower) between two non-pit cells.
+  - Pit lane: a move along the pit lane that starts before the `PIT_LINE` cell and lands on or beyond it
+    (`crossesStartLine` in `moveCommitSystem.ts`; the cell is `Z01_L0_00`, under `Z01_L1_00`). The step from lane 1
+    onto `PIT_ENTRY`, moves from `PIT_LINE` onward and the pit exit onto lane 1 never credit, so a stop credits one lap.
+  - A pit-lane crossing can be the race-finishing one (first car to `raceLaps` wins, in order of crossing).
 - Everyone covers the same distance from the start line. The front row starts on the line (`lapCount` 0, already in
   lap 1); cars in the rows behind the line (`forwardIndex` > 0) start at `-1`, and their first crossing (-1 to 0)
   only begins lap 1: silent (no toast, sound or feed line). `lapCountAtSpawn` in `src/game/systems/lapProgress.ts`
@@ -41,7 +46,8 @@ Project guide for Codex and other automation.
 - Display uses the lap in progress (`lapInProgress`, `hasStartedLap`, `hasFinishedRace` in `lapProgress.ts`): "Lap 1 / 5"
   for pole, "Lap 0 / 5" plus a hint behind the line, "Finished" after the last crossing. Never show a negative lap.
 - Standings rank by `lapCount`, then further along the lap (higher `forwardIndex`); the HUD gap is in cells from the line,
-  `+NL` only from a full lap.
+  `+NL` only from a full lap. Pit cells have their own `forwardIndex` scale, so ranking and gaps use the lane-1 cell of
+  the same zone (`trackFwd` in `trackIndex.ts`): the pit entry counts as 27 (before the line), `PIT_LINE` as 0.
 
 ## Race HUD
 

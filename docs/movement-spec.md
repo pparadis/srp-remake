@@ -86,9 +86,35 @@ Example: car on `Z06_L0_00`, another on `Z07_L1_00`. No normal target. `Z08_L1_0
 
 ## Laps
 
-Crossing the start line (a `forwardIndex` wrap on a non-pit lane, whatever the move distance) completes a lap. Cars
-behind the line at the start have `lapCount` -1, so their first crossing only starts lap 1. The race is won by the
-first car to reach `raceLaps` completed laps (see AGENTS.md "Lap Counting").
+Crossing the start line completes a lap, in any lane, whatever the move distance. Cars behind the line at the start
+have `lapCount` -1, so their first crossing only starts lap 1. The race is won by the first car to reach `raceLaps`
+completed laps (see AGENTS.md "Lap Counting").
+
+- Main lanes: a `forwardIndex` wrap between two non-pit cells.
+- Pit lane: the line crosses it at the cell tagged `PIT_LINE`. On `oval16_3lanes` the pit lane runs
+  `Z28_L0_00` (`PIT_ENTRY`, pit `forwardIndex` 0, before the line) -> `Z01_L0_00` (`PIT_LINE`, directly under the
+  `START_FINISH` cell `Z01_L1_00`) -> `Z02_L0_00`, `Z03_L0_00` (`PIT_BOX`) -> `Z04_L0_00`, `Z05_L0_00` -> `Z06_L0_00`
+  (`PIT_EXIT`) -> `Z07_L1_00` (lane 1, `forwardIndex` 6). A pit-lane move credits one lap when it starts at a cell
+  before `PIT_LINE` and lands on or beyond it (pit `forwardIndex` rises along the pit lane, so a jump to a box over
+  the line would count too; on this track only `Z28_L0_00 -> Z01_L0_00` can happen, as a box is only offered from
+  `Z01_L0_00`). Not credited: `Z27_L1_00 -> Z28_L0_00` (the entry itself is before the line), anything from
+  `Z01_L0_00` onward, and the pit exit onto lane 1 (landing on `forwardIndex` 6 is not a wrap). A whole stop
+  therefore credits exactly the lap an on-track car gets over the same stretch, and a stop only costs the lost
+  turn and the one-step pit lane.
+- A pit-lane crossing can finish the race: the car that completes `raceLaps` first wins, whichever lane it crossed in.
+- Ranking and gaps: pit cells carry their own `forwardIndex` scale, so they are ranked by the lane-1 cell of the same
+  zone (`trackFwd`): the entry (zone 28) stands beside lane-1 `forwardIndex` 27, `PIT_LINE` beside 0, the boxes beside
+  1 and 2. A car at the pit entry has not crossed yet and ranks behind one just past the line; once it lands on
+  `PIT_LINE` it ranks like a car that crossed on track.
+
+### Why: F1
+
+In F1 the Line extends across the pit lane: a car that crosses it in the pit lane completes the lap, and the
+classification is by number of complete laps, then by the order in which the cars crossed the Line (2026 Sporting
+Regulations, B2.5.5, as quoted by secondary sources). The reference case is the 1998 British Grand Prix at
+Silverstone: Schumacher took his stop-go penalty in the pit lane, crossed the Line there and the win stood. The game
+copies the lap rule only; there are no penalties. (In F1, late penalties are converted to race-time penalties so
+nothing is served after the line.)
 
 ## Notes
 

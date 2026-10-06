@@ -11,7 +11,7 @@
 - `pitAdvice(car, cell, plan)`: `no-need` (serviced, final lap, or the car can finish as it is), `ok`,
   `pit-soon` ("Pit this lap") or `pit-now` (the entry is within one move). It is built on `stopIsDue` from
   `botPlan.ts`, the Normal bot's own stop timing, so the chip and the bot agree (a unit test sweeps both).
-  It never advises a stop on the final lap: a lap crossed in the pit lane does not count.
+  It never advises a stop on the final lap (the pit lane is slow and the entry would have to be taken on the last lap).
 
 ## Race HUD additions
 
@@ -36,8 +36,9 @@
   every car drives the same distance. The grid is staggered: the front row sits on the line and is in lap 1 at once;
   cars in the rows behind show "Lap 0 / N" and "Cross the start line to begin lap 1" until their first crossing,
   which costs them the few cells to the line (a pole sitter really is a little ahead).
-- A lap driven through the pit lane does not count: you pass the line without credit, so a stop costs a lap of progress
-  (the pit advice and the bots plan for it).
+- The start line crosses the pit lane: a lap crossed there counts, as in F1, so a stop only costs the lost turn and the
+  slow one-step pit lane (about 40 cells; the pit advice and the bots plan for that). A pit-lane crossing can end the
+  race like any other.
 - Confetti is drawn with Phaser graphics (`Confetti.ts`) and removes itself after about 3.5 s.
   `__srp.freezeAnimations()` also stops it, for screenshots.
 - Sound (`src/ui/sound.ts`) is a WebAudio synth without asset files. It stays silent until the first click
