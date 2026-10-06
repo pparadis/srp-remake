@@ -3,7 +3,7 @@ import track from "../../../public/tracks/oval16_3lanes.json";
 import type { BotPolicy } from "../systems/botSystem";
 import type { TrackData } from "../types/track";
 import { playBenchRace, runBench } from "./botBench";
-import { createRaceContext } from "./raceEngine";
+import { applyAction, createRace, createRaceContext, decideBotAction, getActiveCar } from "./raceEngine";
 
 const ctx = createRaceContext(track as unknown as TrackData);
 
@@ -25,6 +25,25 @@ describe("bot levels benchmark", () => {
     expect(avg("hard")).toBeLessThan(avg("normal"));
     expect(avg("normal")).toBeLessThan(avg("easy"));
     expect(avg("easy")).toBeLessThan(avg("autopilot"));
+  });
+
+  it("pits in a 7-lap race (a stop keeps the lap) but not in a 6-lap one, never enters the pit on the final lap", () => {
+    const stops = (laps: number) => {
+      const state = createRace(ctx, Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `B${i}` })), laps);
+      let pits = 0;
+      for (let turn = 0; turn < laps * 400 && state.winnerCarId === null; turn += 1) {
+        const decision = decideBotAction(ctx, state, "normal");
+        if (decision.action.type === "pit") pits += 1;
+        // The entry is never taken on the final lap (the stop itself then happens in the next lap: the
+        // crossing at the pit line is what starts it).
+        const target = decision.action.type === "move" ? ctx.cellMap.get(decision.action.targetCellId) : undefined;
+        if (target?.tags?.includes("PIT_ENTRY")) expect(getActiveCar(state).lapCount).toBeLessThan(laps - 1);
+        applyAction(ctx, state, decision.action);
+      }
+      return pits;
+    };
+    expect(stops(6)).toBe(0);
+    expect(stops(7)).toBeGreaterThan(0);
   });
 
   it("is deterministic", () => {

@@ -3,7 +3,7 @@ import { MOVE_RATES, PIT_LANE } from "../constants";
 import type { Car, CarSetup } from "../types/car";
 import type { TrackCell } from "../types/track";
 import { setupFactors } from "./movementSystem";
-import type { TrackIndex } from "./trackIndex";
+import { trackFwd, type TrackIndex } from "./trackIndex";
 
 // Wings 0 and 32 psi everywhere cost nothing extra, and in the current cost model the hard
 // compound wears less than the soft one, so this is the best setup for every race length.
@@ -14,8 +14,9 @@ export const IDEAL_PIT_SETUP: CarSetup = {
   wingRearDeg: 0
 };
 
-// A pit stop is worth about this many cells of racing besides the lap it costs (a lap crossed in
-// the pit lane does not count): the entry, the box, the lost turn and the exit use ~4 moves.
+// A pit stop costs about this many cells of racing: the lost turn plus the slow single-step pit
+// lane (entry, box, exit use several moves that each cover 1-5 cells instead of ~8). The lap is
+// not lost: the start line crosses the pit lane, so a lap crossed there counts.
 export const PIT_LANE_CELLS = 40;
 // With an empty tire or tank a car moves 4 instead of ~8 per turn, so every cell it still has to
 // cover that way costs a whole cell of lost time.
@@ -25,6 +26,8 @@ const SAFETY = 0.95;
 export interface BotPlanContext {
   raceLaps: number;
   spineLen: number;
+  // Lane-1 forwardIndex per zone: pit cells are ranked by the main-lane cell beside them.
+  lane1FwdByZone: Map<number, number>;
   // forwardIndex of the lane-1 cell that leads into PIT_ENTRY (the only place a stop can start).
   feederFwd: number | null;
 }
@@ -44,7 +47,7 @@ export function buildPlanContext(trackIndex: TrackIndex, raceLaps: number): BotP
     }
     feederCache.set(trackIndex, feederFwd);
   }
-  return { raceLaps, spineLen: trackIndex.spineLen, feederFwd };
+  return { raceLaps, spineLen: trackIndex.spineLen, lane1FwdByZone: trackIndex.lane1FwdByZone, feederFwd };
 }
 
 export function wearPerCell(setup: CarSetup): { tire: number; fuel: number } {
@@ -54,7 +57,7 @@ export function wearPerCell(setup: CarSetup): { tire: number; fuel: number } {
 }
 
 export function progressOf(car: Car, cell: TrackCell, plan: BotPlanContext): number {
-  return (car.lapCount ?? 0) * plan.spineLen + cell.forwardIndex;
+  return (car.lapCount ?? 0) * plan.spineLen + trackFwd(cell, plan.lane1FwdByZone);
 }
 
 export function isFinalLap(car: Car, plan: BotPlanContext): boolean {
@@ -87,7 +90,7 @@ export function cellsToFeeder(cell: TrackCell, plan: BotPlanContext): number | n
 }
 
 // True when this is the last pass at the pit entry that still beats crawling to the flag:
-// stopping costs a lap of progress plus the pit moves, so only long races pay for it.
+// stopping costs the pit moves (PIT_LANE_CELLS), so only races long enough to need fresh tires pay for it.
 export function stopIsDue(car: Car, cell: TrackCell, plan: BotPlanContext): boolean {
   if (isFinalLap(car, plan) || car.pitServiced) return false;
   const toFeeder = cellsToFeeder(cell, plan);
@@ -95,9 +98,8 @@ export function stopIsDue(car: Car, cell: TrackCell, plan: BotPlanContext): bool
   const { remaining, untilEmpty, shortfall } = projectShortfall(car, cell, plan);
   if (shortfall === 0) return false;
   const fresh = cellsUntilEmpty(100, 100, IDEAL_PIT_SETUP);
-  // After a stop the crossing at the line is lost, so a whole lap is still to run.
-  const afterStop = Math.max(0, remaining - toFeeder + plan.spineLen - fresh);
-  const gain = (shortfall - afterStop) * EMPTY_SLOWDOWN - plan.spineLen - PIT_LANE_CELLS;
+  const afterStop = Math.max(0, remaining - toFeeder - fresh);
+  const gain = (shortfall - afterStop) * EMPTY_SLOWDOWN - PIT_LANE_CELLS;
   if (gain <= 0) return false;
   // Pit as late as possible, but before the next pass would find the car already empty.
   return untilEmpty - toFeeder < plan.spineLen + 10;

@@ -290,7 +290,7 @@ describe("normal policy scoring", () => {
     const outer = { ...makeCell("A", 3), forwardIndex: 7 };
     const inner = { ...makeCell("B", 1), forwardIndex: 8 };
     const targets = makeTargets([["A", t(9)], ["B", t(8)]]);
-    const plan = { raceLaps: 5, spineLen: 28, feederFwd: 26 };
+    const plan = { raceLaps: 5, spineLen: 28, lane1FwdByZone: new Map(), feederFwd: 26 };
     const map = new Map([from, outer, inner].map((c) => [c.id, c]));
     expect(evaluateNormalTargets(targets, makeCar(), map, plan).selectedCellId).toBe("B");
     // Without the plan it only knows distance.

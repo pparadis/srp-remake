@@ -36,8 +36,8 @@ export function cellsToPitEntry(cell: TrackCell, plan: BotPlanContext): number |
 
 /**
  * ok: no stop needed yet. pit-soon: this is the last lap that still passes the pit entry in time.
- * pit-now: the entry is within one move. no-need: already serviced, last lap (a lap crossed in the
- * pit lane does not count) or the car can finish on what it has.
+ * pit-now: the entry is within one move. no-need: already serviced, last lap (the entry is never taken
+ * then) or the car can finish on what it has.
  */
 export function pitAdvice(car: Car, cell: TrackCell, plan: BotPlanContext): PitAdvice {
   if (car.pitServiced || isFinalLap(car, plan)) return "no-need";
