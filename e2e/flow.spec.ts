@@ -106,8 +106,12 @@ test.describe("solo", () => {
       cars: window.__srp!.state().cars.map((c) => c.lapCount),
       laps: window.__srp!.status().raceLaps
     }));
-    await expect(page.getByTestId("hud-lap")).toHaveText("Lap 0 / 2");
-    expect(snapshot).toEqual({ cars: [0, 0, 0, 0], laps: 2 });
+    // pole car is already in lap 1; the car in the last grid row is behind the line (lap 0, -1 done)
+    await expect(page.getByTestId("hud-lap")).toHaveText("Lap 1 / 2");
+    await expect(page.getByTestId("hud-lap-hint")).toBeHidden();
+    expect(snapshot).toEqual({ cars: [0, 0, 0, -1], laps: 2 });
+    await expect(page.locator('[data-testid="hud-standing-row"][data-car-id="4"]')).toContainText("0/2");
+    await expect(page.locator('[data-testid="hud-standing-row"][data-car-id="1"]')).toContainText("1/2");
     expect(errors).toEqual([]);
   });
 

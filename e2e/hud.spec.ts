@@ -21,7 +21,7 @@ const tid = (page: import("@playwright/test").Page, id: string) => page.getByTes
 test("HUD numbers follow the game state after a move", async ({ page }) => {
   const errors = collectErrors(page);
   await quickRace(page, { bots: 2, laps: 2 });
-  await expect(tid(page, "hud-lap")).toHaveText("Lap 0 / 2");
+  await expect(tid(page, "hud-lap")).toHaveText("Lap 1 / 2");
   await expect(tid(page, "hud-banner")).toHaveText("Your turn - drag your car");
   await expect(tid(page, "hud-pip")).toHaveCount(5);
 
@@ -31,7 +31,7 @@ test("HUD numbers follow the game state after a move", async ({ page }) => {
     const c = window.__srp!.state().cars.find((car) => car.carId === 1)!;
     return { lap: c.lapCount, tire: Math.round(c.tire), fuel: Math.round(c.fuel) };
   });
-  await expect(tid(page, "hud-lap")).toHaveText(`Lap ${mine.lap} / 2`);
+  await expect(tid(page, "hud-lap")).toHaveText(`Lap ${mine.lap + 1} / 2`);
   await expect(tid(page, "hud-tire")).toHaveText(`Tire ${mine.tire}%`);
   await expect(tid(page, "hud-fuel")).toHaveText(`Fuel ${mine.fuel}%`);
   expect(mine.tire).toBeLessThan(100);
@@ -68,7 +68,7 @@ test("lap and final-lap toasts appear for my car, not on the first render", asyn
   await expect(tid(page, "hud-toast")).toBeHidden();
   const lapsDone = () => page.evaluate(() => window.__srp!.state().cars[0]!.lapCount);
   for (const [lap, text] of [
-    [1, "Lap 1 / 3 done"],
+    [1, "Lap 2 / 3"],
     [2, "Final lap"]
   ] as const) {
     for (let turn = 0; turn < 20 && (await lapsDone()) < lap; turn += 1) await playMyTurn(page);
@@ -145,7 +145,7 @@ test("results overlay shows the winner and the final standings", async ({ page }
   const rows = tid(page, "results-row");
   await expect(rows).toHaveCount(3);
   await expect(rows.first()).toHaveAttribute("data-car-id", String(winner));
-  await expect(rows.first()).toContainText("1/1");
+  await expect(rows.first()).toContainText("Fin");
   expect(errors).toEqual([]);
 });
 

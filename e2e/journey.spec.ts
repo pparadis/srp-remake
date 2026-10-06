@@ -41,7 +41,7 @@ test("solo: a full 1-lap game against 2 Hard bots, then race again", async ({ pa
   await expect(page.getByTestId("results")).toBeHidden();
   await expect(page.getByTestId("lobby-bot-level")).toHaveValue("hard"); // the choice is kept
 
-  // start again: a fresh race, nobody has a lap yet
+  // start again: a fresh race, nobody has completed a lap
   await page.getByTestId("lobby-start").click();
   await waitForRace(page);
   const laps = await page.evaluate(() => window.__srp!.state().cars.map((c) => c.lapCount));
