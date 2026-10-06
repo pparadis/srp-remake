@@ -23,7 +23,7 @@ Design and current status of online multiplayer with a direct lobby link. The "S
 2. Client requests a new lobby and receives a link like `/lobby/:lobbyId`.
 3. Host shares the link.
 4. Other players open link and join lobby.
-5. Host sets options (`track`, `totalCars`, `humanCars`, `botCars`, `raceLaps`, `turnTimerSec`).
+5. Host sets options (`track`, `totalCars`, `humanCars`, `botCars`, `raceLaps`, `turnTimerSec`, `botLevel`).
 6. Host starts race.
 7. All clients transition into the same race and receive synchronized state updates.
 
@@ -72,6 +72,7 @@ type Lobby = {
     botCars: number;
     raceLaps: number;
     turnTimerSec: 0 | 30 | 60 | 120; // 0 = no limit, default 60
+    botLevel: "easy" | "normal" | "hard"; // one level for every bot in the race, default "normal"
   };
   players: Array<{
     playerId: string;
@@ -302,6 +303,9 @@ Built:
   restores the seat; the socket reconnects with backoff and rehydrates.
 - Turn timer (`turnTimerSec`, host-selectable), autopilot auto-play on timeout, host force-skip route and
   button, `turnRemainingMs` countdown in the HUD, `source` on `turn.applied`.
+- Bot level (`botLevel`, host-selectable, shown while there are bots): `createRace` stamps it on every bot car
+  (`Car.botLevel`), so the shared `decideBotAction` plays each bot at that level; an unknown value is a `400`.
+  Hard bots yield to the event loop between turns (`setImmediate`). The timeout and force-skip keep the autopilot.
 - Host grace period (`HOST_GRACE_SECONDS`) instead of ending the lobby on the first host socket close.
 - Per-player socket tracking.
 - Client UX: connection banner (reconnecting, host away, waking the server), background `/health` wake-up and

@@ -61,6 +61,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
         carId: car.carId,
         cellId: car.cellId,
         isBot: car.isBot,
+        botLevel: car.botLevel,
         lapCount: car.lapCount ?? 0,
         state: car.state,
         tire: car.tire,

@@ -43,7 +43,7 @@ Project guide for Codex and other automation.
 ## Online Sessions
 
 - Turn timer: lobby setting `turnTimerSec` (0|30|60|120, default 60). On expiry the server plays the stuck
-  human's turn with the `"autopilot"` bot policy (`src/game/systems/botSystem.ts`, deliberately mediocre); the
+  human's turn with the `"autopilot"` bot policy (`src/game/systems/botSystem.ts`, deliberately mediocre; it is also the weakest rung of the benchmark); the
   host can force it with `POST /lobbies/:id/force-skip`. A plain skip is illegal while moves exist.
 - A new lobby setting must be threaded through every site: `backend/src/types.ts`, the zod patch schema AND
   `toSettingsPatch` in `server.ts`, `DEFAULT_SETTINGS` + `normalizeSettings` in `lobbyStore.ts`, the client type
@@ -52,6 +52,16 @@ Project guide for Codex and other automation.
 - Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).
   A reused local backend with real clocks breaks `e2e/afk.spec.ts`: use `E2E_BACKEND_PORT`.
+
+## Bots
+
+- Levels (`Car.botLevel`, lobby/solo setting `botLevel`: easy | normal | hard, default normal) plus the server's
+  AFK `"autopilot"`; `decideBotAction(ctx, state, policy?)` reads the active car's level when no policy is passed.
+  Details and benchmark numbers: `docs/bot-system.md`.
+- The engine is deterministic: no `Math.random` in `src/game` or the backend (Easy's noise is seeded by car state).
+- Benchmark: `npx tsx tools/botBench.ts [--laps 5,8,12] [--lineup hard,normal,easy,autopilot]`; the ordering
+  Hard < Normal < Easy < Autopilot (average finishing position) is asserted by `src/game/race/botLevels.test.ts`.
+  Run it after touching `botSystem.ts`, `botPlan.ts` or `botHard.ts`.
 
 ## Debugging Tools
 

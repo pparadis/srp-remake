@@ -1,6 +1,8 @@
-# Bot System Spec (v0)
+# Bot System
 
-This document defines a **basic heuristic bot** system for the current turn-based race prototype.
+Bots for the turn-based race: three player-selectable levels (Easy, Normal, Hard) and the server's AFK
+"autopilot". `decideBotAction(ctx, state, policy?)` in `src/game/race/raceEngine.ts` is the one entry point; it plays
+the active car at `policy`, or at the car's own `botLevel` (default Normal) when none is passed.
 
 ## Goals
 
@@ -8,10 +10,9 @@ This document defines a **basic heuristic bot** system for the current turn-base
 - Keep the bot logic deterministic and easy to test.
 - Allow bots to fill empty slots or run in a dedicated bot mode.
 
-## Non-Goals (v0)
+## Non-Goals
 
-- Advanced racing strategy (blocking, drafting).
-- Long-term optimization or learning.
+- Learning, and search deeper than one round.
 - UI parity with player drag controls.
 
 ## Modes
@@ -24,7 +25,56 @@ This document defines a **basic heuristic bot** system for the current turn-base
 - Bots **resolve moves instantly** (no drag simulation).
 - Resolution uses the same movement system and validation as players.
 
-## Bot Decision Model
+## Levels
+
+One level applies to every bot in a race: lobby/solo setting `botLevel` (`easy | normal | hard`, default `normal`),
+stamped on each bot car as `Car.botLevel` by `createRace`. Humans have none. Timeouts and the host's force-skip
+pass `"autopilot"` explicitly.
+
+| Level     | What it does                                                                                                                                                                                                                                                               |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Autopilot | AFK stand-in: the non-pit target closest to the median distance, current lane preferred, never pits. Deliberately mediocre; the weakest rung of the benchmark.                                                                                                             |
+| Easy      | The base score below with seeded noise: picks the best, 2nd or 3rd target (50/30/20 %) using a PRNG (FNV-1a + mulberry32) seeded by car id, position, lap, move cycle and resources, so it is deterministic. Wants a pit box only at 10 % (threshold 10), keeps its setup. |
+| Normal    | The base score, but progress is the `forwardIndex` gain (outer lanes have cells that share an index, so cells walked over-count), plus the plan below.                                                                                                                     |
+| Hard      | One round of lookahead with an opponent model on top of Normal, below.                                                                                                                                                                                                     |
+
+### Normal: budget, wear and pit plan (`botPlan.ts`, `evaluateNormalTargets`)
+
+- **Move cycle** (40 points per 5 moves): a spend that leaves budget no later move can use (more than 9 per
+  remaining move) is penalised 10 points per wasted cell, and a spend above the even share of the remaining
+  budget a little (2 points per point of share). Measured: front-loading is already time-optimal (the cycle total
+  is fixed, and a finish is a threshold crossed mid-cycle), so the even-share term is only a tie-break; weights of
+  6 or more made Normal slower, 0 to 3 are equivalent.
+- **Worth of wear**: a tire or tank that will not last to the flag is worth the crawl it saves (an empty car moves
+  4 instead of ~8, so every cell crawled costs a cell of time). Only a move's cost above the average wear per
+  cell counts (rounding and lane factors); the average itself is paid for any progress.
+- **Pit stop**: a lap crossed in the pit lane does not count, and a stop takes about 8 moves, so it costs roughly
+  a lap plus 40 cells. `stopIsDue` compares that with the crawl it saves and stops on the last pass at the entry
+  that still beats crawling; it only pays in long races (about 9+ laps from fresh soft tires, solo). The entry is
+  reachable only from lane 1 at one cell (the "feeder" cell, `forwardIndex` 26 on `oval16_3lanes`), so a due stop
+  drifts to lane 1 and lands exactly on it; in the pit lane it takes a box.
+- **Setup at a stop**: hard compound, 32 psi, wings 0. In the current cost model wings and off-32 pressure only
+  add wear and the hard compound wears less than the soft one, so this is best for every race length.
+- **Final lap**: never enters the pit lane (the line would be crossed there).
+
+### Hard: lookahead with an opponent model (`botHard.ts`)
+
+For the top 8 candidates by the Normal score: `structuredClone` the race, apply the candidate with `applyAction`,
+play every other car with the Normal policy until it is the Hard car's turn again, and score the position
+(cells of progress by laps and `forwardIndex`):
+
+```
+value = progress(me) - 0.3 * mean(progress(rivals)) + 0.8 * best forward gain at my next turn
+        - crawl cost (unfinished tires/fuel; a stop under way counts its fresh resources)
+        + 0.1 * (Normal score - 10 * gain)      // budget cycle, wear worth, pit plan
+```
+
+A win is worth +1e6, a rival's win -1e6. The lookahead sees what the greedy score cannot: a move that ends right
+behind a blocker with no gap, rivals that get capped by where it stands, and the pit stop's payoff. Cost: about
+1.5 ms per decision with 4 cars, 3 ms with 8, 4.5 ms with 11. The server plays Hard bots with a `setImmediate`
+yield between turns.
+
+## Bot Decision Model (base)
 
 Bots follow a simple heuristic per turn:
 
@@ -33,7 +83,7 @@ Bots follow a simple heuristic per turn:
 3. Score remaining targets with a heuristic and choose the highest.
 4. If no valid targets, bot **skips**.
 
-### Heuristic Score (v0)
+### Base heuristic score (Easy, and the starting point of Normal)
 
 Each candidate target receives a score:
 
@@ -72,17 +122,52 @@ if isPitTrigger:
 
 ## Testing
 
-Add unit tests for:
+Tests: `botSystem.test.ts` (scoring per level), `botPlan.test.ts` (plan maths), `raceEngine.test.ts` (levels,
+pit planning), `botHard.test.ts` (a position where lookahead beats greedy), `botLevels.test.ts` (benchmark).
+The base behaviours that still hold:
 
 - Bot selects the furthest target when resources are healthy.
 - Bot prefers pit box when resources are low.
 - Bot skips when no valid targets.
 - Bot respects `disallowPitBoxTargets` after service.
 
+## Benchmark
+
+`npx tsx tools/botBench.ts [--laps 5,8,12] [--lineup hard,normal,easy,autopilot]` plays deterministic headless races
+(`src/game/race/botBench.ts`; no randomness anywhere). Every rotation of the line-up is played on every lap count,
+so each policy gets each grid slot (the rear row starts behind the line and gets its first lap after one cell, the
+cars alternate soft and hard tires). Cars play until all have crossed the line; the crossing order is the finishing
+order. Lower average finish is better.
+
+`src/game/race/botLevels.test.ts` runs the 12-race set (4 rotations x 5/8/12 laps) and asserts
+Hard < Normal < Easy < Autopilot plus Hard's time budget. Numbers from this version:
+
+| Run                                         | Policy        | Win rate     | Avg finish | Avg moves to finish | ms / decision |
+| ------------------------------------------- | ------------- | ------------ | ---------- | ------------------- | ------------- |
+| 12 races (test set), 4 cars                 | Hard          | 58 %         | 1.42       | 35.4                | 1.7           |
+|                                             | Normal        | 25 %         | 2.00       | 35.7                | 0.03          |
+|                                             | Easy          | 17 %         | 2.58       | 44.3                | 0.04          |
+|                                             | Autopilot     | 0 %          | 4.00       | 67.2                | 0.04          |
+| 56 races, 4 cars, 3-20 laps                 | Hard          | 59 %         | 1.45       | 43.8                | 1.3           |
+|                                             | Normal        | 29 %         | 1.88       | 44.8                | 0.03          |
+|                                             | Easy          | 13 %         | 2.68       | 58.2                | 0.03          |
+|                                             | Autopilot     | 0 %          | 4.00       | 87.8                | 0.02          |
+| 56 races, 1 Hard vs 3 Normal                | Hard          | 30 %         | 2.23       | 42.8                | 1.3           |
+|                                             | Normal (each) | 23 %         | 2.59       | 44.0                | 0.02          |
+| 24 races, 8 cars (2 per policy), 3/5/8 laps | Hard          | 29 % per car | 2.92       | 19.7                | 3.0           |
+|                                             | Normal        | 17 %         | 3.38       | 20.4                | 0.03          |
+|                                             | Easy          | 4 %          | 4.21       | 21.9                | 0.05          |
+|                                             | Autopilot     | 0 %          | 7.50       | 35.2                | 0.04          |
+
+Other lap sets (5,8,12 / 4,7,10 / 3,6,9 / 5,6,7 / 6,8,10 / 4,5,9) all keep the ordering. How much better Hard can be
+is bounded by the game: a lone Normal car is already near the budget limit (40 per cycle), so the headroom is
+traffic, the pit stop and resource use, a few percent of the race; that shows as about 1 move in 45, and as a
+clear rank edge because finishing order is decided by small gaps.
+
 ## Future Improvements
 
-- Lookahead for blocking or pit timing (see `docs/bot-lookahead-spec.md`).
-- Per-track strategy tuning.
+- Per-track tuning of the pit-stop cost (`PIT_LANE_CELLS` in `botPlan.ts`).
+- A second round of lookahead (the 5 ms budget leaves some room; 8-11 car races are the limit).
 - Different bot personalities (aggressive, conservative).
 
 ## Implementation Checklist

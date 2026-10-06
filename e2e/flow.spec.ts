@@ -149,6 +149,15 @@ test.describe("online", () => {
     await setLobbySettings(host, { laps: 3 });
     await expect(guest.getByTestId("lobby-laps")).toHaveValue("3");
 
+    // bot level: shown once there are bots, host-only, and broadcast like the other settings
+    await expect(host.getByTestId("lobby-bot-level")).toBeHidden();
+    await setLobbySettings(host, { bots: 1 });
+    await expect(guest.getByTestId("lobby-bot-level")).toBeVisible();
+    await expect(guest.getByTestId("lobby-bot-level")).toBeDisabled();
+    await expect(guest.getByTestId("lobby-bot-level")).toHaveValue("normal");
+    await setLobbySettings(host, { botLevel: "hard" });
+    await expect(guest.getByTestId("lobby-bot-level")).toHaveValue("hard");
+
     await startRace(host);
     await waitForRace(guest);
     await expect(host).toHaveURL(/\/lobby\/[^/]+\/race$/);
