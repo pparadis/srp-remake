@@ -10,7 +10,7 @@ import { decideHardBotAction } from "./botHard";
 import { applyMove } from "../systems/moveCommitSystem";
 import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
-import { computeValidTargets, type TargetInfo } from "../systems/movementSystem";
+import { computeSqueezeTargets, computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { advancePitPenalty, applyPitStop } from "../systems/pitSystem";
 import { spawnCars } from "../systems/spawnSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
@@ -99,14 +99,17 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
     car.tire === 0 || car.fuel === 0 ? MOVE_BUDGET.zeroResourceMax : MOVE_BUDGET.baseMax;
   const maxSteps = Math.min(baseMaxSteps, Math.max(0, getRemainingBudget(car.moveCycle)));
   const tireRate = car.setup.compound === "soft" ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
-  return computeValidTargets(
+  const costs = { tireRate, fuelRate: MOVE_RATES.fuel, setup: car.setup };
+  const normal = computeValidTargets(
     ctx.trackIndex,
     car.cellId,
     occupied,
     maxSteps,
     { allowPitExitSkip: car.pitExitBoost, disallowPitBoxTargets: car.pitServiced },
-    { tireRate, fuelRate: MOVE_RATES.fuel, setup: car.setup }
+    costs
   );
+  if (normal.size > 0 || car.state !== "ACTIVE") return normal;
+  return computeSqueezeTargets(ctx.trackIndex, car.cellId, occupied, maxSteps, costs);
 }
 
 export function isValidSetup(setup: CarSetup): boolean {

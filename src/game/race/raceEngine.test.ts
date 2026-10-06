@@ -389,3 +389,52 @@ describe("decideBotAction autopilot policy", () => {
     }
   });
 });
+
+describe("squeeze (boxed in)", () => {
+  // Car 1 in the middle lane, blocker ahead in its lane and both neighbouring-lane cells ahead taken.
+  function boxedRace(level?: BotLevel) {
+    const state = newRace(5, [
+      { isBot: true, ownerId: "B1", botLevel: level },
+      { isBot: true, ownerId: "B2" },
+      { isBot: true, ownerId: "B3" },
+      { isBot: true, ownerId: "B4" }
+    ]);
+    ["Z05_L2_00", "Z06_L2_00", "Z06_L1_00", "Z06_L3_00"].forEach((id, i) => {
+      state.cars[i]!.cellId = id;
+    });
+    return state;
+  }
+
+  it("offers squeeze targets instead of an empty map and rejects a skip", () => {
+    const state = boxedRace();
+    const targets = computeTargets(ctx, state, getActiveCar(state));
+    expect(targets.size).toBeGreaterThan(0);
+    for (const info of targets.values()) expect(info.squeezePassed).toBeGreaterThanOrEqual(1);
+    expect(applyAction(ctx, state, { type: "skip" })).toEqual({ ok: false, reason: "moves_available" });
+  });
+
+  it("accepts a skip when not even a squeeze fits the budget", () => {
+    const state = boxedRace();
+    getActiveCar(state).moveCycle.spent = [39, 0, 0, 0, 0];
+    getActiveCar(state).moveCycle.index = 1;
+    expect(computeTargets(ctx, state, getActiveCar(state)).size).toBe(0);
+    expect(applyAction(ctx, state, { type: "skip" }).ok).toBe(true);
+  });
+
+  it("applies a squeeze move with the surcharged spend and advances the turn", () => {
+    const state = boxedRace();
+    const car = getActiveCar(state);
+    const result = applyAction(ctx, state, { type: "move", targetCellId: "Z07_L2_00" });
+    expect(result).toMatchObject({ ok: true, moveSpend: 4 });
+    expect(car.cellId).toBe("Z07_L2_00");
+    expect(car.moveCycle.spent[0]).toBe(4);
+    expect(getActiveCar(state).carId).toBe(2);
+  });
+
+  it.each(["easy", "normal", "hard", "autopilot"] as const)("%s bot squeezes instead of skipping", (level) => {
+    const state = boxedRace();
+    const decision = decideBotAction(ctx, state, level);
+    expect(decision.action.type).toBe("move");
+    expect(applyAction(ctx, state, decision.action).ok).toBe(true);
+  });
+});

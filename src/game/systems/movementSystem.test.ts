@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeValidTargets } from "./movementSystem";
+import { computeSqueezeTargets, computeValidTargets } from "./movementSystem";
 import { buildTrackIndex } from "./trackIndex";
 import type { TrackData } from "../types/track";
 import track from "../../../public/tracks/oval16_3lanes.json";
@@ -391,5 +391,56 @@ describe("computeValidTargets", () => {
     expect(middle.tireCost).toBeGreaterThan(outer.tireCost);
     expect(inner.fuelCost).toBeLessThan(middle.fuelCost);
     expect(middle.fuelCost).toBeLessThan(outer.fuelCost);
+  });
+});
+
+describe("computeSqueezeTargets (boxed in)", () => {
+  const index = buildTrackIndex(track as unknown as TrackData);
+  const costs = {
+    tireRate: 0.5,
+    fuelRate: 0.45,
+    setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 }
+  };
+  const START = "Z05_L2_00";
+  // Blocker ahead in the own lane plus both neighbouring-lane cells ahead.
+  const BOXED = new Set([START, "Z06_L2_00", "Z06_L1_00", "Z06_L3_00"]);
+  const normal = (occ: Set<string>, max = 9) => computeValidTargets(index, START, occ, max, {}, costs);
+  const squeeze = (occ: Set<string>, max = 9) => computeSqueezeTargets(index, START, occ, max, costs);
+
+  it("has no normal targets but offers squeezes with the surcharge", () => {
+    expect(normal(BOXED).size).toBe(0);
+    const t = squeeze(BOXED);
+    expect(t.size).toBeGreaterThan(0);
+    // Same lane, 2 ahead: passes 1 car (2 + 2). Lane 1, 2 ahead: passes the own-lane and lane-1 blockers.
+    expect(t.get("Z07_L2_00")).toMatchObject({ distance: 2, moveSpend: 4, squeezePassed: 1 });
+    expect(t.get("Z07_L1_00")).toMatchObject({ distance: 3, moveSpend: 3 + 4, squeezePassed: 2 });
+    // Beyond the blockers nobody is passed twice by the same lane (counted once).
+    expect(t.get("Z08_L2_00")).toMatchObject({ moveSpend: 3 + 2, squeezePassed: 1 });
+  });
+
+  it("is limited by the remaining budget", () => {
+    expect(squeeze(BOXED, 4).has("Z07_L2_00")).toBe(true);
+    expect(squeeze(BOXED, 4).has("Z07_L1_00")).toBe(false);
+    expect(squeeze(BOXED, 4).has("Z08_L2_00")).toBe(false);
+    expect(squeeze(BOXED, 3).size).toBe(0);
+  });
+
+  it("is not needed when a normal target exists (only partly blocked)", () => {
+    const partly = new Set([START, "Z06_L2_00", "Z06_L1_00"]);
+    expect(normal(partly).size).toBeGreaterThan(0);
+  });
+
+  it("never lands on a car, in the pit lane, backwards or sideways, and always passes a car", () => {
+    const t = squeeze(BOXED);
+    const start = index.cellMap.get(START)!;
+    for (const [id, info] of t) {
+      const cell = index.cellMap.get(id)!;
+      expect(BOXED.has(id)).toBe(false);
+      expect(cell.laneIndex).not.toBe(0);
+      expect(Math.abs(cell.laneIndex - start.laneIndex)).toBeLessThanOrEqual(1);
+      expect((cell.forwardIndex - start.forwardIndex + index.spineLen) % index.spineLen).toBeGreaterThan(0);
+      expect(info.squeezePassed).toBeGreaterThanOrEqual(1);
+      expect(info.moveSpend).toBeLessThanOrEqual(9);
+    }
   });
 });
