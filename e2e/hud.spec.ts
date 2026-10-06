@@ -8,6 +8,7 @@ import {
   playMyTurn,
   playUntilFinished,
   quickRace,
+  gotoHome,
   startRace,
   waitForRace
 } from "./support/game";
@@ -40,6 +41,54 @@ test("HUD numbers follow the game state after a move", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+// Stint = cells until tire or fuel is empty (MOVE_RATES and the car's setup from the state snapshot), 28 cells a lap, 8 a move.
+const stintText = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => {
+    const s = window.__srp!.state();
+    const car = s.cars.find((c) => c.carId === 1)!;
+    const aero = 1 + (car.setup.wingFrontDeg + car.setup.wingRearDeg) * 0.01;
+    const psi = 1 + Object.values(car.setup.psi).reduce((sum, v) => sum + Math.abs(v - 32), 0) * 0.002;
+    const tireRate = car.setup.compound === "soft" ? 0.5 : 0.35; // MOVE_RATES
+    const cells = Math.min(car.tire / (tireRate * aero * psi), car.fuel / (0.45 * aero));
+    return `≈ ${(cells / 28).toFixed(1)} laps (~${Math.round(cells / 8)} moves)`;
+  });
+
+test("the stint estimate follows tire and fuel, and no pit chip shows early in a short race", async ({ page }) => {
+  await quickRace(page, { bots: 1, laps: 2 });
+  await expect(tid(page, "hud-stint")).toHaveText(await stintText(page));
+  await expect(tid(page, "hud-advice")).toBeHidden();
+  await expect(tid(page, "hud-warning")).toBeHidden();
+  await playMyTurn(page);
+  await expect(tid(page, "hud-stint")).toHaveText(await stintText(page));
+  expect(await stintText(page)).toMatch(/^≈ \d\.\d laps \(~\d+ moves\)$/);
+});
+
+test("lap and final-lap toasts appear for my car, not on the first render", async ({ page }) => {
+  await quickRace(page, { bots: 0, laps: 3 });
+  await expect(tid(page, "hud-toast")).toBeHidden();
+  const lapsDone = () => page.evaluate(() => window.__srp!.state().cars[0]!.lapCount);
+  for (const [lap, text] of [
+    [1, "Lap 1 / 3 done"],
+    [2, "Final lap"]
+  ] as const) {
+    for (let turn = 0; turn < 20 && (await lapsDone()) < lap; turn += 1) await playMyTurn(page);
+    await expect(tid(page, "hud-toast")).toHaveText(text);
+  }
+});
+
+test("the mute toggle persists across reloads and follows the M key", async ({ page }) => {
+  await quickRace(page, { bots: 0, laps: 1 });
+  await expect(tid(page, "hud-mute")).toHaveText("Sound: on");
+  await tid(page, "hud-mute").click();
+  await expect(tid(page, "hud-mute")).toHaveText("Sound: off");
+  await gotoHome(page);
+  await page.reload();
+  await quickRace(page, { bots: 0, laps: 1 });
+  await expect(tid(page, "hud-mute")).toHaveText("Sound: off");
+  await page.keyboard.press("m");
+  await expect(tid(page, "hud-mute")).toHaveText("Sound: on");
+});
+
 test("hovering a target shows its cost in a tooltip", async ({ page }) => {
   await quickRace(page, { bots: 0, laps: 1 });
   const target = await page.evaluate(() => {
@@ -48,7 +97,15 @@ test("hovering a target shows its cost in a tooltip", async ({ page }) => {
   });
   await expect(tid(page, "hud-tooltip")).toBeHidden();
   await page.mouse.move(target.x, target.y);
-  await expect(tid(page, "hud-tooltip")).toHaveText(/^Move \d+ - tire -\d+ - fuel -\d+$/);
+  const expected = await page.evaluate(() => {
+    const s = window.__srp!.state();
+    const car = s.cars.find((c) => c.carId === s.activeCarId)!;
+    const t = s.movement.validTargets.find((v) => !v.isPitTrigger)!;
+    const pct = (before: number, cost: number) => `${Math.round(before)}% → ${Math.round(Math.max(0, before - cost))}%`;
+    return `tire ${pct(car.tire, t.tireCost)} - fuel ${pct(car.fuel, t.fuelCost)}`;
+  });
+  await expect(tid(page, "hud-tooltip")).toHaveText(/^Move \d+ - tire \d+% → \d+% - fuel \d+% → \d+%$/);
+  await expect(tid(page, "hud-tooltip")).toContainText(expected);
   await page.mouse.move(5, 790);
   await expect(tid(page, "hud-tooltip")).toBeHidden();
 });

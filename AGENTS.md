@@ -39,6 +39,11 @@ Project guide for Codex and other automation.
 - The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
   `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceScene.emitHud()` sends. Add HUD data to the
   snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
+- Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
+  `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
+- Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` from
+  `RaceScene.reactToRace()`; the first snapshot must never fire. Sound is `src/ui/sound.ts` (WebAudio, muted in
+  test builds); `M` or the HUD button mutes, stored in `localStorage["srp:muted"]`. Details: `docs/strategy-and-feel.md`.
 
 ## Online Sessions
 

@@ -623,7 +623,7 @@ body[data-screen="race"] #statusLine {
 
 #hud .hud-toast {
   position: absolute;
-  top: 28%;
+  top: 88px;
   left: 50%;
   transform: translateX(-50%);
   padding: 10px 28px;
@@ -653,4 +653,8 @@ body[data-screen="race"] #statusLine {
   #hud .hud-toast {
     animation: none;
   }
+}
+
+#hud .hud-hint {
+  white-space: normal;
 }

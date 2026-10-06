@@ -44,9 +44,9 @@ export class PitModal {
 
     const panel = this.scene.add.graphics();
     panel.fillStyle(0x0f141b, 0.98);
-    panel.fillRoundedRect(320, 200, 460, 330, 10);
+    panel.fillRoundedRect(320, 200, 460, 345, 10);
     panel.lineStyle(1, 0x2a3642, 1);
-    panel.strokeRoundedRect(320, 200, 460, 330, 10);
+    panel.strokeRoundedRect(320, 200, 460, 345, 10);
 
     this.modalTitle = this.scene.add.text(350, 220, "Pit stop", {
       fontFamily: "monospace",
@@ -61,7 +61,7 @@ export class PitModal {
       wordWrap: { width: 400 }
     });
 
-    const fieldY = 330;
+    const fieldY = 342;
     const lineH = 26;
     const labelX = 350;
     const valueX = 470;
@@ -136,8 +136,8 @@ export class PitModal {
       stintHard
     };
 
-    this.modalConfirm = this.createModalButton(360, 490, "Confirm");
-    this.modalCancel = this.createModalButton(520, 490, "Cancel");
+    this.modalConfirm = this.createModalButton(360, 502, "Confirm");
+    this.modalCancel = this.createModalButton(520, 502, "Cancel");
 
     this.modal = this.scene.add.container(0, 0, [
       panel,

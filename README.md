@@ -5,6 +5,7 @@
 - Movement rules: `docs/movement-spec.md`
 - Multiplayer: `docs/multiplayer-spec.md` (see its Status section)
 - Bots: `docs/bot-system.md`, `docs/bot-lookahead-spec.md`
+- Strategy readouts and game feel (stint, pit advice, toasts, sound): `docs/strategy-and-feel.md`
 - Backend local stack: `docs/backend-local-stack.md`
 
 ## Development
