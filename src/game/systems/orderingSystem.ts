@@ -1,6 +1,5 @@
 import type { Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
-import { PIT_LANE } from "../constants";
 import { buildLaneSequence } from "./laneSequence";
 
 export interface CarSortKey {
@@ -12,40 +11,6 @@ export interface CarSortKey {
 export interface SortCarsOptions {
   turnOrder?: number[];
   turnIndex?: number;
-}
-
-function hasStartedRace(cars: Car[]): boolean {
-  return cars.some((car) => {
-    if ((car.lapCount ?? 0) !== 0) return true;
-    if (car.moveCycle.index !== 0) return true;
-    return car.moveCycle.spent.some((value) => value !== 0);
-  });
-}
-
-function getStartFinishForwardIndex(cellMap: Map<string, TrackCell>): number | null {
-  let startFinishForwardIndex: number | null = null;
-  for (const cell of cellMap.values()) {
-    if (!(cell.tags ?? []).includes("START_FINISH")) continue;
-    if (startFinishForwardIndex == null || cell.forwardIndex < startFinishForwardIndex) {
-      startFinishForwardIndex = cell.forwardIndex;
-    }
-  }
-  return startFinishForwardIndex;
-}
-
-function getInitialPlacementBehindThreshold(cellMap: Map<string, TrackCell>): number | null {
-  let maxNonPitForwardIndex: number | null = null;
-  let maxAnyForwardIndex: number | null = null;
-  for (const cell of cellMap.values()) {
-    if (maxAnyForwardIndex == null || cell.forwardIndex > maxAnyForwardIndex) {
-      maxAnyForwardIndex = cell.forwardIndex;
-    }
-    if (cell.laneIndex === PIT_LANE) continue;
-    if (maxNonPitForwardIndex == null || cell.forwardIndex > maxNonPitForwardIndex) {
-      maxNonPitForwardIndex = cell.forwardIndex;
-    }
-  }
-  return maxNonPitForwardIndex ?? maxAnyForwardIndex;
 }
 
 export function getCellForwardIndex(cellId: string, cellMap: Map<string, TrackCell>): number {
@@ -77,38 +42,14 @@ export function sortCarsByProgress(
       if (carId != null) turnOrderRank.set(carId, i);
     }
   }
-  const startFinishForwardIndex = getStartFinishForwardIndex(cellMap);
-  const initialPlacementBehindThreshold = getInitialPlacementBehindThreshold(cellMap);
-  const isInitialPlacement =
-    turnOrder.length > 0 &&
-    (options.turnIndex ?? 0) === 0 &&
-    !hasStartedRace(cars);
-
   return [...cars].sort((a, b) => {
     const aKey = computeCarSortKey(a, cellMap);
     const bKey = computeCarSortKey(b, cellMap);
     if (aKey.lapCount !== bKey.lapCount) return bKey.lapCount - aKey.lapCount;
 
-    if (isInitialPlacement) {
-      const aIsBehindStart = startFinishForwardIndex != null &&
-        initialPlacementBehindThreshold != null &&
-        aKey.progressIndex !== startFinishForwardIndex &&
-        aKey.progressIndex >= 0 &&
-        aKey.progressIndex <= initialPlacementBehindThreshold;
-      const bIsBehindStart = startFinishForwardIndex != null &&
-        initialPlacementBehindThreshold != null &&
-        bKey.progressIndex !== startFinishForwardIndex &&
-        bKey.progressIndex >= 0 &&
-        bKey.progressIndex <= initialPlacementBehindThreshold;
-
-      if (aIsBehindStart !== bIsBehindStart) return aIsBehindStart ? 1 : -1;
-      if (aIsBehindStart && bIsBehindStart && aKey.progressIndex !== bKey.progressIndex) {
-        return bKey.progressIndex - aKey.progressIndex;
-      }
-    }
-
-    // Lower forwardIndex is ahead in standings order.
-    if (aKey.progressIndex !== bKey.progressIndex) return aKey.progressIndex - bKey.progressIndex;
+    // Same lap: further along the lap is ahead. Cars behind the line (lapCount -1) rank below the
+    // front row, and a car that just crossed the line (fwd 0) is behind one further into its lap.
+    if (aKey.progressIndex !== bKey.progressIndex) return bKey.progressIndex - aKey.progressIndex;
 
     const aTurnRank = turnOrderRank.get(aKey.carId);
     const bTurnRank = turnOrderRank.get(bKey.carId);

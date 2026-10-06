@@ -2,6 +2,7 @@
 // Single-player (RaceScene) and the multiplayer server both drive a race through
 // `applyAction`, so the rules can't drift between them.
 import { MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS } from "../constants";
+import { hasFinishedRace } from "../systems/lapProgress";
 import type { BotLevel, Car, CarSetup } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { buildPlanContext, IDEAL_PIT_SETUP } from "../systems/botPlan";
@@ -125,8 +126,8 @@ export function isValidSetup(setup: CarSetup): boolean {
 
 function findWinner(state: RaceState): Car | null {
   const active = getActiveCar(state);
-  if ((active.lapCount ?? 0) >= state.raceLaps) return active;
-  return state.cars.find((car) => (car.lapCount ?? 0) >= state.raceLaps) ?? null;
+  if (hasFinishedRace(active.lapCount, state.raceLaps)) return active;
+  return state.cars.find((car) => hasFinishedRace(car.lapCount, state.raceLaps)) ?? null;
 }
 
 // Cars serving a pit penalty lose their turn; stop at the first car that can play.
@@ -185,7 +186,7 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   const winner = findWinner(state);
   if (winner) {
     state.winnerCarId = winner.carId;
-    log.push(`Race finished. Car ${winner.carId} wins (${winner.lapCount ?? 0}/${state.raceLaps} laps).`);
+    log.push(`Race finished. Car ${winner.carId} wins the ${state.raceLaps}-lap race.`);
     return { ok: true, carId: car.carId, fromCellId, moveSpend, log };
   }
 
