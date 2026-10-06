@@ -3,17 +3,20 @@ import type { TrackData, TrackCell } from "../types/track";
 import type { BotLevel, Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
 import {
-  INNER_MAIN_LANE,
   MOVE_BUDGET,
   MOVE_RATES,
-  OUTER_MAIN_LANE,
   REG_BOT_CARS,
   REG_BOT_LEVEL,
   REG_HUMAN_CARS,
   REG_RACE_LAPS,
   REG_TOTAL_CARS
 } from "../constants";
-import type { TargetInfo } from "../systems/movementSystem";
+import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
+import { buildPlanContext, type BotPlanContext } from "../systems/botPlan";
+import { pitAdvice, stintEstimate } from "../systems/strategy";
+import { createFeelMemory, detectFeel, type FeelEvent } from "../systems/feelEvents";
+import { play } from "../../ui/sound";
+import { Confetti } from "./ui/Confetti";
 import { computeMoveSpend, getRemainingBudget } from "../systems/moveBudgetSystem";
 import { carColor, carSprite } from "../systems/spawnSystem";
 import {
@@ -29,7 +32,7 @@ import {
 } from "../race/raceEngine";
 import { sortCarsByProgress } from "../systems/orderingSystem";
 import { validateTrack } from "../../validation/trackValidation";
-import { PitModal } from "./ui/PitModal";
+import { PitModal, type PitStints } from "./ui/PitModal";
 import type { HudCar, HudSnapshot } from "../../ui/hud";
 import { DebugButtons } from "./ui/DebugButtons";
 import { TextButton } from "./ui/TextButton";
@@ -227,6 +230,7 @@ export class RaceScene extends Phaser.Scene {
     this.applyCarsAndMovesVisibility();
     this.updateExternalToggleLabel();
     this.setUIFixed();
+    this.reactToRace(); // seeds the feel memory: nothing fires for the state we start in
     // game.destroy() emits DESTROY, not SHUTDOWN: without both, a dead scene keeps
     // reacting to lobby events (the next online race would hit its destroyed sprites).
     const removeWindowListeners = () => {
@@ -287,6 +291,9 @@ export class RaceScene extends Phaser.Scene {
           this.activeHaloTween?.stop();
           this.activeHaloTween = null;
           for (const halo of this.activeHalos.values()) halo.setScale(1).setAlpha(1);
+          this.confetti?.stop();
+          this.confetti = null;
+          this.animationsFrozen = true;
         },
         cellScreenPos: (cellId) => this.cellScreenPos(cellId),
         tokenScreenPos: (carId) => {
@@ -388,6 +395,11 @@ export class RaceScene extends Phaser.Scene {
 
     const wasFinished = this.raceFinished;
     this.race = toEngineRace(raceState);
+    if (!this.feelSeededOnline) {
+      // the first server state is where we join or rejoin: it seeds, it must not celebrate
+      this.feelSeededOnline = true;
+      this.feel = createFeelMemory();
+    }
     this.carNames = new Map(raceState.cars.map((car) => [car.carId, car.name]));
     if (this.carTokens.size !== this.cars.length) {
       this.clearCarVisuals();
@@ -481,6 +493,11 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private raceFinishedAnnounced = false;
+  private feel = createFeelMemory();
+  private feelSeededOnline = false;
+  private confetti: Confetti | null = null;
+  // Set by the e2e hook: no celebration may run over a screenshot.
+  private animationsFrozen = false;
 
   private refreshAfterTurn() {
     this.processBotsUntilHuman();
@@ -490,11 +507,51 @@ export class RaceScene extends Phaser.Scene {
     this.drawTargets();
     this.updateSkipButtonState();
     this.emitHud();
+    this.reactToRace();
     if (this.raceFinished && !this.raceFinishedAnnounced) {
       this.raceFinishedAnnounced = true;
       window.dispatchEvent(
         new CustomEvent("srp:race-finished", { detail: { winnerCarId: this.winnerCarId } })
       );
+    }
+  }
+
+  // Toasts, confetti and sounds for what changed since the last render (nothing on the first one).
+  private reactToRace() {
+    const events = detectFeel(this.feel, {
+      myCarId: this.localCar()?.carId ?? null,
+      raceLaps: this.raceLapTarget,
+      finished: this.raceFinished,
+      canControl: this.localCanControl(),
+      cars: this.cars.map((car) => ({
+        carId: car.carId,
+        lapCount: car.lapCount ?? 0,
+        cellId: car.cellId,
+        tire: car.tire,
+        fuel: car.fuel
+      }))
+    });
+    const loud = events.some((e) => e.type !== "move");
+    for (const event of events) {
+      if (event.type === "move" && loud) continue;
+      this.reactTo(event);
+    }
+  }
+
+  private reactTo(event: FeelEvent) {
+    switch (event.type) {
+      case "lap": {
+        const text = event.final ? "Final lap" : `Lap ${event.completed} / ${event.laps} done`;
+        window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text, kind: event.final ? "final" : "lap" } }));
+        play("lap");
+        break;
+      }
+      case "finish":
+        if (!this.animationsFrozen) this.confetti = new Confetti(this);
+        play("finish");
+        break;
+      default:
+        play(event.type);
     }
   }
 
@@ -675,6 +732,12 @@ export class RaceScene extends Phaser.Scene {
       this.gTargets.fillCircle(cell.pos.x, cell.pos.y, 10);
       this.gTargets.lineStyle(2, color, 0.95);
       this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 10);
+      // Risk: the move leaves a resource under 20% (thin ring) or empty (thick ring).
+      const left = this.resourcesAfter(info);
+      if (!info.isPitTrigger && Math.min(left.tire, left.fuel) < 20) {
+        this.gTargets.lineStyle(Math.min(left.tire, left.fuel) <= 0 ? 4 : 2, 0xff4d4d, 1);
+        this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 14);
+      }
 
       const costLabel = this.add.text(
         cell.pos.x,
@@ -693,6 +756,13 @@ export class RaceScene extends Phaser.Scene {
       costLabel.setDepth(46);
       this.targetCostLabels.push(costLabel);
     }
+  }
+
+  private resourcesAfter(info: TargetInfo) {
+    return {
+      tire: Math.max(0, this.activeCar.tire - info.tireCost),
+      fuel: Math.max(0, this.activeCar.fuel - info.fuelCost)
+    };
   }
 
   private clearTargetCostLabels() {
@@ -966,6 +1036,7 @@ export class RaceScene extends Phaser.Scene {
     if (token) token.disableInteractive();
     this.pitModal.open({
       setup: this.activeCar.setup,
+      stints: (setup) => this.pitStints(setup),
       bodyLines: [
         `Drop on PIT_BOX: ${cell.id}`,
         `Setup will be applied.`,
@@ -987,6 +1058,13 @@ export class RaceScene extends Phaser.Scene {
         this.drawTargets();
       }
     });
+  }
+
+  // Stint after the refill (100% tire and fuel) for each compound at the wings and psi being set.
+  private pitStints(setup: Car["setup"]): PitStints {
+    const spineLen = this.ctx.trackIndex.spineLen;
+    const at = (compound: "soft" | "hard") => stintEstimate({ tire: 100, fuel: 100, setup: { ...setup, compound } }, spineLen);
+    return { soft: at("soft"), hard: at("hard") };
   }
 
   private closePitModal() {
@@ -1118,16 +1196,32 @@ export class RaceScene extends Phaser.Scene {
       pitTurns: car.pitTurnsRemaining,
       cycle: [...car.moveCycle.spent],
       cycleIndex: car.moveCycle.index,
-      remaining: getRemainingBudget(car.moveCycle)
+      remaining: getRemainingBudget(car.moveCycle),
+      pitServiced: car.pitServiced,
+      stint: stintEstimate(car, this.ctx.trackIndex.spineLen),
+      advice: pitAdvice(car, this.cellMap.get(car.cellId)!, this.plan())
     };
+  }
+
+  private plan(): BotPlanContext {
+    return buildPlanContext(this.ctx.trackIndex, this.raceLapTarget);
+  }
+
+  // The local player's car (online: their seat; solo: the first human).
+  private localCar(): Car | undefined {
+    return this.isBackendAuthoritativeMode()
+      ? this.cars.find((car) => car.ownerId === this.localPlayerId)
+      : this.cars.find((car) => !car.isBot);
+  }
+
+  private localCanControl(): boolean {
+    return !this.raceFinished && this.canLocalControlActiveCar() && !this.activeCar.isBot;
   }
 
   // One plain snapshot for the DOM HUD (src/ui/hud.ts); sent after every change it shows.
   private emitHud() {
     if (this.cars.length === 0) return;
-    const mine = this.isBackendAuthoritativeMode()
-      ? this.cars.find((car) => car.ownerId === this.localPlayerId)
-      : this.cars.find((car) => !car.isBot);
+    const mine = this.localCar();
     const ordered = sortCarsByProgress(this.cars, this.cellMap, {
       turnOrder: this.turn.order,
       turnIndex: this.turn.index
@@ -1140,7 +1234,7 @@ export class RaceScene extends Phaser.Scene {
       winnerCarId: this.winnerCarId,
       myCarId: mine?.carId ?? null,
       activeCarId: this.activeCar.carId,
-      canControl: !this.raceFinished && this.canLocalControlActiveCar() && !this.activeCar.isBot,
+      canControl: this.localCanControl(),
       cars: ordered.map((car) => this.hudCar(car)),
       hover:
         pos && target && this.hoverCell
@@ -1150,7 +1244,9 @@ export class RaceScene extends Phaser.Scene {
               moveSpend: Number(this.formatTargetCost(target, this.hoverCell.laneIndex)),
               tireCost: target.tireCost,
               fuelCost: target.fuelCost,
-              isPit: target.isPitTrigger
+              isPit: target.isPitTrigger,
+              tireBefore: this.activeCar.tire,
+              fuelBefore: this.activeCar.fuel
             }
           : null,
       debugText: this.showForwardIndex ? this.makeHudText(this.hoverCell) : null,
@@ -1160,17 +1256,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private computeCostFactors(laneIndex: number) {
-    const setup = this.activeCar.setup;
-    const aero = 1 + (setup.wingFrontDeg + setup.wingRearDeg) * 0.01;
-    const psi =
-      1 +
-      (Math.abs(setup.psi.fl - 32) +
-        Math.abs(setup.psi.fr - 32) +
-        Math.abs(setup.psi.rl - 32) +
-        Math.abs(setup.psi.rr - 32)) *
-        0.002;
-    const laneT = laneIndex === INNER_MAIN_LANE ? 1.05 : laneIndex === OUTER_MAIN_LANE ? 0.98 : 1.0;
-    const laneF = laneIndex === INNER_MAIN_LANE ? 0.98 : laneIndex === OUTER_MAIN_LANE ? 1.03 : 1.0;
-    return { aero, psi, laneT, laneF };
+    const { aeroFactor, psiFactor } = setupFactors(this.activeCar.setup);
+    const lane = laneWearFactors(laneIndex);
+    return { aero: aeroFactor, psi: psiFactor, laneT: lane.tire, laneF: lane.fuel };
   }
 }
