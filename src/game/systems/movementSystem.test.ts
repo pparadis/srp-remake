@@ -444,3 +444,46 @@ describe("computeSqueezeTargets (boxed in)", () => {
     }
   });
 });
+
+describe("computeSqueezeTargets (pit exit blocked)", () => {
+  const index = buildTrackIndex(track as unknown as TrackData);
+  const costs = {
+    tireRate: 0.5,
+    fuelRate: 0.45,
+    setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 }
+  };
+  const EXIT = "Z06_L0_00";
+  const normal = (from: string, occ: Set<string>, max = 9) => computeValidTargets(index, from, occ, max, {}, costs);
+  const squeeze = (from: string, occ: Set<string>, max = 9) => computeSqueezeTargets(index, from, occ, max, costs);
+
+  it("is boxed in with Z07_L1_00 taken and squeezes onto lane 1 with the surcharge", () => {
+    const occ = new Set([EXIT, "Z07_L1_00"]);
+    expect(normal(EXIT, occ).size).toBe(0);
+    const t = squeeze(EXIT, occ);
+    expect([...t.keys()].sort()).toEqual(["Z08_L1_00", "Z09_L1_00"]);
+    expect(t.get("Z08_L1_00")).toMatchObject({ distance: 2, moveSpend: 4, squeezePassed: 1, isPitTrigger: false });
+    expect(t.get("Z09_L1_00")).toMatchObject({ distance: 3, moveSpend: 5, squeezePassed: 1 });
+  });
+
+  it("counts every car on the path and never lands on one", () => {
+    const occ = new Set([EXIT, "Z07_L1_00", "Z08_L1_00"]);
+    const t = squeeze(EXIT, occ);
+    expect([...t.keys()]).toEqual(["Z09_L1_00"]);
+    expect(t.get("Z09_L1_00")).toMatchObject({ distance: 3, moveSpend: 7, squeezePassed: 2 });
+    expect(squeeze(EXIT, occ, 6).size).toBe(0);
+  });
+
+  it("never offers pit cells, other lanes or cells beyond 3 away", () => {
+    const t = squeeze(EXIT, new Set([EXIT, "Z07_L1_00", "Z09_L1_00"]));
+    expect([...t.keys()]).toEqual(["Z08_L1_00"]);
+    for (const id of t.keys()) expect(index.cellMap.get(id)!.laneIndex).toBe(1);
+  });
+
+  it("offers nothing from other pit cells and nothing when the exit is free", () => {
+    expect(squeeze("Z05_L0_00", new Set(["Z05_L0_00", EXIT])).size).toBe(0);
+    expect(squeeze("Z02_L0_00", new Set(["Z02_L0_00", "Z03_L0_00"])).size).toBe(0);
+    const free = new Set([EXIT]);
+    expect([...normal(EXIT, free).keys()]).toEqual(["Z07_L1_00"]);
+    expect(squeeze(EXIT, free).size).toBe(0);
+  });
+});
