@@ -33,12 +33,13 @@ describe("bot levels benchmark", () => {
     for (const policy of lineup) expect(again.stats.get(policy)!.avgFinish).toBe(first.stats.get(policy)!.avgFinish);
   });
 
-  // Target is about 5 ms per decision on a normal machine (about 1.5 ms measured with 4 cars, 4 ms
-  // with 11); the bound leaves room for a slow CI runner.
+  // Hard takes about 1.5 ms per decision with 4 cars and about 4 ms with 11 on an idle machine. Wall-clock
+  // timings inflate 4x or more when the machine is busy (21 ms was measured at a load average of 70), so
+  // this is a guard against an order-of-magnitude regression, not a stopwatch: the bound is deliberately loose.
   it("keeps Hard's decision time within budget", () => {
-    expect(result.stats.get("hard")!.meanDecisionMs).toBeLessThan(15);
+    expect(result.stats.get("hard")!.meanDecisionMs).toBeLessThan(75);
     const crowded = playBenchRace(ctx, Array.from({ length: 8 }, (_, i) => (i % 2 === 0 ? "hard" : "normal")), 3);
     const { totalMs, count } = crowded.decisionMs.hard!;
-    expect(totalMs / count).toBeLessThan(15);
+    expect(totalMs / count).toBeLessThan(75);
   });
 });
