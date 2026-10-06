@@ -9,6 +9,7 @@ import {
   forwardGain,
   IDEAL_PIT_SETUP,
   isFinalLap,
+  progressOf,
   resourceWeights,
   stopIsDue,
   wearPerCell
@@ -39,7 +40,7 @@ function car(overrides: Partial<Car> = {}): Car {
 
 describe("plan context", () => {
   it("finds the one lane-1 cell a stop can start from", () => {
-    expect(plan(5)).toEqual({ raceLaps: 5, spineLen: 28, feederFwd: 26 });
+    expect(plan(5)).toMatchObject({ raceLaps: 5, spineLen: 28, feederFwd: 26 });
     expect(cellsToFeeder(cell("Z19_L1_00"), plan(5))).toBe(8);
     expect(cellsToFeeder(cell("Z27_L1_00"), plan(5))).toBe(0);
     expect(cellsToFeeder(cell("Z28_L1_00"), plan(5))).toBe(27);
@@ -79,7 +80,7 @@ describe("stop planning", () => {
     expect(stopIsDue(car({ cellId: "Z27_L1_00", lapCount: 1 }), cell("Z27_L1_00"), plan(5))).toBe(false);
   });
   it("is not due when the stop would cost more than the crawl it saves", () => {
-    // 6 laps on soft tires: a short crawl at the end beats a lap lost in the pit lane.
+    // 6 laps on soft tires: a short crawl at the end is cheaper than the stop.
     const worn = car({ cellId: "Z27_L1_00", lapCount: 4, tire: 5, fuel: 30 });
     expect(stopIsDue(worn, cell("Z27_L1_00"), plan(6))).toBe(false);
   });
@@ -93,6 +94,19 @@ describe("stop planning", () => {
   });
 });
 
+describe("stop planning breaks even earlier now that the pit lane keeps the lap", () => {
+  // A soft-tire car that has covered `lap` laps plus 26 cells arrives at the pit-entry feeder.
+  const wear = wearPerCell(car().setup);
+  const arrive = (lap: number) => {
+    const used = lap * 28 + 26;
+    return car({ cellId: "Z27_L1_00", lapCount: lap, tire: 100 - used * wear.tire, fuel: 100 - used * wear.fuel });
+  };
+  it("pays off from 7 laps (it took 8 when the stop cost a lap)", () => {
+    expect(stopIsDue(arrive(4), cell("Z27_L1_00"), plan(7))).toBe(true);
+    expect(stopIsDue(arrive(4), cell("Z27_L1_00"), plan(6))).toBe(false);
+  });
+});
+
 describe("resource weights", () => {
   it("are 1 when the resource lasts to the flag and worth the crawl it saves when it does not", () => {
     const fresh = resourceWeights(car(), cell("Z01_L1_00"), plan(3));
@@ -100,5 +114,22 @@ describe("resource weights", () => {
     const longRace = resourceWeights(car(), cell("Z01_L1_00"), plan(12));
     expect(longRace.tire).toBeGreaterThan(5);
     expect(longRace.fuel).toBeGreaterThan(5);
+  });
+});
+
+describe("progress of a car in the pit lane", () => {
+  const at = (id: string, lapCount: number) => progressOf(car({ cellId: id, lapCount }), cell(id), plan(5));
+
+  it("equals the progress of the lane-1 cell beside it", () => {
+    expect(at("Z28_L0_00", 1)).toBe(at("Z28_L1_00", 1));
+    expect(at("Z01_L0_00", 2)).toBe(at("Z01_L1_00", 2));
+    expect(at("Z05_L0_00", 2)).toBe(at("Z05_L2_00", 2));
+  });
+
+  it("a pit stop never makes progress jump: entry -> line cell is one cell, the lap is credited at the line", () => {
+    // lapCount rises 1 -> 2 exactly when the car lands on the line cell
+    expect(at("Z01_L0_00", 2) - at("Z28_L0_00", 1)).toBe(1);
+    expect(at("Z02_L0_00", 2) - at("Z01_L0_00", 2)).toBe(1);
+    expect(at("Z07_L1_00", 2) - at("Z06_L0_00", 2)).toBe(1);
   });
 });

@@ -48,14 +48,16 @@ pass `"autopilot"` explicitly.
 - **Worth of wear**: a tire or tank that will not last to the flag is worth the crawl it saves (an empty car moves
   4 instead of ~8, so every cell crawled costs a cell of time). Only a move's cost above the average wear per
   cell counts (rounding and lane factors); the average itself is paid for any progress.
-- **Pit stop**: a lap crossed in the pit lane does not count, and a stop takes about 8 moves, so it costs roughly
-  a lap plus 40 cells. `stopIsDue` compares that with the crawl it saves and stops on the last pass at the entry
-  that still beats crawling; it only pays in long races (about 9+ laps from fresh soft tires, solo). The entry is
+- **Pit stop**: the start line crosses the pit lane, so the lap is not lost (a stop credits it at `Z01_L0_00`); a
+  stop costs the lost turn and the slow one-step pit lane, about 40 cells (`PIT_LANE_CELLS`; 15 to 55 were tried,
+  40 finished races fastest). `stopIsDue` compares that with the crawl it saves and stops on the last pass at the
+  entry that still beats crawling; it pays from about 7 laps on fresh soft tires, solo (8 when a stop cost a lap). The entry is
   reachable only from lane 1 at one cell (the "feeder" cell, `forwardIndex` 26 on `oval16_3lanes`), so a due stop
   drifts to lane 1 and lands exactly on it; in the pit lane it takes a box.
 - **Setup at a stop**: hard compound, 32 psi, wings 0. In the current cost model wings and off-32 pressure only
   add wear and the hard compound wears less than the soft one, so this is best for every race length.
-- **Final lap**: never enters the pit lane (the line would be crossed there).
+- **Final lap**: never enters the pit lane. A pit-lane crossing could now finish the race, but the lane is a one-step
+  crawl and the lap is not lost either way, so the rule is kept.
 
 ### Hard: lookahead with an opponent model (`botHard.ts`)
 
@@ -144,30 +146,40 @@ Hard < Normal < Easy < Autopilot plus Hard's time budget. Numbers from this vers
 
 | Run                                         | Policy        | Win rate     | Avg finish | Avg moves to finish | ms / decision |
 | ------------------------------------------- | ------------- | ------------ | ---------- | ------------------- | ------------- |
-| 12 races (test set), 4 cars                 | Hard          | 58 %         | 1.42       | 36.2                | 2.1           |
-|                                             | Normal        | 42 %         | 1.67       | 36.7                | 0.04          |
-|                                             | Easy          | 0 %          | 2.92       | 46.8                | 0.05          |
-|                                             | Autopilot     | 0 %          | 4.00       | 70.5                | 0.04          |
-| 56 races, 4 cars, 3-20 laps                 | Hard          | 64 %         | 1.43       | 46.9                | 1.4           |
-|                                             | Normal        | 36 %         | 1.70       | 47.6                | 0.03          |
-|                                             | Easy          | 0 %          | 2.88       | 63.3                | 0.03          |
-|                                             | Autopilot     | 0 %          | 4.00       | 94.8                | 0.03          |
-| 56 races, 1 Hard vs 3 Normal                | Hard          | 32 %         | 2.25       | 46.0                | 1.6           |
-|                                             | Normal (each) | 23 %         | 2.58       | 47.0                | 0.03          |
-| 24 races, 8 cars (2 per policy), 3/5/8 laps | Hard          | 25 % per car | 2.79       | 22.9                | 3.3           |
-|                                             | Normal        | 17 %         | 3.13       | 23.2                | 0.03          |
-|                                             | Easy          | 8 %          | 4.58       | 25.6                | 0.05          |
-|                                             | Autopilot     | 0 %          | 7.50       | 40.7                | 0.04          |
+| 12 races (test set), 4 cars                 | Hard          | 58 %         | 1.42       | 35.1                | 1.8           |
+|                                             | Normal        | 42 %         | 1.58       | 34.8                | 0.03          |
+|                                             | Easy          | 0 %          | 3.00       | 46.6                | 0.04          |
+|                                             | Autopilot     | 0 %          | 4.00       | 70.6                | 0.04          |
+| 56 races, 4 cars, 3-20 laps                 | Hard          | 57 %         | 1.50       | 43.8                | 1.3           |
+|                                             | Normal        | 43 %         | 1.61       | 43.8                | 0.03          |
+|                                             | Easy          | 0 %          | 2.89       | 63.2                | 0.03          |
+|                                             | Autopilot     | 0 %          | 4.00       | 94.9                | 0.02          |
+| 56 races, 1 Hard vs 3 Normal                | Hard          | 29 %         | 2.30       | 42.7                | 1.4           |
+|                                             | Normal (each) | 24 %         | 2.57       | 43.6                | 0.03          |
+| 24 races, 8 cars (2 per policy), 3/5/8 laps | Hard          | 25 % per car | 2.75       | 22.4                | 3.0           |
+|                                             | Normal        | 17 %         | 3.04       | 22.5                | 0.03          |
+|                                             | Easy          | 8 %          | 4.71       | 25.7                | 0.04          |
+|                                             | Autopilot     | 0 %          | 7.50       | 40.6                | 0.04          |
 
-The laps for the 56-race rows are 3-12, 14, 16, 18 and 20. Numbers were re-measured after the lap fix (every car
-covers the same distance from the start line; before it the rear grid row got a free lap, which skewed the early
-numbers). The default `botBench.ts` set (3,4,5,6 laps, 16 races) is too short and noisy to rank Hard above Normal
-(1.75 vs 1.56 now; 1.63 vs 2.00 before), the sets below and the 12-race test set keep the ordering.
+The laps for the 56-race rows are 3-12, 14, 16, 18 and 20.
 
-Other lap sets (5,8,12 / 4,7,10 / 3,6,9 / 5,6,7 / 6,8,10 / 4,5,9) all keep Hard first and Autopilot last, and Hard ahead of Normal ahead of Easy. How much better Hard can be
-is bounded by the game: a lone Normal car is already near the budget limit (40 per cycle), so the headroom is
-traffic, the pit stop and resource use, a few percent of the race; that shows as about 1 move in 45, and as a
-clear rank edge because finishing order is decided by small gaps.
+**Effect of the pit-lane lap credit** (a stop no longer loses the lap, `PIT_LANE_CELLS` 40): the same 56 races
+before the change had Hard 1.43 / Normal 1.70 / Easy 2.88 and 46.9 / 47.6 moves, so Normal gained 3.8 moves a race
+and Hard 3.1; a stop now pays from about 7 laps (8 before) and bots stop more: per race Normal 0.82 -> 0.84, Hard
+0.77 -> 0.91 stops over the 56 races (test set: Normal 0.42 -> 0.50, Hard 0.42 -> 0.58). Normal benefits more than
+Hard (most likely because the old model's lost lap was a mistake Hard's lookahead partly corrected), so Hard's edge is smaller:
+18 laps 3-20: Hard 1.49 vs Normal 1.60 (was 1.38 vs 1.72), laps 7-14: 1.41 vs 1.63 (was 1.22 vs 1.84). Pairs of
+lap sets of only 12 races are noisy near that edge: of the six small sets below, 4,7,10 / 3,6,9 / 4,5,9 now put
+Normal 0.1-0.2 ahead of Hard (one race moved), the others keep Hard first; Autopilot is last everywhere and Easy
+third in all.
+
+The default `botBench.ts` set (3,4,5,6 laps, 16 races) is too short and noisy to rank Hard above Normal
+(1.75 vs 1.56), the sets above and the 12-race test set keep the ordering.
+
+Other lap sets: 5,6,7 / 6,8,10 keep Hard first; 4,7,10 (1.67 vs 1.58), 3,6,9 (1.67 vs 1.58), 4,5,9 (1.67 vs 1.50)
+show Normal ahead by one race. How much better Hard can be is bounded by the game: a lone Normal car is already
+near the budget limit (40 per cycle), so the headroom is traffic, the pit stop and resource use, a few percent of
+the race; that shows as about 1 move in 45, and as a rank edge because finishing order is decided by small gaps.
 
 ## Future Improvements
 
