@@ -3,7 +3,7 @@ import { resourceLevel } from "../../ui/hud";
 
 export type FeelEvent =
   | { type: "move" }
-  | { type: "lap"; completed: number; laps: number; final: boolean }
+  | { type: "lap"; lap: number; laps: number; final: boolean }
   | { type: "low"; resource: "tire" | "fuel" }
   | { type: "turn" }
   | { type: "finish" };
@@ -50,8 +50,10 @@ export function detectFeel(mem: FeelMemory, view: FeelView): FeelEvent[] {
 
   if (mem.seeded) {
     if (view.cars.some((car) => mem.cells.get(car.carId) !== car.cellId)) events.push({ type: "move" });
-    if (mine && laps > mem.laps && !view.finished) {
-      events.push({ type: "lap", completed: laps, laps: view.raceLaps, final: laps === view.raceLaps - 1 });
+    // Crossing the line starts lap laps+1. The first crossing of a car that began behind the line
+    // (-1 to 0) is silent, and so is the one that ends the race (the finish event covers it).
+    if (mine && laps > mem.laps && laps >= 1 && !view.finished) {
+      events.push({ type: "lap", lap: laps + 1, laps: view.raceLaps, final: laps + 1 === view.raceLaps });
     }
     for (const resource of ["tire", "fuel"] as const) {
       if (low[resource] > mem.low[resource]) events.push({ type: "low", resource });

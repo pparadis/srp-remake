@@ -32,8 +32,17 @@ describe("detectFeel", () => {
     const other = view();
     other.cars[1]!.lapCount = 1;
     expect(detectFeel(mem, other)).toEqual([]);
-    expect(detectFeel(mem, view({}, { lapCount: 1 }))).toEqual([{ type: "lap", completed: 1, laps: 3, final: false }]);
-    expect(detectFeel(mem, view({}, { lapCount: 2 }))).toEqual([{ type: "lap", completed: 2, laps: 3, final: true }]);
+    // lapCount 1 = lap 1 completed = lap 2 just started
+    expect(detectFeel(mem, view({}, { lapCount: 1 }))).toEqual([{ type: "lap", lap: 2, laps: 3, final: false }]);
+    expect(detectFeel(mem, view({}, { lapCount: 2 }))).toEqual([{ type: "lap", lap: 3, laps: 3, final: true }]);
+  });
+
+  it("the first crossing of a car that started behind the line (-1 to 0) is silent", () => {
+    const mem = createFeelMemory();
+    detectFeel(mem, view({}, { lapCount: -1 }));
+    expect(detectFeel(mem, view({}, { lapCount: 0 }))).toEqual([]);
+    // the next crossing is a normal one
+    expect(detectFeel(mem, view({}, { lapCount: 1 }))).toEqual([{ type: "lap", lap: 2, laps: 3, final: false }]);
   });
 
   it("finishing is a finish, not a lap", () => {

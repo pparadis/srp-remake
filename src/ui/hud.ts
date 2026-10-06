@@ -8,8 +8,13 @@ export interface HudCar {
   /** CSS colour of the car sprite. */
   color: string;
   isBot: boolean;
+  /** The lap the car is in (1-based); 0 while it is still behind the start line. */
   lap: number;
-  /** forwardIndex of the cell the car stands on (lower is further ahead on the same lap). */
+  /** Crossed the line after the last lap. */
+  finished: boolean;
+  /** Cells covered from the start line (negative behind it): laps completed * spineLen + forwardIndex. */
+  progress: number;
+  /** forwardIndex of the cell the car stands on. */
   fwd: number;
   tire: number;
   fuel: number;
@@ -46,6 +51,8 @@ export interface HudHover {
 
 export interface HudSnapshot {
   raceLaps: number;
+  /** Cells in one lap, to turn a progress difference into laps. */
+  spineLen: number;
   finished: boolean;
   winnerCarId: number | null;
   /** The local player's car (online: their seat; solo: the first human). */
@@ -80,6 +87,7 @@ const TEMPLATE = `
       <span class="hud-state" data-testid="hud-state" hidden></span>
     </div>
     <div class="hud-lap" data-testid="hud-lap"></div>
+    <div class="hud-lap-hint" data-testid="hud-lap-hint" hidden>Cross the start line to begin lap 1</div>
     <div class="hud-pos" data-testid="hud-position"></div>
     <div class="hud-meter"><span data-testid="hud-tire"></span><span class="hud-compound" data-testid="hud-compound"></span>
       <div class="hud-bar"><i data-testid="hud-tire-bar"></i></div></div>
@@ -185,10 +193,17 @@ export function showToast(root: Element, text: string, kind: "lap" | "final" = "
   toastTimer = setTimeout(() => (toast.hidden = true), ms);
 }
 
-export function gapLabel(car: HudCar, ahead: HudCar | undefined): string {
+/** "+5" cells behind the car ahead, or "+1L" once a whole lap or more behind. */
+export function gapLabel(car: HudCar, ahead: HudCar | undefined, spineLen: number): string {
   if (!ahead) return "-";
-  if (car.lap !== ahead.lap) return `+${Math.abs(ahead.lap - car.lap)}L`;
-  return `+${Math.max(0, car.fwd - ahead.fwd)}`;
+  const gap = Math.max(0, ahead.progress - car.progress);
+  return gap >= spineLen ? `+${Math.floor(gap / spineLen)}L` : `+${gap}`;
+}
+
+/** Lap column / card text: the lap the car is in, "Finished" once it crossed the line to end the race. */
+export function lapText(car: HudCar, raceLaps: number, short = false): string {
+  if (car.finished) return short ? "Fin" : "Finished";
+  return short ? `${car.lap}/${raceLaps}` : `Lap ${car.lap} / ${raceLaps}`;
 }
 
 export function bannerText(s: HudSnapshot): string {
@@ -229,8 +244,8 @@ function fillStandings(tbody: Element, cars: HudCar[], s: HudSnapshot, rowId: st
         String(i + 1),
         chip,
         car.name,
-        `${car.lap}/${s.raceLaps}`,
-        gapLabel(car, cars[i - 1]),
+        lapText(car, s.raceLaps, true),
+        gapLabel(car, cars[i - 1], s.spineLen),
         icon
       ];
       for (const content of cells) {
@@ -253,7 +268,8 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
   if (me) {
     q(root, "hud-chip").style.background = me.color;
     q(root, "hud-name").textContent = me.name;
-    q(root, "hud-lap").textContent = `Lap ${me.lap} / ${s.raceLaps}`;
+    q(root, "hud-lap").textContent = lapText(me, s.raceLaps);
+    q(root, "hud-lap-hint").hidden = me.lap > 0 || me.finished;
     q(root, "hud-position").textContent = `P${s.cars.indexOf(me) + 1} / ${s.cars.length}`;
     setMeter(q(root, "hud-tire"), q(root, "hud-tire-bar"), "Tire", me.tire);
     setMeter(q(root, "hud-fuel"), q(root, "hud-fuel-bar"), "Fuel", me.fuel);

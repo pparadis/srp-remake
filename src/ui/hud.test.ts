@@ -20,7 +20,9 @@ const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   name: `Car ${carId}`,
   color: "#e5484d",
   isBot: false,
-  lap: 0,
+  lap: 1,
+  finished: false,
+  progress: carId,
   fwd: carId,
   tire: 80,
   fuel: 90,
@@ -38,12 +40,13 @@ const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
 
 const snap = (over: Partial<HudSnapshot> = {}): HudSnapshot => ({
   raceLaps: 2,
+  spineLen: 28,
   finished: false,
   winnerCarId: null,
   myCarId: 2,
   activeCarId: 2,
   canControl: true,
-  cars: [car(1, { isBot: true }), car(2, { lap: 1 }), car(3, { isBot: true })],
+  cars: [car(1, { isBot: true }), car(2, { lap: 2 }), car(3, { isBot: true })],
   hover: null,
   debugText: null,
   log: ["Car 1 to play."],
@@ -62,7 +65,7 @@ describe("hud", () => {
 
   it("shows my car: lap, position, resources and budget", () => {
     renderHud(root, snap());
-    expect(text(root, "hud-lap")).toBe("Lap 1 / 2");
+    expect(text(root, "hud-lap")).toBe("Lap 2 / 2");
     expect(text(root, "hud-position")).toBe("P2 / 3");
     expect(text(root, "hud-tire")).toBe("Tire 80%");
     expect(text(root, "hud-fuel")).toBe("Fuel 90%");
@@ -100,9 +103,32 @@ describe("hud", () => {
     expect(rows.map((r) => r.getAttribute("data-car-id"))).toEqual(["1", "2", "3"]);
     expect(rows[1]!.classList.contains("is-me")).toBe(true);
     expect(rows[2]!.classList.contains("is-active")).toBe(true);
-    expect(rows[0]!.textContent).toContain("0/2");
-    expect(gapLabel(car(2, { lap: 0, fwd: 9 }), car(1, { lap: 0, fwd: 4 }))).toBe("+5");
-    expect(gapLabel(car(2, { lap: 0 }), car(1, { lap: 1 }))).toBe("+1L");
+    expect(rows[0]!.textContent).toContain("1/2");
+    expect(gapLabel(car(2, { progress: 4 }), car(1, { progress: 9 }), 28)).toBe("+5");
+    expect(gapLabel(car(2, { progress: 4 }), car(1, { progress: 40 }), 28)).toBe("+1L");
+    expect(gapLabel(car(2), undefined, 28)).toBe("-");
+  });
+
+  it("shows the lap you are in, a hint behind the line, and Finished at the end", () => {
+    // pole car: Lap 1 straight away, no hint
+    renderHud(root, snap({ myCarId: 1 }));
+    expect(text(root, "hud-lap")).toBe("Lap 1 / 2");
+    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty("hidden", true);
+    // behind the line: Lap 0 / N and the hint; the standings column says 0/N and the gap stays small
+    const behind = car(2, { lap: 0, progress: -2, fwd: 26 });
+    renderHud(root, snap({ cars: [car(1, { progress: 0 }), behind], myCarId: 2 }));
+    expect(text(root, "hud-lap")).toBe("Lap 0 / 2");
+    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty("hidden", false);
+    expect(text(root, "hud-lap-hint")).toBe("Cross the start line to begin lap 1");
+    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
+    expect(rows[1]!.textContent).toContain("0/2");
+    expect(rows[1]!.textContent).toContain("+2");
+    expect(rows[1]!.textContent).not.toContain("L");
+    // finished
+    renderHud(root, snap({ cars: [car(2, { lap: 2, finished: true })], myCarId: 2 }));
+    expect(text(root, "hud-lap")).toBe("Finished");
+    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty("hidden", true);
+    expect(root.querySelector('[data-testid="hud-standing-row"]')!.textContent).toContain("Fin");
   });
 
   it("shows tooltip, debug text and feed only when given", () => {

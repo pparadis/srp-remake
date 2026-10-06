@@ -12,7 +12,7 @@ import {
   REG_TOTAL_CARS
 } from "../constants";
 import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
-import { buildPlanContext, type BotPlanContext } from "../systems/botPlan";
+import { buildPlanContext, progressOf, type BotPlanContext } from "../systems/botPlan";
 import { pitAdvice, stintEstimate } from "../systems/strategy";
 import { createFeelMemory, detectFeel, type FeelEvent } from "../systems/feelEvents";
 import { play } from "../../ui/sound";
@@ -30,6 +30,7 @@ import {
   type RaceSeat,
   type RaceState
 } from "../race/raceEngine";
+import { hasFinishedRace, lapInProgress } from "../systems/lapProgress";
 import { sortCarsByProgress } from "../systems/orderingSystem";
 import { validateTrack } from "../../validation/trackValidation";
 import { PitModal, type PitStints } from "./ui/PitModal";
@@ -406,9 +407,8 @@ export class RaceScene extends Phaser.Scene {
       this.cars.forEach((car, i) => this.spawnCarToken(car, carSprite(i)));
     }
     if (this.raceFinished && !wasFinished) {
-      const winner = this.cars.find((car) => car.carId === this.winnerCarId);
       this.addLog(
-        `Race finished. Car ${this.winnerCarId} wins (${winner?.lapCount ?? 0}/${this.raceLapTarget} laps).`
+        `Race finished. Car ${this.winnerCarId} wins the ${this.raceLapTarget}-lap race.`
       );
     }
     this.refreshAfterTurn();
@@ -541,7 +541,7 @@ export class RaceScene extends Phaser.Scene {
   private reactTo(event: FeelEvent) {
     switch (event.type) {
       case "lap": {
-        const text = event.final ? "Final lap" : `Lap ${event.completed} / ${event.laps} done`;
+        const text = event.final ? "Final lap" : `Lap ${event.lap} / ${event.laps}`;
         window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text, kind: event.final ? "final" : "lap" } }));
         play("lap");
         break;
@@ -1138,7 +1138,7 @@ export class RaceScene extends Phaser.Scene {
     if (!cell) {
       const activeStatus = [
         `Active: Car ${this.activeCar.carId}`,
-        `Lap: ${this.activeCar.lapCount ?? 0}/${this.raceLapTarget}`,
+        `Lap: ${lapInProgress(this.activeCar.lapCount, this.raceLapTarget)}/${this.raceLapTarget}`,
         `Tire: ${this.activeCar.tire}%`,
         `Fuel: ${this.activeCar.fuel}%`
       ].join("\n");
@@ -1160,7 +1160,7 @@ export class RaceScene extends Phaser.Scene {
     return [
       `cell: ${cell.id}`,
       `zone: ${cell.zoneIndex}  lane: ${cell.laneIndex}`,
-      `lap: ${this.activeCar.lapCount ?? 0}  fwd: ${cell.forwardIndex}`,
+      `lap: ${lapInProgress(this.activeCar.lapCount, this.raceLapTarget)}  fwd: ${cell.forwardIndex}`,
       `tags: ${tags}`,
       `next: ${cell.next.length}`,
       ...(targetLine ? [targetLine] : []),
@@ -1200,7 +1200,9 @@ export class RaceScene extends Phaser.Scene {
       name: this.carNames.get(car.carId) ?? (solo && !car.isBot ? "You" : `Car ${car.carId}`),
       color: carColor(index),
       isBot: car.isBot,
-      lap: car.lapCount ?? 0,
+      lap: lapInProgress(car.lapCount, this.raceLapTarget),
+      finished: hasFinishedRace(car.lapCount, this.raceLapTarget),
+      progress: progressOf(car, this.cellMap.get(car.cellId)!, this.plan()),
       fwd: this.cellMap.get(car.cellId)?.forwardIndex ?? -1,
       tire: car.tire,
       fuel: car.fuel,
@@ -1243,6 +1245,7 @@ export class RaceScene extends Phaser.Scene {
     const pos = this.hoverCell && target && this.showCarsAndMoves ? this.cellScreenPos(this.hoverCell.id) : null;
     const snapshot: HudSnapshot = {
       raceLaps: this.raceLapTarget,
+      spineLen: this.ctx.trackIndex.spineLen,
       finished: this.raceFinished,
       winnerCarId: this.winnerCarId,
       myCarId: mine?.carId ?? null,
