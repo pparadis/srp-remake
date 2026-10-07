@@ -16,6 +16,7 @@
     "prepare": "husky",
     "test": "vitest",
     "test:e2e": "playwright test",
+    "probe:cpu": "node tools/cpuProbe.mjs",
     "test:coverage": "vitest run --coverage",
     "gen:track": "node tools/genOval16_3lanes.mjs",
     "backend:up": "podman-compose up --build api",
