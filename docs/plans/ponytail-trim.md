@@ -1,6 +1,6 @@
 # Ponytail trim
 
-Status: In progress (PR #21)
+Status: Done (PR #21)
 
 Result of a repo-wide over-engineering audit. Small, behaviour-neutral cuts.
 
