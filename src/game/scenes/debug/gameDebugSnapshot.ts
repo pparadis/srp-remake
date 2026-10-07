@@ -101,7 +101,8 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
     tireCost: info.tireCost,
     fuelCost: info.fuelCost,
     isPitTrigger: info.isPitTrigger,
-    ...(info.squeezePassed ? { squeezePassed: info.squeezePassed } : {})
+    ...(info.squeezePassed ? { squeezePassed: info.squeezePassed } : {}),
+    ...(info.laneChanges ? { laneChanges: info.laneChanges } : {})
   }));
 
   return {

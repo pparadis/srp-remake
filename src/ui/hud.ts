@@ -46,6 +46,8 @@ interface HudHover {
   isPit: boolean;
   /** Set for a squeeze target: cars passed (each adds SQUEEZE_SURCHARGE_PER_CAR move points). */
   squeezePassed?: number;
+  /** Set when the route changes lane 2 or more times (every lane change costs a move point). */
+  laneChanges?: number;
   /** The active car's tire and fuel (percent) before the move, to show what is left after it. */
   tireBefore: number;
   fuelBefore: number;
@@ -162,7 +164,8 @@ function renderTooltip(tip: HTMLElement, h: HudHover) {
   const squeeze = h.squeezePassed
     ? `Squeeze past ${h.squeezePassed} car${h.squeezePassed > 1 ? "s" : ""} - Move ${h.moveSpend} (+${h.squeezePassed * SQUEEZE_SURCHARGE_PER_CAR} points) - `
     : null;
-  const nodes: Array<string | HTMLElement> = [squeeze ?? `Move ${h.moveSpend} - `];
+  const lanes = h.laneChanges ? ` (${h.laneChanges} lane changes)` : "";
+  const nodes: Array<string | HTMLElement> = [squeeze ?? `Move ${h.moveSpend}${lanes} - `];
   if (h.isPit) {
     nodes.push("PIT stop: tire and fuel refilled");
   } else {

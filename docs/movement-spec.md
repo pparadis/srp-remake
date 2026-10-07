@@ -14,8 +14,23 @@ and is shared by single-player and the multiplayer server.
 
 - The active car has a max step budget (based on tires/fuel and remaining move budget).
 - If the car starts in the pit lane (lane 0), the max steps are forced to `1`.
-- Move spend is based on traveled distance, with `+1` surcharge for lane changes between main lanes.
+- Move spend is based on traveled distance, with a price for every lane change between main lanes (see "Price of a lane change").
 - Pit-lane movement spend remains `1`.
+
+## Price of a lane change
+
+Every lane change between main lanes costs +1 move point on top of the forward cells. A sideways change (same
+`forwardIndex`) pays it as the extra cell it walks; a diagonal change pays it as the surcharge in `computeMoveSpend`.
+
+- A route with one lane change costs what it always did: `computeMoveSpend(distance, startLane, targetLane, forwardDelta)`
+  (surcharge `+1` when the lanes differ and the forward gain is at least the distance walked).
+- Every further diagonal change adds `+1`: `price = computeMoveSpend(...) + max(0, diagonals - (startLane != targetLane ? 1 : 0))`.
+  Out and back (same start and target lane) costs `+2`; a zig-zag of three changes ending in another lane costs `+3`.
+- The search is by price, not by steps: `searchRoutes` walks (cell, diagonal changes) states and keeps, per cell, the
+  cheapest route (price, then fewest steps). Tire and fuel are charged on the cells walked on that route
+  (`TargetInfo.distance`), not on the lane-change points. The 9-point cap applies to the price.
+- `TargetInfo.laneChanges` is set only when the route changes lane 2 or more times; the hover tooltip then says
+  "(N lane changes)".
 
 ## Costs
 
@@ -38,6 +53,10 @@ and is shared by single-player and the multiplayer server.
   - For same-lane movement, the nearest occupied cell ahead is the blocker.
   - For lane changes, you may pass one blocker in the destination lane to merge into a gap.
   - Lane-change targets are blocked by the second blocker ahead in the destination lane (or by the first if only one exists).
+  - Pass and return: a same-lane target beyond the nearest same-lane blocker is legal when a free route goes round the
+    blocker through ONE adjacent lane and rejoins your lane. Like a merge it may pass one blocker, not the next. The
+    route stays in the two lanes, never passes a car in the lane it goes round through (cells of that lane at or beyond
+    its nearest car are not available to it), and pays for its lane changes (out and back is `+2`).
   - Adjacent lanes do not block unless they are the chosen destination lane.
 - Occupied cells are not traversable during target search (except the start cell).
 

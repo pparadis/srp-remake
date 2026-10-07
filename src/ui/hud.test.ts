@@ -193,6 +193,14 @@ describe("hud", () => {
     expect(text(root, "hud-tooltip")).not.toContain("Empties");
   });
 
+  it("tooltip names the lane changes of a route that changes lane 2 or more times", () => {
+    const hover = { x: 1, y: 2, distance: 7, moveSpend: 9, tireCost: 5, fuelCost: 4, isPit: false, tireBefore: 63, fuelBefore: 30 };
+    renderHud(root, snap({ hover }));
+    expect(text(root, "hud-tooltip")).toBe("Move 9 - tire 63% → 58% - fuel 30% → 26%");
+    renderHud(root, snap({ hover: { ...hover, laneChanges: 2 } }));
+    expect(text(root, "hud-tooltip")).toBe("Move 9 (2 lane changes) - tire 63% → 58% - fuel 30% → 26%");
+  });
+
   it("tooltip and banner describe a squeeze", () => {
     const hover = { x: 1, y: 2, distance: 3, moveSpend: 7, tireCost: 5, fuelCost: 4, isPit: false, squeezePassed: 2, tireBefore: 63, fuelBefore: 30 };
     renderHud(root, snap({ hover, boxedIn: true }));
