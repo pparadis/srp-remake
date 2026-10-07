@@ -22,11 +22,12 @@ function spends(style: PersonalityKey, moves = 10): number[] {
   return out;
 }
 
-// Car A on lane 1 at fwd 4, a broken-down car 5 cells ahead in its lane.
+// Car A on lane 1 at fwd 4, a broken-down car 7 cells ahead in its lane. That is far enough that going around it and
+// back into lane 1 (8 cells + 2 lane changes = 10 points) is over the 9-point cap, so a pass has to end in lane 2.
 const behindAWall = (style: PersonalityKey, level: "normal" | "hard" = "normal") => {
   const state = createRace(ctx, [{ isBot: true, ownerId: "A", style, botLevel: level }, { isBot: true, ownerId: "B" }], 5, 0);
   Object.assign(state.cars[0]!, { cellId: "Z05_L1_00" });
-  Object.assign(state.cars[1]!, { cellId: "Z10_L1_00", state: "DNF" });
+  Object.assign(state.cars[1]!, { cellId: "Z12_L1_00", state: "DNF" });
   const action = decideBotAction(ctx, state).action;
   if (action.type !== "move") throw new Error("expected a move");
   return ctx.cellMap.get(action.targetCellId)!;

@@ -17,9 +17,11 @@ Project guide for Codex and other automation.
 
 - Movement is BFS on `next[]`. Forward progress ordering uses `forwardIndex`.
 - No sideways lane changes: lane changes must advance `forwardIndex` (except `PIT_ENTRY`).
-- Lane changes between main lanes cost +1 move spend.
+- Every lane change between main lanes costs +1 move spend; further diagonal changes in one route add +1 each (out and
+  back +2). The search is by price (`searchRoutes` in `movementSystem.ts`); see `docs/movement-spec.md`.
 - Passing/merging uses target-lane blockers:
-  - Same-lane moves cannot pass the nearest car ahead.
+  - Same-lane moves cannot pass the nearest car ahead, except by going round it through ONE adjacent lane and rejoining
+    (pass and return: at most one blocker passed, the route never passes a car in the lane it goes round through).
   - Lane-change moves may pass one target-lane blocker to merge into a gap, but cannot pass the next blocker.
   - Adjacent lanes do not block unless they are the target lane.
 - Occupied cells are non-traversable for movement target search (except the start cell).

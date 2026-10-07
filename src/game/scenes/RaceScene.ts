@@ -1269,6 +1269,7 @@ export class RaceScene extends Phaser.Scene {
               fuelCost: target.fuelCost,
               isPit: target.isPitTrigger,
               ...(target.squeezePassed ? { squeezePassed: target.squeezePassed } : {}),
+              ...(target.laneChanges ? { laneChanges: target.laneChanges } : {}),
               tireBefore: this.activeCar.tire,
               fuelBefore: this.activeCar.fuel
             }

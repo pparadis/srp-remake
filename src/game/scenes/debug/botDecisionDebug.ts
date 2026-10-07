@@ -18,6 +18,7 @@ export interface BotDecisionLogEntry {
     fuelCost: number;
     isPitTrigger: boolean;
     squeezePassed?: number;
+    laneChanges?: number;
   }>;
   action: {
     type: "skip" | "pit" | "move";
@@ -64,7 +65,8 @@ export function serializeBotTargets(targets: Map<string, TargetInfo>): BotDecisi
       tireCost: info.tireCost,
       fuelCost: info.fuelCost,
       isPitTrigger: info.isPitTrigger,
-      ...(info.squeezePassed ? { squeezePassed: info.squeezePassed } : {})
+      ...(info.squeezePassed ? { squeezePassed: info.squeezePassed } : {}),
+      ...(info.laneChanges ? { laneChanges: info.laneChanges } : {})
     }));
 }
 
