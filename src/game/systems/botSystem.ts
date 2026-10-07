@@ -244,7 +244,7 @@ function fieldScore(
 const NORMAL = {
   // per cell of budget that can no longer be spent in the rest of the cycle
   wasteWeight: 10,
-    pitBoxBonus: 100,
+  pitBoxBonus: 100,
   pitEntryBonus: 150,
   pitEntryAvoid: 40,
   finalLapPitAvoid: 1000,

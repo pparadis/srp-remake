@@ -38,7 +38,6 @@ const VALUE = {
 
 export interface HardDeps {
   applyAction(ctx: RaceContext, state: RaceState, action: RaceAction): ApplyResult;
-  computeTargets(ctx: RaceContext, state: RaceState, car: Car): Map<string, TargetInfo>;
   // The Normal policy for whoever is active in `state`.
   decideNormal(ctx: RaceContext, state: RaceState): BotTurnDecision;
 }

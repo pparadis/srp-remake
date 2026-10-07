@@ -128,6 +128,8 @@ const LobbyReadQuerySchema = z.object({
   playerToken: z.string().min(1)
 });
 
+const seatOf = (lobby: Lobby) => (lobby.race ? activeSeatIndex(lobby.race.engine) : null);
+
 export async function createApp(config: BackendConfig, options: CreateAppOptions = {}) {
   const app = Fastify({ logger: options.logger ?? true });
   const lobbyStore = options.lobbyStore ?? new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000);
@@ -387,7 +389,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       revision: updatedLobby.revision,
       turnIndex: updatedLobby.race?.turnIndex ?? null,
       clientCommandId,
-      activeSeatIndex: updatedLobby.race ? activeSeatIndex(updatedLobby.race.engine) : null,
+      activeSeatIndex: seatOf(updatedLobby),
       applied: decision.action,
       botTrace: {
         selectedCellId: decision.trace?.selectedCellId ?? null,
@@ -538,7 +540,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       lobbyId: lobby.lobbyId,
       revision: lobby.revision,
       turnIndex: lobby.race?.turnIndex ?? null,
-      activeSeatIndex: lobby.race ? activeSeatIndex(lobby.race.engine) : null,
+      activeSeatIndex: seatOf(lobby),
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     await runPendingBotTurns(lobby.lobbyId);
@@ -685,7 +687,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         turnIndex: lobby.race?.turnIndex ?? null,
         clientCommandId: body.clientCommandId,
         reason: "not_active_player",
-        activeSeatIndex: lobby.race ? activeSeatIndex(lobby.race.engine) : null,
+        activeSeatIndex: seatOf(lobby),
         raceSummary: summarizeRaceState(lobby.lobbyId)
       });
       return reply.code(409).send(result);
@@ -736,7 +738,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       revision: updatedLobby.revision,
       turnIndex: updatedLobby.race?.turnIndex ?? null,
       clientCommandId: body.clientCommandId,
-      activeSeatIndex: updatedLobby.race ? activeSeatIndex(updatedLobby.race.engine) : null,
+      activeSeatIndex: seatOf(updatedLobby),
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     await runPendingBotTurns(lobby.lobbyId);

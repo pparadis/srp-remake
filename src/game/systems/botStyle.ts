@@ -53,10 +53,6 @@ export const PERSONALITIES: Record<PersonalityKey, Personality> = {
   strategist: { ...BASE, key: "strategist", label: "Strategist", innerLane: 0.8 }
 };
 
-// The pit strategist's offset (before the sign): cells of gain and of pass window.
-export const PIT_STRATEGIST = { gain: 12, window: 14 } as const;
-const LATE_WINDOW = 5;
-
 // What Hard adds to its personality: it reads the field instead of only its own plan.
 export const HARD_ADAPT = { overtake: 14, queue: 8, block: 0, innerLane: 0.3 } as const;
 // Points between the inner and the outer lane at innerLane = 1 (about 1.1 cells a move over a few moves).
@@ -104,8 +100,9 @@ export function personalityFor(key: PersonalityKey, seed: number, carId: number)
   const early = mix(seed, carId, 99) % 2 === 0;
   return {
     ...PERSONALITIES.strategist,
-    pitGain: early ? PIT_STRATEGIST.gain : -PIT_STRATEGIST.gain,
-    pitWindow: early ? PIT_STRATEGIST.window : -LATE_WINDOW
+    // cells of gain and of pass window: early +12 / +14, late -12 / -5
+    pitGain: early ? 12 : -12,
+    pitWindow: early ? 14 : -5
   };
 }
 
@@ -114,17 +111,21 @@ export function unit(...parts: number[]): number {
   return mix(...parts) / 4294967296;
 }
 
+export const MAX_SEED = 0x7fffffff;
+
 // Fresh seed for a new race, only at the boundary (server start of a race, solo scene).
 export function normalizeSeed(value: unknown): number {
   const n = Number(value);
-  return Number.isInteger(n) && n >= 0 && n <= 0x7fffffff ? n : 0;
+  return Number.isInteger(n) && n >= 0 && n <= MAX_SEED ? n : 0;
 }
 
 // Play order of the cars (carIds): the pole sitter first. Without it car 1 would move first every
 // round wherever the seed put it on the grid and win every tie (equal pace finishes on the same turn).
 export function turnOrderOf(seed: number, n: number): number[] {
   const slots = gridSlots(seed, n);
-  return slots.map((slot, i) => ({ slot, carId: i + 1 })).sort((a, b) => a.slot - b.slot).map((c) => c.carId);
+  const order: number[] = [];
+  slots.forEach((slot, i) => (order[slot] = i + 1));
+  return order;
 }
 
 // The race seed also shuffles the grid: `gridSlots(seed, n)[i]` is the starting slot (0 = pole) of

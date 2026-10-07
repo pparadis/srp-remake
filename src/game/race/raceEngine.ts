@@ -255,7 +255,6 @@ export function decideBotAction(
   if (level !== "hard") return decision;
   return decideHardBotAction(ctx, state, car, decision, {
     applyAction,
-    computeTargets,
     decideNormal: (c, s) => decideBotAction(c, s, "normal")
   });
 }
