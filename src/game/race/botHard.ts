@@ -36,7 +36,7 @@ const VALUE = {
   normalExtra: 0.1
 } as const;
 
-export interface HardDeps {
+interface HardDeps {
   applyAction(ctx: RaceContext, state: RaceState, action: RaceAction): ApplyResult;
   // The Normal policy for whoever is active in `state`.
   decideNormal(ctx: RaceContext, state: RaceState): BotTurnDecision;

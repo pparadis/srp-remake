@@ -20,7 +20,7 @@ interface BuildInfo {
   gitSha: string;
 }
 
-export interface BuildGameDebugSnapshotParams {
+interface BuildGameDebugSnapshotParams {
   buildInfo: BuildInfo;
   track: TrackData;
   cellMap: Map<string, TrackCell>;

@@ -11,7 +11,7 @@ import {
 } from "./constants";
 import type { BotLevel } from "./types/car";
 
-export interface GameOptions {
+interface GameOptions {
   totalCars: number;
   humanCars: number;
   botCars: number;

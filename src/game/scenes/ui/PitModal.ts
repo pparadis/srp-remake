@@ -3,7 +3,7 @@ import type { Car } from "../../types/car";
 import { SETUP_LIMITS } from "../../constants";
 import { formatStint } from "../../../ui/hud";
 import type { StintEstimate } from "../../systems/strategy";
-import { TextButton } from "./TextButton";
+import { makeButton } from "./makeButton";
 
 export interface PitStints {
   soft: StintEstimate;
@@ -211,9 +211,7 @@ export class PitModal {
   }
 
   private createModalButton(x: number, y: number, label: string): Phaser.GameObjects.Text {
-    const btn = new TextButton(this.scene, label, { fontSize: "14px" });
-    btn.setPosition(x, y);
-    return btn.getText();
+    return makeButton(this.scene, label, { fontSize: "14px" }).setPosition(x, y);
   }
 
   private refreshModalValues() {

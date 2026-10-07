@@ -1,5 +1,5 @@
 import type Phaser from "phaser";
-import { TextButton } from "./TextButton";
+import { makeButton } from "./makeButton";
 
 interface DebugButtonsCallbacks {
   onCopyDebug: () => void;
@@ -8,42 +8,27 @@ interface DebugButtonsCallbacks {
 }
 
 export class DebugButtons {
-  private copyDebugButton: TextButton;
-  private copyBotDebugButton: TextButton;
-  private copyBotDebugShortButton: TextButton;
+  private buttons: Phaser.GameObjects.Text[];
 
   constructor(scene: Phaser.Scene, callbacks: DebugButtonsCallbacks) {
-    this.copyDebugButton = new TextButton(scene, "Copy debug", {
-      fontSize: "14px",
-      originX: 0,
-      originY: 1,
-      onClick: callbacks.onCopyDebug
-    });
-    this.copyBotDebugButton = new TextButton(scene, "Copy bot debug", {
-      fontSize: "14px",
-      originX: 0,
-      originY: 1,
-      onClick: callbacks.onCopyBotDebug
-    });
-    this.copyBotDebugShortButton = new TextButton(scene, "Copy bot debug short", {
-      fontSize: "14px",
-      originX: 0,
-      originY: 1,
-      onClick: callbacks.onCopyBotDebugShort
-    });
+    const make = (label: string, onClick: () => void) =>
+      makeButton(scene, label, { fontSize: "14px", originX: 0, originY: 1, onClick });
+    this.buttons = [
+      make("Copy debug", callbacks.onCopyDebug),
+      make("Copy bot debug", callbacks.onCopyBotDebug),
+      make("Copy bot debug short", callbacks.onCopyBotDebugShort)
+    ];
   }
 
   layout(width: number, height: number, padding: number, bottomButtonYPad: number) {
-    const buttons = [this.copyDebugButton, this.copyBotDebugButton, this.copyBotDebugShortButton];
     let x = padding + 4;
     let y = height - bottomButtonYPad;
     const gap = 8;
-    for (const button of buttons) {
-      const textObj = button.getText();
-      const buttonWidth = textObj.width;
+    for (const button of this.buttons) {
+      const buttonWidth = button.width;
       if (x + buttonWidth > width - padding) {
         x = padding + 4;
-        y -= textObj.height + gap;
+        y -= button.height + gap;
       }
       button.setPosition(x, y);
       x += buttonWidth + gap;
@@ -51,12 +36,10 @@ export class DebugButtons {
   }
 
   getTexts() {
-    return [this.copyDebugButton, this.copyBotDebugButton, this.copyBotDebugShortButton].map((b) => b.getText());
+    return this.buttons;
   }
 
   setFixed() {
-    this.copyDebugButton.setFixed();
-    this.copyBotDebugButton.setFixed();
-    this.copyBotDebugShortButton.setFixed();
+    for (const button of this.buttons) button.setScrollFactor(0);
   }
 }

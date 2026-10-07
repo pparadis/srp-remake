@@ -17,23 +17,23 @@ import { shouldOpenPitModal } from "./pitSystem";
 
 export type { BotLevel };
 
-export interface BotPick {
+interface BotPick {
   cellId: string;
   info: TargetInfo;
 }
 
-export type BotAction =
+type BotAction =
   | { type: "skip" }
   | { type: "pit"; target: TrackCell; info: TargetInfo }
   | { type: "move"; target: TrackCell; info: TargetInfo; moveSpend: number };
 
-export interface BotHeuristicOptions {
+interface BotHeuristicOptions {
   lowResourceThreshold?: number;
   pitBonus?: number;
   pitPenalty?: number;
 }
 
-export interface BotCandidateScore {
+interface BotCandidateScore {
   cellId: string;
   info: TargetInfo;
   score: number;
@@ -46,7 +46,7 @@ export interface BotDecisionTrace {
   selectedCellId: string | null;
 }
 
-export interface BotDecisionResult {
+interface BotDecisionResult {
   action: BotAction;
   trace: BotDecisionTrace;
 }
