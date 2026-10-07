@@ -23,9 +23,10 @@ const TEST_FPS = 10;
 
 export function startGame(parent: HTMLElement, options: GameOptions) {
   const config: Phaser.Types.Core.GameConfig = {
-    type: Phaser.AUTO,
-    // e2e build only: the game is turn-based and software WebGL burns many CPU cores per page at 60 fps.
-    // Tweens use delta time, so they still finish; see tools/cpuProbe.mjs for the measurements.
+    // Canvas on purpose: a turn-based board (lines, a few sprites, text) needs no WebGL, and software WebGL
+    // burned many CPU cores per page (tools/cpuProbe.mjs: 125.6 s vs 8.8 s of CPU for the same race).
+    type: Phaser.CANVAS,
+    // e2e build only: still lowers the load of many headless pages; tweens use delta time, so they finish.
     ...(isTestBuild ? { fps: { target: TEST_FPS, limit: TEST_FPS } } : {}),
     parent,
     width: 1600,

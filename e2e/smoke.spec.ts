@@ -15,5 +15,7 @@ test("home loads without starting a game, quick race builds the scene, no errors
   await quickRace(page, { bots: 2, laps: 1 });
   const cars = await page.evaluate(() => window.__srp!.state().cars.length);
   expect(cars).toBe(3);
+  // The game runs on Phaser's Canvas renderer on purpose (AGENTS.md "Race HUD"): a WebGL canvas would return null here.
+  expect(await page.evaluate(() => document.querySelector("canvas")!.getContext("2d") !== null)).toBe(true);
   expect(errors).toEqual([]);
 });

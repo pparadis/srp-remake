@@ -51,6 +51,9 @@ Project guide for Codex and other automation.
 
 ## Race HUD
 
+- The game uses Phaser's Canvas renderer on purpose (`type: Phaser.CANVAS` in `src/game/index.ts`): it is a turn-based
+  board, and software WebGL cost about 14x the CPU (`npm run probe:cpu`). Do not add WebGL-only features (tint, FX,
+  pipelines, shaders, masks, blend modes, particles). `e2e/smoke.spec.ts` asserts the canvas has a 2D context.
 - The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
   `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceScene.emitHud()` sends. Add HUD data to the
   snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
@@ -100,8 +103,8 @@ Project guide for Codex and other automation.
 
 ### Verification
 
-- Why: each e2e page is headless Chromium with software WebGL; the full suite pushes the machine to load 35-70, and
-  timing-sensitive tests then flake. A flake under load is never a reason to loosen a test.
+- Why: each e2e page is headless Chromium (the game now uses the light Canvas renderer, but a full-suite run still means
+  many pages; it used to push the machine to load 35-70 with software WebGL), and timing-sensitive tests flake under load. A flake under load is never a reason to loosen a test.
 - Locally run: `npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`, `npm run backend:test`,
   `npm run backend:build`, plus ONLY the e2e specs the change touches, one chain at a time. Never the full e2e suite,
   the CI shards or repeat loops.
