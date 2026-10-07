@@ -9,6 +9,7 @@ import {
   REG_BOT_LEVEL,
   REG_HUMAN_CARS,
   REG_RACE_LAPS,
+  REG_SEED,
   REG_TOTAL_CARS
 } from "../constants";
 import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
@@ -48,6 +49,7 @@ import {
   serializeBotTrace,
   type BotDecisionLogEntry
 } from "./debug/botDecisionDebug";
+import { PERSONALITIES, personalityOf } from "../systems/botStyle";
 import { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
 import type { AppliedTurnSummary, BackendTurnAction, PublicLobby, TurnSource } from "../../net/backendApi";
 import { toEngineRace } from "../../net/raceSync";
@@ -94,7 +96,7 @@ export class RaceScene extends Phaser.Scene {
   private cellMap!: CellMap;
   private ctx!: RaceContext;
   // Rules and race state live in the engine; the scene only renders them.
-  private race: RaceState = { cars: [], turn: { order: [], index: 0 }, raceLaps: 5, winnerCarId: null };
+  private race: RaceState = { cars: [], turn: { order: [], index: 0 }, raceLaps: 5, winnerCarId: null, seed: 0 };
 
   private gTrack!: Phaser.GameObjects.Graphics;
   private trackImage?: Phaser.GameObjects.Image;
@@ -321,7 +323,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private startRace(raceLaps: number) {
-    this.race = createRace(this.ctx, this.buildSeats(), raceLaps);
+    this.race = createRace(this.ctx, this.buildSeats(), raceLaps, (this.registry.get(REG_SEED) as number | undefined) ?? 0);
     this.race.cars.forEach((car, i) => this.spawnCarToken(car, carSprite(i)));
   }
 
@@ -974,7 +976,8 @@ export class RaceScene extends Phaser.Scene {
       botDecisionCount: this.botDecisionLog.length,
       moveBudget: MOVE_BUDGET,
       moveRates: MOVE_RATES,
-      disallowPitBoxTargets: this.activeCar.pitServiced
+      disallowPitBoxTargets: this.activeCar.pitServiced,
+      seed: this.race.seed
     });
   }
 
@@ -1200,6 +1203,8 @@ export class RaceScene extends Phaser.Scene {
       name: this.carNames.get(car.carId) ?? (solo && !car.isBot ? "You" : `Car ${car.carId}`),
       color: carColor(index),
       isBot: car.isBot,
+      // Bots only (a human's style is never shown); seed 0 is the neutral baseline, nothing to show.
+      ...(car.isBot && car.botLevel === "hard" ? { style: PERSONALITIES.adaptive.label } : car.isBot && this.race.seed ? { style: personalityOf(this.race.seed, car.carId).label } : {}),
       lap: lapInProgress(car.lapCount, this.raceLapTarget),
       finished: hasFinishedRace(car.lapCount, this.raceLapTarget),
       progress: progressOf(car, this.cellMap.get(car.cellId)!, this.plan()),

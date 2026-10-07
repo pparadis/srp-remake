@@ -36,7 +36,7 @@ type SrpStatus = { raceLaps: number; winnerCarId: number | null; canControl: boo
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function gotoHome(page: Page) {
-  await page.goto("/");
+  await page.goto("/?seed=0");
   await expect(page.getByTestId("home-quick")).toBeVisible();
 }
 

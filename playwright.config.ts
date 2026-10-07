@@ -26,7 +26,8 @@ export default defineConfig({
       // Fast clocks so timer and grace-period behaviour fits in a test: a "120 s" turn lasts 12 s and the
       // host has 8 s to come back. A reused backend (reuseExistingServer, local only) would run with real
       // clocks and break e2e/afk.spec.ts; stop it or use another E2E_BACKEND_PORT.
-      env: { PORT: backendPort, TURN_TIMER_TIME_SCALE: "0.1", HOST_GRACE_SECONDS: "8" },
+      // BOT_SEED=0: neutral bots and the grid in car order, so the specs are deterministic.
+      env: { PORT: backendPort, BOT_SEED: "0", TURN_TIMER_TIME_SCALE: "0.1", HOST_GRACE_SECONDS: "8" },
       reuseExistingServer: !process.env.CI
     },
     {

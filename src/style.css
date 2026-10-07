@@ -277,6 +277,11 @@ body[data-screen="race"] #statusLine {
   color: #e6eef6;
 }
 
+.hud-style {
+  font-size: 0.8em;
+  opacity: 0.65;
+}
+
 .hud-chip {
   display: inline-block;
   width: 12px;

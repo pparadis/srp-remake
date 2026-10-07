@@ -31,7 +31,7 @@ test.describe("routing", () => {
     await expect(page).toHaveURL(/\/solo$/);
     await expect(screen(page)).toHaveAttribute("data-screen", "lobby");
     await page.goBack();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/(\?seed=0)?$/);
     await expect(screen(page)).toHaveAttribute("data-screen", "home");
   });
 

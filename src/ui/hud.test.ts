@@ -109,6 +109,15 @@ describe("hud", () => {
     expect(gapLabel(car(2), undefined, 28)).toBe("-");
   });
 
+  it("shows a bot's style next to its name in the standings, and nothing for a car without one", () => {
+    renderHud(root, snap({ cars: [car(1, { isBot: true, style: "Racer" }), car(2)] }));
+    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
+    expect(rows[0]!.textContent).toContain("Car 1 · Racer");
+    expect(rows[0]!.querySelector(".hud-style")!.textContent).toBe(" · Racer");
+    expect(rows[1]!.querySelector(".hud-style")).toBeNull();
+    expect(rows[1]!.textContent).not.toContain("·");
+  });
+
   it("shows the lap you are in, a hint behind the line, and Finished at the end", () => {
     // pole car: Lap 1 straight away, no hint
     renderHud(root, snap({ myCarId: 1 }));

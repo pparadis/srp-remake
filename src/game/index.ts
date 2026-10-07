@@ -6,6 +6,7 @@ import {
   REG_BOT_LEVEL,
   REG_HUMAN_CARS,
   REG_RACE_LAPS,
+  REG_SEED,
   REG_TOTAL_CARS
 } from "./constants";
 import type { BotLevel } from "./types/car";
@@ -16,6 +17,8 @@ export interface GameOptions {
   botCars: number;
   raceLaps: number;
   botLevel?: BotLevel;
+  // Race seed (bot personalities, grid); 0 = neutral baseline.
+  seed?: number;
 }
 
 const isTestBuild = import.meta.env.MODE === "test";
@@ -46,5 +49,6 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   game.registry.set(REG_BOT_CARS, options.botCars);
   game.registry.set(REG_RACE_LAPS, options.raceLaps);
   game.registry.set(REG_BOT_LEVEL, options.botLevel ?? "normal");
+  game.registry.set(REG_SEED, options.seed ?? 0);
   return game;
 }

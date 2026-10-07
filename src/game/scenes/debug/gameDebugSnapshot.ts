@@ -32,6 +32,8 @@ export interface BuildGameDebugSnapshotParams {
   moveRates: MoveRatesConfig;
   disallowPitBoxTargets: boolean;
   spineLane?: number;
+  // Race seed: with it the bots' personalities and the grid can be reproduced (`?seed=N`).
+  seed?: number;
 }
 
 export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
@@ -106,6 +108,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
     version: buildInfo.version,
     gitSha: buildInfo.gitSha,
     trackId: track.trackId,
+    seed: params.seed ?? 0,
     spineLane,
     spineLength: spineCells.length,
     startFinishIds,
