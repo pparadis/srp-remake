@@ -19,11 +19,11 @@ import {
 
 // Scripted drivers standing in for a human who found a fixed strategy: always the inner lane,
 // and either the even spend 9-8-8-8-7 or the biggest move it can make ("greedy").
-export type ScriptedPolicy = "scripted" | "greedy";
+type ScriptedPolicy = "scripted" | "greedy";
 export type BenchPolicy = BotPolicy | ScriptedPolicy;
 const SCRIPT = [9, 8, 8, 8, 7];
 
-export interface BenchFinisher {
+interface BenchFinisher {
   policy: BenchPolicy;
   // 0-based seat in the line-up (carId - 1).
   slot: number;
@@ -35,28 +35,28 @@ export interface BenchFinisher {
   place: number;
 }
 
-export interface BenchRaceResult {
+interface BenchRaceResult {
   finishers: BenchFinisher[];
   // Policy of each finisher, best first (index 0 won).
   order: BenchPolicy[];
   decisionMs: Partial<Record<BenchPolicy, { totalMs: number; count: number }>>;
 }
 
-export interface Stat {
+interface Stat {
   races: number;
   wins: number;
   winRate: number;
   avgFinish: number;
 }
 
-export interface PolicyStats extends Stat {
+interface PolicyStats extends Stat {
   // Mean turns a car of this policy needed to cover the race distance (lower is faster).
   avgMoves: number;
   decisions: number;
   meanDecisionMs: number;
 }
 
-export function scriptedAction(ctx: RaceContext, state: RaceState, policy: ScriptedPolicy): RaceAction {
+function scriptedAction(ctx: RaceContext, state: RaceState, policy: ScriptedPolicy): RaceAction {
   const car = getActiveCar(state);
   const want =
     policy === "greedy" ? 99 : Math.min(SCRIPT[car.moveCycle.index] ?? 7, getRemainingBudget(car.moveCycle));
@@ -134,7 +134,7 @@ export function playBenchRace(
   return { finishers, order: finishers.map((f) => f.policy), decisionMs };
 }
 
-export interface BenchOptions {
+interface BenchOptions {
   lineup: BenchPolicy[];
   laps: number[];
   // One race per lap count x rotation x seed; default [0] (every bot "balanced").

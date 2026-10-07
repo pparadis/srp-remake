@@ -68,7 +68,7 @@ export const EASY_IGNORE_STYLE = 0.3;
 export const SEEDED_STYLES: PersonalityKey[] = ["pusher", "steady", "racer", "defender", "strategist"];
 
 // FNV-style integer mix (no Math.random anywhere in the engine).
-export function mix(...parts: number[]): number {
+function mix(...parts: number[]): number {
   let h = 0x811c9dc5;
   for (const p of parts) {
     h = Math.imul(h ^ (p | 0), 0x01000193);

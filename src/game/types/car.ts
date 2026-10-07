@@ -2,7 +2,7 @@
 export const BOT_LEVELS = ["easy", "normal", "hard"] as const;
 export type BotLevel = (typeof BOT_LEVELS)[number];
 
-export type CarState = "ACTIVE" | "PITTING" | "WAITING" | "DNF";
+type CarState = "ACTIVE" | "PITTING" | "WAITING" | "DNF";
 
 export interface CarSetup {
   compound: "soft" | "hard";

@@ -64,29 +64,29 @@ export interface PublicLobby {
   raceState?: PublicRaceState;
 }
 
-export interface CreateLobbyResponse {
+interface CreateLobbyResponse {
   lobby: PublicLobby;
   playerId: string;
   playerToken: string;
 }
 
-export interface JoinLobbyResponse {
+interface JoinLobbyResponse {
   lobby: PublicLobby;
   playerId: string;
   playerToken: string;
   isReconnect: boolean;
 }
 
-export interface StartRaceResponse {
+interface StartRaceResponse {
   lobby: PublicLobby;
 }
 
-export interface ReadLobbyResponse {
+interface ReadLobbyResponse {
   lobby: PublicLobby;
   playerId: string;
 }
 
-export type SubmitTurnResponse =
+type SubmitTurnResponse =
   | {
       ok: true;
       lobbyId: string;
@@ -131,7 +131,7 @@ function normalizeBaseUrl(baseUrl: string): string {
 }
 
 // A sleeping free-plan server needs about a minute for its first response.
-export const REQUEST_TIMEOUT_MS = 90_000;
+const REQUEST_TIMEOUT_MS = 90_000;
 
 export class BackendApiClient {
   private readonly baseUrl: string;

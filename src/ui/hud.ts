@@ -35,7 +35,7 @@ export interface HudCar {
   advice: PitAdvice;
 }
 
-export interface HudHover {
+interface HudHover {
   /** Page coordinates of the target cell. */
   x: number;
   y: number;
@@ -151,7 +151,7 @@ export function resourceWarning(car: Pick<HudCar, "tire" | "fuel">): string | nu
 }
 
 /** Tooltip content for a hovered target: the move and what tire and fuel are left after it. */
-export function renderTooltip(tip: HTMLElement, h: HudHover) {
+function renderTooltip(tip: HTMLElement, h: HudHover) {
   const part = (label: string, before: number, cost: number) => {
     const after = Math.max(0, before - cost);
     const span = document.createElement("span");
@@ -205,7 +205,7 @@ export function gapLabel(car: HudCar, ahead: HudCar | undefined, spineLen: numbe
 }
 
 /** Lap column / card text: the lap the car is in, "Finished" once it crossed the line to end the race. */
-export function lapText(car: HudCar, raceLaps: number, short = false): string {
+function lapText(car: HudCar, raceLaps: number, short = false): string {
   if (car.finished) return short ? "Fin" : "Finished";
   return short ? `${car.lap}/${raceLaps}` : `Lap ${car.lap} / ${raceLaps}`;
 }

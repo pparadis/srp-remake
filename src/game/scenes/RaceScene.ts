@@ -37,7 +37,7 @@ import { validateTrack } from "../../validation/trackValidation";
 import { PitModal, type PitStints } from "./ui/PitModal";
 import type { HudCar, HudSnapshot } from "../../ui/hud";
 import { DebugButtons } from "./ui/DebugButtons";
-import { TextButton } from "./ui/TextButton";
+import { makeButton } from "./ui/makeButton";
 import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
 import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
 import { spriteRotation } from "./rendering/heading";
@@ -124,7 +124,7 @@ export class RaceScene extends Phaser.Scene {
   private localPlayerId: string | null = null;
   private botDecisionLog: BotDecisionLogEntry[] = [];
   private botDecisionSeq = 1;
-  private skipButton!: TextButton;
+  private skipButton!: Phaser.GameObjects.Text;
   private debugButtons!: DebugButtons;
   private showCarsAndMoves = true;
   private get cars(): Car[] {
@@ -815,7 +815,6 @@ export class RaceScene extends Phaser.Scene {
     if (this.pitModal) {
       this.pitModal.setFixed();
     }
-    if (this.skipButton) this.skipButton.setFixed();
     if (this.debugButtons) this.debugButtons.setFixed();
   }
 
@@ -896,7 +895,7 @@ export class RaceScene extends Phaser.Scene {
     // Fixed (scrollFactor 0) objects are zoomed with the camera; undo that so the UI keeps its size.
     const z = this.cameras.main.zoom;
     const k = 1 / z;
-    const texts = [this.skipButton?.getText(), ...(this.debugButtons?.getTexts() ?? [])];
+    const texts = [this.skipButton, ...(this.debugButtons?.getTexts() ?? [])];
     for (const t of texts) {
       if (t) t.setScale(k).setPosition(w / 2 + (t.x - w / 2) * k, h / 2 + (t.y - h / 2) * k);
     }
@@ -910,7 +909,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private createSkipButton() {
-    this.skipButton = new TextButton(this, "Skip turn", {
+    this.skipButton = makeButton(this, "Skip turn", {
       fontSize: "14px",
       originX: 0.5,
       originY: 1,
@@ -962,7 +961,8 @@ export class RaceScene extends Phaser.Scene {
       this.activeCar.state === "ACTIVE" &&
       this.canLocalControlActiveCar();
     this.skipButton.setAlpha(canSkip ? 1 : 0.4);
-    this.skipButton.setInteractive(canSkip);
+    if (canSkip) this.skipButton.setInteractive({ useHandCursor: true });
+    else this.skipButton.disableInteractive();
   }
 
   private buildDebugSnapshot() {

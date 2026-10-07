@@ -41,7 +41,7 @@ export interface BotPlanContext {
   rivals?: RivalView[];
 }
 
-export interface RivalView {
+interface RivalView {
   fwd: number;
   lane: number;
 }
