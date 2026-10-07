@@ -24,6 +24,8 @@ export interface Car {
   isBot: boolean;
   // Only set on bots; read by decideBotAction when no explicit policy is passed.
   botLevel?: BotLevel;
+  // Bench/test override of the seed-derived personality (a PersonalityKey); never set in real races.
+  style?: string;
   cellId: string;
   lapCount?: number;
   tire: number;

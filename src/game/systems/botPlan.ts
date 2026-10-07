@@ -3,6 +3,7 @@ import { MOVE_RATES, PIT_LANE } from "../constants";
 import type { Car, CarSetup } from "../types/car";
 import type { TrackCell } from "../types/track";
 import { setupFactors } from "./movementSystem";
+import type { Personality } from "./botStyle";
 import { trackFwd, type TrackIndex } from "./trackIndex";
 
 // Wings 0 and 32 psi everywhere cost nothing extra, and in the current cost model the hard
@@ -30,6 +31,19 @@ export interface BotPlanContext {
   lane1FwdByZone: Map<number, number>;
   // forwardIndex of the lane-1 cell that leads into PIT_ENTRY (the only place a stop can start).
   feederFwd: number | null;
+  // Who is driving and what it sees; absent in the HUD advice and in unit tests (neutral bot).
+  style?: Personality;
+  // Hard: also reads the field (see HARD_ADAPT).
+  adapt?: boolean;
+  // Race seed, for Easy's dice.
+  seed?: number;
+  // The other cars: lane-1 equivalent position and lane (the pit lane for cars in it).
+  rivals?: RivalView[];
+}
+
+export interface RivalView {
+  fwd: number;
+  lane: number;
 }
 
 const feederCache = new WeakMap<TrackIndex, number | null>();
@@ -99,10 +113,10 @@ export function stopIsDue(car: Car, cell: TrackCell, plan: BotPlanContext): bool
   if (shortfall === 0) return false;
   const fresh = cellsUntilEmpty(100, 100, IDEAL_PIT_SETUP);
   const afterStop = Math.max(0, remaining - toFeeder - fresh);
-  const gain = (shortfall - afterStop) * EMPTY_SLOWDOWN - PIT_LANE_CELLS;
+  const gain = (shortfall - afterStop) * EMPTY_SLOWDOWN - PIT_LANE_CELLS + (plan.style?.pitGain ?? 0);
   if (gain <= 0) return false;
   // Pit as late as possible, but before the next pass would find the car already empty.
-  return untilEmpty - toFeeder < plan.spineLen + 10;
+  return untilEmpty - toFeeder < plan.spineLen + 10 + (plan.style?.pitWindow ?? 0);
 }
 
 // Progress a move makes along the track. Outer lanes have cells that share a forwardIndex, so
