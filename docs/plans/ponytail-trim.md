@@ -1,6 +1,6 @@
 # Ponytail trim
 
-Status: Done (PR #21)
+Status: Done (PR #21, follow-up PR #24)
 
 Result of a repo-wide over-engineering audit. Small, behaviour-neutral cuts.
 
@@ -10,14 +10,10 @@ Result of a repo-wide over-engineering audit. Small, behaviour-neutral cuts.
 - Unexport symbols nothing outside their file uses (types, `toShortBotDecisionLogEntry`, `PIT_EXIT_SQUEEZE_RANGE`); drop the unused `TrackSchema` type.
 - Ignore `.claude/worktrees/` in git.
 
-## Deferred until PR #19 (`feat/bot-personalities`) merges
+## Follow-up (done)
 
-It touches these files, so cutting them now would conflict:
+After PR #19 merged: unexported the remaining unused symbols (`hud.ts`, `backendApi.ts`, the bot and bench types,
+`GameOptions`, `CarState`, `LobbyStatus`, `mix`) and replaced the `TextButton` class with a `makeButton` function
+(`src/game/scenes/ui/makeButton.ts`) that returns the Phaser text object.
 
-- `src/ui/hud.ts`: unexport `renderTooltip`, `lapText`, `HudHover`.
-- `src/net/backendApi.ts`: unexport `REQUEST_TIMEOUT_MS` and the `*Response` types.
-- `src/game/systems/botSystem.ts`, `src/game/race/botBench.ts`, `botHard.ts`: unexport `Bot*`, `Bench*`, `HardDeps` types.
-- `src/game/scenes/ui/TextButton.ts`: replace the class with a `makeButton` function (call site in `RaceScene.ts`).
-- `src/game/index.ts`, `src/game/types/car.ts`, `backend/src/types.ts` (`LobbyStatus`): unused exported types.
-
-Optional: fold `tools/track/*.mjs` into `tools/genOval16_3lanes.mjs`.
+Not done: folding `tools/track/*.mjs` into `tools/genOval16_3lanes.mjs` (optional, a one-off tool).
