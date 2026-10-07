@@ -64,7 +64,8 @@ describe("main (solo flow)", () => {
         humanCars: 1,
         botCars: 2,
         raceLaps: 2,
-        botLevel: "hard"
+        botLevel: "hard",
+        seed: expect.any(Number)
       });
     });
 

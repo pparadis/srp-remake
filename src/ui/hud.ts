@@ -8,6 +8,8 @@ export interface HudCar {
   /** CSS colour of the car sprite. */
   color: string;
   isBot: boolean;
+  /** A bot's driving style (seeded personality), shown next to its name; absent for humans. */
+  style?: string;
   /** The lap the car is in (1-based); 0 while it is still behind the start line. */
   lap: number;
   /** Crossed the line after the last lap. */
@@ -231,6 +233,16 @@ function setMeter(valueEl: HTMLElement, barEl: HTMLElement, label: string, perce
   barEl.className = `hud-${level}`;
 }
 
+function nameCell(car: HudCar): string | HTMLElement {
+  if (!car.style) return car.name;
+  const span = document.createElement("span");
+  span.className = "hud-style";
+  span.textContent = ` · ${car.style}`;
+  const cell = document.createElement("span");
+  cell.append(car.name, span);
+  return cell;
+}
+
 function fillStandings(tbody: Element, cars: HudCar[], s: HudSnapshot, rowId: string) {
   tbody.replaceChildren(
     ...cars.map((car, i) => {
@@ -246,7 +258,7 @@ function fillStandings(tbody: Element, cars: HudCar[], s: HudSnapshot, rowId: st
       const cells: Array<string | HTMLElement> = [
         String(i + 1),
         chip,
-        car.name,
+        nameCell(car),
         lapText(car, s.raceLaps, true),
         gapLabel(car, cars[i - 1], s.spineLen),
         icon

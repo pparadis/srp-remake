@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import {
+  activeSeatIndex,
   applyAction,
   createRace,
   decideBotAction,
@@ -7,6 +8,7 @@ import {
   type ApplyResult,
   type BotTurnDecision
 } from "../../src/game/race/raceEngine";
+import { normalizeSeed } from "../../src/game/systems/botStyle";
 import type { BotPolicy } from "../../src/game/systems/botSystem";
 import { getRaceContext, knownTrackIds } from "./tracks.js";
 import type {
@@ -83,6 +85,13 @@ function toPublicPlayer(player: LobbyPlayer): PublicLobbyPlayer {
   };
 }
 
+// The race seed (bot personalities and grid) is rolled here, at the boundary; the engine is pure.
+// BOT_SEED pins it (tests, e2e, reproducing a race).
+function newRaceSeed(): number {
+  const pinned = process.env.BOT_SEED;
+  return pinned !== undefined && pinned !== "" ? normalizeSeed(pinned) : randomInt(1, 0x7fffffff);
+}
+
 function toPublicRaceState(lobby: Lobby): RaceState | undefined {
   const race = lobby.race;
   if (!race) return undefined;
@@ -91,8 +100,9 @@ function toPublicRaceState(lobby: Lobby): RaceState | undefined {
     trackId: lobby.settings.trackId,
     raceLaps: engine.raceLaps,
     turnIndex: race.turnIndex,
-    activeSeatIndex: engine.turn.index,
+    activeSeatIndex: activeSeatIndex(engine),
     winnerCarId: engine.winnerCarId,
+    seed: engine.seed,
     cars: engine.cars.map((car, i): RaceCarState => ({ ...car, ...seats[i]! })),
     ...(race.turnDeadlineAt !== undefined
       ? { turnRemainingMs: Math.max(0, race.turnDeadlineAt - Date.now()) }
@@ -189,7 +199,8 @@ export class LobbyStore {
         ownerId: seat.playerId ?? `BOT${seat.seatIndex + 1}`,
         botLevel: lobby.settings.botLevel
       })),
-      lobby.settings.raceLaps
+      lobby.settings.raceLaps,
+      newRaceSeed()
     );
     return { engine, seats, turnIndex: 0 };
   }

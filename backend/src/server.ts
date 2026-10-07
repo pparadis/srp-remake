@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { DEFAULT_HOST_GRACE_SECONDS, loadConfig, type BackendConfig } from "./config.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
+import { activeSeatIndex } from "../../src/game/race/raceEngine";
 import type { BotPolicy } from "../../src/game/systems/botSystem";
 import { BOT_LEVEL_CHOICES, type Lobby, type LobbySettings, type TurnCommandResult, type TurnSubmitAction } from "./types.js";
 
@@ -167,7 +168,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const { engine, seats } = lobby.race;
     return {
       turnIndex: lobby.race.turnIndex,
-      activeSeatIndex: engine.turn.index,
+      activeSeatIndex: activeSeatIndex(engine),
       winnerCarId: engine.winnerCarId,
       cars: engine.cars.map((car, i) => ({
         seatIndex: seats[i]?.seatIndex,
@@ -386,7 +387,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       revision: updatedLobby.revision,
       turnIndex: updatedLobby.race?.turnIndex ?? null,
       clientCommandId,
-      activeSeatIndex: updatedLobby.race?.engine.turn.index ?? null,
+      activeSeatIndex: updatedLobby.race ? activeSeatIndex(updatedLobby.race.engine) : null,
       applied: decision.action,
       botTrace: {
         selectedCellId: decision.trace?.selectedCellId ?? null,
@@ -537,7 +538,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       lobbyId: lobby.lobbyId,
       revision: lobby.revision,
       turnIndex: lobby.race?.turnIndex ?? null,
-      activeSeatIndex: lobby.race?.engine.turn.index ?? null,
+      activeSeatIndex: lobby.race ? activeSeatIndex(lobby.race.engine) : null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     await runPendingBotTurns(lobby.lobbyId);
@@ -684,7 +685,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         turnIndex: lobby.race?.turnIndex ?? null,
         clientCommandId: body.clientCommandId,
         reason: "not_active_player",
-        activeSeatIndex: lobby.race?.engine.turn.index ?? null,
+        activeSeatIndex: lobby.race ? activeSeatIndex(lobby.race.engine) : null,
         raceSummary: summarizeRaceState(lobby.lobbyId)
       });
       return reply.code(409).send(result);
@@ -735,7 +736,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       revision: updatedLobby.revision,
       turnIndex: updatedLobby.race?.turnIndex ?? null,
       clientCommandId: body.clientCommandId,
-      activeSeatIndex: updatedLobby.race?.engine.turn.index ?? null,
+      activeSeatIndex: updatedLobby.race ? activeSeatIndex(updatedLobby.race.engine) : null,
       raceSummary: summarizeRaceState(lobby.lobbyId)
     });
     await runPendingBotTurns(lobby.lobbyId);

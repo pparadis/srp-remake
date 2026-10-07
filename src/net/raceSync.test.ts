@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicRaceCar, PublicRaceState } from "./backendApi";
+import { turnOrderOf } from "../game/systems/botStyle";
 import { toEngineRace } from "./raceSync";
 
 function car(carId: number, overrides: Partial<PublicRaceCar> = {}): PublicRaceCar {
@@ -31,6 +32,7 @@ describe("toEngineRace", () => {
     turnIndex: 9,
     activeSeatIndex: 1,
     winnerCarId: null,
+    seed: 0,
     cars: [car(1), car(2, { isBot: true, ownerId: "BOT2", playerId: null })]
   };
 
@@ -63,6 +65,15 @@ describe("toEngineRace", () => {
     expect(race.turn).toEqual({ order: [1, 2], index: 1 });
     expect(race.raceLaps).toBe(4);
     expect(race.winnerCarId).toBeNull();
+  });
+
+  it("carries the seed and plays the pole sitter of the seeded grid first, with the active seat's car at the index", () => {
+    const four: PublicRaceState = { ...snapshot, seed: 5, activeSeatIndex: 2, cars: [1, 2, 3, 4].map((id) => car(id)) };
+    const race = toEngineRace(four);
+    expect(race.seed).toBe(5);
+    expect(race.turn.order).toEqual(turnOrderOf(5, 4));
+    expect([...race.turn.order].sort()).toEqual([1, 2, 3, 4]);
+    expect(race.turn.order[race.turn.index]).toBe(3); // seat 2 = car 3
   });
 
   it("carries the winner", () => {

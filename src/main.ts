@@ -1,6 +1,7 @@
 import "./style.css";
 import { formatCountdown, mountHud, renderHud, renderMute, renderResults, showToast, type HudSnapshot } from "./ui/hud";
 import { currentlyMuted, initSound, setMuted } from "./ui/sound";
+import { normalizeSeed } from "./game/systems/botStyle";
 import {
   BackendApiClient,
   BackendApiError,
@@ -72,13 +73,24 @@ hud.querySelector('[data-testid="hud-mute"]')!.addEventListener("click", toggleM
 const hudTimer = hud.querySelector<HTMLElement>('[data-testid="hud-timer"]')!;
 const hudForceSkip = hud.querySelector<HTMLButtonElement>('[data-testid="hud-force-skip"]')!;
 
+// `?seed=N` reproduces a solo race (bot personalities and grid); otherwise each race gets a fresh
+// one. The seed is made here, at the boundary: the engine never rolls dice.
+const urlSeed = (() => {
+  const raw = new URLSearchParams(window.location.search).get("seed");
+  return raw !== null && /^\d+$/.test(raw) ? normalizeSeed(Number(raw)) : null;
+})();
+function freshSeed(): number {
+  return (crypto.getRandomValues(new Uint32Array(1))[0]! % 0x7fffffff) + 1;
+}
+
 let game: ReturnType<typeof import("./game").startGame> | null = null;
 let gameStarting = false;
 let backendBusy = false;
 let mode: "solo" | "online" = "solo";
 let soloRaceRequested = false;
 let raceOver = false;
-const soloSettings: { botCars: number; raceLaps: number; botLevel: BotLevel } = {
+const soloSettings: { botCars: number; raceLaps: number; botLevel: BotLevel; seed: number } = {
+  seed: 0,
   botCars: 3,
   raceLaps: 5,
   botLevel: "normal"
@@ -258,14 +270,15 @@ function getPlayerName(): string {
 function getComposition() {
   if (mode === "online" && lastLobby) {
     const { totalCars, humanCars, botCars, raceLaps, botLevel } = lastLobby.settings;
-    return { totalCars, humanCars, botCars, raceLaps, botLevel };
+    return { totalCars, humanCars, botCars, raceLaps, botLevel, seed: lastLobby.raceState?.seed ?? 0 };
   }
   return {
     totalCars: 1 + soloSettings.botCars,
     humanCars: 1,
     botCars: soloSettings.botCars,
     raceLaps: soloSettings.raceLaps,
-    botLevel: soloSettings.botLevel
+    botLevel: soloSettings.botLevel,
+    seed: soloSettings.seed
   };
 }
 
@@ -777,6 +790,7 @@ async function startRace() {
   if (backendBusy) return;
   if (mode === "solo") {
     soloRaceRequested = true;
+    soloSettings.seed = urlSeed ?? freshSeed();
     navigate({ name: "soloRace" });
     return;
   }

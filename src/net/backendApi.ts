@@ -30,6 +30,8 @@ export interface PublicRaceState {
   turnIndex: number;
   activeSeatIndex: number;
   winnerCarId: number | null;
+  /** Per-race seed: decides the bots' personalities and the grid (see docs/bot-system.md). */
+  seed: number;
   cars: PublicRaceCar[];
   /** Time left for the active human seat, measured by the server; absent when the lobby has no timer. */
   turnRemainingMs?: number;

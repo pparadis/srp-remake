@@ -23,6 +23,8 @@ export interface RaceState {
   turnIndex: number;
   activeSeatIndex: number;
   winnerCarId: number | null;
+  // Per-race seed: bot personalities and the grid (src/game/systems/botStyle.ts).
+  seed: number;
   cars: RaceCarState[];
   // Time left for the active human seat (server clock, so no client clock skew); absent without a timer.
   turnRemainingMs?: number;

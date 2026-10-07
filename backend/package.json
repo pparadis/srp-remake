@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "rm -rf dist && tsc --noEmit -p tsconfig.json && esbuild src/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "BOT_SEED=0 node --import tsx --test test/*.test.ts",
     "start": "node dist/server.js"
   },
   "dependencies": {
