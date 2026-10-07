@@ -5,7 +5,9 @@ import { MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS } from "../constants";
 import { hasFinishedRace } from "../systems/lapProgress";
 import type { BotLevel, Car, CarSetup } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
-import { buildPlanContext, IDEAL_PIT_SETUP } from "../systems/botPlan";
+import { buildPlanContext, IDEAL_PIT_SETUP, type BotPlanContext } from "../systems/botPlan";
+import { turnOrderOf, personalityFor, personalityOf, PERSONALITIES, type PersonalityKey } from "../systems/botStyle";
+import { trackFwd } from "../systems/trackIndex";
 import { decideBotActionWithTrace, type BotDecisionTrace, type BotPolicy } from "../systems/botSystem";
 import { decideHardBotAction } from "./botHard";
 import { applyMove, crossesStartLine } from "../systems/moveCommitSystem";
@@ -15,7 +17,7 @@ import { computeSqueezeTargets, computeValidTargets, type TargetInfo } from "../
 import { advancePitPenalty, applyPitStop } from "../systems/pitSystem";
 import { spawnCars } from "../systems/spawnSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
-import { advanceTurn, createTurnState, getCurrentCarId, type TurnState } from "../systems/turnSystem";
+import { advanceTurn, getCurrentCarId, type TurnState } from "../systems/turnSystem";
 
 export interface RaceContext {
   track: TrackData;
@@ -28,6 +30,8 @@ export interface RaceSeat {
   ownerId: string;
   // Difficulty of a bot seat; "normal" when omitted. Ignored for humans.
   botLevel?: BotLevel;
+  // Bench/test override of the seed-derived personality.
+  style?: PersonalityKey | undefined;
 }
 
 export interface RaceState {
@@ -35,6 +39,9 @@ export interface RaceState {
   turn: TurnState;
   raceLaps: number;
   winnerCarId: number | null;
+  // Per-race integer that decides every bot's personality (and Easy's dice); 0 = the neutral baseline.
+  // Created at the boundary (server at race start, solo scene), never inside the engine.
+  seed: number;
 }
 
 export type RaceAction =
@@ -69,12 +76,12 @@ export function createRaceContext(track: TrackData): RaceContext {
   return { track, trackIndex, cellMap: trackIndex.cellMap };
 }
 
-export function createRace(ctx: RaceContext, seats: RaceSeat[], raceLaps: number): RaceState {
+export function createRace(ctx: RaceContext, seats: RaceSeat[], raceLaps: number, seed = 0): RaceState {
   const { cars } = spawnCars(ctx.track, {
     totalCars: seats.length,
     humanCount: seats.length,
     botCount: 0
-  });
+  }, seed);
   if (cars.length !== seats.length) {
     throw new Error(`Track has room for ${cars.length} cars, ${seats.length} requested.`);
   }
@@ -83,8 +90,14 @@ export function createRace(ctx: RaceContext, seats: RaceSeat[], raceLaps: number
     car.isBot = seat.isBot;
     car.ownerId = seat.ownerId;
     if (seat.isBot) car.botLevel = seat.botLevel ?? "normal";
+    if (seat.isBot && seat.style) car.style = seat.style;
   });
-  return { cars, turn: createTurnState(cars), raceLaps, winnerCarId: null };
+  return { cars, turn: { order: turnOrderOf(seed, cars.length), index: 0 }, raceLaps, winnerCarId: null, seed };
+}
+
+// Seat (carId - 1) of the car to play; the play order is the grid order, not the car order.
+export function activeSeatIndex(state: RaceState): number {
+  return getActiveCar(state).carId - 1;
 }
 
 export function getActiveCar(state: RaceState): Car {
@@ -210,7 +223,23 @@ export function decideBotAction(
   }
   const level: BotPolicy = policy ?? car.botLevel ?? "normal";
   const targets = computeTargets(ctx, state, car);
-  const plan = buildPlanContext(ctx.trackIndex, state.raceLaps);
+  const plan: BotPlanContext = {
+    ...buildPlanContext(ctx.trackIndex, state.raceLaps),
+    // Humans (and the autopilot standing in for one) have no style; bots draw theirs from the race seed.
+    style: level === "hard" ? PERSONALITIES.adaptive : !car.isBot
+      ? PERSONALITIES.balanced
+      : car.style
+        ? personalityFor(car.style as PersonalityKey, state.seed, car.carId)
+        : personalityOf(state.seed, car.carId),
+    adapt: level === "hard",
+    seed: state.seed,
+    rivals: state.cars
+      .filter((c) => c.carId !== car.carId)
+      .map((c) => {
+        const cell = ctx.cellMap.get(c.cellId)!;
+        return { fwd: trackFwd(cell, ctx.trackIndex.lane1FwdByZone), lane: cell.laneIndex };
+      })
+  };
   const { action, trace } = decideBotActionWithTrace(targets, car, ctx.cellMap, level, plan);
   let decision: BotTurnDecision;
   if (action.type === "skip") {

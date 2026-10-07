@@ -1,4 +1,4 @@
-import { MOVE_BUDGET, PIT_LANE } from "../constants";
+import { MOVE_BUDGET, OUTER_MAIN_LANE, PIT_LANE } from "../constants";
 import type { BotLevel, Car } from "../types/car";
 import type { TrackCell } from "../types/track";
 import {
@@ -10,6 +10,7 @@ import {
   wearPerCell,
   type BotPlanContext
 } from "./botPlan";
+import { BLOCK_RANGE, EASY_IGNORE_STYLE, EASY_NOISE, HARD_ADAPT, LANE_SPAN, PERSONALITIES, QUEUE_RANGE } from "./botStyle";
 import type { TargetInfo } from "./movementSystem";
 import { computeMoveSpend, getRemainingBudget } from "./moveBudgetSystem";
 import { shouldOpenPitModal } from "./pitSystem";
@@ -149,8 +150,10 @@ const EASY_LOW_RESOURCE_THRESHOLD = 10;
 const EASY_PICK_WEIGHTS = [0.5, 0.3, 0.2] as const;
 
 // FNV-1a over the state that changes every turn, then mulberry32: deterministic, no Math.random.
-function seededUnit(car: Car): number {
+function seededUnit(car: Car, seed = 0, salt = 0): number {
   const key = [
+    seed,
+    salt,
     car.carId,
     car.cellId,
     car.lapCount ?? 0,
@@ -169,13 +172,27 @@ function seededUnit(car: Car): number {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
-export function evaluateEasyTargets(targets: Map<string, TargetInfo>, car: Car): BotDecisionTrace {
+export function evaluateEasyTargets(
+  targets: Map<string, TargetInfo>,
+  car: Car,
+  cellMap?: Map<string, TrackCell>,
+  plan?: BotPlanContext
+): BotDecisionTrace {
   const trace = evaluateBotTargets(targets, car, { lowResourceThreshold: EASY_LOW_RESOURCE_THRESHOLD });
   if (trace.candidates.length === 0) return trace;
+  const seed = plan?.seed ?? 0;
+  // Sloppy driver: follows its style only most of the time, and every score gets noise.
+  const from = cellMap?.get(car.cellId);
+  const follows = !!plan?.style && !!from && seededUnit(car, seed, -1) >= EASY_IGNORE_STYLE;
+  const sloppy = plan ? EASY_NOISE : 0;
+  trace.candidates.forEach((c, i) => {
+    if (follows) c.score += fieldScore(from, cellMap!.get(c.cellId), c.info, plan!, false);
+    if (sloppy) c.score += (seededUnit(car, seed, i) - 0.5) * 2 * sloppy;
+  });
   const ranked = [...trace.candidates].sort((a, b) => b.score - a.score || a.cellId.localeCompare(b.cellId));
   const top = ranked.slice(0, EASY_PICK_WEIGHTS.length);
   const weights = EASY_PICK_WEIGHTS.slice(0, top.length);
-  let roll = seededUnit(car) * weights.reduce((sum, w) => sum + w, 0);
+  let roll = seededUnit(car, seed, -2) * weights.reduce((sum, w) => sum + w, 0);
   let pick = top[0]!;
   for (let i = 0; i < top.length; i += 1) {
     roll -= weights[i]!;
@@ -187,14 +204,47 @@ export function evaluateEasyTargets(targets: Map<string, TargetInfo>, car: Car):
   return { ...trace, selectedCellId: pick.cellId };
 }
 
+// What the field around the car is worth to its style: the personality's weights, plus Hard's.
+// `lanePlan` is false for Easy, which does not run the cycle plan but still has lane tastes.
+function fieldScore(
+  from: TrackCell | undefined,
+  cell: TrackCell | undefined,
+  info: TargetInfo,
+  plan: BotPlanContext,
+  adapt = plan.adapt
+): number {
+  if (!from || !cell || cell.laneIndex === PIT_LANE || from.laneIndex === PIT_LANE) return 0;
+  const style = plan.style ?? PERSONALITIES.balanced;
+  const extra = adapt ? HARD_ADAPT : { overtake: 0, queue: 0, block: 0, innerLane: 0 };
+  const len = plan.spineLen;
+  const gain = forwardGain(from, cell, info.distance, plan);
+  let score = 0;
+  score += ((style.innerLane + extra.innerLane) * LANE_SPAN * (OUTER_MAIN_LANE - cell.laneIndex)) / (OUTER_MAIN_LANE - 1);
+  if (cell.laneIndex !== from.laneIndex) score += style.laneChange;
+  const overtake = style.overtake + extra.overtake;
+  const queue = style.queue + extra.queue;
+  const block = style.block + extra.block;
+  let blockGap = Infinity;
+  for (const r of plan.rivals ?? []) {
+    if (r.lane === PIT_LANE) continue;
+    const ahead = (r.fwd - from.forwardIndex + len) % len;
+    if (ahead > 0 && ahead < gain) score += overtake;
+    if (r.lane !== cell.laneIndex) continue;
+    const queued = (r.fwd - cell.forwardIndex + len) % len;
+    if (queued > 0 && queued <= QUEUE_RANGE) score -= queue;
+    const behind = (cell.forwardIndex - r.fwd + len) % len;
+    if (behind > 0 && behind < blockGap) blockGap = behind;
+  }
+  if (blockGap <= BLOCK_RANGE) score += (block * (BLOCK_RANGE + 1 - blockGap)) / BLOCK_RANGE;
+  return score;
+}
+
 // ---- Normal: the plain score plus the move-budget cycle and the pit plan ----------------------
 
 const NORMAL = {
   // per cell of budget that can no longer be spent in the rest of the cycle
   wasteWeight: 10,
-  // per point the remaining moves' even share of the budget shrinks
-  shareWeight: 2,
-  pitBoxBonus: 100,
+    pitBoxBonus: 100,
   pitEntryBonus: 150,
   pitEntryAvoid: 40,
   finalLapPitAvoid: 1000,
@@ -221,6 +271,7 @@ export function evaluateNormalTargets(
   const toFeeder = plan && from && !inPitLane ? cellsToFeeder(from, plan) : null;
   const weights = plan && from && !inPitLane ? resourceWeights(car, from, plan) : { tire: 1, fuel: 1 };
   const wear = wearPerCell(car.setup);
+  const style = plan?.style ?? PERSONALITIES.balanced;
 
   let selectedCellId: string | null = null;
   let bestScore = -Infinity;
@@ -230,7 +281,7 @@ export function evaluateNormalTargets(
     const cell = cellMap.get(cellId);
     // Progress along the track (forwardIndex), not cells walked.
     const gain = forwardGain(from, cell, info.distance, plan);
-    let score = gain * 10 - (info.tireCost + info.fuelCost);
+    let score = gain * 10 - (info.tireCost + info.fuelCost) * style.wearWeight;
     // A resource that will run out before the flag is worth more than a point per unit, but only
     // the part of a move's cost above the car's average wear per cell is a real saving or waste
     // (rounding and lane factors); the average itself is paid for any progress.
@@ -248,7 +299,7 @@ export function evaluateNormalTargets(
       score -= Math.max(0, left - MOVE_BUDGET.baseMax * laterMoves) * NORMAL.wasteWeight;
       const evenShare = budget / movesLeft;
       const laterShare = left / laterMoves;
-      if (laterShare < evenShare) score -= (evenShare - laterShare) * NORMAL.shareWeight;
+      if (laterShare < evenShare) score -= (evenShare - laterShare) * style.shareWeight;
     }
 
     if (info.isPitTrigger) {
@@ -268,6 +319,8 @@ export function evaluateNormalTargets(
         }
       }
     }
+
+    if (plan) score += fieldScore(from, cell, info, plan);
 
     candidates.push({ cellId, info, score });
     if (score > bestScore) {
@@ -302,7 +355,7 @@ export function decideBotActionWithTrace(
     policy === "autopilot"
       ? evaluateAutopilotTargets(targets, car, cellMap)
       : policy === "easy"
-        ? evaluateEasyTargets(targets, car)
+        ? evaluateEasyTargets(targets, car, cellMap, plan)
         : evaluateNormalTargets(targets, car, cellMap, plan);
   if (!trace.selectedCellId) return { action: { type: "skip" }, trace };
   const selected = trace.candidates.find((candidate) => candidate.cellId === trace.selectedCellId);

@@ -3,6 +3,7 @@ import type { TrackCell, TrackData } from "../types/track";
 import { createMoveCycle } from "./moveBudgetSystem";
 import { MAIN_LANES, PIT_LANE } from "../constants";
 import { buildLaneSequence } from "./laneSequence";
+import { gridSlots } from "./botStyle";
 import { lapCountAtSpawn } from "./lapProgress";
 
 interface SpawnOptions {
@@ -78,7 +79,7 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
   return slots;
 }
 
-export function spawnCars(track: TrackData, options: SpawnOptions) {
+export function spawnCars(track: TrackData, options: SpawnOptions, seed = 0) {
   const slots = buildSpawnSlots(track);
   const maxSlots = Math.max(1, slots.length);
 
@@ -94,8 +95,10 @@ export function spawnCars(track: TrackData, options: SpawnOptions) {
   const cars: Car[] = [];
   const tokens: Array<{ car: Car; sprite: string }> = [];
 
+  const grid = gridSlots(seed, count);
   for (let i = 0; i < count; i += 1) {
-    const cell = slots[i];
+    // Car i + 1 starts in grid slot grid[i]; lapCount follows the cell it really occupies.
+    const cell = slots[grid[i]!];
     if (!cell) continue;
     const setup = (DEFAULT_SETUPS[i % DEFAULT_SETUPS.length] ?? DEFAULT_SETUPS[0])!;
     const isBot = i >= humanCount;
