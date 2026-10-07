@@ -12,13 +12,13 @@ const ctx = createRaceContext(track as unknown as TrackData);
 // prints the same numbers for more races (see docs/bot-system.md).
 describe("bot levels benchmark", () => {
   const lineup: BotPolicy[] = ["hard", "normal", "easy", "autopilot"];
-  // 4 grid rotations x 3 race lengths = 12 races; the long one needs a pit stop.
-  const result = runBench(ctx, { lineup, laps: [5, 8, 12] });
+  // 4 line-up rotations x 3 race lengths x 3 seeds (personalities and grid) = 36 races; the long one needs a pit stop.
+  const result = runBench(ctx, { lineup, laps: [5, 8, 12], seeds: [1, 2, 3] });
   const avg = (policy: BotPolicy) => result.stats.get(policy)!.avgFinish;
 
-  it("plays 12 races and every policy finishes in every one", () => {
-    expect(result.races).toBe(12);
-    for (const policy of lineup) expect(result.stats.get(policy)!.races).toBe(12);
+  it("plays 36 races and every policy finishes in every one", () => {
+    expect(result.races).toBe(36);
+    for (const policy of lineup) expect(result.stats.get(policy)!.races).toBe(36);
   });
 
   it("finishes Hard ahead of Normal ahead of Easy ahead of Autopilot (lower is better)", () => {
@@ -47,8 +47,8 @@ describe("bot levels benchmark", () => {
   });
 
   it("is deterministic", () => {
-    const again = runBench(ctx, { lineup, laps: [5] });
-    const first = runBench(ctx, { lineup, laps: [5] });
+    const again = runBench(ctx, { lineup, laps: [5], seeds: [4] });
+    const first = runBench(ctx, { lineup, laps: [5], seeds: [4] });
     for (const policy of lineup) expect(again.stats.get(policy)!.avgFinish).toBe(first.stats.get(policy)!.avgFinish);
   });
 
