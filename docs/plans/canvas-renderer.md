@@ -3,12 +3,10 @@
 Status: Done (PR #17, merged)
 
 ## Context
-
 `src/game/index.ts` uses `type: Phaser.AUTO`, which means WebGL in practice. The game is a turn-based board (lines,
 a few sprites, text), and the HUD is already DOM. The goal is a simple renderer that is easy on the browser.
 
 PR #16 measured CPU seconds of the browser over an idle race plus 3 turns:
-
 - software WebGL at 60 fps: 125.6 s;
 - WebGL with the 10 fps test cap that PR #16 shipped: 47.1 s;
 - **Canvas at 60 fps: 8.8 s**;
@@ -23,7 +21,6 @@ works on Canvas: Graphics, text, image, tileSprite, ellipse/circle, container, t
 `Graphics.generateTexture` for the baked track (`RaceScene.drawTrack`).
 
 ## Steps
-
 1. `src/game/index.ts`: `type: Phaser.AUTO` → `type: Phaser.CANVAS`. Keep the 10 fps test cap, because it still
    lowers e2e load. Reword its comment: it says "software WebGL burns many CPU cores", which won't be true after
    this change.
@@ -41,7 +38,6 @@ Not doing: a renderer switch flag, and removing the inert `resolution` cast. Add
 slower on Canvas.
 
 ## Verification (per the AGENTS.md policy; full e2e only in CI)
-
 - `npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`.
 - e2e locally: `smoke`, `track` and `hud` specs only.
 - Optional: `npm run probe:cpu` to confirm the CPU drop.
