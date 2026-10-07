@@ -98,6 +98,18 @@ Project guide for Codex and other automation.
 - Tests: `npm test`
 - CI: GitHub Actions runs validation, tests, and build (`.github/workflows/ci.yml`).
 
+### Verification
+
+- Why: each e2e page is headless Chromium with software WebGL; the full suite pushes the machine to load 35-70, and
+  timing-sensitive tests then flake. A flake under load is never a reason to loosen a test.
+- Locally run: `npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`, `npm run backend:test`,
+  `npm run backend:build`, plus ONLY the e2e specs the change touches, one chain at a time. Never the full e2e suite,
+  the CI shards or repeat loops.
+- One spec: `GITHUB_ACTIONS=true GITHUB_REPOSITORY=pparadis/srp-remake E2E_PORT=5399 E2E_BACKEND_PORT=3311 npx playwright test e2e/hud.spec.ts --workers=2`
+- CI runs the full suite and the 2 shards (about 2.5 min). Watch it with `gh run watch` (or `gh run watch <id>`).
+- The e2e (`--mode test`) build caps the game at 10 fps (`src/game/index.ts`); `npm run probe:cpu` measures the browser CPU
+  seconds of a variant (see `tools/cpuProbe.mjs`).
+
 ## Common Tasks
 
 1. Regenerate track: `npm run gen:track`
