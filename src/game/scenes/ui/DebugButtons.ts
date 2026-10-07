@@ -1,7 +1,7 @@
 import type Phaser from "phaser";
 import { TextButton } from "./TextButton";
 
-export interface DebugButtonsCallbacks {
+interface DebugButtonsCallbacks {
   onCopyDebug: () => void;
   onCopyBotDebug: () => void;
   onCopyBotDebugShort: () => void;

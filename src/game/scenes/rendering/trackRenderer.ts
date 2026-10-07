@@ -275,7 +275,7 @@ function drawStartFinish(g: Phaser.GameObjects.Graphics, track: TrackData, cellM
   }
 }
 
-export interface DrawTrackParams {
+interface DrawTrackParams {
   graphics: Phaser.GameObjects.Graphics;
   track: TrackData;
   cellMap: CellMap;

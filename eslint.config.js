@@ -1,5 +1,4 @@
 import js from "@eslint/js";
-import importPlugin from "eslint-plugin-import";
 import globals from "globals";
 import tsParser from "@typescript-eslint/parser";
 
@@ -22,17 +21,18 @@ export default [
         ...globals.browser
       }
     },
-    plugins: {
-      import: importPlugin
-    },
     rules: {
-      "no-unused-vars": "off",
-      "import/no-unresolved": "off",
-      "import/no-named-as-default": "off"
+      "no-unused-vars": "off"
     }
   },
   {
-    files: ["tools/**/*.{mjs,ts}", "playwright.config.ts", "*.config.js", "*.config.cjs", "*.config.mjs"],
+    files: [
+      "tools/**/*.{mjs,ts}",
+      "playwright.config.ts",
+      "*.config.js",
+      "*.config.cjs",
+      "*.config.mjs"
+    ],
     languageOptions: {
       globals: {
         ...globals.node

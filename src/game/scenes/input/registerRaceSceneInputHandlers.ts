@@ -6,7 +6,7 @@ import type { TrackCell } from "../../types/track";
 import type { PitModal } from "../ui/PitModal";
 import { resolvePlayerDragDrop } from "../turns/resolvePlayerDragDrop";
 
-export interface RegisterRaceSceneInputHandlersParams {
+interface RegisterRaceSceneInputHandlersParams {
   scene: Phaser.Scene;
   isRaceFinished: () => boolean;
   pitModal: PitModal;

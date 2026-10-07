@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
 
-export interface ApplyCarsMovesVisibilityParams {
+interface ApplyCarsMovesVisibilityParams {
   showCarsAndMoves: boolean;
   activeHaloTween: Phaser.Tweens.Tween | null;
   setActiveHaloTween: (tween: Phaser.Tweens.Tween | null) => void;

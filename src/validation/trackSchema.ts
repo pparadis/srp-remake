@@ -22,4 +22,3 @@ export const trackSchema = z.object({
   cells: z.array(cellSchema).min(1)
 });
 
-export type TrackSchema = z.infer<typeof trackSchema>;

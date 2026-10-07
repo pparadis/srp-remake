@@ -1,7 +1,7 @@
 // Tiny WebAudio synth: no asset files. Silent until the first user gesture (autoplay policy),
 // while muted, and in test builds. The mute flag lives in localStorage["srp:muted"].
 
-export type SoundEvent = "move" | "lap" | "finish" | "low" | "turn";
+type SoundEvent = "move" | "lap" | "finish" | "low" | "turn";
 
 /** [frequency Hz, start s, length s] per note. */
 const TONES: Record<SoundEvent, { wave: "sine" | "square" | "triangle"; gain: number; notes: Array<[number, number, number]> }> = {

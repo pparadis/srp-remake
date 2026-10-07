@@ -14,17 +14,17 @@ export interface TargetInfo {
   squeezePassed?: number;
 }
 
-export interface MovementOptions {
+interface MovementOptions {
   allowPitExitSkip?: boolean;
   disallowPitBoxTargets?: boolean;
 }
 
-export interface MovementCostRates {
+interface MovementCostRates {
   tireRate: number;
   fuelRate: number;
 }
 
-export interface MovementCostContext extends MovementCostRates {
+interface MovementCostContext extends MovementCostRates {
   setup: CarSetup;
 }
 
@@ -285,7 +285,7 @@ export function computeSqueezeTargets(
   return targets;
 }
 
-export const PIT_EXIT_SQUEEZE_RANGE = 3;
+const PIT_EXIT_SQUEEZE_RANGE = 3;
 
 // Pit exit blocked: squeeze along lane 1 within PIT_EXIT_SQUEEZE_RANGE cells (no lane change). forwardIndex is on its own
 // scale in the pit lane, so cars passed = occupied cells on the (unique) lane-1 path.

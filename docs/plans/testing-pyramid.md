@@ -3,10 +3,12 @@
 Status: Planned
 
 ## Context
+
 The goal is to rely less on e2e and put the investment at the base of the pyramid. e2e should cover whole-game
 journeys and visual accuracy.
 
 Where the suite stands (on `origin/main` @ 3fcc0b5):
+
 - **Unit tests (vitest, jsdom):** about 35 files. The engine and systems are well covered (`raceEngine`, `movement`,
   `ordering`, `bots`, `pit`, `lap`). Coverage thresholds are 92/80/92/95.
 - **Page-controller tests:** `src/main.test.ts` and `src/main.multiplayer.test.ts` load the real `index.html` into
@@ -16,6 +18,7 @@ Where the suite stands (on `origin/main` @ 3fcc0b5):
 - **e2e:** 23 tests in 8 specs, with Chromium, the backend and the Phaser canvas.
 
 **The gap:** `RaceScene.ts` (1282 lines) is excluded from coverage and only e2e exercises it. Here is what it does:
+
 - the solo turn loop (`applyLocalAction` → `processBotsUntilHuman` → `playBotTurn`);
 - the HUD snapshot (`emitHud`, `hudCar`, `formatTargetCost`, `makeHudText`);
 - feel reactions (`reactToRace`/`reactTo`, which turn into toast and sound events);
@@ -26,7 +29,9 @@ Where the suite stands (on `origin/main` @ 3fcc0b5):
 None of these needs Phaser. That is why most of `hud.spec.ts` and `latency.spec.ts` have to run a browser today.
 
 ## Approach
+
 ### 1. Extract a Phaser-free race session out of `RaceScene` (the main investment)
+
 - New `src/game/race/raceSession.ts`. It holds `ctx`, `race`, the turn info, the log lines, the feel memory, the
   mode (solo or online) and `localPlayerId`. It exposes:
   - `applyLocal(action)`, which in solo applies the action and runs the bots until a human is active;
@@ -47,7 +52,9 @@ None of these needs Phaser. That is why most of `hud.spec.ts` and `latency.spec.
   the coverage thresholds automatically.
 
 ### 2. Session tests (unit and integration, jsdom, no Phaser)
+
 `src/game/race/raceSession.test.ts`, built on the real track and `createRaceState`, as `raceEngine.test.ts` does:
+
 - the HUD numbers follow the state after a move: lap, tire, fuel, the move cycle and the standings order;
 - the stint estimate and pit chip rules, and that no chip shows early in a short race;
 - lap and final-lap feel events fire for my car only, and never on the first snapshot;
@@ -63,6 +70,7 @@ Add one `session → hud.ts` integration test. It renders `renderHud(snapshot)` 
 covers the link between the two.
 
 ### 3. Fill the remaining page-controller gaps in `main*.test.ts` (existing harness)
+
 - **Routing** (`flow.spec` "routing", 6 tests): back from `/solo`, reloading `/solo/race`, the confirm before leaving
   a race (stub `window.confirm`), unknown lobby notice, direct lobby link auto-join, old `?lobby=` redirect. Check
   which of these `main.test.ts` and `router.test.ts` already cover, and add only what's missing.
@@ -72,35 +80,39 @@ covers the link between the two.
 - **Host closes their page → the guest is warned, then sent home** (`journey.spec`): through `FakeWebSocket`.
 
 ### 4. Trim the e2e suite (delete only after its replacement is green)
-| Keep (journeys and visuals) | Move down, then delete |
-|---|---|
-| `smoke` | `flow` routing ×6 → `main.test` |
-| `journey`: solo full race vs Hard bots + race again | `flow` solo setup + `track` car count → `main.test`/session |
-| `flow-journey-multiplayer`: 1-lap race, play again | `flow` "C toggles" → `carsMovesVisibility.test` exists |
-| `journey`: guest reloads mid-race and rejoins | `flow` online lobby permissions → `main.multiplayer` + `api.contract` |
-| `afk`: the host reloads mid-race, both keep racing | `hud` ×7 (all but the screenshot) → session + hud integration |
-| `track`: drag a car to a target (real pointer input) | `latency` → session (online hold) |
-| `track` and `hud` screenshots | `afk` countdown and host skip → `main.multiplayer` + `afk.contract` |
-| | `journey` host-close warning → `main.multiplayer` |
 
-The suite goes from 23 tests to about 8. Write the rule into `AGENTS.md` "Verification": *a new e2e test must
+| Keep (journeys and visuals)                          | Move down, then delete                                                |
+| ---------------------------------------------------- | --------------------------------------------------------------------- |
+| `smoke`                                              | `flow` routing ×6 → `main.test`                                       |
+| `journey`: solo full race vs Hard bots + race again  | `flow` solo setup + `track` car count → `main.test`/session           |
+| `flow-journey-multiplayer`: 1-lap race, play again   | `flow` "C toggles" → `carsMovesVisibility.test` exists                |
+| `journey`: guest reloads mid-race and rejoins        | `flow` online lobby permissions → `main.multiplayer` + `api.contract` |
+| `afk`: the host reloads mid-race, both keep racing   | `hud` ×7 (all but the screenshot) → session + hud integration         |
+| `track`: drag a car to a target (real pointer input) | `latency` → session (online hold)                                     |
+| `track` and `hud` screenshots                        | `afk` countdown and host skip → `main.multiplayer` + `afk.contract`   |
+|                                                      | `journey` host-close warning → `main.multiplayer`                     |
+
+The suite goes from 23 tests to about 8. Write the rule into `AGENTS.md` "Verification": _a new e2e test must
 justify that it needs a real browser (a journey across pages or sockets, real pointer input, or pixels); everything
-else goes in a unit, session or contract test.* Also say what each layer is for: engine/systems → session → page
+else goes in a unit, session or contract test._ Also say what each layer is for: engine/systems → session → page
 controller → backend contract → e2e.
 
 ## Not doing
+
 - Running the real backend in-process under vitest for client-to-server tests. Contract tests plus `FakeWebSocket`
   already cover both sides of the protocol. Add it only if a client/server drift bug gets through.
 - Component tests of Phaser drawing. Pixels stay in the 2 screenshots.
 - New dependencies. vitest, jsdom, `FakeWebSocket` and the backend helpers are enough.
 
 ## Critical files
+
 - `src/game/scenes/RaceScene.ts` → new `src/game/race/raceSession.ts` (+ `.test.ts`)
 - `src/ui/hud.ts`, `src/ui/hud.test.ts`
 - `src/main.test.ts`, `src/main.multiplayer.test.ts`, `src/ui/router.test.ts`, `src/ui/sound.test.ts`
 - `e2e/*.spec.ts` (deletions), `AGENTS.md`
 
 ## Verification
+
 - After each extraction slice: `npm test`, `npm run test:coverage` (the thresholds must still hold with the session
   included), `npm run lint`, `npm run build`, and the e2e specs whose behavior the slice touches (`hud`, `track`,
   `latency`, `journey`) using the single-spec command from AGENTS.md.

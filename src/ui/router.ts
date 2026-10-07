@@ -55,7 +55,7 @@ export function legacyInviteRoute(search: string): Route | null {
   return id ? { name: "lobby", id } : null;
 }
 
-export type NavigateSource = "push" | "replace" | "pop";
+type NavigateSource = "push" | "replace" | "pop";
 type Handler = (route: Route, source: NavigateSource) => void;
 
 let handler: Handler = () => {};

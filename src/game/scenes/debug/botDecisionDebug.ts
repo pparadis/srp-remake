@@ -40,13 +40,13 @@ export interface BotDecisionLogEntry {
   } | null;
 }
 
-export type BotDecisionShortLogEntry = Omit<BotDecisionLogEntry, "validTargets" | "trace">;
-export type BotDecisionAppendEntry = Omit<
+type BotDecisionShortLogEntry = Omit<BotDecisionLogEntry, "validTargets" | "trace">;
+type BotDecisionAppendEntry = Omit<
   BotDecisionLogEntry,
   "seq" | "turnIndex" | "carId" | "fromCellId" | "state" | "tire" | "fuel" | "pitServiced"
 >;
 
-export interface BotDecisionSnapshot {
+interface BotDecisionSnapshot {
   version: string;
   gitSha: string;
   trackId: string;
@@ -111,7 +111,7 @@ export function appendBotDecisionEntry(
   return seq + 1;
 }
 
-export function toShortBotDecisionLogEntry(entry: BotDecisionLogEntry): BotDecisionShortLogEntry {
+function toShortBotDecisionLogEntry(entry: BotDecisionLogEntry): BotDecisionShortLogEntry {
   const { validTargets: _validTargets, trace: _trace, ...shortEntry } = entry;
   return shortEntry;
 }

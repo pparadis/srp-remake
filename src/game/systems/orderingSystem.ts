@@ -3,13 +3,13 @@ import type { TrackCell, TrackData } from "../types/track";
 import { buildLaneSequence } from "./laneSequence";
 import { lane1FwdByZoneOf, trackFwd } from "./trackIndex";
 
-export interface CarSortKey {
+interface CarSortKey {
   lapCount: number;
   progressIndex: number;
   carId: number;
 }
 
-export interface SortCarsOptions {
+interface SortCarsOptions {
   turnOrder?: number[];
   turnIndex?: number;
 }
