@@ -1,6 +1,6 @@
 # Pass and return: go around a blocker and rejoin your lane in one move
 
-Status: In progress (branch `feat/pass-and-return-engine`)
+Status: In progress (PR #26)
 
 ## Context
 Found by playing, reported with a screenshot. The player's car is on `Z20_L1_00` (inner lane) and car 11 is on
