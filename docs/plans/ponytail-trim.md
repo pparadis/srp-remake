@@ -16,4 +16,4 @@ After PR #19 merged: unexported the remaining unused symbols (`hud.ts`, `backend
 `GameOptions`, `CarState`, `LobbyStatus`, `mix`) and replaced the `TextButton` class with a `makeButton` function
 (`src/game/scenes/ui/makeButton.ts`) that returns the Phaser text object.
 
-Not done: folding `tools/track/*.mjs` into `tools/genOval16_3lanes.mjs` (optional, a one-off tool).
+Also done: `tools/track/*.mjs` folded into `tools/genOval16_3lanes.mjs` (the generated track is unchanged).
