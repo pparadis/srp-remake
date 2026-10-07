@@ -75,7 +75,8 @@ const hudForceSkip = hud.querySelector<HTMLButtonElement>('[data-testid="hud-for
 
 // `?seed=N` reproduces a solo race (bot personalities and grid); otherwise each race gets a fresh
 // one. The seed is made here, at the boundary: the engine never rolls dice.
-const urlSeed = normalizeSeed(new URLSearchParams(window.location.search).get("seed"));
+const seedParam = new URLSearchParams(window.location.search).get("seed");
+const urlSeed = seedParam === null ? null : normalizeSeed(seedParam); // 0 is a valid, pinned seed
 function freshSeed(): number {
   return (crypto.getRandomValues(new Uint32Array(1))[0]! % MAX_SEED) + 1;
 }
@@ -787,7 +788,7 @@ async function startRace() {
   if (backendBusy) return;
   if (mode === "solo") {
     soloRaceRequested = true;
-    soloSettings.seed = urlSeed || freshSeed();
+    soloSettings.seed = urlSeed ?? freshSeed();
     navigate({ name: "soloRace" });
     return;
   }
