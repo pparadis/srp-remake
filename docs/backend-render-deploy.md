@@ -62,6 +62,10 @@ https://your-frontend.example.com,http://localhost:5173
 /health
 ```
 
+`/health` answers `{ ok, lobbies, sha }`; `sha` is the commit the server runs, which the web page shows next to its own
+(bottom right on the home and lobby screens, amber when they differ). The server takes it from `GIT_SHA`, else from
+`RENDER_GIT_COMMIT` (Render sets it on every deploy, nothing to configure), else from `git rev-parse HEAD`, else `unknown`.
+
 ## Quick Verify
 
 After deploy:

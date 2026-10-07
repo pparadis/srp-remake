@@ -7,6 +7,8 @@ const defaultBase = globalThis.process?.env?.GITHUB_ACTIONS === "true" && repoNa
 export default defineConfig({
   base: globalThis.process?.env?.VITE_BASE_PATH ?? defaultBase,
   define: {
+    // The day this build was made, shown next to the commit on the home screen.
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
     __GIT_SHA__: JSON.stringify(
       globalThis.process?.env?.GIT_SHA ??
         (() => {

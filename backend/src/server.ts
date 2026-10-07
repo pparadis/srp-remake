@@ -429,7 +429,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   app.get("/health", async () => ({
     ok: true,
-    lobbies: lobbyStore.count()
+    lobbies: lobbyStore.count(),
+    sha: config.GIT_SHA ?? "unknown"
   }));
 
   app.post(`${API_V1_PREFIX}/lobbies`, async (request, reply) => {
