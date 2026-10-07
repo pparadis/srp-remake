@@ -1,4 +1,4 @@
-// Hard bot: one round of lookahead with an opponent model.
+// Hard bot: one round of lookahead with an opponent model (and the `adaptive` style, see botStyle.ts).
 // For the best few candidates (by the Normal score) it plays the move on a copy of the race, lets
 // every other car answer with the Normal policy until it is this car's turn again, and scores the
 // position it finds itself in. No runtime import of raceEngine (it passes its functions in), so
@@ -31,9 +31,7 @@ export const HARD_CANDIDATES = 8;
 const VALUE = {
   win: 1e6,
   // how much each cell of a rival's progress counts against us (blocking shows up here)
-  rival: 0.3,
-  // the farthest legal move available at our next turn
-  mobility: 0.8,
+  rival: 0.1,
   // weight of the Normal score's non-progress part (its points are a tenth of a cell)
   normalExtra: 0.1
 } as const;
@@ -60,8 +58,7 @@ function valueOf(
   ctx: RaceContext,
   sim: RaceState,
   meId: number,
-  plan: BotPlanContext,
-  deps: HardDeps
+  plan: BotPlanContext
 ): number {
   const me = carById(sim, meId);
   const myCell = ctx.cellMap.get(me.cellId)!;
@@ -76,13 +73,6 @@ function valueOf(
     rivalSum += progressOf(car, ctx.cellMap.get(car.cellId)!, plan);
     rivals += 1;
   }
-  let mobility = 0;
-  if (getCurrentCarId(sim.turn) === meId && me.state === "ACTIVE") {
-    for (const [cellId, info] of deps.computeTargets(ctx, sim, me)) {
-      const gain = forwardGain(myCell, ctx.cellMap.get(cellId), info.distance, plan);
-      if (gain > mobility) mobility = gain;
-    }
-  }
   const rivalTerm = rivals > 0 ? (rivalSum / rivals) * VALUE.rival : 0;
   let crawl = crawlCost(me, myCell, plan);
   if (myCell.laneIndex === PIT_LANE && !me.pitServiced) {
@@ -90,7 +80,7 @@ function valueOf(
     const fresh = { ...me, tire: 100, fuel: 100, setup: IDEAL_PIT_SETUP };
     crawl = Math.min(crawl, crawlCost(fresh, myCell, plan) + PIT_LANE_CELLS);
   }
-  return mine - rivalTerm + mobility * VALUE.mobility - crawl;
+  return mine - rivalTerm - crawl;
 }
 
 function simulateRound(
@@ -135,7 +125,7 @@ export function decideHardBotAction(
     // What the Normal score knows beyond progress (budget cycle, resource worth, pit plan) is
     // kept, scaled to cells; the simulation adds what only the next round can show.
     const extra = candidate.score - forwardGain(fromCell, ctx.cellMap.get(candidate.cellId), candidate.info.distance, plan) * 10;
-    const value = valueOf(ctx, sim, car.carId, plan, deps) + VALUE.normalExtra * extra;
+    const value = valueOf(ctx, sim, car.carId, plan) + VALUE.normalExtra * extra;
     evaluated.push({ cellId: candidate.cellId, info: candidate.info, score: value });
     if (!best || value > best.value) best = { cellId: candidate.cellId, value };
   }

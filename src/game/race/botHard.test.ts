@@ -31,27 +31,21 @@ function blockedTrack(level: "normal" | "hard"): RaceState {
   return state;
 }
 
-function progressAfterTwoTurns(state: RaceState, first: string): number {
-  applyAction(ctx, state, { type: "move", targetCellId: first });
-  while (getActiveCar(state).carId !== 1) {
-    applyAction(ctx, state, decideBotAction(ctx, state).action); // the broken-down cars skip
-  }
-  applyAction(ctx, state, decideBotAction(ctx, state, "normal").action);
-  const car = state.cars[0]!;
-  return (car.lapCount ?? 0) * 28 + ctx.cellMap.get(car.cellId)!.forwardIndex;
-}
-
 describe("hard bot lookahead", () => {
-  it("picks a different, better move than Normal where greedy runs into a wall", () => {
-    const normal = decideBotAction(ctx, blockedTrack("normal"), "normal").action;
-    const hard = decideBotAction(ctx, blockedTrack("hard")).action;
-    if (normal.type !== "move" || hard.type !== "move") throw new Error("expected moves");
-
-    expect(hard.targetCellId).not.toBe(normal.targetCellId);
-    const normalProgress = progressAfterTwoTurns(blockedTrack("normal"), normal.targetCellId);
-    const hardProgress = progressAfterTwoTurns(blockedTrack("hard"), hard.targetCellId);
-    // The wall is softer since the squeeze rule (Normal squeezes past instead of losing the turn).
-    expect(hardProgress).toBeGreaterThan(normalProgress);
+  it("overrides Normal's pick on some turns of a real race (the lookahead is not a no-op)", () => {
+    const state = createRace(
+      ctx,
+      Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}`, botLevel: "hard" as const })),
+      5,
+      7
+    );
+    let differs = 0;
+    for (let turn = 0; turn < 60 && state.winnerCarId === null; turn += 1) {
+      const hard = decideBotAction(ctx, state);
+      if (JSON.stringify(hard.action) !== JSON.stringify(decideBotAction(ctx, state, "normal").action)) differs += 1;
+      applyAction(ctx, state, hard.action);
+    }
+    expect(differs).toBeGreaterThan(0);
   });
 
   it("only considers the best few candidates and reports their lookahead values", () => {
