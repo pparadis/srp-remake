@@ -1,7 +1,13 @@
 import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { RaceScene } from "./scenes/RaceScene";
-import { REG_BOT_CARS, REG_BOT_LEVEL, REG_HUMAN_CARS, REG_RACE_LAPS, REG_TOTAL_CARS } from "./constants";
+import {
+  REG_BOT_CARS,
+  REG_BOT_LEVEL,
+  REG_HUMAN_CARS,
+  REG_RACE_LAPS,
+  REG_TOTAL_CARS
+} from "./constants";
 import type { BotLevel } from "./types/car";
 
 export interface GameOptions {
@@ -12,9 +18,15 @@ export interface GameOptions {
   botLevel?: BotLevel;
 }
 
+const isTestBuild = import.meta.env.MODE === "test";
+const TEST_FPS = 10;
+
 export function startGame(parent: HTMLElement, options: GameOptions) {
   const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
+    // e2e build only: the game is turn-based and software WebGL burns many CPU cores per page at 60 fps.
+    // Tweens use delta time, so they still finish; see tools/cpuProbe.mjs for the measurements.
+    ...(isTestBuild ? { fps: { target: TEST_FPS, limit: TEST_FPS } } : {}),
     parent,
     width: 1600,
     height: 900,
