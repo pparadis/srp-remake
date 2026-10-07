@@ -129,7 +129,10 @@ Authoritative match state should include:
 - `turnState` and `activeCarId`.
 - `trackId`.
 - `raceLaps` and `winnerCarId | null`.
-- `rngSeed` if any random behavior is introduced.
+- `seed`: an integer rolled by the server when the race starts (`BOT_SEED` env pins it, 0 = neutral). It decides
+  each bot's personality, every car's grid slot (so a human is not always on pole) and the play order (pole sitter
+  first). `carId = seatIndex + 1` still; `activeSeatIndex` is the seat of the car to play, and the client rebuilds the
+  play order from the seed (`turnOrderOf`). The same seed gives the same race. See `docs/bot-system.md`.
 - `revision` integer incremented after each accepted action.
 
 ## Network Protocol
@@ -290,7 +293,7 @@ Built:
   with `409 invalid_action` + a `reason` and changes nothing.
 - The server runs the bots (same heuristic as single-player), counts laps and ends the race at `raceLaps`
   (`race.ended` with `winnerCarId`).
-- The public `raceState` carries full car state (cell, tire, fuel, setup, pit state, move budget, laps), and
+- The public `raceState` carries the race `seed` and full car state (cell, tire, fuel, setup, pit state, move budget, laps), and
   the client renders it as-is (non-optimistic: input is locked until the server answers).
 - WebSocket sync (`lobby.state`, `race.started`, `race.state`, `turn.applied`, `race.ended`) with client
   reconnect and rehydrate.

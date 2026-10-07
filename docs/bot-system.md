@@ -4,6 +4,66 @@ Bots for the turn-based race: three player-selectable levels (Easy, Normal, Hard
 "autopilot". `decideBotAction(ctx, state, policy?)` in `src/game/race/raceEngine.ts` is the one entry point; it plays
 the active car at `policy`, or at the car's own `botLevel` (default Normal) when none is passed.
 
+## Seed, personalities and the grid
+
+Every race carries an integer `seed` (`RaceState.seed`, `createRace(ctx, seats, laps, seed = 0)`). It is created at
+the boundary, never inside the engine (no `Math.random` in `src/game` or the backend race code):
+
+- the server rolls it with `crypto.randomInt` when a race starts (`BOT_SEED=<n>` pins it, `BOT_SEED=0` gives the
+  neutral race; `playwright.config.ts` and `npm run backend:test` set 0 so the specs are deterministic);
+- solo: `src/main.ts` rolls it with `crypto.getRandomValues` when "Start" is pressed; `?seed=N` in the URL pins it
+  (`?seed=0` = neutral) so a race can be reproduced;
+- it travels in the public race state (`raceState.seed`), in `toEngineRace` and in the "Copy debug" snapshot.
+
+The seed decides three things, all pure functions in `src/game/systems/botStyle.ts`:
+
+1. **Personality of each bot**: `personalityOf(seed, carId)`. A shuffled deck of the five styles per block of five
+   cars, so the bots of a race differ (cars 1-5 get all five styles, car 6 starts the next deck) and each car's style
+   is uniform over seeds. Humans and the autopilot have none. Seed 0 gives every bot `balanced`, which is exactly the
+   old Normal bot.
+2. **Grid slot of each car**: `gridSlots(seed, n)[i]` is the starting slot (0 = pole) of car `i + 1`, a seeded
+   Fisher-Yates; seed 0 keeps car order. The human is no longer always on pole. `spawnCars` puts the car on the cell of
+   its slot and sets its lap count from that cell (front row 0, rows behind the line -1).
+3. **Play order**: `turnOrderOf(seed, n)`: the pole sitter plays first, then slot 2, ... Without it car 1 would move
+   first every round wherever it starts and win every tie: equal-pace cars finish a race on the same turn, so the first
+   mover wins (measured: from slot 2 of the grid the scripted strategist still won 100 % of 5-lap races). `carId`
+   stays `seatIndex + 1`; the server's `activeSeatIndex` is the active car's seat (`activeSeatIndex(state)`), and the
+   client rebuilds the order from the seed.
+
+### Personalities (parameter sets in `PERSONALITIES`, applied inside the Normal scorer and the stop plan)
+
+| Style (label)        | wearWeight | shareWeight | innerLane | laneChange | overtake | queue | block | pit gain / window                | Character                                                      |
+| -------------------- | ---------- | ----------- | --------- | ---------- | -------- | ----- | ----- | -------------------------------- | -------------------------------------------------------------- |
+| balanced (seed 0)    | 1          | 2           | 0         | 0          | 0        | 0     | 0     | 0 / 0                            | the pre-personality Normal bot                                 |
+| Pusher               | 0.5        | 0           | 0.6       | 0          | 8        | 4     | 0     | 0 / 0                            | front-loads the cycle (9-9-9-9-4), risks tire                  |
+| Steady               | 1          | 48          | 1         | -3         | 0        | 0     | 0     | 0 / 0                            | even spend (8-8-8-8-8), inner lane, few lane changes           |
+| Racer                | 1          | 2           | 0.7       | +2         | 30       | 10    | 10    | 0 / 0                            | hunts positions, passes with lane changes, hates queuing       |
+| Defender             | 1          | 2           | 1.2       | -8         | 0        | 0     | 14    | 0 / 0                            | holds the inner lane, sits in the lane of a rival close behind |
+| Strategist (pit)     | 1          | 2           | 0.8       | 0          | 0        | 0     | 0     | early +12 / +14 or late -12 / -5 | Normal, but stops earlier or later (side from the seed)        |
+| Adaptive (Hard only) | 1          | 0           | 0.6       | 0          | 0        | 0     | 0     | 0 / 0                            | Hard's own taste, see below                                    |
+
+- `wearWeight` multiplies a move's tire+fuel cost; `shareWeight` is the points per point the remaining moves' even
+  share of the 40-point cycle shrinks (a cell of progress is 10 points, so 48 forces an even spend and 0 front-loads).
+- `innerLane` is the share of `LANE_SPAN` (60 points) the driver sees between the inner and the outer lane (linear):
+  the inner lane has 28 cells a lap against 30 and 32, so every move is worth about 0.6 cells more per lane inward.
+- `overtake` is points per car passed by the move, `queue` the penalty for ending 1-2 cells behind a car in the
+  same lane (same-lane moves cannot pass it), `block` the bonus (scaled by closeness, within 6 cells) for ending in the
+  lane of a rival behind.
+- Pit gain/window shift `stopIsDue`: cells added to the stop's gain, and to the window of passes it may be taken in.
+- Rules, BFS and lap rules are untouched: a personality only re-ranks the legal targets.
+
+### Difficulty semantics
+
+| Level     | Personality                                                                                                                                                      | Noise                |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| Easy      | follows its style sloppily: 30 % of decisions ignore it, `EASY_NOISE` (25 points = 2.5 cells) seeded noise on every score, picks the 1st/2nd/3rd best 50/30/20 % | high                 |
+| Normal    | follows its style consistently                                                                                                                                   | none                 |
+| Hard      | its own `adaptive` style + the lookahead + reads the field (`HARD_ADAPT`: overtake 14, queue 8, inner lane +0.3)                                                 | none                 |
+| Autopilot | none (the AFK policy, unchanged)                                                                                                                                 | median-distance move |
+
+Hard does not use its seed style: with a seeded quirky style Hard lost its edge over Normal (the quirks cost it what
+the lookahead won), so it plays the fixed `adaptive` style. The standings label a Hard bot "Adaptive".
+
 ## Goals
 
 - Provide functional AI opponents without changing core movement rules.
@@ -12,7 +72,7 @@ the active car at `policy`, or at the car's own `botLevel` (default Normal) when
 
 ## Non-Goals
 
-- Learning, and search deeper than one round.
+- Learning, and search deeper than one round (tested: deeper rollouts were worse).
 - UI parity with player drag controls.
 
 ## Modes
@@ -31,12 +91,12 @@ One level applies to every bot in a race: lobby/solo setting `botLevel` (`easy |
 stamped on each bot car as `Car.botLevel` by `createRace`. Humans have none. Timeouts and the host's force-skip
 pass `"autopilot"` explicitly.
 
-| Level     | What it does                                                                                                                                                                                                                                                               |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Autopilot | AFK stand-in: the non-pit target closest to the median distance, current lane preferred, never pits. Deliberately mediocre; the weakest rung of the benchmark.                                                                                                             |
-| Easy      | The base score below with seeded noise: picks the best, 2nd or 3rd target (50/30/20 %) using a PRNG (FNV-1a + mulberry32) seeded by car id, position, lap, move cycle and resources, so it is deterministic. Wants a pit box only at 10 % (threshold 10), keeps its setup. |
-| Normal    | The base score, but progress is the `forwardIndex` gain (outer lanes have cells that share an index, so cells walked over-count), plus the plan below.                                                                                                                     |
-| Hard      | One round of lookahead with an opponent model on top of Normal, below.                                                                                                                                                                                                     |
+| Level     | What it does                                                                                                                                                                                                                                                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Autopilot | AFK stand-in: the non-pit target closest to the median distance, current lane preferred, never pits. Deliberately mediocre; the weakest rung of the benchmark.                                                                                                                                                                                             |
+| Easy      | The base score below plus its style's lane/passing taste (30 % of decisions ignore it) and seeded noise: picks the best, 2nd or 3rd target (50/30/20 %) using a PRNG (FNV-1a + mulberry32) seeded by the race seed, car id, position, lap, move cycle and resources, so it is deterministic. Wants a pit box only at 10 % (threshold 10), keeps its setup. |
+| Normal    | The base score, but progress is the `forwardIndex` gain (outer lanes have cells that share an index, so cells walked over-count), plus the plan below and its personality.                                                                                                                                                                                 |
+| Hard      | One round of lookahead with an opponent model on top of Normal, below.                                                                                                                                                                                                                                                                                     |
 
 ### Normal: budget, wear and pit plan (`botPlan.ts`, `evaluateNormalTargets`)
 
@@ -61,20 +121,33 @@ pass `"autopilot"` explicitly.
 
 ### Hard: lookahead with an opponent model (`botHard.ts`)
 
-For the top 8 candidates by the Normal score: `structuredClone` the race, apply the candidate with `applyAction`,
-play every other car with the Normal policy until it is the Hard car's turn again, and score the position
-(cells of progress by laps and `forwardIndex`):
+For the top 8 candidates by the Normal score (with Hard's `adaptive` style and `HARD_ADAPT` field terms):
+`structuredClone` the race, apply the candidate with `applyAction`, play every other car with the Normal policy
+(each with its own personality) until it is the Hard car's turn again, and score the position (cells of progress by
+laps and `forwardIndex`):
 
 ```
-value = progress(me) - 0.3 * mean(progress(rivals)) + 0.8 * best forward gain at my next turn
+value = progress(me) - 0.1 * mean(progress(rivals))
         - crawl cost (unfinished tires/fuel; a stop under way counts its fresh resources)
-        + 0.1 * (Normal score - 10 * gain)      // budget cycle, wear worth, pit plan
+        + 0.1 * (Normal score - 10 * gain)      // budget cycle, wear worth, pit plan, field terms
 ```
 
-A win is worth +1e6, a rival's win -1e6. The lookahead sees what the greedy score cannot: a move that ends right
-behind a blocker with no gap, rivals that get capped by where it stands, and the pit stop's payoff. Cost: about
-1.5 ms per decision with 4 cars, 3 ms with 8, 4.5 ms with 11. The server plays Hard bots with a `setImmediate`
-yield between turns.
+A win is worth +1e6, a rival's win -1e6. How it adapts: the field terms rank candidates that pass a car with a lane
+change and avoid ending right behind one; the stop is valued through the crawl it saves against the pit moves
+(`PIT_LANE_CELLS`); the replies show a block it would run into. Cost: about 1.1 ms per decision with 4 cars, 2.3 ms
+with 8. The server plays Hard bots with a `setImmediate` yield between turns.
+
+What was tried and rejected (all measured on 1 120 races, 4 cars, laps 3-20, 20 seeds, Hard minus Normal in avg finish):
+a "mobility" term (best forward gain at the next turn; it double counts the cycle budget and made Hard worse than
+Normal, 1.60 vs 1.49), a second and third own move in the rollout (worse, the Normal self-model is wrong), 30
+candidates instead of 8 (worse), a "blocked next turn" penalty (worse), `block` terms in `HARD_ADAPT` (worse), and a
+seeded quirky style for Hard (0.0 to 0.07 edge instead of 0.13). Varying the pit constant 40 / -60 / 300 moved the edge
+by under 0.1 (300 is worse).
+
+**Why Hard's headroom is small**: a lone Normal car is within 1 turn of the best stop plan for every lap count (a
+different stop window saves one turn at 8-9 laps only), traffic costs it 0.6 turns a race on average (41.8 solo vs
+42.4 in a 4-car field) and equal-pace cars finish a race on the same turn, so the finishing order is mostly the grid
+order. Hard's edge is that margin.
 
 ## Bot Decision Model (base)
 
@@ -124,9 +197,11 @@ if isPitTrigger:
 
 ## Testing
 
-Tests: `botSystem.test.ts` (scoring per level), `botPlan.test.ts` (plan maths), `raceEngine.test.ts` (levels,
-pit planning), `botHard.test.ts` (a position where lookahead beats greedy), `botLevels.test.ts` (benchmark).
-The base behaviours that still hold:
+Tests: `botStyle.test.ts` (`personalityOf`, grid and play-order functions: pure, distribution), `botStyleScore.test.ts`
+(what each parameter does to the scorer, Easy, Hard passing), `botSystem.test.ts` (scoring per level), `botPlan.test.ts`
+(plan maths), `raceEngine.test.ts` (levels, pit planning), `botHard.test.ts`, `botLevels.test.ts` (ordering, time
+guard), `botPersonalities.test.ts` (no personality dominates, the scripted strategist, seeded determinism) and the
+backend `seed.contract.test.ts`. The base behaviours that still hold:
 
 - Bot selects the furthest target when resources are healthy.
 - Bot prefers pit box when resources are low.
@@ -135,57 +210,59 @@ The base behaviours that still hold:
 
 ## Benchmark
 
-`npx tsx tools/botBench.ts [--laps 5,8,12] [--lineup hard,normal,easy,autopilot]` plays deterministic headless races
-(`src/game/race/botBench.ts`; no randomness anywhere). Every rotation of the line-up is played on every lap count,
-so each policy gets each grid slot (the rows behind the line start at lap count -1 and need 1-3 cells more than the front row, the
-cars alternate soft and hard tires). Cars play until all have crossed the line; the crossing order is the finishing
-order. Lower average finish is better.
+```
+npx tsx tools/botBench.ts [--laps 3,5,8] [--seeds 4] [--lineup hard,normal,easy,autopilot] [--styles pusher,steady,...]
+npx tsx tools/botBench.ts --strategist [--laps 3,5,8] [--seeds 60] [--level normal|hard]
+```
 
-`src/game/race/botLevels.test.ts` runs the 12-race set (4 rotations x 5/8/12 laps) and asserts
-Hard < Normal < Easy < Autopilot plus Hard's time budget. Numbers from this version:
+`src/game/race/botBench.ts` plays deterministic headless races: every rotation of the line-up on every lap count and
+seed (the seed shuffles the grid and deals the personalities; `--styles` forces one per line-up entry instead). Cars
+play until all have crossed the line. It prints per policy, per personality and per grid slot (1 = pole) win rate and
+average finish (lower is better). Line-up entries `scripted` / `greedy` are the human baseline of the strategy report
+(inner lane, 9-8-8-8-7, resp. the biggest move; they work their way in from the outer lane); `--strategist` plays it
+from every grid slot against 3 bots.
 
-| Run                                         | Policy        | Win rate     | Avg finish | Avg moves to finish | ms / decision |
-| ------------------------------------------- | ------------- | ------------ | ---------- | ------------------- | ------------- |
-| 12 races (test set), 4 cars                 | Hard          | 58 %         | 1.42       | 35.1                | 1.8           |
-|                                             | Normal        | 42 %         | 1.58       | 34.8                | 0.03          |
-|                                             | Easy          | 0 %          | 3.00       | 46.6                | 0.04          |
-|                                             | Autopilot     | 0 %          | 4.00       | 70.6                | 0.04          |
-| 56 races, 4 cars, 3-20 laps                 | Hard          | 57 %         | 1.50       | 43.8                | 1.3           |
-|                                             | Normal        | 43 %         | 1.61       | 43.8                | 0.03          |
-|                                             | Easy          | 0 %          | 2.89       | 63.2                | 0.03          |
-|                                             | Autopilot     | 0 %          | 4.00       | 94.9                | 0.02          |
-| 56 races, 1 Hard vs 3 Normal                | Hard          | 29 %         | 2.30       | 42.7                | 1.4           |
-|                                             | Normal (each) | 24 %         | 2.57       | 43.6                | 0.03          |
-| 24 races, 8 cars (2 per policy), 3/5/8 laps | Hard          | 25 % per car | 2.75       | 22.4                | 3.0           |
-|                                             | Normal        | 17 %         | 3.04       | 22.5                | 0.03          |
-|                                             | Easy          | 8 %          | 4.71       | 25.7                | 0.04          |
-|                                             | Autopilot     | 0 %          | 7.50       | 40.6                | 0.04          |
+Numbers from this version (commands above; all deterministic):
 
-The laps for the 56-race rows are 3-12, 14, 16, 18 and 20.
+| Run                                                             | Policy    | Win rate       | Avg finish | Avg moves | ms / decision |
+| --------------------------------------------------------------- | --------- | -------------- | ---------- | --------- | ------------- |
+| 1 120 races, 4 cars, laps 3-12/14/16/18/20, 20 seeds            | Hard      | 54 %           | 1.48       | 43.5      | 1.1           |
+|                                                                 | Normal    | 46 %           | 1.61       | 43.8      | 0.03          |
+|                                                                 | Easy      | 1 %            | 2.91       | 68.7      | 0.03          |
+|                                                                 | Autopilot | 0 %            | 4.00       | 96.1      | 0.02          |
+| 576 races, 8 cars (2 per policy), laps 3/5/8/12/16/20, 12 seeds | Hard      | 27 % (per car) | 2.42       | 47.6      | 2.3           |
+|                                                                 | Normal    | 21 %           | 2.82       | 48.1      | 0.03          |
+|                                                                 | Easy      | 2 %            | 5.26       | 78.1      | 0.03          |
+|                                                                 | Autopilot | 0 %            | 7.50       | 104.6     | 0.02          |
 
-**Effect of the pit-lane lap credit** (a stop no longer loses the lap, `PIT_LANE_CELLS` 40): the same 56 races
-before the change had Hard 1.43 / Normal 1.70 / Easy 2.88 and 46.9 / 47.6 moves, so Normal gained 3.8 moves a race
-and Hard 3.1; a stop now pays from about 7 laps (8 before) and bots stop more: per race Normal 0.82 -> 0.84, Hard
-0.77 -> 0.91 stops over the 56 races (test set: Normal 0.42 -> 0.50, Hard 0.42 -> 0.58). Normal benefits more than
-Hard (most likely because the old model's lost lap was a mistake Hard's lookahead partly corrected), so Hard's edge is smaller:
-18 laps 3-20: Hard 1.49 vs Normal 1.60 (was 1.38 vs 1.72), laps 7-14: 1.41 vs 1.63 (was 1.22 vs 1.84). Pairs of
-lap sets of only 12 races are noisy near that edge: of the six small sets below, 4,7,10 / 3,6,9 / 4,5,9 now put
-Normal 0.1-0.2 ahead of Hard (one race moved), the others keep Hard first; Autopilot is last everywhere and Easy
-third in all.
+Hard beats Normal by 0.13 places in the 4-car mix (short of the 0.15 aimed for; see the list above for what was
+tried) and by 0.40 in the 8-car mix. Heads-up Hard vs Normal (84 races) is decided by the grid slot, 1.54 vs 1.46: the
+heads-up criterion was dropped.
 
-The default `botBench.ts` set (3,4,5,6 laps, 16 races) is too short and noisy to rank Hard above Normal
-(1.75 vs 1.56), the sets above and the 12-race test set keep the ordering.
+Personalities, five Normal cars with one style each rotated through all seats (210 races, laps 3/4/5/6/8/10/12, 6 seeds,
+the seed shuffles the grid): strategist 2.84, defender 3.01, pusher 3.04, racer 3.04, steady 3.07 average finish
+(spread 0.23), win rates 17-25 % against a fair 20 %. `botPersonalities.test.ts` bounds the spread at 0.45 places
+(twice the measurement) and the win rate at 30 %. The styles change how a car races (spend pattern, lanes, passes,
+stops) far more than where it finishes: equal pace and the grid decide most races.
 
-Other lap sets: 5,6,7 / 6,8,10 keep Hard first; 4,7,10 (1.67 vs 1.58), 3,6,9 (1.67 vs 1.58), 4,5,9 (1.67 vs 1.50)
-show Normal ahead by one race. How much better Hard can be is bounded by the game: a lone Normal car is already
-near the budget limit (40 per cycle), so the headroom is traffic, the pit stop and resource use, a few percent of
-the race; that shows as about 1 move in 45, and as a rank edge because finishing order is decided by small gaps.
+The scripted strategist (car 1; the seed gives it a random slot) against 3 Normal bots, 60 seeds:
+
+| Laps | Before (fixed pole, `main`, 16 rotating-slot races) | After: wins | After: avg finish | After, by grid slot 1/2/3/4 |
+| ---- | --------------------------------------------------- | ----------- | ----------------- | --------------------------- |
+| 3    | 1st from pole                                       | 28 %        | 2.45              | 1.0 / 2.0 / 3.0 / 4.0       |
+| 5    | 1st from pole (100 %)                               | 28 %        | 2.45              | 1.0 / 2.0 / 3.0 / 4.0       |
+| 8    | 2nd from pole                                       | 3 %         | 3.47              | 2.7 / 3.4 / 4.0 / 3.9       |
+
+Against Hard bots, 5 laps: 28 %, 2.45. From pole it still wins (the race is decided by the grid at 3 and 5 laps) but it is
+on pole a quarter of the time; the scripted driver never pits, so from 7 laps it loses by design.
+
+The pit-lane lap credit (PR #15, `PIT_LANE_CELLS` 40) and its effect on the older 56-race sets are in the git history
+of this file.
 
 ## Future Improvements
 
 - Per-track tuning of the pit-stop cost (`PIT_LANE_CELLS` in `botPlan.ts`).
-- A second round of lookahead (the 5 ms budget leaves some room; 8-11 car races are the limit).
-- Different bot personalities (aggressive, conservative).
+- Lobby setting to pick a personality (the seed decides for now).
 
 ## Implementation Checklist
 
