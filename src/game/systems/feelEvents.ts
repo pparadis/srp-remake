@@ -17,7 +17,7 @@ export interface FeelView {
   cars: Array<{ carId: number; lapCount: number; cellId: string; tire: number; fuel: number }>;
 }
 
-export interface FeelMemory {
+interface FeelMemory {
   seeded: boolean;
   cells: Map<number, string>;
   laps: number;

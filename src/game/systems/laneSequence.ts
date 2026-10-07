@@ -1,6 +1,6 @@
 import type { TrackCell, TrackTag } from "../types/track";
 
-export interface BuildLaneSequenceOptions {
+interface BuildLaneSequenceOptions {
   startTagPriority?: TrackTag[];
 }
 

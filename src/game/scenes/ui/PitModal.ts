@@ -18,7 +18,7 @@ interface PitModalTexts {
   stintHard: Phaser.GameObjects.Text;
 }
 
-export interface PitModalOpenOptions {
+interface PitModalOpenOptions {
   setup: Car["setup"];
   bodyLines: string[];
   /** Estimated stint on fresh tires and fuel for each compound at the setup being edited. */

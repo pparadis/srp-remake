@@ -3,8 +3,10 @@
 Status: Planned (decided with the owner, not started; build it after the bot-personalities PR #19 merges)
 
 ## Context
+
 Found by playing, reported with a screenshot. The player's car is on `Z20_L1_00` (inner lane) and car 11 is on
 `Z23_L1_00`, three cells ahead in the same lane. The engine offers:
+
 - lane 1: only `Z21` and `Z22` (the two cells before car 11);
 - lane 2: cells all the way out to distance 9;
 - lane 3: none.
@@ -20,12 +22,14 @@ edge, and the only lane limit is on the final cell (it must be within 1 lane of 
 start lane or 2 lanes away are already legal in rare cases: in 814 simulated bot turns (4, 8 and 11 cars), 19 turns
 (2.3 %) offered 60 targets that need 2 or more lane changes (13 with two changes, 47 with three). Their price is not
 per lane change:
+
 - `computeMoveSpend` (`src/game/systems/moveBudgetSystem.ts`) charges the cells walked, plus 1 only when the start lane
   differs from the end lane and the forward gain is at least the distance. A move that goes out and back (start lane =
   end lane) pays no lane-change surcharge at all.
 - 44 of the 47 three-lane-change targets were priced lower than "forward cells + one point per lane change".
 
 ## Decisions (owner)
+
 1. Allow it: a target in your own lane beyond the nearest blocker becomes legal when a free route goes around the blocker
    through an adjacent lane. This fixes the screenshot case.
 2. Price: **every lane change costs +1 move point** on top of the cells walked, so out and back costs +2. This applies
@@ -35,6 +39,7 @@ per lane change:
 4. Ordinary single lane changes keep exactly today's price (no behaviour change for regular play).
 
 ## Approach
+
 1. **Pricing first, as a property.** Define the price of a path as cells walked + one point per lane change that is not
    already paid by a walked step with no forward progress (today's single-change prices already satisfy "+1 per lane
    change": a diagonal lane change pays the surcharge, a lane change that uses a sideways step pays it as the extra
@@ -58,6 +63,7 @@ per lane change:
    check the scoring still prices them sensibly (the higher move spend feeds the budget terms).
 
 ## Tests
+
 - The screenshot position as a unit test on the real track: car on `Z20_L1_00`, another car on `Z23_L1_00`; assert the
   lane-1 cells beyond it are now offered, with their prices (cells walked + 2), and that nothing changes for a
   position where no blocker is in your lane.
@@ -68,6 +74,7 @@ per lane change:
   increase.
 
 ## Verification
+
 - Per `AGENTS.md` "Verification": `npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`,
   `npm run backend:test`, `npm run backend:build`; locally run only the e2e specs the change touches (probably none:
   the rule is engine-level); CI runs the full suite and the 2 shards, watched with `gh run watch`.
@@ -77,11 +84,13 @@ per lane change:
   advantage; report the before and after numbers.
 
 ## Not doing
+
 - Enforcing "one lane change per move" (decision 3).
 - Changing the price of ordinary single lane changes (decision 4).
 - Lane-length fairness (lanes have 28 / 30 / 32 cells; charging by forward gain is a separate, open audit item).
 
 ## Where to start
+
 Branch from `main` after #19 (bot personalities) merges, so the benchmark baseline includes the personalities; a stacked
 PR on `feat/bot-personalities` also works (it retargets to `main` when #19 merges). Files: `src/game/systems/movementSystem.ts`
 (`computeValidTargets`, the blocker logic, `computeSqueezeTargets`), `src/game/systems/moveBudgetSystem.ts`

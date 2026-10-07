@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
 
-export interface TextButtonOptions {
+interface TextButtonOptions {
   fontSize: string;
   originX?: number;
   originY?: number;

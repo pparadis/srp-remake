@@ -1,6 +1,6 @@
 export type TrackTag = "START_FINISH" | "PIT_ENTRY" | "PIT_BOX" | "PIT_EXIT" | "PIT_LINE";
 
-export interface Vec2 {
+interface Vec2 {
   x: number;
   y: number;
 }

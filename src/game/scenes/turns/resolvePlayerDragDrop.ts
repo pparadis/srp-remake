@@ -3,7 +3,7 @@ import { type MoveValidationResult } from "../../systems/moveValidationSystem";
 import type { Car } from "../../types/car";
 import type { TrackCell } from "../../types/track";
 
-export interface ResolvePlayerDragDropParams {
+interface ResolvePlayerDragDropParams {
   activeCar: Car;
   token: Phaser.GameObjects.Container;
   origin: { x: number; y: number };
