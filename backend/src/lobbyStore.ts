@@ -8,7 +8,7 @@ import {
   type ApplyResult,
   type BotTurnDecision
 } from "../../src/game/race/raceEngine";
-import { normalizeSeed } from "../../src/game/systems/botStyle";
+import { MAX_SEED, normalizeSeed } from "../../src/game/systems/botStyle";
 import type { BotPolicy } from "../../src/game/systems/botSystem";
 import { getRaceContext, knownTrackIds } from "./tracks.js";
 import type {
@@ -89,7 +89,7 @@ function toPublicPlayer(player: LobbyPlayer): PublicLobbyPlayer {
 // BOT_SEED pins it (tests, e2e, reproducing a race).
 function newRaceSeed(): number {
   const pinned = process.env.BOT_SEED;
-  return pinned !== undefined && pinned !== "" ? normalizeSeed(pinned) : randomInt(1, 0x7fffffff);
+  return pinned !== undefined && pinned !== "" ? normalizeSeed(pinned) : randomInt(1, MAX_SEED);
 }
 
 function toPublicRaceState(lobby: Lobby): RaceState | undefined {
