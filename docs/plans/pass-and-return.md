@@ -1,6 +1,6 @@
 # Pass and return: go around a blocker and rejoin your lane in one move
 
-Status: Planned (decided with the owner, not started; build it after the bot-personalities PR #19 merges)
+Status: In progress (branch `feat/pass-and-return-engine`)
 
 ## Context
 Found by playing, reported with a screenshot. The player's car is on `Z20_L1_00` (inner lane) and car 11 is on
@@ -80,6 +80,22 @@ per lane change:
 - Enforcing "one lane change per move" (decision 3).
 - Changing the price of ordinary single lane changes (decision 4).
 - Lane-length fairness (lanes have 28 / 30 / 32 cells; charging by forward gain is a separate, open audit item).
+
+## Result (implementation notes)
+
+- Engine: `searchRoutes` (movementSystem.ts) walks (cell, diagonal lane changes) states on an integer copy of the track;
+  `computeValidTargets` takes the cheapest route per cell and, for a same-lane target beyond the nearest blocker, the
+  cheapest go-around route (own lane + one adjacent lane, never past a car in that lane). Squeeze is unchanged (still at
+  most one lane change; it only runs when no normal target exists).
+- Checked by replaying 2,846 positions from simulated races (4, 8 and 11 cars, Easy/Normal/Hard) through the old and the
+  new target search: 46,907 of 47,136 old targets are identical (distance, price, tire, fuel, order); 476 new targets,
+  all same-lane with 2 lane changes (the feature); 93 repriced and 36 no longer offered, all of them targets whose
+  every shortest old route was a zig-zag of 3+ lane changes priced as one (verified with an independent search);
+  boxed-in positions 0 before and after. The replay tool was throwaway; `passAndReturn.test.ts` keeps the invariants.
+- Bots: ordering Hard < Normal < Easy < Autopilot holds (4 and 8 cars, 3/5/8 laps, 3-4 seeds). Decisions cost about
+  1.5x (Hard 1.5 -> 2.7 ms, Normal 0.034 -> 0.052 ms).
+- Tests that assumed "a wall in your lane cannot be passed in lane 1" (botStyleScore) moved the wall 2 cells further,
+  where the go-around would cost 10 points (over the cap).
 
 ## Where to start
 Branch from `main` after #19 (bot personalities) merges, so the benchmark baseline includes the personalities; a stacked
