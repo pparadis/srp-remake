@@ -177,16 +177,46 @@ export async function playMyTurn(page: Page) {
   await page.mouse.down();
   await page.mouse.move(plan.to.x, plan.to.y, { steps: 8 });
   await page.mouse.up();
-  await page.waitForFunction(
-    ({ carId, cellId }) => {
-      const srp = window.__srp;
-      if (!srp) return true; // page navigated away: the race is over
-      if (srp.status().winnerCarId !== null) return true;
-      return srp.state().cars.find((c) => c.carId === carId)?.cellId !== cellId;
-    },
-    { carId: plan.carId, cellId: plan.cellId },
-    { timeout: 10_000 }
-  );
+  try {
+    await page.waitForFunction(
+      ({ carId, cellId }) => {
+        const srp = window.__srp;
+        if (!srp) return true; // page navigated away: the race is over
+        if (srp.status().winnerCarId !== null) return true;
+        return srp.state().cars.find((c) => c.carId === carId)?.cellId !== cellId;
+      },
+      { carId: plan.carId, cellId: plan.cellId },
+      { timeout: 10_000 }
+    );
+  } catch (error) {
+    // The drag was released but the car never moved: say where everything was, so a CI flake explains itself.
+    const now = await page
+      .evaluate(
+        ({ carId }) => {
+          const srp = window.__srp;
+          const state = srp?.state();
+          const car = state?.cars.find((c) => c.carId === carId);
+          return {
+            activeCarId: state?.activeCarId,
+            carCell: car?.cellId,
+            canControl: srp?.status().canControl,
+            cellNow: car && srp?.cellScreenPos(car.cellId),
+            tokenNow: srp?.tokenScreenPos(carId),
+            validTargets: state?.movement.validTargets.length,
+            canvases: [...document.querySelectorAll("canvas")].map((c) => {
+              const r = c.getBoundingClientRect();
+              return [r.x, r.y, r.width, r.height].map(Math.round);
+            }),
+            feed: [...document.querySelectorAll('[data-testid="hud-feed-list"] li')].map((li) => li.textContent).slice(-5)
+          };
+        },
+        { carId: plan.carId }
+      )
+      .catch((e: unknown) => ({ evaluateFailed: String(e) }));
+    throw new Error(`drag released but car ${plan.carId} stayed on ${plan.cellId}\n${JSON.stringify({ plan, now })}`, {
+      cause: error
+    });
+  }
 }
 
 /** Plays turns on a single (offline) page until the race has a winner. */
