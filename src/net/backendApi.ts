@@ -220,8 +220,8 @@ export class BackendApiClient {
     });
   }
 
-  // Cheap request that wakes a sleeping server.
-  health(): Promise<unknown> {
+  // Cheap request that wakes a sleeping server; `sha` is the commit it runs (absent on an older server).
+  health(): Promise<{ ok: boolean; lobbies?: number; sha?: string }> {
     return this.request("GET", "/health");
   }
 

@@ -193,8 +193,27 @@ body[data-screen="race"] #screen-race {
   text-overflow: ellipsis;
 }
 
-/* The race screen has its own HUD; the status line would sit on the canvas buttons. */
-body[data-screen="race"] #statusLine {
+/* Build version (web and server commit), bottom right; a click copies it for a bug report. */
+.version {
+  position: fixed;
+  right: 8px;
+  bottom: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 10px;
+  color: #6b7f92;
+  cursor: pointer;
+}
+
+.version.is-stale {
+  color: #e0a030;
+}
+
+/* The race screen has its own HUD; the status line and the version would sit on the canvas buttons. */
+body[data-screen="race"] #statusLine,
+body[data-screen="race"] .version {
   display: none;
 }
 

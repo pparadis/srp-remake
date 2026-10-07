@@ -179,7 +179,6 @@ export class RaceScene extends Phaser.Scene {
   };
   private readonly buildInfo = {
     version: "debug-snapshot-v3",
-    // eslint-disable-next-line no-undef
     gitSha: __GIT_SHA__
   };
 

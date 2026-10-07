@@ -106,6 +106,9 @@ Project guide for Codex and other automation.
   - Press `F` to toggle forwardIndex overlay (also shows full cell debug text in the HUD); `C` toggles cars+moves.
   - “Copy debug” button copies a JSON snapshot with car + movement context.
   - “Copy bot debug” button copies structured bot decision traces.
+- The build version is shown bottom right on the home and lobby screens (`src/ui/version.ts`): `web <sha> · <build day> ·
+server <sha>`, amber when the server runs another commit (a deploy is pending); a click copies the full commits.
+  The web side is `__GIT_SHA__` / `__BUILD_DATE__` (vite `define`), the server side is `/health`'s `sha`.
 - Snapshot includes `version` + `gitSha` and the race `seed` for reproducibility (`?seed=N`).
 
 ## Validation & Tests

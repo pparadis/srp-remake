@@ -1,6 +1,7 @@
 import "./style.css";
 import { formatCountdown, mountHud, renderHud, renderMute, renderResults, showToast, type HudSnapshot } from "./ui/hud";
 import { currentlyMuted, initSound, setMuted } from "./ui/sound";
+import { mountVersion, renderVersion, type ServerVersion } from "./ui/version";
 import { MAX_SEED, normalizeSeed } from "./game/systems/botStyle";
 import {
   BackendApiClient,
@@ -1046,7 +1047,18 @@ try {
   // ignore
 }
 setStatus(`ready (${backendApiBaseUrl})`);
-// Wake a sleeping server in the background; the answer does not matter.
-void backendClient.health().catch(() => undefined);
+// Wake a sleeping server in the background; its answer says which commit it runs.
+const webVersion = { sha: __GIT_SHA__, date: __BUILD_DATE__ };
+let serverVersion: ServerVersion = null;
+const versionEl = document.getElementById("version") as HTMLButtonElement;
+mountVersion(versionEl, webVersion, () => serverVersion);
+void backendClient
+  .health()
+  .then((health) => (serverVersion = { sha: health.sha ?? "unknown" }))
+  .catch((): ServerVersion => "offline")
+  .then((version) => {
+    serverVersion = version;
+    renderVersion(versionEl, webVersion, serverVersion);
+  });
 window.setInterval(renderTurnTimer, 250);
 startRouter((route, source) => void handleRoute(route, source));
