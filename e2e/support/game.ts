@@ -140,6 +140,21 @@ export async function nextMover(pages: Page[], timeout = 60_000): Promise<Page |
 /** Drags the active car to the furthest valid non-pit target with the real mouse. */
 export async function playMyTurn(page: Page) {
   await waitForMyTurn(page);
+  // After a reload the tokens slide from the grid to their cells; dragging from the cell before the token has
+  // arrived presses on empty track and starts no drag.
+  await page.waitForFunction(
+    () => {
+      const srp = window.__srp;
+      if (!srp || srp.status().winnerCarId !== null) return true;
+      const state = srp.state();
+      const car = state.cars.find((c) => c.carId === state.activeCarId);
+      const cell = car && srp.cellScreenPos(car.cellId);
+      const token = car && srp.tokenScreenPos(car.carId);
+      return !cell || !token || Math.hypot(cell.x - token.x, cell.y - token.y) < 3;
+    },
+    undefined,
+    { timeout: 10_000 }
+  );
   const plan = await page.evaluate(() => {
     const srp = window.__srp!;
     if (srp.status().winnerCarId !== null) return null;
