@@ -1,6 +1,6 @@
 # Ponytail trim
 
-Status: In progress (branch `chore/ponytail-trim`)
+Status: In progress (PR #21)
 
 Result of a repo-wide over-engineering audit. Small, behaviour-neutral cuts.
 
@@ -18,6 +18,6 @@ It touches these files, so cutting them now would conflict:
 - `src/net/backendApi.ts`: unexport `REQUEST_TIMEOUT_MS` and the `*Response` types.
 - `src/game/systems/botSystem.ts`, `src/game/race/botBench.ts`, `botHard.ts`: unexport `Bot*`, `Bench*`, `HardDeps` types.
 - `src/game/scenes/ui/TextButton.ts`: replace the class with a `makeButton` function (call site in `RaceScene.ts`).
-- `src/game/index.ts`, `src/game/types/car.ts`: unused exported types.
+- `src/game/index.ts`, `src/game/types/car.ts`, `backend/src/types.ts` (`LobbyStatus`): unused exported types.
 
 Optional: fold `tools/track/*.mjs` into `tools/genOval16_3lanes.mjs`.
