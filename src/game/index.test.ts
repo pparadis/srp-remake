@@ -11,7 +11,7 @@ vi.mock("phaser", () => {
   }
   return {
     default: {
-      AUTO: "AUTO",
+      CANVAS: "CANVAS",
       Scale: {
         RESIZE: "RESIZE",
         CENTER_BOTH: "CENTER_BOTH"
@@ -70,7 +70,7 @@ describe("startGame", () => {
     expect(gameCtor).toHaveBeenCalledTimes(1);
     const [config] = gameCtor.mock.calls[0] ?? [];
     expect(config).toMatchObject({
-      type: "AUTO",
+      type: "CANVAS",
       parent,
       width: 1600,
       height: 900,
