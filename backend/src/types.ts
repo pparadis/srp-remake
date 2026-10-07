@@ -4,7 +4,7 @@ import { BOT_LEVELS, type BotLevel, type Car } from "../../src/game/types/car";
 export const TURN_TIMER_CHOICES = [0, 30, 60, 120] as const;
 export type TurnTimerSec = (typeof TURN_TIMER_CHOICES)[number];
 
-type LobbyStatus = "WAITING" | "IN_RACE" | "FINISHED";
+export type LobbyStatus = "WAITING" | "IN_RACE" | "FINISHED";
 export type LobbyTerminationReason = "host_disconnected" | "race_finished";
 
 // A car as the server reports it: the engine's Car plus who drives it.
