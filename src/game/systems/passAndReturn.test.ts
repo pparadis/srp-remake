@@ -75,6 +75,14 @@ describe("pass and return: go around a blocker and rejoin your lane", () => {
     expect(targetsFrom(START, [BLOCKER, "Z22_L2_00", "Z23_L2_00"]).has("Z24_L1_00")).toBe(false);
   });
 
+  it("goes round a blocker with a car alongside in the other lane (position reported from the sandbox)", () => {
+    // car 3 on Z14_L1, car 2 on Z17_L1 ahead in its lane, car 1 on Z17_L2 alongside: one car to pass in lane 2
+    const targets = targetsFrom("Z14_L1_00", ["Z17_L1_00", "Z17_L2_00", "Z01_L2_00"]);
+    for (const [id, spend] of [["Z18_L1_00", 6], ["Z19_L1_00", 7], ["Z20_L1_00", 8], ["Z21_L1_00", 9]] as const) {
+      expect(targets.get(id), id).toMatchObject({ moveSpend: spend, laneChanges: 2 });
+    }
+  });
+
   it("never lands on a car or in the pit lane, and every route is within the target budget", () => {
     const occupied = [BLOCKER, "Z24_L2_00", "Z26_L1_00"];
     for (const [id, info] of targetsFrom(START, occupied)) {
