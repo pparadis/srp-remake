@@ -51,8 +51,9 @@ Every lane change between main lanes costs +1 move point on top of the forward c
 - A target cell is invalid if it is occupied.
 - Target-lane blocker policy:
   - For same-lane movement, the nearest occupied cell ahead is the blocker.
-  - For lane changes, you may pass one blocker in the destination lane to merge into a gap.
-  - Lane-change targets are blocked by the second blocker ahead in the destination lane (or by the first if only one exists).
+  - For lane changes, you may pass one blocker in the destination lane (merge in front of it, or into a gap).
+  - Lane-change targets are blocked by the second blocker ahead in the destination lane. With only one car in that lane
+    nothing blocks beyond it: a lone car can be passed like the first of two.
   - Pass and return: a same-lane target beyond the nearest same-lane blocker is legal when a free route goes round the
     blocker through ONE adjacent lane and rejoins your lane. Like a merge it may pass one blocker, not the next. The
     route stays in the two lanes, passes at most one car in the lane it goes round through, as a merge into it would

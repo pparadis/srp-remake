@@ -220,7 +220,7 @@ describe("computeValidTargets", () => {
     expect(targets.has("C2")).toBe(true);
   });
 
-  it("blocks lane-change targets beyond nearest occupied car in destination lane", () => {
+  it("lets a lane change pass the only car in the destination lane", () => {
     const track: TrackData = {
       trackId: "target-lane-block-test",
       zones: 3,
@@ -245,7 +245,7 @@ describe("computeValidTargets", () => {
       wingRearDeg: 12
     }});
     expect(targets.has("C0")).toBe(true);
-    expect(targets.has("C1")).toBe(false);
+    expect(targets.has("C1")).toBe(true); // B1 is passed; there is no second car to stop at
   });
 
   it("does not traverse through occupied cells to reach farther targets", () => {

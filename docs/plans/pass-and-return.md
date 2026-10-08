@@ -108,6 +108,10 @@ per lane change:
 - Follow-up (found by playing): the go-around lane was capped at its FIRST car, so a route could not merge past a car
   in lane 2 and come back in front of the lane-1 blocker. Step 3 asked for the merge rule there (pass one, not the
   second); `goAroundRoutes` now caps at the second car. Benchmark unchanged (6 seeds, 3/5/8 laps).
+- Follow-up (sandbox position, PR for the lone car): a lane change used to be blocked by the FIRST car of its lane when
+  that lane held only one car, while the go-around already passes that car on its way back to the start lane (the
+  inner lane route past car 1 passed car 4 in the middle lane, but the middle lane cell beyond car 4 was refused).
+  A lane change now passes one car and is stopped by the second only; with one car the lane is open beyond it.
 
 ## Where to start
 

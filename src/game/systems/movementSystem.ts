@@ -298,7 +298,8 @@ export function computeValidTargets(
     if (!startIsPitLane && cell.laneIndex !== PIT_LANE) {
       const blockers = blockerDeltasByLane.get(cell.laneIndex) ?? [];
       const sameLane = cell.laneIndex === startCell.laneIndex;
-      const blockDelta = sameLane ? blockers[0] : (blockers[1] ?? blockers[0]);
+      // A lane change may pass the nearest car in its lane, never the second; with only one car the lane is open beyond it.
+      const blockDelta = sameLane ? blockers[0] : blockers[1];
       if (blockDelta != null && targetDelta > blockDelta) {
         // Only a same-lane move may still land beyond the nearest blocker, by going around it through an adjacent
         // lane and rejoining; like a merge it may pass one blocker, not the next.
