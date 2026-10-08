@@ -1,6 +1,6 @@
 # Pass and return: go around a blocker and rejoin your lane in one move
 
-Status: In progress (PR #26)
+Status: Done (PR #26, #28, #30)
 
 ## Context
 
