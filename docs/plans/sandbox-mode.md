@@ -88,3 +88,4 @@ sandbox spec only. Backend untouched.
 - The copied test imports from `./raceEngine` and `../../../public/tracks/<trackId>.json`: paste it in `src/game/race/`.
   Verified by running a generated file as a real vitest file.
 - A click on the board blurs a panel field; without it the focused field kept the `E` key.
+- Found by playing: on a packed grid a drop onto a cell held by another car was refused (the car snapped back, the reason only in the collapsed race feed), so rearranging the grid looked broken. A drop on another car now swaps the two (`placeCar`); the panel's Cell field still refuses a taken cell.

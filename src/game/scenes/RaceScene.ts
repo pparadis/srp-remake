@@ -33,7 +33,7 @@ import {
   type RaceSeat,
   type RaceState
 } from "../race/raceEngine";
-import { budgetLeftOf, editCar, type CarEdit, positionAsTest, restorePosition, setActiveCar } from "../race/sandbox";
+import { budgetLeftOf, editCar, placeCar, type CarEdit, positionAsTest, restorePosition, setActiveCar } from "../race/sandbox";
 import type { SandboxCommand, SandboxSnapshot } from "../../ui/sandboxPanel";
 import { hasFinishedRace, lapInProgress } from "../systems/lapProgress";
 import { sortCarsByProgress } from "../systems/orderingSystem";
@@ -305,7 +305,7 @@ export class RaceScene extends Phaser.Scene {
         },
         findNearestCell: (x, y, maxDist) => this.findNearestCell(x, y, maxDist),
         onSelect: (carId) => this.sandboxSelect(carId),
-        onDrop: (carId, cell) => this.sandboxEdit(carId, cell ? { cellId: cell.id } : {}),
+        onDrop: (carId, cell) => this.sandboxDrop(carId, cell),
         onToggleEditing: () => this.setEditing(!this.editing),
         snapDist: 18
       });
@@ -1351,6 +1351,13 @@ export class RaceScene extends Phaser.Scene {
 
   private sandboxEdit(carId: number, edit: CarEdit) {
     const refused = editCar(this.ctx, this.race, carId, edit);
+    if (refused) this.addLog(refused);
+    this.sandboxRefresh();
+  }
+
+  // A drop on a free cell moves the car, on another car swaps them; away from any cell the car goes back.
+  private sandboxDrop(carId: number, cell: TrackCell | null) {
+    const refused = cell ? placeCar(this.ctx, this.race, carId, cell.id) : null;
     if (refused) this.addLog(refused);
     this.sandboxRefresh();
   }

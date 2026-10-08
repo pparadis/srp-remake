@@ -4,7 +4,7 @@ import { MOVE_BUDGET, MOVE_RATES } from "../constants";
 import { buildGameDebugSnapshot } from "../scenes/debug/gameDebugSnapshot";
 import type { TrackData } from "../types/track";
 import { computeTargets, createRace, createRaceContext, getActiveCar, type RaceState } from "./raceEngine";
-import { budgetLeftOf, editCar, positionAsTest, restorePosition, setActiveCar } from "./sandbox";
+import { budgetLeftOf, editCar, placeCar, positionAsTest, restorePosition, setActiveCar } from "./sandbox";
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const newRace = (cars = 3): RaceState =>
@@ -19,6 +19,17 @@ describe("sandbox edits", () => {
     expect(editCar(ctx, state, 2, { cellId: "Z20_L1_00" })).toMatch(/taken by car 1/);
     expect(editCar(ctx, state, 2, { cellId: "nope" })).toMatch(/No cell/);
     expect(state.cars[1]!.cellId).not.toBe("Z20_L1_00");
+  });
+
+  it("a drop on a free cell moves the car, on another car swaps the two", () => {
+    const state = newRace();
+    placeCar(ctx, state, 1, "Z20_L1_00");
+    expect(state.cars[0]!.cellId).toBe("Z20_L1_00");
+    const three = state.cars[2]!.cellId;
+    expect(placeCar(ctx, state, 1, three)).toBeNull();
+    expect([state.cars[0]!.cellId, state.cars[2]!.cellId]).toEqual([three, "Z20_L1_00"]);
+    expect(placeCar(ctx, state, 1, "nope")).toMatch(/No cell/);
+    expect(new Set(state.cars.map((c) => c.cellId)).size).toBe(3);
   });
 
   it("edits lap, tire, fuel, compound and clamps them", () => {
