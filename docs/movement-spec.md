@@ -55,8 +55,8 @@ Every lane change between main lanes costs +1 move point on top of the forward c
   - Lane-change targets are blocked by the second blocker ahead in the destination lane (or by the first if only one exists).
   - Pass and return: a same-lane target beyond the nearest same-lane blocker is legal when a free route goes round the
     blocker through ONE adjacent lane and rejoins your lane. Like a merge it may pass one blocker, not the next. The
-    route stays in the two lanes, never passes a car in the lane it goes round through (cells of that lane at or beyond
-    its nearest car are not available to it), and pays for its lane changes (out and back is `+2`).
+    route stays in the two lanes, passes at most one car in the lane it goes round through, as a merge into it would
+    (cells of that lane at or beyond its second car are not available to it), and pays for its lane changes (out and back is `+2`).
   - Adjacent lanes do not block unless they are the chosen destination lane.
 - Occupied cells are not traversable during target search (except the start cell).
 

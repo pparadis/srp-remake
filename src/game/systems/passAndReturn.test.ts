@@ -61,16 +61,18 @@ describe("pass and return: go around a blocker and rejoin your lane", () => {
   });
 
   it("needs a free adjacent lane to go around through", () => {
-    // lane 2 is blocked right next to the start: no way round
-    const blocked = targetsFrom(START, [BLOCKER, "Z22_L2_00", "Z21_L2_00"]);
+    // lane 2 is blocked alongside the blocker: no way round
+    const blocked = targetsFrom(START, [BLOCKER, "Z24_L2_00", "Z25_L2_00"]);
     expect(blocked.has("Z24_L1_00")).toBe(false);
     expect([...blocked.keys()].filter((id) => cell(id).laneIndex === 1 && delta(START, id) > 3)).toEqual([]);
   });
 
-  it("does not pass a car in the lane it goes round through", () => {
-    // a second car in lane 2 just beyond the blocker: the route may not pass it either
-    const targets = targetsFrom(START, [BLOCKER, "Z24_L2_00"]);
-    expect(targets.has("Z25_L1_00")).toBe(false);
+  it("may pass one car in the lane it goes round through, like a merge, but not two", () => {
+    // a car in lane 2 behind the blocker (Z23_L2 is one cell ahead of the start): merge past it into lane 2, then
+    // back into lane 1 in front of the blocker
+    expect(targetsFrom(START, [BLOCKER, "Z23_L2_00"]).get("Z24_L1_00")?.laneChanges).toBe(2);
+    // two cars in lane 2 behind the blocker (Z24_L2 stays free, so only the rule stops it): going round passes both
+    expect(targetsFrom(START, [BLOCKER, "Z22_L2_00", "Z23_L2_00"]).has("Z24_L1_00")).toBe(false);
   });
 
   it("never lands on a car or in the pit lane, and every route is within the target budget", () => {
@@ -132,7 +134,7 @@ describe("pass and return through the engine", () => {
 
   it("still rejects a same-lane move beyond the blocker when no route goes round", () => {
     const state = raceWithBlocker();
-    state.cars.push({ ...state.cars[1]!, carId: 3, cellId: "Z22_L2_00" }, { ...state.cars[1]!, carId: 4, cellId: "Z21_L2_00" });
+    state.cars.push({ ...state.cars[1]!, carId: 3, cellId: "Z23_L2_00" }, { ...state.cars[1]!, carId: 4, cellId: "Z24_L2_00" });
     expect(applyAction(ctx, state, { type: "move", targetCellId: "Z25_L1_00" })).toMatchObject({ ok: false });
   });
 });

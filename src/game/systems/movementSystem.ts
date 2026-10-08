@@ -250,15 +250,15 @@ export function computeValidTargets(
     }
   }
 
-  // Routes that stay in the start lane and ONE adjacent lane, and never pass a car in that adjacent lane: the ways
-  // around a blocker. Only computed when a same-lane target beyond the nearest blocker asks for it.
+  // Routes that stay in the start lane and ONE adjacent lane and, like a merge into it, pass at most one car in that
+  // adjacent lane (never its second): the ways around a blocker. Only computed when a same-lane target beyond the nearest blocker asks for it.
   let goAround: Map<string, Route> | undefined;
   const goAroundRoutes = (): Map<string, Route> => {
     if (goAround) return goAround;
     goAround = new Map();
     for (const lane of [startCell.laneIndex - 1, startCell.laneIndex + 1]) {
       if (lane < INNER_MAIN_LANE || lane > OUTER_MAIN_LANE) continue;
-      const limit = blockerDeltasByLane.get(lane)?.[0];
+      const limit = blockerDeltasByLane.get(lane)?.[1];
       const found = searchRoutes(
         trackIndex,
         startCell,
