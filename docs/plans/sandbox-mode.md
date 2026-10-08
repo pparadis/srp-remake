@@ -1,6 +1,6 @@
 # Sandbox mode: place cars freely and see what the engine offers
 
-Status: In progress (PR #29)
+Status: Done (PR #29)
 
 ## Context
 
