@@ -21,7 +21,7 @@ Project guide for Codex and other automation.
   back +2). The search is by price (`searchRoutes` in `movementSystem.ts`); see `docs/movement-spec.md`.
 - Passing/merging uses target-lane blockers:
   - Same-lane moves cannot pass the nearest car ahead, except by going round it through ONE adjacent lane and rejoining
-    (pass and return: at most one blocker passed, the route never passes a car in the lane it goes round through).
+    (pass and return: at most one blocker passed, and at most one car in the lane it goes round through, as a merge).
   - Lane-change moves may pass one target-lane blocker to merge into a gap, but cannot pass the next blocker.
   - Adjacent lanes do not block unless they are the target lane.
 - Occupied cells are non-traversable for movement target search (except the start cell).
