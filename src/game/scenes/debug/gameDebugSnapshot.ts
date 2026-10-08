@@ -72,6 +72,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
         pitExitBoost: car.pitExitBoost,
         pitServiced: car.pitServiced,
         setup: car.setup,
+        budgetLeft: getRemainingBudget(car.moveCycle),
         cell: cell
           ? {
               zoneIndex: cell.zoneIndex,

@@ -1,6 +1,6 @@
 # Sandbox mode: place cars freely and see what the engine offers
 
-Status: Planned
+Status: In progress
 
 ## Context
 
@@ -71,3 +71,20 @@ should become a unit test with one click.
 
 Per `AGENTS.md` "Verification": `npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`, plus the new
 sandbox spec only. Backend untouched.
+
+## Result (implementation notes)
+
+- Engine untouched. `src/game/race/sandbox.ts` (edit a car, make a car active, restore a snapshot all-or-nothing, the
+  "Copy as test" text) is Phaser-free and unit-tested; the panel is `src/ui/sandboxPanel.ts` (DOM, `srp:sandbox`
+  snapshots in, `srp:sandbox-command` out, like the HUD); `RaceScene` holds `sandbox` / `editing` and reuses
+  `refreshAfterTurn()`. Edit mode: `processBotsUntilHuman` returns early, `recomputeTargets` shows the active car's
+  targets even for a bot, every token is draggable, the rules-checked drag stands aside (`isSuspended`).
+- Pressing a car (also to drag it) makes it the active one; hand the turn back with the Car select in the panel.
+- After each edit the feel memory is reset, so a teleported car fires no lap toast, sound or confetti.
+- "Copy debug" cars now carry `budgetLeft`, so a restore brings the move points back.
+- Load position needs the same car count (all or nothing, the reason goes to the race feed). `?pos=` also sets the
+  number of bots of the solo form from the position, so Quick race fits it.
+- Added: "Copy link" (`?sandbox&seed=N&pos=<base64>`), the producer for `?pos=`.
+- The copied test imports from `./raceEngine` and `../../../public/tracks/<trackId>.json`: paste it in `src/game/race/`.
+  Verified by running a generated file as a real vitest file.
+- A click on the board blurs a panel field; without it the focused field kept the `E` key.

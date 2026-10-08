@@ -8,7 +8,9 @@ import {
   REG_BOT_CARS,
   REG_BOT_LEVEL,
   REG_HUMAN_CARS,
+  REG_POSITION,
   REG_RACE_LAPS,
+  REG_SANDBOX,
   REG_SEED,
   REG_TOTAL_CARS
 } from "../constants";
@@ -31,6 +33,8 @@ import {
   type RaceSeat,
   type RaceState
 } from "../race/raceEngine";
+import { budgetLeftOf, editCar, type CarEdit, positionAsTest, restorePosition, setActiveCar } from "../race/sandbox";
+import type { SandboxCommand, SandboxSnapshot } from "../../ui/sandboxPanel";
 import { hasFinishedRace, lapInProgress } from "../systems/lapProgress";
 import { sortCarsByProgress } from "../systems/orderingSystem";
 import { validateTrack } from "../../validation/trackValidation";
@@ -42,6 +46,7 @@ import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
 import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
 import { spriteRotation } from "./rendering/heading";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
+import { registerSandboxInputHandlers } from "./input/registerSandboxInputHandlers";
 import {
   appendBotDecisionEntry,
   buildBotDecisionSnapshot as buildBotDecisionSnapshotPayload,
@@ -127,6 +132,9 @@ export class RaceScene extends Phaser.Scene {
   private skipButton!: Phaser.GameObjects.Text;
   private debugButtons!: DebugButtons;
   private showCarsAndMoves = true;
+  // Sandbox (`?sandbox`, solo): in edit mode every car can be dragged anywhere and the bots wait.
+  private sandbox = false;
+  private editing = false;
   private get cars(): Car[] {
     return this.race.cars;
   }
@@ -151,6 +159,8 @@ export class RaceScene extends Phaser.Scene {
     this.updateExternalToggleLabel();
     this.applyCarsAndMovesVisibility();
   };
+  private readonly onSandboxCommand = (event: Event) =>
+    this.runSandboxCommand((event as CustomEvent<SandboxCommand>).detail);
   private readonly onBackendLobbyState = (event: Event) => {
     const custom = event as CustomEvent<{ lobby?: PublicLobby; localPlayerId?: string }>;
     const lobby = custom.detail?.lobby;
@@ -205,6 +215,8 @@ export class RaceScene extends Phaser.Scene {
     this.totalCars = this.registry.get(REG_TOTAL_CARS);
     this.humanCars = this.registry.get(REG_HUMAN_CARS);
     this.botCars = this.registry.get(REG_BOT_CARS);
+    this.sandbox = this.registry.get(REG_SANDBOX) === true;
+    this.editing = this.sandbox;
 
     const grassCenter = this.getTrackCenter() ?? { x: 0, y: 0 };
     this.add.tileSprite(grassCenter.x, grassCenter.y, 4000, 3000, "grass").setDepth(-10);
@@ -221,6 +233,7 @@ export class RaceScene extends Phaser.Scene {
       this.centerTrack();
     });
     this.initCars();
+    this.loadStartPosition();
     this.initTurn();
     this.recomputeTargets();
     this.drawTargets();
@@ -239,12 +252,14 @@ export class RaceScene extends Phaser.Scene {
       window.removeEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
       window.removeEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
       window.removeEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
+      window.removeEventListener("srp:sandbox-command", this.onSandboxCommand);
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, removeWindowListeners);
     this.events.once(Phaser.Scenes.Events.DESTROY, removeWindowListeners);
     window.addEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
     window.addEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
     window.addEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
+    if (this.sandbox) window.addEventListener("srp:sandbox-command", this.onSandboxCommand);
 
     registerRaceSceneInputHandlers({
       scene: this,
@@ -275,9 +290,26 @@ export class RaceScene extends Phaser.Scene {
       onUnauthorizedControlAttempt: () => {
         this.addLog("Not your turn/car.");
       },
+      isSuspended: () => this.editing,
       hoverMaxDist: RaceScene.HUD.hoverMaxDist,
       dragSnapDist: 18
     });
+    if (this.sandbox) {
+      registerSandboxInputHandlers({
+        scene: this,
+        isEditing: () => this.editing,
+        carIdOfToken: (obj) => [...this.carTokens].find(([, token]) => token === obj)?.[0] ?? null,
+        moveToken: (carId, x, y) => {
+          this.carTokens.get(carId)?.setPosition(x, y);
+          this.activeHalos.get(carId)?.setPosition(x, y);
+        },
+        findNearestCell: (x, y, maxDist) => this.findNearestCell(x, y, maxDist),
+        onSelect: (carId) => this.sandboxSelect(carId),
+        onDrop: (carId, cell) => this.sandboxEdit(carId, cell ? { cellId: cell.id } : {}),
+        onToggleEditing: () => this.setEditing(!this.editing),
+        snapDist: 18
+      });
+    }
 
     if (import.meta.env.DEV || import.meta.env.MODE === "test") {
       // e2e hook: read-only state + cell -> page coordinates for real mouse drags
@@ -591,7 +623,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private processBotsUntilHuman() {
-    if (this.raceFinished) return;
+    if (this.raceFinished || this.editing) return;
     if (this.isBackendAuthoritativeMode()) return;
     const maxBots = Math.max(1, this.cars.length);
     let steps = 0;
@@ -658,7 +690,7 @@ export class RaceScene extends Phaser.Scene {
       token.setVisible(true);
       const halo = this.activeHalos.get(carId);
       if (carId === this.activeCar.carId) {
-        const canControlActive = this.canLocalControlActiveCar() && !this.raceFinished;
+        const canControlActive = this.editing || (this.canLocalControlActiveCar() && !this.raceFinished);
         token.setAlpha(1);
         token.setScale(canControlActive ? 1.1 : 1);
         this.input.setDraggable(token, canControlActive);
@@ -669,9 +701,9 @@ export class RaceScene extends Phaser.Scene {
           halo.setAlpha(1);
         }
       } else {
-        token.setAlpha(0.6);
+        token.setAlpha(this.editing ? 1 : 0.6);
         token.setScale(1);
-        this.input.setDraggable(token, false);
+        this.input.setDraggable(token, this.editing);
         if (halo) {
           halo.setVisible(false);
           halo.setScale(1);
@@ -681,7 +713,7 @@ export class RaceScene extends Phaser.Scene {
     }
 
     const activeHalo = this.activeHalos.get(this.activeCar.carId);
-    if (activeHalo && this.canLocalControlActiveCar() && !this.raceFinished) {
+    if (activeHalo && (this.editing || (this.canLocalControlActiveCar() && !this.raceFinished))) {
       this.activeHaloTween = this.tweens.add({
         targets: activeHalo,
         scaleX: { from: 1, to: 1.12 },
@@ -698,6 +730,12 @@ export class RaceScene extends Phaser.Scene {
   private recomputeTargets() {
     if (this.raceFinished) {
       this.validTargets = new Map();
+      this.updateSkipButtonState();
+      return;
+    }
+    if (this.editing) {
+      // sandbox: show what the engine offers to whoever is active, bot or not
+      this.validTargets = this.computeTargetsForCar(this.activeCar);
       this.updateSkipButtonState();
       return;
     }
@@ -956,6 +994,7 @@ export class RaceScene extends Phaser.Scene {
     if (!this.skipButton) return;
     const canSkip =
       !this.raceFinished &&
+      !this.editing &&
       this.validTargets.size === 0 &&
       this.activeCar.state === "ACTIVE" &&
       this.canLocalControlActiveCar();
@@ -1256,6 +1295,7 @@ export class RaceScene extends Phaser.Scene {
       activeCarId: this.activeCar.carId,
       canControl: this.localCanControl(),
       cars: ordered.map((car) => this.hudCar(car)),
+      ...(this.sandbox ? { sandbox: this.editing ? ("edit" as const) : ("play" as const) } : {}),
       boxedIn: [...this.validTargets.values()].some((t) => t.squeezePassed !== undefined),
       pitExitBlocked: this.cellMap.get(this.activeCar.cellId)?.tags?.includes("PIT_EXIT") ?? false,
       hover:
@@ -1277,6 +1317,109 @@ export class RaceScene extends Phaser.Scene {
       log: [...this.logLines]
     };
     window.dispatchEvent(new CustomEvent("srp:hud", { detail: snapshot }));
+    if (this.sandbox) this.emitSandbox();
+  }
+
+  // ---- sandbox (`?sandbox`) ------------------------------------------------------------------------------------
+
+  private emitSandbox() {
+    const car = this.activeCar;
+    const snapshot: SandboxSnapshot = {
+      editing: this.editing,
+      activeCarId: car.carId,
+      carIds: this.cars.map((c) => c.carId),
+      raceLaps: this.raceLapTarget,
+      car: {
+        cellId: car.cellId,
+        lapCount: car.lapCount ?? 0,
+        tire: car.tire,
+        fuel: car.fuel,
+        compound: car.setup.compound,
+        budgetLeft: budgetLeftOf(car),
+        isBot: car.isBot,
+        botLevel: car.botLevel ?? "normal"
+      }
+    };
+    window.dispatchEvent(new CustomEvent("srp:sandbox", { detail: snapshot }));
+  }
+
+  // After an edit: redraw from the new state, and nothing celebrates (a teleported car is no lap, no overtake).
+  private sandboxRefresh() {
+    this.feel = createFeelMemory();
+    this.refreshAfterTurn();
+  }
+
+  private sandboxEdit(carId: number, edit: CarEdit) {
+    const refused = editCar(this.ctx, this.race, carId, edit);
+    if (refused) this.addLog(refused);
+    this.sandboxRefresh();
+  }
+
+  private sandboxSelect(carId: number) {
+    if (carId === this.activeCar.carId || !setActiveCar(this.race, carId)) return;
+    this.sandboxRefresh();
+  }
+
+  private setEditing(editing: boolean) {
+    this.editing = editing;
+    this.addLog(editing ? "Sandbox: editing." : "Sandbox: playing from here.");
+    this.sandboxRefresh();
+  }
+
+  // Puts a "Copy debug" snapshot in place; the caller redraws.
+  private applyPosition(text: string) {
+    let snapshot: unknown;
+    try {
+      snapshot = JSON.parse(text);
+    } catch {
+      this.addLog("Load refused: not JSON.");
+      return;
+    }
+    const refused = restorePosition(this.ctx, this.race, snapshot);
+    this.addLog(refused ? `Load refused: ${refused}` : "Position loaded.");
+  }
+
+  private loadStartPosition() {
+    const position = this.registry.get(REG_POSITION) as string | null | undefined;
+    if (this.sandbox && position) this.applyPosition(position);
+  }
+
+  private runSandboxCommand(command: SandboxCommand) {
+    switch (command.type) {
+      case "edit":
+        this.sandboxEdit(command.carId, command.edit);
+        break;
+      case "select":
+        this.sandboxSelect(command.carId);
+        break;
+      case "mode":
+        this.setEditing(command.editing);
+        break;
+      case "copy-test":
+        void this.copyText(positionAsTest(this.ctx, this.race), "Copied the position as a vitest case.");
+        break;
+      case "copy-link": {
+        const { cars, activeCarId } = this.buildDebugSnapshot();
+        const pos = encodeURIComponent(btoa(JSON.stringify({ activeCarId, cars })));
+        const url = `${window.location.origin}${import.meta.env.BASE_URL}?sandbox&seed=${this.race.seed}&pos=${pos}`;
+        void this.copyText(url, "Copied the sandbox link (open it, then Quick race).");
+        break;
+      }
+      case "load":
+        this.applyPosition(command.text);
+        this.sandboxRefresh();
+        break;
+    }
+  }
+
+  private async copyText(text: string, done: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      this.addLog(done);
+    } catch {
+      this.addLog("Clipboard failed. Check the console.");
+      console.log(text);
+    }
   }
 
   private computeCostFactors(laneIndex: number) {

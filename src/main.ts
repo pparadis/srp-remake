@@ -1,6 +1,7 @@
 import "./style.css";
 import { formatCountdown, mountHud, renderHud, renderMute, renderResults, showToast, type HudSnapshot } from "./ui/hud";
 import { currentlyMuted, initSound, setMuted } from "./ui/sound";
+import { mountSandboxPanel } from "./ui/sandboxPanel";
 import { mountVersion, renderVersion, type ServerVersion } from "./ui/version";
 import { MAX_SEED, normalizeSeed } from "./game/systems/botStyle";
 import {
@@ -63,6 +64,9 @@ const results = el("results");
 const resultsWinner = el("resultsWinner");
 const hud = el("hud");
 mountHud(hud);
+// `?sandbox` (solo only): a dev tool to place cars by hand; `?pos=<base64 of a Copy debug snapshot>` starts from one.
+const sandbox = new URLSearchParams(window.location.search).has("sandbox");
+if (sandbox) mountSandboxPanel(hud.querySelector(".hud-right")!);
 renderMute(hud, currentlyMuted());
 initSound();
 
@@ -82,6 +86,16 @@ function freshSeed(): number {
   return (crypto.getRandomValues(new Uint32Array(1))[0]! % MAX_SEED) + 1;
 }
 
+function startPosition(): string | undefined {
+  const raw = new URLSearchParams(window.location.search).get("pos");
+  try {
+    return sandbox && raw ? atob(raw) : undefined;
+  } catch {
+    return undefined; // not base64: start without a position
+  }
+}
+const sandboxPosition = startPosition();
+
 let game: ReturnType<typeof import("./game").startGame> | null = null;
 let gameStarting = false;
 let backendBusy = false;
@@ -94,6 +108,13 @@ const soloSettings: { botCars: number; raceLaps: number; botLevel: BotLevel; see
   raceLaps: 5,
   botLevel: "normal"
 };
+try {
+  // a position decides how many cars the race needs
+  const cars = (JSON.parse(sandboxPosition ?? "null") as { cars?: unknown[] } | null)?.cars?.length ?? 0;
+  if (cars >= 1 && cars <= 11) soloSettings.botCars = cars - 1;
+} catch {
+  // unreadable position: the scene will say so
+}
 const backendApiBaseUrl = resolveBackendBaseUrl();
 const backendWsBaseUrl = resolveBackendWsBaseUrl(backendApiBaseUrl);
 const backendClient = new BackendApiClient(backendApiBaseUrl);
@@ -277,7 +298,8 @@ function getComposition() {
     botCars: soloSettings.botCars,
     raceLaps: soloSettings.raceLaps,
     botLevel: soloSettings.botLevel,
-    seed: soloSettings.seed
+    seed: soloSettings.seed,
+    ...(sandbox ? { sandbox, ...(sandboxPosition ? { position: sandboxPosition } : {}) } : {})
   };
 }
 

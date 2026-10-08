@@ -106,6 +106,13 @@ Project guide for Codex and other automation.
   - Press `F` to toggle forwardIndex overlay (also shows full cell debug text in the HUD); `C` toggles cars+moves.
   - “Copy debug” button copies a JSON snapshot with car + movement context.
   - “Copy bot debug” button copies structured bot decision traces.
+- Sandbox (solo dev tool): open the app with `?sandbox` (add `&seed=N`; `&pos=<base64>` starts from a position), then Quick race.
+  `E` toggles edit mode (bots wait): drag any car to any free cell, press a car to make it the one to play, edit its
+  cell, lap, tire, fuel, compound, driver and move points in the panel; targets recompute live. `E` again plays on with
+  the normal rules. "Copy as test" copies the position as a vitest case (offered targets as the expectation: edit the
+  wrong entry and it is the failing test), "Copy link" a `?sandbox&pos=` URL, "Load position" takes a "Copy debug"
+  snapshot (same car count only). Phaser-free logic in `src/game/race/sandbox.ts`, panel in `src/ui/sandboxPanel.ts`,
+  the e2e spec is `e2e/sandbox.spec.ts`. Plan and decisions: `docs/plans/sandbox-mode.md`.
 - The build version is shown bottom right on the home and lobby screens (`src/ui/version.ts`): `web <sha> · <build day> ·
 server <sha>`, amber when the server runs another commit (a deploy is pending); a click copies the full commits.
   The web side is `__GIT_SHA__` / `__BUILD_DATE__` (vite `define`), the server side is `/health`'s `sha`.
