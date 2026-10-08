@@ -93,6 +93,31 @@ describe("pass and return: go around a blocker and rejoin your lane", () => {
   });
 });
 
+describe("lane change past a car in the destination lane (position reported from the sandbox)", () => {
+  // car 3 on Z14_L1 (inner lane), car 1 ahead on Z18_L1, car 4 ahead in the middle lane on Z18_L2
+  const from = "Z14_L1_00";
+  const occupied = ["Z18_L1_00", "Z18_L2_00", "Z01_L3_00"];
+
+  it("can pass the only car in the middle lane, as the way round car 1 already does", () => {
+    const targets = targetsFrom(from, occupied);
+    // the go-around passes car 4 in the middle lane...
+    expect(targets.get("Z19_L1_00")?.laneChanges).toBe(2);
+    // ...so a plain lane change may pass it too: one lane change, forward cells + 1
+    for (const id of ["Z19_L2_00", "Z20_L2_00", "Z21_L2_00", "Z24_L2_00"]) {
+      const info = targets.get(id)!;
+      expect(info, id).toBeDefined();
+      expect(info.laneChanges).toBeUndefined();
+      expect(info.moveSpend).toBe(delta(from, id) + 1);
+    }
+  });
+
+  it("still cannot pass a second car in the middle lane", () => {
+    const targets = targetsFrom(from, [...occupied, "Z21_L2_00"]);
+    expect(targets.has("Z20_L2_00")).toBe(true); // between the two cars
+    for (const id of ["Z22_L2_00", "Z23_L2_00", "Z24_L2_00"]) expect(targets.has(id), id).toBe(false);
+  });
+});
+
 describe("price of a lane change", () => {
   it("keeps ordinary single lane changes at today's price", () => {
     // values the engine charged before pass-and-return (checked against it on simulated races)
