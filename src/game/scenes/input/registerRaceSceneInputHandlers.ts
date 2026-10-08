@@ -27,6 +27,8 @@ interface RegisterRaceSceneInputHandlersParams {
   onMove: (targetCellId: string) => void;
   canControlActiveCar?: () => boolean;
   onUnauthorizedControlAttempt?: () => void;
+  // Sandbox edit mode: the sandbox handlers own dragging, the rules-checked drag below stands aside.
+  isSuspended?: () => boolean;
   hoverMaxDist: number;
   dragSnapDist: number;
 }
@@ -53,11 +55,13 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     onMove,
     canControlActiveCar,
     onUnauthorizedControlAttempt,
+    isSuspended,
     hoverMaxDist,
     dragSnapDist
   } = params;
 
   scene.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+    if (isSuspended?.()) return;
     if (isRaceFinished()) return;
     if (pitModal.isActive()) return;
     const token = getActiveToken();
@@ -74,6 +78,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
   scene.input.on(
     "drag",
     (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, x: number, y: number) => {
+      if (isSuspended?.()) return;
       if (isRaceFinished()) return;
       if (pitModal.isActive()) return;
       const token = getActiveToken();
@@ -87,6 +92,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
   );
 
   scene.input.on("dragend", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+    if (isSuspended?.()) return;
     if (isRaceFinished()) return;
     if (pitModal.isActive()) return;
     const token = getActiveToken();

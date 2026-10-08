@@ -692,3 +692,53 @@ body[data-screen="race"] .version {
 #hud .hud-hint {
   white-space: normal;
 }
+
+/* ---- Sandbox panel (?sandbox), inside the right HUD column ---- */
+#hud .sandbox-panel[hidden] {
+  display: none;
+}
+
+#hud .sandbox-panel {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sandbox-head,
+.sandbox-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.sandbox-panel fieldset {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sandbox-panel label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.sandbox-panel input,
+.sandbox-panel select {
+  width: 110px;
+}
+
+.sandbox-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sandbox-hint {
+  font-size: 10px;
+  color: #8fb0cc;
+}

@@ -71,6 +71,8 @@ export interface HudSnapshot {
   boxedIn?: boolean;
   /** With boxedIn: the car is stuck at the pit exit (squeezes out onto lane 1). */
   pitExitBlocked?: boolean;
+  /** Sandbox races only: editing (cars can be dragged anywhere) or playing from the edited position. */
+  sandbox?: "edit" | "play";
   /** Full cell debug, only while the F overlay is on. */
   debugText: string | null;
   log: string[];
@@ -215,6 +217,7 @@ function lapText(car: HudCar, raceLaps: number, short = false): string {
 
 export function bannerText(s: HudSnapshot): string {
   const winner = s.cars.find((c) => c.carId === s.winnerCarId);
+  if (s.sandbox === "edit") return "Sandbox: editing - drag any car, E to play";
   if (s.finished) return `Race finished - ${winner ? winner.name : `Car ${s.winnerCarId}`} wins`;
   const active = s.cars.find((c) => c.carId === s.activeCarId);
   if (!active) return "";

@@ -5,7 +5,9 @@ import {
   REG_BOT_CARS,
   REG_BOT_LEVEL,
   REG_HUMAN_CARS,
+  REG_POSITION,
   REG_RACE_LAPS,
+  REG_SANDBOX,
   REG_SEED,
   REG_TOTAL_CARS
 } from "./constants";
@@ -19,6 +21,9 @@ interface GameOptions {
   botLevel?: BotLevel;
   // Race seed (bot personalities, grid); 0 = neutral baseline.
   seed?: number;
+  // Solo dev tool (`?sandbox`): start in edit mode, optionally from a "Copy debug" snapshot (JSON text).
+  sandbox?: boolean;
+  position?: string;
 }
 
 const isTestBuild = import.meta.env.MODE === "test";
@@ -50,5 +55,7 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   game.registry.set(REG_RACE_LAPS, options.raceLaps);
   game.registry.set(REG_BOT_LEVEL, options.botLevel ?? "normal");
   game.registry.set(REG_SEED, options.seed ?? 0);
+  game.registry.set(REG_SANDBOX, options.sandbox ?? false);
+  game.registry.set(REG_POSITION, options.position ?? null);
   return game;
 }

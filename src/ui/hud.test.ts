@@ -93,6 +93,8 @@ describe("hud", () => {
     const humans = snap({ activeCarId: 4, cars: [car(2), car(4, { name: "Alice" })] });
     expect(bannerText(humans)).toBe("Waiting for Alice");
     expect(bannerText(snap({ finished: true, winnerCarId: 1 }))).toBe("Race finished - Car 1 wins");
+    expect(bannerText(snap({ sandbox: "edit" }))).toBe("Sandbox: editing - drag any car, E to play");
+    expect(bannerText(snap({ sandbox: "play" }))).toBe("Your turn - drag your car");
     renderHud(root, snap({ activeCarId: 1 }));
     expect(text(root, "hud-banner")).toBe("Car 1 (bot) is playing");
   });
