@@ -56,6 +56,8 @@ test("sandbox: drag a bot onto an offered cell, edit the move points, play on fr
 
   // leave edit mode with the key and move normally from the edited position
   await page.locator("canvas").click({ position: { x: 5, y: 5 } }); // a click on the board takes the focus back from the panel
+  // the game handles the click on its next frame: wait for the field to let go before pressing E
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe("BODY");
   await page.keyboard.press("e");
   await expect(tid(page, "hud-banner")).toHaveText("Your turn - drag your car");
   const mover = (await snapshot(page)).cars.find((c) => c.carId === 1)!.cellId;
@@ -82,6 +84,19 @@ test("sandbox: a Copy debug position loads back, and it is refused when it does 
   await page.getByTestId("hud-feed").locator("summary").click();
   await expect(tid(page, "hud-feed-list")).toContainText("Load refused");
   expect((await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId).toBe("Z20_L1_00");
+});
+
+test("sandbox: dropping a car on another car swaps their places", async ({ page }) => {
+  await sandboxRace(page);
+  const cellOf = async (carId: number) => (await snapshot(page)).cars.find((c) => c.carId === carId)!.cellId;
+  const [one, three] = [await cellOf(1), await cellOf(3)];
+  const drag = await page.evaluate(() => ({ from: window.__srp!.tokenScreenPos(1)!, to: window.__srp!.tokenScreenPos(3)! }));
+  await page.mouse.move(drag.from.x, drag.from.y);
+  await page.mouse.down();
+  await page.mouse.move(drag.to.x, drag.to.y, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(() => cellOf(1)).toBe(three);
+  expect(await cellOf(3)).toBe(one);
 });
 
 test("no sandbox without ?sandbox", async ({ page }) => {

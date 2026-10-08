@@ -55,6 +55,16 @@ export function editCar(ctx: RaceContext, state: RaceState, carId: number, edit:
   return null;
 }
 
+/** Drops a car on a cell: a free cell moves it there, a cell held by another car swaps their places. */
+export function placeCar(ctx: RaceContext, state: RaceState, carId: number, cellId: string): string | null {
+  const car = state.cars.find((c) => c.carId === carId);
+  const other = state.cars.find((c) => c.carId !== carId && c.cellId === cellId);
+  if (!car) return `No car ${carId}.`;
+  if (!other) return editCar(ctx, state, carId, { cellId });
+  [car.cellId, other.cellId] = [other.cellId, car.cellId];
+  return null;
+}
+
 /** Makes a car the one to play (its slot in the play order). */
 export function setActiveCar(state: RaceState, carId: number): boolean {
   const index = state.turn.order.indexOf(carId);
