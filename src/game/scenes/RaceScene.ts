@@ -66,6 +66,13 @@ declare global {
       cellScreenPos: (cellId: string) => { x: number; y: number } | null;
       /** Where a car token is drawn right now (page coordinates), mid-tween included. */
       tokenScreenPos: (carId: number) => { x: number; y: number } | null;
+      /** What Phaser's own hit test finds under the pointer: a drag needs the active car's token on top and draggable. */
+      pointerProbe: () => {
+        topCarId: number | null;
+        hits: number;
+        draggableCarIds: number[];
+        activeCarId: number;
+      };
       /** Stops the looping halo pulse so screenshots are deterministic. */
       freezeAnimations: () => void;
       status: () => {
@@ -330,6 +337,17 @@ export class RaceScene extends Phaser.Scene {
           this.animationsFrozen = true;
         },
         cellScreenPos: (cellId) => this.cellScreenPos(cellId),
+        pointerProbe: () => {
+          const hits = this.input.hitTestPointer(this.input.activePointer);
+          const carIdOf = (obj: Phaser.GameObjects.GameObject) =>
+            [...this.carTokens].find(([, token]) => token === obj)?.[0] ?? null;
+          return {
+            topCarId: hits[0] ? carIdOf(hits[0]) : null,
+            hits: hits.length,
+            draggableCarIds: [...this.carTokens].filter(([, token]) => token.input?.draggable).map(([id]) => id),
+            activeCarId: this.activeCar.carId
+          };
+        },
         tokenScreenPos: (carId) => {
           const token = this.carTokens.get(carId);
           return token ? this.worldToScreen(token.x, token.y) : null;

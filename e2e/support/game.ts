@@ -31,7 +31,12 @@ export function guard(page: Page): string[] {
   return errors;
 }
 
-type SrpStatus = { raceLaps: number; winnerCarId: number | null; canControl: boolean; activeOwnerId: string };
+type SrpStatus = {
+  raceLaps: number;
+  winnerCarId: number | null;
+  canControl: boolean;
+  activeOwnerId: string;
+};
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -47,9 +52,15 @@ export async function setName(page: Page, name: string) {
 
 export async function setLobbySettings(
   page: Page,
-  s: { bots?: number; laps?: number; timer?: 0 | 30 | 60 | 120; botLevel?: "easy" | "normal" | "hard" }
+  s: {
+    bots?: number;
+    laps?: number;
+    timer?: 0 | 30 | 60 | 120;
+    botLevel?: "easy" | "normal" | "hard";
+  }
 ) {
-  if (s.timer !== undefined) await page.getByTestId("lobby-turn-timer").selectOption(String(s.timer));
+  if (s.timer !== undefined)
+    await page.getByTestId("lobby-turn-timer").selectOption(String(s.timer));
   if (s.bots !== undefined) await page.getByTestId("lobby-bots").selectOption(String(s.bots));
   // the level select only shows while there are bots, so set it after them
   if (s.botLevel !== undefined) await page.getByTestId("lobby-bot-level").selectOption(s.botLevel);
@@ -62,7 +73,9 @@ export async function setLobbySettings(
 /** Waits until the race scene is built and exposes its test hook. */
 export async function waitForRace(page: Page) {
   await expect(page.locator("canvas")).toBeVisible({ timeout: 20_000 });
-  await page.waitForFunction(() => window.__srp !== undefined && window.__srp.state().cars.length > 0);
+  await page.waitForFunction(
+    () => window.__srp !== undefined && window.__srp.state().cars.length > 0
+  );
 }
 
 export async function startRace(page: Page) {
@@ -137,6 +150,38 @@ export async function nextMover(pages: Page[], timeout = 60_000): Promise<Page |
   throw new Error("nobody got a turn within the timeout");
 }
 
+/**
+ * Waits until Phaser's own hit test puts the car's token under the pointer and draggable: a press before that starts
+ * no drag and the move is silently lost. Fails with what Phaser found instead.
+ */
+async function grabbable(page: Page, carId: number) {
+  const probe = () =>
+    page.evaluate(() => ({
+      ...window.__srp!.pointerProbe(),
+      health: {
+        hasFocus: document.hasFocus(),
+        visibility: document.visibilityState,
+        activeElement: document.activeElement?.tagName
+      }
+    }));
+  try {
+    await expect
+      .poll(
+        async () => {
+          const p = await probe();
+          return p.topCarId === carId && p.draggableCarIds.includes(carId);
+        },
+        { timeout: 5_000 }
+      )
+      .toBe(true);
+  } catch (error) {
+    throw new Error(
+      `pointer is not over a draggable token of car ${carId}\n${JSON.stringify(await probe())}`,
+      { cause: error }
+    );
+  }
+}
+
 /** Drags the active car to the furthest valid non-pit target with the real mouse. */
 export async function playMyTurn(page: Page) {
   await waitForMyTurn(page);
@@ -163,7 +208,8 @@ export async function playMyTurn(page: Page) {
     const target = state.movement.validTargets
       .filter((t) => !t.isPitTrigger)
       .sort((a, b) => b.distance - a.distance)[0];
-    if (!target) return { error: "no valid non-pit target" as const, carId: car.carId, cellId: car.cellId };
+    if (!target)
+      return { error: "no valid non-pit target" as const, carId: car.carId, cellId: car.cellId };
     return {
       carId: car.carId,
       cellId: car.cellId,
@@ -174,6 +220,7 @@ export async function playMyTurn(page: Page) {
   if (!plan) return;
   if ("error" in plan) throw new Error(`${plan.error} for car ${plan.carId} at ${plan.cellId}`);
   await page.mouse.move(plan.from.x, plan.from.y);
+  await grabbable(page, plan.carId);
   await page.mouse.down();
   await page.mouse.move(plan.to.x, plan.to.y, { steps: 8 });
   await page.mouse.up();
@@ -202,20 +249,31 @@ export async function playMyTurn(page: Page) {
             canControl: srp?.status().canControl,
             cellNow: car && srp?.cellScreenPos(car.cellId),
             tokenNow: srp?.tokenScreenPos(carId),
+            probe: srp?.pointerProbe(),
+            health: {
+              hasFocus: document.hasFocus(),
+              visibility: document.visibilityState,
+              activeElement: document.activeElement?.tagName
+            },
             validTargets: state?.movement.validTargets.length,
             canvases: [...document.querySelectorAll("canvas")].map((c) => {
               const r = c.getBoundingClientRect();
               return [r.x, r.y, r.width, r.height].map(Math.round);
             }),
-            feed: [...document.querySelectorAll('[data-testid="hud-feed-list"] li')].map((li) => li.textContent).slice(-5)
+            feed: [...document.querySelectorAll('[data-testid="hud-feed-list"] li')]
+              .map((li) => li.textContent)
+              .slice(-5)
           };
         },
         { carId: plan.carId }
       )
       .catch((e: unknown) => ({ evaluateFailed: String(e) }));
-    throw new Error(`drag released but car ${plan.carId} stayed on ${plan.cellId}\n${JSON.stringify({ plan, now })}`, {
-      cause: error
-    });
+    throw new Error(
+      `drag released but car ${plan.carId} stayed on ${plan.cellId}\n${JSON.stringify({ plan, now })}`,
+      {
+        cause: error
+      }
+    );
   }
 }
 
@@ -247,8 +305,10 @@ export async function expectSameCars(pages: Page[]) {
 export const hudStandings = (page: Page) =>
   page.evaluate(() =>
     JSON.stringify(
-      [...document.querySelectorAll('[data-testid="hud-standing-row"]')]
-        .map((row) => [row.getAttribute("data-car-id"), ...[...row.children].slice(3, 5).map((td) => td.textContent)])
+      [...document.querySelectorAll('[data-testid="hud-standing-row"]')].map((row) => [
+        row.getAttribute("data-car-id"),
+        ...[...row.children].slice(3, 5).map((td) => td.textContent)
+      ])
     )
   );
 
