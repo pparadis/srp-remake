@@ -11,7 +11,9 @@ Project guide for Codex and other automation.
 - Backend in `backend/` (Fastify + WebSocket): authoritative lobbies and races; bundles the shared engine.
 - Track data in `public/tracks/`.
 - Track generator in `tools/`; track validation in `src/validation/`.
-- Docs in `docs/`.
+- Docs in `docs/`: rules and design the code relies on (`movement-spec.md`, `bot-system.md`, ...).
+- Plans are GitHub issues (label `plan`, plus `in-progress` once started; closed when shipped), not files in the repo.
+  A PR for a plan says `Closes #N`; decisions and results go in issue comments.
 
 ## Key Rules (Current)
 
@@ -112,7 +114,7 @@ Project guide for Codex and other automation.
   the normal rules. "Copy as test" copies the position as a vitest case (offered targets as the expectation: edit the
   wrong entry and it is the failing test), "Copy link" a `?sandbox&pos=` URL, "Load position" takes a "Copy debug"
   snapshot (same car count only). Phaser-free logic in `src/game/race/sandbox.ts`, panel in `src/ui/sandboxPanel.ts`,
-  the e2e spec is `e2e/sandbox.spec.ts`. Plan and decisions: `docs/plans/sandbox-mode.md`.
+  the e2e spec is `e2e/sandbox.spec.ts`. Plan and decisions: issue #38.
 - The build version is shown bottom right on the home and lobby screens (`src/ui/version.ts`): `web <sha> · <build day> ·
 server <sha>`, amber when the server runs another commit (a deploy is pending); a click copies the full commits.
   The web side is `__GIT_SHA__` / `__BUILD_DATE__` (vite `define`), the server side is `/health`'s `sha`.
