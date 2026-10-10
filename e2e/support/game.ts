@@ -154,16 +154,27 @@ export async function nextMover(pages: Page[], timeout = 60_000): Promise<Page |
  * Waits until Phaser's own hit test puts the car's token under the pointer and draggable: a press before that starts
  * no drag and the move is silently lost. Fails with what Phaser found instead.
  */
-async function grabbable(page: Page, carId: number) {
+async function grabbable(page: Page, carId: number, at: { x: number; y: number }) {
   const probe = () =>
-    page.evaluate(() => ({
-      ...window.__srp!.pointerProbe(),
-      health: {
-        hasFocus: document.hasFocus(),
-        visibility: document.visibilityState,
-        activeElement: document.activeElement?.tagName
-      }
-    }));
+    page.evaluate(
+      ({ carId, at }) => {
+        // what the browser hands a mouse event at the press point to: the canvas, or something covering it
+        const el = document.elementFromPoint(at.x, at.y);
+        const testId = el?.getAttribute("data-testid");
+        return {
+          ...window.__srp!.pointerProbe(),
+          at: [at.x, at.y].map(Math.round),
+          tokenScreen: window.__srp!.tokenScreenPos(carId),
+          under: el && `${el.tagName}${el.id ? `#${el.id}` : ""}${testId ? `[${testId}]` : ""}`,
+          health: {
+            hasFocus: document.hasFocus(),
+            visibility: document.visibilityState,
+            activeElement: document.activeElement?.tagName
+          }
+        };
+      },
+      { carId, at }
+    );
   try {
     await expect
       .poll(
@@ -220,7 +231,7 @@ export async function playMyTurn(page: Page) {
   if (!plan) return;
   if ("error" in plan) throw new Error(`${plan.error} for car ${plan.carId} at ${plan.cellId}`);
   await page.mouse.move(plan.from.x, plan.from.y);
-  await grabbable(page, plan.carId);
+  await grabbable(page, plan.carId, plan.from);
   await page.mouse.down();
   await page.mouse.move(plan.to.x, plan.to.y, { steps: 8 });
   await page.mouse.up();
