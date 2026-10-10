@@ -214,6 +214,16 @@ describe("hud", () => {
     expect(text(root, "hud-banner")).toBe("Pit exit blocked - squeeze out (+2 points per car)");
   });
 
+  it("the Standings button opens and closes the drawer of the compact layout", () => {
+    const toggle = root.querySelector<HTMLButtonElement>('[data-testid="hud-drawer-toggle"]')!;
+    toggle.click();
+    expect(root.classList.contains("is-drawer-open")).toBe(true);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    toggle.click();
+    expect(root.classList.contains("is-drawer-open")).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("renders the mute toggle label", () => {
     renderMute(root, true);
     expect(text(root, "hud-mute")).toBe("Sound: off");
