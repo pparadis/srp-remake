@@ -77,6 +77,10 @@ declare global {
          * re-checks this every 500 ms, so a gap that lasts points at something else holding the bounds.
          */
         canvas: { phaser: number[]; dom: number[] };
+        /** Where Phaser last saw the mouse (canvas pixels, then world): a press elsewhere hits nothing. */
+        pointer: number[];
+        /** The active car's token: world position, hit area size, visible, input enabled. */
+        token: { at: number[]; hitArea: number[]; visible: boolean; enabled: boolean } | null;
       };
       /** Stops the looping halo pulse so screenshots are deterministic. */
       freezeAnimations: () => void;
@@ -343,7 +347,9 @@ export class RaceScene extends Phaser.Scene {
         },
         cellScreenPos: (cellId) => this.cellScreenPos(cellId),
         pointerProbe: () => {
-          const hits = this.input.hitTestPointer(this.input.activePointer);
+          const pointer = this.input.activePointer;
+          const hits = this.input.hitTestPointer(pointer);
+          const token = this.carTokens.get(this.activeCar.carId);
           const bounds = this.scale.canvasBounds;
           const dom = this.game.canvas.getBoundingClientRect();
           const carIdOf = (obj: Phaser.GameObjects.GameObject) =>
@@ -356,7 +362,16 @@ export class RaceScene extends Phaser.Scene {
             canvas: {
               phaser: [bounds.x, bounds.y, bounds.width, bounds.height].map(Math.round),
               dom: [dom.x, dom.y, dom.width, dom.height].map(Math.round)
-            }
+            },
+            pointer: [pointer.x, pointer.y, pointer.worldX, pointer.worldY].map(Math.round),
+            token: token
+              ? {
+                  at: [token.x, token.y].map(Math.round),
+                  hitArea: [token.input?.hitArea?.width ?? -1, token.input?.hitArea?.height ?? -1],
+                  visible: token.visible,
+                  enabled: token.input?.enabled ?? false
+                }
+              : null
           };
         },
         tokenScreenPos: (carId) => {
