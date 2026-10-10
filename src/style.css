@@ -38,6 +38,12 @@ body[data-screen="race"] #screen-race {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+  /* a drag on the board is a move, not a page scroll or a pinch-zoom */
+  touch-action: none;
+}
+
+button {
+  touch-action: manipulation;
 }
 
 .card {
@@ -267,11 +273,13 @@ body[data-screen="race"] .version {
 
 #hud .hud-left {
   left: 10px;
+  --hud-dock: left;
 }
 
 #hud .hud-right {
   right: 10px;
   width: 250px;
+  --hud-dock: right;
 }
 
 #hud .hud-card,
@@ -936,4 +944,133 @@ body[data-screen="home"] #screen-home {
 
 #screen-home #homeJoinBtn {
   white-space: nowrap;
+}
+
+/* ---- Race screen on a phone ----
+   Compact layout (src/ui/layout.ts COMPACT_HUD_QUERY): a phone in landscape. The car card becomes a top bar, standings
+   and the race feed move into a drawer, so the track gets the whole width. --hud-dock tells RaceScene.centerTrack()
+   which panels take room from the track. */
+#hud .hud-drawer-toggle,
+#hud .hud-rotate {
+  display: none;
+}
+
+@media (max-height: 500px) {
+  #hud {
+    font-size: 11px;
+  }
+
+  #hud .hud-left {
+    top: calc(4px + env(safe-area-inset-top));
+    left: calc(6px + env(safe-area-inset-left));
+    right: calc(96px + env(safe-area-inset-right));
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    --hud-dock: top;
+  }
+
+  #hud .hud-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 2px;
+    padding: 4px 8px;
+  }
+
+  #hud .hud-card-head .hud-name {
+    flex: none;
+  }
+
+  #hud .hud-lap {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  #hud .hud-pos {
+    margin: 0;
+    font-size: 12px;
+  }
+
+  #hud .hud-meter {
+    margin: 0;
+    flex-wrap: nowrap;
+  }
+
+  #hud .hud-bar {
+    flex: 0 0 40px;
+  }
+
+  #hud .hud-pips,
+  #hud .hud-stint,
+  #hud .hud-hint,
+  #hud .hud-lap-hint {
+    display: none;
+  }
+
+  #hud .hud-mute {
+    flex: none;
+    padding: 4px 8px;
+  }
+
+  /* bottom corners: the canvas Skip button sits bottom centre */
+  #hud .hud-banner {
+    top: auto;
+    bottom: calc(4px + env(safe-area-inset-bottom));
+    left: calc(6px + env(safe-area-inset-left));
+    transform: none;
+    padding: 3px 12px;
+    font-size: 12px;
+  }
+
+  #hud .hud-turnbar {
+    top: auto;
+    bottom: calc(4px + env(safe-area-inset-bottom));
+    left: auto;
+    right: calc(6px + env(safe-area-inset-right));
+    transform: none;
+  }
+
+  #hud .hud-drawer-toggle {
+    display: block;
+    position: absolute;
+    top: calc(4px + env(safe-area-inset-top));
+    right: calc(6px + env(safe-area-inset-right));
+    pointer-events: auto;
+    padding: 6px 10px;
+  }
+
+  #hud .hud-right {
+    display: none;
+    top: calc(40px + env(safe-area-inset-top));
+    right: calc(6px + env(safe-area-inset-right));
+    max-height: calc(100% - 48px);
+    overflow-y: auto;
+    pointer-events: auto;
+    --hud-dock: none;
+  }
+
+  #hud.is-drawer-open .hud-right {
+    display: flex;
+  }
+}
+
+/* Portrait phone: the oval is too wide to play upright. The race keeps running underneath, so turning the phone
+   carries on where it was. */
+@media (orientation: portrait) and (max-width: 600px) {
+  #hud .hud-rotate {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 18px;
+    color: #e6eef6;
+    background: rgba(11, 15, 20, 0.96);
+    pointer-events: auto;
+    z-index: 10;
+  }
 }

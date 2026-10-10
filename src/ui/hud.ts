@@ -110,6 +110,7 @@ const TEMPLATE = `
   <div class="hud-hint" data-testid="hud-hint">F: fwd overlay &middot; C: cars+moves &middot; M: sound</div>
   <button type="button" class="hud-mute" data-testid="hud-mute" aria-pressed="false">Sound: on</button>
 </div>
+<button type="button" class="hud-drawer-toggle" data-testid="hud-drawer-toggle" aria-expanded="false">Standings</button>
 <div class="hud-right">
   <table class="hud-standings" data-testid="hud-standings">${HEAD}<tbody></tbody></table>
   <details class="hud-feed" data-testid="hud-feed"><summary>Race feed</summary><ol data-testid="hud-feed-list"></ol></details>
@@ -117,10 +118,17 @@ const TEMPLATE = `
 <div class="hud-toast" data-testid="hud-toast" role="status" hidden></div>
 <div class="hud-tooltip" data-testid="hud-tooltip" hidden></div>
 <pre class="hud-debug" data-testid="hud-debug" hidden></pre>
+<div class="hud-rotate" data-testid="hud-rotate">Turn your phone sideways to race</div>
 `;
 
 export function mountHud(root: HTMLElement) {
   root.innerHTML = TEMPLATE;
+  // Compact layout (a phone in landscape): standings and the race feed sit in a drawer that this button opens.
+  const toggle = q(root, "hud-drawer-toggle");
+  toggle.addEventListener("click", () => {
+    const open = root.classList.toggle("is-drawer-open");
+    toggle.setAttribute("aria-expanded", String(open));
+  });
 }
 
 const q = (root: Element, id: string) => root.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;

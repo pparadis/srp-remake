@@ -27,6 +27,9 @@ interface PitModalOpenOptions {
   onCancel: () => void;
 }
 
+/** The panel, in the modal's own coordinates; the scene centres and scales the modal from it. */
+export const PIT_PANEL = { x: 320, y: 200, width: 460, height: 345 };
+
 export class PitModal {
   private scene: Phaser.Scene;
   private modal: Phaser.GameObjects.Container;
@@ -44,9 +47,10 @@ export class PitModal {
 
     const panel = this.scene.add.graphics();
     panel.fillStyle(0x0f141b, 0.98);
-    panel.fillRoundedRect(320, 200, 460, 345, 10);
+    const { x, y, width, height } = PIT_PANEL;
+    panel.fillRoundedRect(x, y, width, height, 10);
     panel.lineStyle(1, 0x2a3642, 1);
-    panel.strokeRoundedRect(320, 200, 460, 345, 10);
+    panel.strokeRoundedRect(x, y, width, height, 10);
 
     this.modalTitle = this.scene.add.text(350, 220, "Pit stop", {
       fontFamily: "monospace",

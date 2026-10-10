@@ -22,7 +22,7 @@ import { RaceSession, SERVER_WAIT_MS } from "../race/raceSession";
 import { positionAsTest, type CarEdit } from "../race/sandbox";
 import type { SandboxCommand } from "../../ui/sandboxPanel";
 import { validateTrack } from "../../validation/trackValidation";
-import { PitModal } from "./ui/PitModal";
+import { PIT_PANEL, PitModal } from "./ui/PitModal";
 import { DebugButtons } from "./ui/DebugButtons";
 import { makeButton } from "./ui/makeButton";
 import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
@@ -30,6 +30,7 @@ import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRend
 import { spriteRotation } from "./rendering/heading";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
 import { registerSandboxInputHandlers } from "./input/registerSandboxInputHandlers";
+import { hudGutters, isCompactHud } from "../../ui/layout";
 import type { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
 import type { AppliedTurnSummary, BackendTurnAction, PublicLobby, TurnSource } from "../../net/backendApi";
 
@@ -212,6 +213,7 @@ export class RaceScene extends Phaser.Scene {
     this.createSkipButton();
     this.createDebugButtons();
     this.emitHud();
+    this.centerTrack(); // the HUD has its content now: fit the track to the space it really leaves
     this.applyCarsAndMovesVisibility();
     this.updateExternalToggleLabel();
     this.setUIFixed();
@@ -660,7 +662,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.debugButtons) this.debugButtons.setFixed();
   }
 
-  // Fit the track between the HUD columns (read from the DOM) and above the bottom buttons.
+  // Fit the track between the DOM HUD panels (columns on a desktop, a top bar on a phone) and above the bottom buttons.
   private centerTrack() {
     const xs = this.track.cells.map((c) => c.pos.x);
     const ys = this.track.cells.map((c) => c.pos.y);
@@ -670,17 +672,20 @@ export class RaceScene extends Phaser.Scene {
     const [minY, maxY] = [Math.min(...ys) - pad, Math.max(...ys) + pad];
     const w = this.scale.width;
     const h = this.scale.height;
-    const edge = (sel: string, side: "left" | "right") => {
-      const r = document.querySelector(sel)?.getBoundingClientRect();
-      return r && r.width > 0 ? (side === "left" ? r.right + 10 : w - r.left + 10) : 0;
-    };
-    const gl = edge(".hud-left", "left");
-    const gr = edge(".hud-right", "right");
-    const bottom = 50;
-    const zoom = Phaser.Math.Clamp(Math.min((w - gl - gr) / (maxX - minX), (h - bottom) / (maxY - minY)), 0.4, 1);
+    const hud = document.getElementById("hud");
+    const { left: gl, right: gr, top } = hud
+      ? hudGutters(hud, this.game.canvas.getBoundingClientRect())
+      : { left: 0, right: 0, top: 0 };
+    // Room for the Skip button (and, on a desktop, the debug buttons) under the track.
+    const bottom = isCompactHud() ? 32 : 50;
+    const zoom = Phaser.Math.Clamp(
+      Math.min((w - gl - gr) / (maxX - minX), (h - top - bottom) / (maxY - minY)),
+      0.4,
+      1
+    );
     const cam = this.cameras.main;
     cam.setZoom(zoom);
-    cam.centerOn((minX + maxX) / 2 - (gl - gr) / 2 / zoom, (minY + maxY) / 2 + bottom / 2 / zoom);
+    cam.centerOn((minX + maxX) / 2 - (gl - gr) / 2 / zoom, (minY + maxY) / 2 + (bottom - top) / 2 / zoom);
     this.layoutUI();
   }
 
@@ -732,6 +737,8 @@ export class RaceScene extends Phaser.Scene {
     }
     if (this.debugButtons) {
       this.debugButtons.layout(w, h, ui.padding, ui.bottomButtonYPad);
+      // developer tools: no room for them on a phone, and their F / C / E companions need a keyboard anyway
+      for (const t of this.debugButtons.getTexts()) t.setVisible(!isCompactHud());
     }
     // Fixed (scrollFactor 0) objects are zoomed with the camera; undo that so the UI keeps its size.
     const z = this.cameras.main.zoom;
@@ -742,7 +749,13 @@ export class RaceScene extends Phaser.Scene {
     }
     const origin = { x: (w / 2) * (1 - k), y: (h / 2) * (1 - k) };
     this.gFrame?.setScale(k).setPosition(origin.x, origin.y);
-    this.pitModal?.getContainer().setScale(k).setPosition(origin.x, origin.y);
+    // The pit modal: centred, and scaled down when the screen is smaller than the panel (a phone in landscape).
+    const fit = Math.min(1, (w - 16) / PIT_PANEL.width, (h - 16) / PIT_PANEL.height);
+    const s = k * fit;
+    this.pitModal
+      ?.getContainer()
+      .setScale(s)
+      .setPosition(w / 2 - (PIT_PANEL.x + PIT_PANEL.width / 2) * s, h / 2 - (PIT_PANEL.y + PIT_PANEL.height / 2) * s);
   }
 
   private createPitModal() {
