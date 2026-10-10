@@ -10,7 +10,7 @@ import {
 } from "./support/game";
 
 // Named flow-* so Playwright's shard split (by test order) puts this long journey in shard 1, away from the
-// other long journey (journey.spec.ts, shard 2).
+// other long journey (solo-and-rejoin.spec.ts, shard 2).
 test.setTimeout(180_000);
 
 async function twoPlayers(browser: Browser) {

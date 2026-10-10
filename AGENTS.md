@@ -8,6 +8,10 @@ Project guide for Codex and other automation.
 - Race engine in `src/game/race/raceEngine.ts` (no Phaser): validates and applies a turn, bots, pit penalties,
   laps and winner. Single-player (`RaceScene`) and the multiplayer server (`backend/`) both run it, so a rule
   change goes in `src/game/systems/*` or the engine, with tests, and applies to both.
+- Race session in `src/game/race/raceSession.ts` (no Phaser): one page's view of the race. The solo turn loop (the
+  player's action, then the bots), the online server state and its input hold, who controls the active car, the HUD
+  snapshot, feel events, the finish and the sandbox edits. `RaceScene` owns one and only draws it (tokens, targets,
+  tweens, pit modal, confetti, sounds); logic the scene needs goes in the session, with tests.
 - Backend in `backend/` (Fastify + WebSocket): authoritative lobbies and races; bundles the shared engine.
 - Track data in `public/tracks/`.
 - Track generator in `tools/`; track validation in `src/validation/`.
@@ -59,12 +63,12 @@ Project guide for Codex and other automation.
   board, and software WebGL cost about 14x the CPU (`npm run probe:cpu`). Do not add WebGL-only features (tint, FX,
   pipelines, shaders, masks, blend modes, particles). `e2e/smoke.spec.ts` asserts the canvas has a 2D context.
 - The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
-  `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceScene.emitHud()` sends. Add HUD data to the
-  snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
+  `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceSession.hudSnapshot()` builds (`RaceScene.emitHud()`
+  sends it). Add HUD data to the snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
 - Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
   `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
-- Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` from
-  `RaceScene.reactToRace()`; the first snapshot must never fire. Sound is `src/ui/sound.ts` (WebAudio, muted in
+- Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` through
+  `RaceSession.drainFeel()` (`RaceScene.reactToRace()` plays them); the first snapshot must never fire. Sound is `src/ui/sound.ts` (WebAudio, muted in
   test builds); `M` or the HUD button mutes, stored in `localStorage["srp:muted"]`. Details: `docs/strategy-and-feel.md`.
 
 ## Online Sessions
@@ -134,7 +138,17 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 - Locally run: `npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`, `npm run backend:test`,
   `npm run backend:build`, plus ONLY the e2e specs the change touches, one chain at a time. Never the full e2e suite,
   the CI shards or repeat loops.
-- One spec: `GITHUB_ACTIONS=true GITHUB_REPOSITORY=pparadis/srp-remake E2E_PORT=5399 E2E_BACKEND_PORT=3311 npx playwright test e2e/hud.spec.ts --workers=2`
+- Test layers, lowest first; put a check in the lowest one that can see the behavior:
+  1. engine and systems (`src/game/race/raceEngine.test.ts`, `src/game/systems/*.test.ts`): rules;
+  2. race session (`src/game/race/raceSession.test.ts`, `src/ui/hudSession.test.ts`): the turn loop, HUD data, feel
+     events, online state and hold, played through a real race on the real track;
+  3. page controller (`src/main.test.ts`, `src/main.multiplayer.test.ts`, the real `index.html` in jsdom with a
+     `FakeWebSocket`): routing, lobby screens, mute, turn timer, host skip, disconnects;
+  4. backend contract (`backend/test/*`, Fastify `inject`): the API, WebSocket sync, rules, AFK, bots;
+  5. e2e (Playwright): whole journeys across pages or sockets, real pointer input, pixels and layout.
+- A new e2e test must justify that it needs a real browser (a journey across pages or sockets, real pointer input, or
+  pixels); everything else goes in a unit, session, page-controller or contract test.
+- One spec: `GITHUB_ACTIONS=true GITHUB_REPOSITORY=pparadis/srp-remake E2E_PORT=5399 E2E_BACKEND_PORT=3311 npx playwright test e2e/track.spec.ts --workers=2`
 - The 2 screenshot tests (`track` `race-start.png`, `hud` `race-hud.png`) run only when `CI` is set: their baselines
   match the Chromium build CI installs for the locked Playwright, so they are the final pixel check on the PR.
 - CI runs the full suite and the 2 shards (about 2.5 min). Watch it with `gh run watch` (or `gh run watch <id>`).

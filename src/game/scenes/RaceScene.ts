@@ -3,8 +3,6 @@ import type { TrackData, TrackCell } from "../types/track";
 import type { BotLevel, Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
 import {
-  MOVE_BUDGET,
-  MOVE_RATES,
   REG_BOT_CARS,
   REG_BOT_LEVEL,
   REG_HUMAN_CARS,
@@ -14,32 +12,17 @@ import {
   REG_SEED,
   REG_TOTAL_CARS
 } from "../constants";
-import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
-import { buildPlanContext, progressOf, type BotPlanContext } from "../systems/botPlan";
-import { pitAdvice, stintEstimate } from "../systems/strategy";
-import { createFeelMemory, detectFeel, type FeelEvent } from "../systems/feelEvents";
+import type { TargetInfo } from "../systems/movementSystem";
+import type { FeelEvent } from "../systems/feelEvents";
 import { play } from "../../ui/sound";
 import { Confetti } from "./ui/Confetti";
-import { computeMoveSpend, getRemainingBudget } from "../systems/moveBudgetSystem";
-import { carColor, carSprite } from "../systems/spawnSystem";
-import {
-  applyAction,
-  computeTargets,
-  createRace,
-  createRaceContext,
-  decideBotAction,
-  type RaceAction,
-  type RaceContext,
-  type RaceSeat,
-  type RaceState
-} from "../race/raceEngine";
-import { budgetLeftOf, editCar, placeCar, type CarEdit, positionAsTest, restorePosition, setActiveCar } from "../race/sandbox";
-import type { SandboxCommand, SandboxSnapshot } from "../../ui/sandboxPanel";
-import { hasFinishedRace, lapInProgress } from "../systems/lapProgress";
-import { sortCarsByProgress } from "../systems/orderingSystem";
+import { carSprite } from "../systems/spawnSystem";
+import type { RaceAction } from "../race/raceEngine";
+import { RaceSession, SERVER_WAIT_MS } from "../race/raceSession";
+import { positionAsTest, type CarEdit } from "../race/sandbox";
+import type { SandboxCommand } from "../../ui/sandboxPanel";
 import { validateTrack } from "../../validation/trackValidation";
-import { PitModal, type PitStints } from "./ui/PitModal";
-import type { HudCar, HudSnapshot } from "../../ui/hud";
+import { PitModal } from "./ui/PitModal";
 import { DebugButtons } from "./ui/DebugButtons";
 import { makeButton } from "./ui/makeButton";
 import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
@@ -47,17 +30,8 @@ import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRend
 import { spriteRotation } from "./rendering/heading";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
 import { registerSandboxInputHandlers } from "./input/registerSandboxInputHandlers";
-import {
-  appendBotDecisionEntry,
-  buildBotDecisionSnapshot as buildBotDecisionSnapshotPayload,
-  serializeBotTargets,
-  serializeBotTrace,
-  type BotDecisionLogEntry
-} from "./debug/botDecisionDebug";
-import { PERSONALITIES, personalityOf } from "../systems/botStyle";
-import { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
+import type { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
 import type { AppliedTurnSummary, BackendTurnAction, PublicLobby, TurnSource } from "../../net/backendApi";
-import { toEngineRace } from "../../net/raceSync";
 
 declare global {
   interface Window {
@@ -106,69 +80,49 @@ export class RaceScene extends Phaser.Scene {
   private static readonly HUD = {
     hoverMaxDist: 18
   };
-  private static readonly BOT_LOG_LIMIT = 1000;
-  private static readonly HUD_LABELS = {
-    noneTags: "none",
-    targetPrefix: "target:",
-    factorsPrefix: "factors:",
-    validTargetsPrefix: "valid targets:"
-  };
   private track!: TrackData;
   private cellMap!: CellMap;
-  private ctx!: RaceContext;
-  // Rules and race state live in the engine; the scene only renders them.
-  private race: RaceState = { cars: [], turn: { order: [], index: 0 }, raceLaps: 5, winnerCarId: null, seed: 0 };
+  // The race, its rules, the turn loop and the HUD data live in the session; the scene only draws them.
+  private session!: RaceSession;
 
   private gTrack!: Phaser.GameObjects.Graphics;
   private trackImage?: Phaser.GameObjects.Image;
   private gTargets!: Phaser.GameObjects.Graphics;
   private gFrame!: Phaser.GameObjects.Graphics;
   private hoverCell: TrackCell | null = null;
-  private logLines: string[] = [];
-  private carNames = new Map<number, string>();
   private showForwardIndex = false;
   private forwardIndexLabels: Phaser.GameObjects.Text[] = [];
   private carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
   private activeHalos: Map<number, Phaser.GameObjects.Ellipse> = new Map();
   private activeHaloTween: Phaser.Tweens.Tween | null = null;
-  private validTargets: Map<string, TargetInfo> = new Map();
   private targetCostLabels: Phaser.GameObjects.Text[] = [];
   private dragOrigin: { x: number; y: number } | null = null;
   private pendingPit: { cell: TrackCell; origin: { x: number; y: number } } | null = null;
   private pitModal!: PitModal;
-  private totalCars = 1;
-  private humanCars = 1;
-  private botCars = 0;
-  // Multiplayer: after sending a turn, wait for the server's race.state before accepting input.
-  private awaitingServerUntil = 0;
-  private backendLobbyId: string | null = null;
-  private localPlayerId: string | null = null;
-  private botDecisionLog: BotDecisionLogEntry[] = [];
-  private botDecisionSeq = 1;
   private skipButton!: Phaser.GameObjects.Text;
   private debugButtons!: DebugButtons;
   private showCarsAndMoves = true;
-  // Sandbox (`?sandbox`, solo): in edit mode every car can be dragged anywhere and the bots wait.
-  private sandbox = false;
-  private editing = false;
+  private confetti: Confetti | null = null;
+  // Set by the e2e hook: no celebration may run over a screenshot.
+  private animationsFrozen = false;
   private get cars(): Car[] {
-    return this.race.cars;
-  }
-  private get turn() {
-    return this.race.turn;
-  }
-  private get raceLapTarget(): number {
-    return this.race.raceLaps;
+    return this.session.cars;
   }
   private get raceFinished(): boolean {
-    return this.race.winnerCarId !== null;
-  }
-  private get winnerCarId(): number | null {
-    return this.race.winnerCarId;
+    return this.session.finished;
   }
   private get activeCar(): Car {
-    const { cars, turn } = this.race;
-    return (cars.find((c) => c.carId === turn.order[turn.index]) ?? cars[0]) as Car;
+    return this.session.activeCar;
+  }
+  private get validTargets(): Map<string, TargetInfo> {
+    return this.session.validTargets;
+  }
+  // Sandbox (`?sandbox`, solo): in edit mode every car can be dragged anywhere and the bots wait.
+  private get sandbox(): boolean {
+    return this.session.sandbox;
+  }
+  private get editing(): boolean {
+    return this.session.editing;
   }
   private readonly onExternalToggleCarsMoves = () => {
     this.showCarsAndMoves = !this.showCarsAndMoves;
@@ -201,11 +155,8 @@ export class RaceScene extends Phaser.Scene {
     ) {
       return;
     }
-    this.applyBackendTurnApplied(detail.lobbyId, detail.playerId, detail.applied, detail.source);
-  };
-  private readonly buildInfo = {
-    version: "debug-snapshot-v3",
-    gitSha: __GIT_SHA__
+    this.session.applyTurnApplied(detail.lobbyId, detail.playerId, detail.applied, detail.source);
+    this.emitHud();
   };
 
   constructor() {
@@ -226,13 +177,16 @@ export class RaceScene extends Phaser.Scene {
     if (validationErrors.length > 0) {
       throw new Error(`Invalid track data:\\n${validationErrors.map((e) => `- ${e}`).join("\\n")}`);
     }
-    this.ctx = createRaceContext(this.track);
-    this.cellMap = this.ctx.cellMap;
-    this.totalCars = this.registry.get(REG_TOTAL_CARS);
-    this.humanCars = this.registry.get(REG_HUMAN_CARS);
-    this.botCars = this.registry.get(REG_BOT_CARS);
-    this.sandbox = this.registry.get(REG_SANDBOX) === true;
-    this.editing = this.sandbox;
+    this.session = new RaceSession(this.track, {
+      totalCars: this.registry.get(REG_TOTAL_CARS),
+      humanCars: this.registry.get(REG_HUMAN_CARS),
+      botCars: this.registry.get(REG_BOT_CARS),
+      raceLaps: this.registry.get(REG_RACE_LAPS),
+      botLevel: (this.registry.get(REG_BOT_LEVEL) as BotLevel | undefined) ?? "normal",
+      seed: (this.registry.get(REG_SEED) as number | undefined) ?? 0,
+      sandbox: this.registry.get(REG_SANDBOX) === true
+    });
+    this.cellMap = this.session.cellMap;
 
     const grassCenter = this.getTrackCenter() ?? { x: 0, y: 0 };
     this.add.tileSprite(grassCenter.x, grassCenter.y, 4000, 3000, "grass").setDepth(-10);
@@ -248,7 +202,7 @@ export class RaceScene extends Phaser.Scene {
       this.layoutUI();
       this.centerTrack();
     });
-    this.initCars();
+    this.spawnCarTokens();
     this.loadStartPosition();
     this.initTurn();
     this.recomputeTargets();
@@ -330,10 +284,10 @@ export class RaceScene extends Phaser.Scene {
     if (import.meta.env.DEV || import.meta.env.MODE === "test") {
       // e2e hook: read-only state + cell -> page coordinates for real mouse drags
       window.__srp = {
-        state: () => this.buildDebugSnapshot(),
+        state: () => this.session.debugSnapshot(),
         status: () => ({
-          raceLaps: this.raceLapTarget,
-          winnerCarId: this.winnerCarId,
+          raceLaps: this.session.raceLaps,
+          winnerCarId: this.session.winnerCarId,
           canControl: this.canLocalControlActiveCar() && !this.raceFinished,
           activeOwnerId: this.activeCar.ownerId
         }),
@@ -384,26 +338,8 @@ export class RaceScene extends Phaser.Scene {
     window.dispatchEvent(new Event("srp:scene-ready"));
   }
 
-  // Local seats: humans first, then bots.
-  private buildSeats(): RaceSeat[] {
-    const seats: RaceSeat[] = [
-      ...Array.from({ length: this.humanCars }, (_, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
-      ...Array.from({ length: this.botCars }, (_, i) => ({
-        isBot: true,
-        ownerId: `BOT${i + 1}`,
-        botLevel: (this.registry.get(REG_BOT_LEVEL) as BotLevel | undefined) ?? "normal"
-      }))
-    ];
-    return seats.length > 0 ? seats : [{ isBot: false, ownerId: "P1" }];
-  }
-
-  private startRace(raceLaps: number) {
-    this.race = createRace(this.ctx, this.buildSeats(), raceLaps, (this.registry.get(REG_SEED) as number | undefined) ?? 0);
-    this.race.cars.forEach((car, i) => this.spawnCarToken(car, carSprite(i)));
-  }
-
-  private initCars() {
-    this.startRace(this.registry.get(REG_RACE_LAPS));
+  private spawnCarTokens() {
+    this.cars.forEach((car, i) => this.spawnCarToken(car, carSprite(i)));
   }
 
   private clearCarVisuals() {
@@ -417,100 +353,27 @@ export class RaceScene extends Phaser.Scene {
     this.activeHalos.clear();
   }
 
-  private respawnCarsForComposition(totalCars: number, humanCars: number, botCars: number) {
-    this.totalCars = Math.max(1, Math.min(11, Math.trunc(totalCars)));
-    this.humanCars = Math.max(0, Math.min(this.totalCars, Math.trunc(humanCars)));
-    this.botCars = Math.max(0, Math.min(this.totalCars - this.humanCars, Math.trunc(botCars)));
-    this.clearCarVisuals();
-    this.startRace(this.race.raceLaps);
-    this.validTargets = new Map();
-    this.updateActiveCarVisuals();
-    this.updateSkipButtonState();
-    this.drawTargets();
-    this.emitHud();
-  }
-
-  private isBackendAuthoritativeMode(): boolean {
-    return this.backendLobbyId != null;
-  }
-
   private canLocalControlActiveCar(): boolean {
-    if (!this.isBackendAuthoritativeMode()) return true;
-    if (!this.localPlayerId) return false;
-    if (Date.now() < this.awaitingServerUntil) return false;
-    return this.activeCar.ownerId === this.localPlayerId;
+    return this.session.canControlActiveCar();
   }
 
-  // Locks input until the server answers; unlocks by itself if it never does.
-  private awaitServer() {
-    const waitMs = 5000;
-    this.awaitingServerUntil = Date.now() + waitMs;
-    this.time.delayedCall(waitMs, () => {
-      if (this.awaitingServerUntil === 0 || Date.now() < this.awaitingServerUntil) return;
-      this.awaitingServerUntil = 0;
-      this.refreshAfterTurn();
-    });
-  }
-
-  // Multiplayer: the server owns the race. Replace our state with its snapshot and redraw.
+  // Multiplayer: the server owns the race. The session takes its snapshot; redraw from it.
   private applyBackendLobbyState(lobby: PublicLobby, localPlayerId: string | null) {
-    this.backendLobbyId = lobby.lobbyId;
-    this.localPlayerId = localPlayerId;
-    this.awaitingServerUntil = 0;
-    if (
-      lobby.settings.totalCars !== this.totalCars ||
-      lobby.settings.humanCars !== this.humanCars ||
-      lobby.settings.botCars !== this.botCars
-    ) {
-      this.respawnCarsForComposition(
-        lobby.settings.totalCars,
-        lobby.settings.humanCars,
-        lobby.settings.botCars
-      );
+    const { respawned, applied } = this.session.applyServerState(lobby, localPlayerId);
+    if (respawned) {
+      this.clearCarVisuals();
+      this.spawnCarTokens();
+      this.updateActiveCarVisuals();
+      this.updateSkipButtonState();
+      this.drawTargets();
+      this.emitHud();
     }
-    const raceState = lobby.raceState;
-    if (!raceState || (lobby.status !== "IN_RACE" && lobby.status !== "FINISHED")) return;
-
-    const wasFinished = this.raceFinished;
-    this.race = toEngineRace(raceState);
-    if (!this.feelSeededOnline) {
-      // the first server state is where we join or rejoin: it seeds, it must not celebrate
-      this.feelSeededOnline = true;
-      this.feel = createFeelMemory();
-    }
-    this.carNames = new Map(raceState.cars.map((car) => [car.carId, car.name]));
+    if (!applied) return;
     if (this.carTokens.size !== this.cars.length) {
       this.clearCarVisuals();
-      this.cars.forEach((car, i) => this.spawnCarToken(car, carSprite(i)));
-    }
-    if (this.raceFinished && !wasFinished) {
-      this.addLog(
-        `Race finished. Car ${this.winnerCarId} wins the ${this.raceLapTarget}-lap race.`
-      );
+      this.spawnCarTokens();
     }
     this.refreshAfterTurn();
-  }
-
-  // Remote and own turns alike arrive as events; the board itself redraws from race.state.
-  private applyBackendTurnApplied(
-    lobbyId: string,
-    playerId: string,
-    action: AppliedTurnSummary,
-    source?: TurnSource
-  ) {
-    if (this.backendLobbyId && lobbyId !== this.backendLobbyId) return;
-    const car = this.cars.find((candidate) => candidate.ownerId === playerId);
-    if (!car) return;
-    if (source === "timeout" || source === "force_skip") {
-      this.addLog(`Car ${car.carId} was auto-played (${source === "timeout" ? "timeout" : "host skip"}).`);
-    }
-    if (action.type === "skip") {
-      this.addLog(`Car ${car.carId} skipped (no moves).`);
-    } else if (action.type === "pit") {
-      this.addLog(`Car ${car.carId} pit stop at ${action.targetCellId ?? "?"}.`);
-    } else {
-      this.addLog(`Car ${car.carId} moved to ${action.targetCellId ?? "?"}.`);
-    }
   }
 
   private spawnCarToken(car: Car, spriteKey: string) {
@@ -547,34 +410,25 @@ export class RaceScene extends Phaser.Scene {
     this.processBotsUntilHuman();
   }
 
-  // Applies the active car's action through the engine. The engine rejects anything
-  // invalid and leaves the state untouched; either way the scene re-renders from it.
+  // Applies the active car's action through the session (solo: the engine, which rejects anything invalid and
+  // leaves the state untouched; online: the server, whose race.state redraws the board). Either way, re-render.
   private applyLocalAction(action: RaceAction): boolean {
-    if (this.isBackendAuthoritativeMode()) {
-      // Multiplayer: the server validates and applies it; its race.state redraws the board.
-      this.awaitServer();
+    const ok = this.session.applyLocal(action);
+    if (this.session.online) {
+      this.scheduleServerWaitRelease();
       this.emitLocalTurnAction(action);
       this.faceDroppedCell(action);
-      this.refreshAfterTurn();
-      return true;
     }
-    const result = applyAction(this.ctx, this.race, action);
-    if (!result.ok) {
-      this.addLog(`Action rejected (${result.reason}).`);
-      this.refreshAfterTurn();
-      return false;
-    }
-    for (const line of result.log) this.addLog(line);
     this.refreshAfterTurn();
-    return true;
+    return ok;
   }
 
-  private raceFinishedAnnounced = false;
-  private feel = createFeelMemory();
-  private feelSeededOnline = false;
-  private confetti: Confetti | null = null;
-  // Set by the e2e hook: no celebration may run over a screenshot.
-  private animationsFrozen = false;
+  // Unlocks input by itself if the server never answers.
+  private scheduleServerWaitRelease() {
+    this.time.delayedCall(SERVER_WAIT_MS, () => {
+      if (this.session.releaseServerWait()) this.refreshAfterTurn();
+    });
+  }
 
   private refreshAfterTurn() {
     this.processBotsUntilHuman();
@@ -585,34 +439,16 @@ export class RaceScene extends Phaser.Scene {
     this.updateSkipButtonState();
     this.emitHud();
     this.reactToRace();
-    if (this.raceFinished && !this.raceFinishedAnnounced) {
-      this.raceFinishedAnnounced = true;
+    if (this.session.takeFinish()) {
       window.dispatchEvent(
-        new CustomEvent("srp:race-finished", { detail: { winnerCarId: this.winnerCarId } })
+        new CustomEvent("srp:race-finished", { detail: { winnerCarId: this.session.winnerCarId } })
       );
     }
   }
 
   // Toasts, confetti and sounds for what changed since the last render (nothing on the first one).
   private reactToRace() {
-    const events = detectFeel(this.feel, {
-      myCarId: this.localCar()?.carId ?? null,
-      raceLaps: this.raceLapTarget,
-      finished: this.raceFinished,
-      canControl: this.localCanControl(),
-      cars: this.cars.map((car) => ({
-        carId: car.carId,
-        lapCount: car.lapCount ?? 0,
-        cellId: car.cellId,
-        tire: car.tire,
-        fuel: car.fuel
-      }))
-    });
-    const loud = events.some((e) => e.type !== "move");
-    for (const event of events) {
-      if (event.type === "move" && loud) continue;
-      this.reactTo(event);
-    }
+    for (const event of this.session.drainFeel()) this.reactTo(event);
   }
 
   private reactTo(event: FeelEvent) {
@@ -643,13 +479,13 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private syncTokens() {
-    const awaitingServer = Date.now() < this.awaitingServerUntil;
+    const held = this.session.heldCarId();
     for (const car of this.cars) {
       const cell = this.cellMap.get(car.cellId);
       if (!cell) continue;
       const token = this.carTokens.get(car.carId);
       if (!token) continue;
-      if (awaitingServer && car.carId === this.activeCar.carId) continue;
+      if (car.carId === held) continue;
       const body = token.first as Phaser.GameObjects.Image;
       body.setRotation(spriteRotation(cell, this.cellMap));
       const halo = this.activeHalos.get(car.carId);
@@ -667,50 +503,12 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private processBotsUntilHuman() {
-    if (this.raceFinished || this.editing) return;
-    if (this.isBackendAuthoritativeMode()) return;
-    const maxBots = Math.max(1, this.cars.length);
-    let steps = 0;
-    while (this.activeCar.isBot && steps < maxBots && !this.raceFinished) {
-      if (!this.playBotTurn()) break;
-      steps += 1;
-    }
     // Whoever is active now (human or bot) must be rendered as such, also when this
     // ran from recomputeTargets() after the turn-end refresh.
-    if (steps > 0) {
+    if (this.session.runBots() > 0) {
       this.syncTokens();
       this.updateActiveCarVisuals();
     }
-  }
-
-  private playBotTurn(): boolean {
-    const car = this.activeCar;
-    const turnIndex = this.turn.index;
-    const decision = decideBotAction(this.ctx, this.race);
-    const result = applyAction(this.ctx, this.race, decision.action);
-    if (!result.ok) {
-      this.addLog(`Bot action rejected (${result.reason}).`);
-      return false;
-    }
-    const action = decision.action;
-    this.botDecisionSeq = appendBotDecisionEntry(
-      this.botDecisionLog,
-      RaceScene.BOT_LOG_LIMIT,
-      this.botDecisionSeq,
-      turnIndex,
-      car,
-      {
-        validTargets: serializeBotTargets(decision.targets),
-        action:
-          action.type === "skip"
-            ? { type: "skip", note: decision.skipNote ?? "no-target" }
-            : { type: action.type, targetCellId: action.targetCellId, moveSpend: result.moveSpend },
-        trace: serializeBotTrace(decision.trace)
-      },
-      result.fromCellId
-    );
-    for (const line of result.log) this.addLog(line);
-    return true;
   }
 
   private updateActiveCarVisuals() {
@@ -772,34 +570,11 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private recomputeTargets() {
-    if (this.raceFinished) {
-      this.validTargets = new Map();
-      this.updateSkipButtonState();
-      return;
+    if (this.session.recomputeTargets() > 0) {
+      this.syncTokens();
+      this.updateActiveCarVisuals();
     }
-    if (this.editing) {
-      // sandbox: show what the engine offers to whoever is active, bot or not
-      this.validTargets = this.computeTargetsForCar(this.activeCar);
-      this.updateSkipButtonState();
-      return;
-    }
-    if (this.isBackendAuthoritativeMode() && !this.canLocalControlActiveCar()) {
-      this.validTargets = new Map();
-      this.updateSkipButtonState();
-      return;
-    }
-    if (this.activeCar.isBot) {
-      this.processBotsUntilHuman();
-      if (this.activeCar.isBot) {
-        return;
-      }
-    }
-    this.validTargets = this.computeTargetsForCar(this.activeCar);
     this.updateSkipButtonState();
-  }
-
-  private computeTargetsForCar(car: Car): Map<string, TargetInfo> {
-    return computeTargets(this.ctx, this.race, car);
   }
 
   private drawTargets() {
@@ -817,7 +592,7 @@ export class RaceScene extends Phaser.Scene {
       this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 10);
       if (info.squeezePassed) this.strokeDashedRing(cell.pos.x, cell.pos.y, 13, 0xffb020);
       // Risk: the move leaves a resource under 20% (thin ring) or empty (thick ring).
-      const left = this.resourcesAfter(info);
+      const left = this.session.resourcesAfter(info);
       if (!info.isPitTrigger && Math.min(left.tire, left.fuel) < 20) {
         this.gTargets.lineStyle(Math.min(left.tire, left.fuel) <= 0 ? 4 : 2, 0xff4d4d, 1);
         this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 14);
@@ -826,7 +601,7 @@ export class RaceScene extends Phaser.Scene {
       const costLabel = this.add.text(
         cell.pos.x,
         cell.pos.y,
-        this.formatTargetCost(info, cell.laneIndex),
+        String(this.session.moveSpendOf(info, cell.laneIndex)),
         {
           fontFamily: "monospace",
           fontSize: "11px",
@@ -854,25 +629,11 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
-  private resourcesAfter(info: TargetInfo) {
-    return {
-      tire: Math.max(0, this.activeCar.tire - info.tireCost),
-      fuel: Math.max(0, this.activeCar.fuel - info.fuelCost)
-    };
-  }
-
   private clearTargetCostLabels() {
     for (const label of this.targetCostLabels) {
       label.destroy();
     }
     this.targetCostLabels = [];
-  }
-
-  private formatTargetCost(info: TargetInfo, targetLaneIndex: number): string {
-    const fromLaneIndex = this.cellMap.get(this.activeCar.cellId)?.laneIndex ?? targetLaneIndex;
-    const moveSpend =
-      info.moveSpend ?? computeMoveSpend(info.distance, fromLaneIndex, targetLaneIndex);
-    return String(moveSpend);
   }
 
   private drawFrame() {
@@ -935,8 +696,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private addLog(line: string) {
-    this.logLines.push(line);
-    if (this.logLines.length > 30) this.logLines.shift();
+    this.session.addLog(line);
     this.emitHud();
   }
 
@@ -1036,44 +796,14 @@ export class RaceScene extends Phaser.Scene {
 
   private updateSkipButtonState() {
     if (!this.skipButton) return;
-    const canSkip =
-      !this.raceFinished &&
-      !this.editing &&
-      this.validTargets.size === 0 &&
-      this.activeCar.state === "ACTIVE" &&
-      this.canLocalControlActiveCar();
+    const canSkip = this.session.canSkip();
     this.skipButton.setAlpha(canSkip ? 1 : 0.4);
     if (canSkip) this.skipButton.setInteractive({ useHandCursor: true });
     else this.skipButton.disableInteractive();
   }
 
-  private buildDebugSnapshot() {
-    return buildGameDebugSnapshot({
-      buildInfo: this.buildInfo,
-      track: this.track,
-      cellMap: this.cellMap,
-      cars: this.cars,
-      activeCar: this.activeCar,
-      validTargets: this.validTargets,
-      botDecisionCount: this.botDecisionLog.length,
-      moveBudget: MOVE_BUDGET,
-      moveRates: MOVE_RATES,
-      disallowPitBoxTargets: this.activeCar.pitServiced,
-      seed: this.race.seed
-    });
-  }
-
-  private buildBotDecisionSnapshot(shortMode = false) {
-    return buildBotDecisionSnapshotPayload(
-      this.buildInfo,
-      this.track.trackId,
-      this.botDecisionLog,
-      shortMode
-    );
-  }
-
   private async copyDebugSnapshot() {
-    const snapshot = this.buildDebugSnapshot();
+    const snapshot = this.session.debugSnapshot();
     const payload = JSON.stringify(snapshot, null, 2);
     try {
       await navigator.clipboard.writeText(payload);
@@ -1085,7 +815,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private async copyBotDecisionSnapshot() {
-    const snapshot = this.buildBotDecisionSnapshot();
+    const snapshot = this.session.botDecisionSnapshot();
     const payload = JSON.stringify(snapshot, null, 2);
     try {
       await navigator.clipboard.writeText(payload);
@@ -1097,7 +827,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private async copyShortBotDecisionSnapshot() {
-    const snapshot = this.buildBotDecisionSnapshot(true);
+    const snapshot = this.session.botDecisionSnapshot(true);
     const payload = JSON.stringify(snapshot, null, 2);
     try {
       await navigator.clipboard.writeText(payload);
@@ -1134,7 +864,7 @@ export class RaceScene extends Phaser.Scene {
     if (token) token.disableInteractive();
     this.pitModal.open({
       setup: this.activeCar.setup,
-      stints: (setup) => this.pitStints(setup),
+      stints: (setup) => this.session.pitStints(setup),
       bodyLines: [
         `Drop on PIT_BOX: ${cell.id}`,
         `Setup will be applied.`,
@@ -1156,13 +886,6 @@ export class RaceScene extends Phaser.Scene {
         this.drawTargets();
       }
     });
-  }
-
-  // Stint after the refill (100% tire and fuel) for each compound at the wings and psi being set.
-  private pitStints(setup: Car["setup"]): PitStints {
-    const spineLen = this.ctx.trackIndex.spineLen;
-    const at = (compound: "soft" | "hard") => stintEstimate({ tire: 100, fuel: 100, setup: { ...setup, compound } }, spineLen);
-    return { soft: at("soft"), hard: at("hard") };
   }
 
   private closePitModal() {
@@ -1219,41 +942,6 @@ export class RaceScene extends Phaser.Scene {
     return best;
   }
 
-  private makeHudText(cell: TrackCell | null): string {
-    if (!cell) {
-      const activeStatus = [
-        `Active: Car ${this.activeCar.carId}`,
-        `Lap: ${lapInProgress(this.activeCar.lapCount, this.raceLapTarget)}/${this.raceLapTarget}`,
-        `Tire: ${this.activeCar.tire}%`,
-        `Fuel: ${this.activeCar.fuel}%`
-      ].join("\n");
-      return [
-        activeStatus,
-        `${RaceScene.HUD_LABELS.validTargetsPrefix} ${this.validTargets.size}`
-      ].join("\n");
-    }
-
-    const tags = (cell.tags ?? []).join(", ") || RaceScene.HUD_LABELS.noneTags;
-    const targetInfo = this.validTargets.get(cell.id);
-    const factors = targetInfo ? this.computeCostFactors(cell.laneIndex) : null;
-    const targetLine = targetInfo
-      ? `${RaceScene.HUD_LABELS.targetPrefix} d${targetInfo.distance}  tire-${targetInfo.tireCost}  fuel-${targetInfo.fuelCost}${targetInfo.isPitTrigger ? "  PIT" : ""}`
-      : null;
-    const factorLine = factors
-      ? `${RaceScene.HUD_LABELS.factorsPrefix} aero x${factors.aero.toFixed(2)}  psi x${factors.psi.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
-      : null;
-    return [
-      `cell: ${cell.id}`,
-      `zone: ${cell.zoneIndex}  lane: ${cell.laneIndex}`,
-      `lap: ${lapInProgress(this.activeCar.lapCount, this.raceLapTarget)}  fwd: ${cell.forwardIndex}`,
-      `tags: ${tags}`,
-      `next: ${cell.next.length}`,
-      ...(targetLine ? [targetLine] : []),
-      ...(factorLine ? [factorLine] : []),
-      `${RaceScene.HUD_LABELS.validTargetsPrefix} ${this.validTargets.size}`
-    ].join("\n");
-  }
-
   // Page coordinates of a cell, for the e2e hook and the DOM tooltip.
   private cellScreenPos(cellId: string): { x: number; y: number } | null {
     const cell = this.cellMap.get(cellId);
@@ -1277,157 +965,47 @@ export class RaceScene extends Phaser.Scene {
     this.emitHud();
   }
 
-  private hudCar(car: Car): HudCar {
-    const index = this.cars.indexOf(car);
-    const solo = !this.isBackendAuthoritativeMode();
-    return {
-      carId: car.carId,
-      name: this.carNames.get(car.carId) ?? (solo && !car.isBot ? "You" : `Car ${car.carId}`),
-      color: carColor(index),
-      isBot: car.isBot,
-      // Bots only (a human's style is never shown); seed 0 is the neutral baseline, nothing to show.
-      ...(car.isBot && car.botLevel === "hard" ? { style: PERSONALITIES.adaptive.label } : car.isBot && this.race.seed ? { style: personalityOf(this.race.seed, car.carId).label } : {}),
-      lap: lapInProgress(car.lapCount, this.raceLapTarget),
-      finished: hasFinishedRace(car.lapCount, this.raceLapTarget),
-      progress: progressOf(car, this.cellMap.get(car.cellId)!, this.plan()),
-      fwd: this.cellMap.get(car.cellId)?.forwardIndex ?? -1,
-      tire: car.tire,
-      fuel: car.fuel,
-      compound: car.setup.compound,
-      state: car.state,
-      pitTurns: car.pitTurnsRemaining,
-      cycle: [...car.moveCycle.spent],
-      cycleIndex: car.moveCycle.index,
-      remaining: getRemainingBudget(car.moveCycle),
-      pitServiced: car.pitServiced,
-      stint: stintEstimate(car, this.ctx.trackIndex.spineLen),
-      advice: pitAdvice(car, this.cellMap.get(car.cellId)!, this.plan())
-    };
-  }
-
-  private plan(): BotPlanContext {
-    return buildPlanContext(this.ctx.trackIndex, this.raceLapTarget);
-  }
-
-  // The local player's car (online: their seat; solo: the first human).
-  private localCar(): Car | undefined {
-    return this.isBackendAuthoritativeMode()
-      ? this.cars.find((car) => car.ownerId === this.localPlayerId)
-      : this.cars.find((car) => !car.isBot);
-  }
-
-  private localCanControl(): boolean {
-    return !this.raceFinished && this.canLocalControlActiveCar() && !this.activeCar.isBot;
-  }
-
   // One plain snapshot for the DOM HUD (src/ui/hud.ts); sent after every change it shows.
   private emitHud() {
-    if (this.cars.length === 0) return;
-    const mine = this.localCar();
-    const ordered = sortCarsByProgress(this.cars, this.cellMap, {
-      turnOrder: this.turn.order,
-      turnIndex: this.turn.index
+    const snapshot = this.session.hudSnapshot({
+      hoverCell: this.hoverCell,
+      showCarsAndMoves: this.showCarsAndMoves,
+      showForwardIndex: this.showForwardIndex,
+      cellScreenPos: (cellId) => this.cellScreenPos(cellId)
     });
-    const target = this.hoverCell ? this.validTargets.get(this.hoverCell.id) : undefined;
-    const pos = this.hoverCell && target && this.showCarsAndMoves ? this.cellScreenPos(this.hoverCell.id) : null;
-    const snapshot: HudSnapshot = {
-      raceLaps: this.raceLapTarget,
-      spineLen: this.ctx.trackIndex.spineLen,
-      finished: this.raceFinished,
-      winnerCarId: this.winnerCarId,
-      myCarId: mine?.carId ?? null,
-      activeCarId: this.activeCar.carId,
-      canControl: this.localCanControl(),
-      cars: ordered.map((car) => this.hudCar(car)),
-      ...(this.sandbox ? { sandbox: this.editing ? ("edit" as const) : ("play" as const) } : {}),
-      boxedIn: [...this.validTargets.values()].some((t) => t.squeezePassed !== undefined),
-      pitExitBlocked: this.cellMap.get(this.activeCar.cellId)?.tags?.includes("PIT_EXIT") ?? false,
-      hover:
-        pos && target && this.hoverCell
-          ? {
-              ...pos,
-              distance: target.distance,
-              moveSpend: Number(this.formatTargetCost(target, this.hoverCell.laneIndex)),
-              tireCost: target.tireCost,
-              fuelCost: target.fuelCost,
-              isPit: target.isPitTrigger,
-              ...(target.squeezePassed ? { squeezePassed: target.squeezePassed } : {}),
-              ...(target.laneChanges ? { laneChanges: target.laneChanges } : {}),
-              tireBefore: this.activeCar.tire,
-              fuelBefore: this.activeCar.fuel
-            }
-          : null,
-      debugText: this.showForwardIndex ? this.makeHudText(this.hoverCell) : null,
-      log: [...this.logLines]
-    };
+    if (!snapshot) return;
     window.dispatchEvent(new CustomEvent("srp:hud", { detail: snapshot }));
-    if (this.sandbox) this.emitSandbox();
+    if (this.sandbox) {
+      window.dispatchEvent(new CustomEvent("srp:sandbox", { detail: this.session.sandboxSnapshot() }));
+    }
   }
 
   // ---- sandbox (`?sandbox`) ------------------------------------------------------------------------------------
 
-  private emitSandbox() {
-    const car = this.activeCar;
-    const snapshot: SandboxSnapshot = {
-      editing: this.editing,
-      activeCarId: car.carId,
-      carIds: this.cars.map((c) => c.carId),
-      raceLaps: this.raceLapTarget,
-      car: {
-        cellId: car.cellId,
-        lapCount: car.lapCount ?? 0,
-        tire: car.tire,
-        fuel: car.fuel,
-        compound: car.setup.compound,
-        budgetLeft: budgetLeftOf(car),
-        isBot: car.isBot,
-        botLevel: car.botLevel ?? "normal"
-      }
-    };
-    window.dispatchEvent(new CustomEvent("srp:sandbox", { detail: snapshot }));
-  }
-
-  // After an edit: redraw from the new state, and nothing celebrates (a teleported car is no lap, no overtake).
-  private sandboxRefresh() {
-    this.feel = createFeelMemory();
-    this.refreshAfterTurn();
-  }
-
   private sandboxEdit(carId: number, edit: CarEdit) {
-    const refused = editCar(this.ctx, this.race, carId, edit);
-    if (refused) this.addLog(refused);
-    this.sandboxRefresh();
+    this.session.sandboxEdit(carId, edit);
+    this.refreshAfterTurn();
   }
 
   // A drop on a free cell moves the car, on another car swaps them; away from any cell the car goes back.
   private sandboxDrop(carId: number, cell: TrackCell | null) {
-    const refused = cell ? placeCar(this.ctx, this.race, carId, cell.id) : null;
-    if (refused) this.addLog(refused);
-    this.sandboxRefresh();
+    this.session.sandboxDrop(carId, cell?.id ?? null);
+    this.refreshAfterTurn();
   }
 
   private sandboxSelect(carId: number) {
-    if (carId === this.activeCar.carId || !setActiveCar(this.race, carId)) return;
-    this.sandboxRefresh();
+    if (this.session.sandboxSelect(carId)) this.refreshAfterTurn();
   }
 
   private setEditing(editing: boolean) {
-    this.editing = editing;
-    this.addLog(editing ? "Sandbox: editing." : "Sandbox: playing from here.");
-    this.sandboxRefresh();
+    this.session.setEditing(editing);
+    this.refreshAfterTurn();
   }
 
-  // Puts a "Copy debug" snapshot in place; the caller redraws.
+  // Puts a "Copy debug" snapshot in place (the caller redraws), and nothing celebrates it.
   private applyPosition(text: string) {
-    let snapshot: unknown;
-    try {
-      snapshot = JSON.parse(text);
-    } catch {
-      this.addLog("Load refused: not JSON.");
-      return;
-    }
-    const refused = restorePosition(this.ctx, this.race, snapshot);
-    this.addLog(refused ? `Load refused: ${refused}` : "Position loaded.");
+    this.session.loadPosition(text);
+    this.session.resetFeel();
   }
 
   private loadStartPosition() {
@@ -1447,18 +1025,18 @@ export class RaceScene extends Phaser.Scene {
         this.setEditing(command.editing);
         break;
       case "copy-test":
-        void this.copyText(positionAsTest(this.ctx, this.race), "Copied the position as a vitest case.");
+        void this.copyText(positionAsTest(this.session.ctx, this.session.race), "Copied the position as a vitest case.");
         break;
       case "copy-link": {
-        const { cars, activeCarId } = this.buildDebugSnapshot();
+        const { cars, activeCarId } = this.session.debugSnapshot();
         const pos = encodeURIComponent(btoa(JSON.stringify({ activeCarId, cars })));
-        const url = `${window.location.origin}${import.meta.env.BASE_URL}?sandbox&seed=${this.race.seed}&pos=${pos}`;
+        const url = `${window.location.origin}${import.meta.env.BASE_URL}?sandbox&seed=${this.session.race.seed}&pos=${pos}`;
         void this.copyText(url, "Copied the sandbox link (open it, then Quick race).");
         break;
       }
       case "load":
         this.applyPosition(command.text);
-        this.sandboxRefresh();
+        this.refreshAfterTurn();
         break;
     }
   }
@@ -1471,11 +1049,5 @@ export class RaceScene extends Phaser.Scene {
       this.addLog("Clipboard failed. Check the console.");
       console.log(text);
     }
-  }
-
-  private computeCostFactors(laneIndex: number) {
-    const { aeroFactor, psiFactor } = setupFactors(this.activeCar.setup);
-    const lane = laneWearFactors(laneIndex);
-    return { aero: aeroFactor, psi: psiFactor, laneT: lane.tire, laneF: lane.fuel };
   }
 }
