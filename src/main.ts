@@ -2,6 +2,7 @@ import "./style.css";
 import { formatCountdown, mountHud, renderHud, renderMute, renderResults, showToast, type HudSnapshot } from "./ui/hud";
 import { currentlyMuted, initSound, setMuted } from "./ui/sound";
 import { mountSandboxPanel } from "./ui/sandboxPanel";
+import { renderHomeTrack, setHomeTrackRunning } from "./ui/homeTrack";
 import { mountVersion, renderVersion, type ServerVersion } from "./ui/version";
 import { MAX_SEED, normalizeSeed } from "./game/systems/botStyle";
 import {
@@ -32,6 +33,7 @@ function el<T extends HTMLElement>(id: string): T {
 }
 
 const app = el("app");
+const homeTrack = document.getElementById("homeTrack") as unknown as SVGSVGElement;
 const statusLine = el("statusLine");
 const homeNotice = el("homeNotice");
 const homeName = el<HTMLInputElement>("homeName");
@@ -320,6 +322,7 @@ function showScreen(screen: Screen) {
     results.hidden = true;
     raceOver = false;
   }
+  setHomeTrackRunning(homeTrack, screen === "home");
   if (screen === "home") renderHome();
   else if (screen === "lobby") renderLobby();
 }
@@ -1083,4 +1086,5 @@ void backendClient
     renderVersion(versionEl, webVersion, serverVersion);
   });
 window.setInterval(renderTurnTimer, 250);
+renderHomeTrack(homeTrack, undefined, { reducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches });
 startRouter((route, source) => void handleRoute(route, source));
