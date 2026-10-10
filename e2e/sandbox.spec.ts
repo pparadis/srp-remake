@@ -14,9 +14,29 @@ async function sandboxRace(page: import("@playwright/test").Page) {
   await startRace(page);
 }
 
-const snapshot = (page: import("@playwright/test").Page) => page.evaluate(() => window.__srp!.state());
+// E toggles edit mode; if it does not, say what the page looked like (a page without focus gets no key events).
+async function pressE(page: import("@playwright/test").Page, banner: string) {
+  await page.keyboard.press("e");
+  try {
+    await expect(tid(page, "hud-banner")).toHaveText(banner);
+  } catch (error) {
+    const health = await page.evaluate(() => ({
+      hasFocus: document.hasFocus(),
+      visibility: document.visibilityState,
+      activeElement: document.activeElement?.tagName
+    }));
+    throw new Error(`E did not switch the banner to "${banner}": ${JSON.stringify(health)}`, {
+      cause: error
+    });
+  }
+}
 
-test("sandbox: drag a bot onto an offered cell, edit the move points, play on from there", async ({ page }) => {
+const snapshot = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => window.__srp!.state());
+
+test("sandbox: drag a bot onto an offered cell, edit the move points, play on from there", async ({
+  page
+}) => {
   const errors = collectErrors(page);
   await sandboxRace(page);
   await expect(tid(page, "sandbox-panel")).toBeVisible();
@@ -39,7 +59,9 @@ test("sandbox: drag a bot onto an offered cell, edit the move points, play on fr
   await page.mouse.up();
 
   // car 2 sits on that cell (no rules) and, grabbed, is the car to play; hand the turn back to car 1
-  await expect.poll(async () => (await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId).toBe(target.cellId);
+  await expect
+    .poll(async () => (await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId)
+    .toBe(target.cellId);
   expect((await snapshot(page)).activeCarId).toBe(2);
   await tid(page, "sandbox-car").selectOption("1");
   await expect.poll(async () => (await snapshot(page)).activeCarId).toBe(1);
@@ -51,32 +73,39 @@ test("sandbox: drag a bot onto an offered cell, edit the move points, play on fr
   await tid(page, "sandbox-budget").fill("3");
   await tid(page, "sandbox-budget").press("Tab");
   await expect
-    .poll(async () => Math.max(...(await snapshot(page)).movement.validTargets.map((t) => t.moveSpend ?? 0)))
+    .poll(async () =>
+      Math.max(...(await snapshot(page)).movement.validTargets.map((t) => t.moveSpend ?? 0))
+    )
     .toBeLessThanOrEqual(3);
 
   // leave edit mode with the key and move normally from the edited position
   await page.locator("canvas").click({ position: { x: 5, y: 5 } }); // a click on the board takes the focus back from the panel
   // the game handles the click on its next frame: wait for the field to let go before pressing E
   await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe("BODY");
-  await page.keyboard.press("e");
-  await expect(tid(page, "hud-banner")).toHaveText("Your turn - drag your car");
+  await pressE(page, "Your turn - drag your car");
   const mover = (await snapshot(page)).cars.find((c) => c.carId === 1)!.cellId;
   await playMyTurn(page);
   expect((await snapshot(page)).cars.find((c) => c.carId === 1)!.cellId).not.toBe(mover);
 
-  await page.keyboard.press("e");
-  await expect(tid(page, "hud-banner")).toHaveText("Sandbox: editing - drag any car, E to play");
+  await pressE(page, "Sandbox: editing - drag any car, E to play");
   expect(errors).toEqual([]);
 });
 
-test("sandbox: a Copy debug position loads back, and it is refused when it does not fit", async ({ page }) => {
+test("sandbox: a Copy debug position loads back, and it is refused when it does not fit", async ({
+  page
+}) => {
   await sandboxRace(page);
   const snap = await snapshot(page);
-  const moved = { ...snap, cars: snap.cars.map((c) => (c.carId === 2 ? { ...c, cellId: "Z20_L1_00", lapCount: 2 } : c)) };
+  const moved = {
+    ...snap,
+    cars: snap.cars.map((c) => (c.carId === 2 ? { ...c, cellId: "Z20_L1_00", lapCount: 2 } : c))
+  };
   await page.getByText("Load position").click();
   await tid(page, "sandbox-load-text").fill(JSON.stringify(moved));
   await tid(page, "sandbox-load").click();
-  await expect.poll(async () => (await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId).toBe("Z20_L1_00");
+  await expect
+    .poll(async () => (await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId)
+    .toBe("Z20_L1_00");
   expect((await snapshot(page)).cars.find((c) => c.carId === 2)!.lapCount).toBe(2);
 
   await tid(page, "sandbox-load-text").fill(JSON.stringify({ ...snap, cars: snap.cars.slice(1) }));
@@ -88,9 +117,13 @@ test("sandbox: a Copy debug position loads back, and it is refused when it does 
 
 test("sandbox: dropping a car on another car swaps their places", async ({ page }) => {
   await sandboxRace(page);
-  const cellOf = async (carId: number) => (await snapshot(page)).cars.find((c) => c.carId === carId)!.cellId;
+  const cellOf = async (carId: number) =>
+    (await snapshot(page)).cars.find((c) => c.carId === carId)!.cellId;
   const [one, three] = [await cellOf(1), await cellOf(3)];
-  const drag = await page.evaluate(() => ({ from: window.__srp!.tokenScreenPos(1)!, to: window.__srp!.tokenScreenPos(3)! }));
+  const drag = await page.evaluate(() => ({
+    from: window.__srp!.tokenScreenPos(1)!,
+    to: window.__srp!.tokenScreenPos(3)!
+  }));
   await page.mouse.move(drag.from.x, drag.from.y);
   await page.mouse.down();
   await page.mouse.move(drag.to.x, drag.to.y, { steps: 8 });
