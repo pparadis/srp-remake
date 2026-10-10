@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { RaceScene } from "./scenes/RaceScene";
+import { keepCanvasBoundsFresh } from "./canvasBounds";
 import {
   REG_BOT_CARS,
   REG_BOT_LEVEL,
@@ -49,6 +50,7 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   (config as { resolution?: number }).resolution = window.devicePixelRatio ?? 1;
 
   const game = new Phaser.Game(config);
+  keepCanvasBoundsFresh(game, Phaser.Core.Events.DESTROY);
   game.registry.set(REG_TOTAL_CARS, options.totalCars);
   game.registry.set(REG_HUMAN_CARS, options.humanCars);
   game.registry.set(REG_BOT_CARS, options.botCars);

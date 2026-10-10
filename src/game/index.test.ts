@@ -12,6 +12,7 @@ vi.mock("phaser", () => {
   return {
     default: {
       CANVAS: "CANVAS",
+      Core: { Events: { DESTROY: "destroy" } },
       Scale: {
         RESIZE: "RESIZE",
         CENTER_BOTH: "CENTER_BOTH"
@@ -34,6 +35,7 @@ function mockGameInstance() {
     registry: {
       set: vi.fn()
     },
+    events: { once: vi.fn() },
     destroy: vi.fn()
   };
 }
@@ -79,5 +81,7 @@ describe("startGame", () => {
       resolution: 2
     });
     expectRegistryComposition(game.registry.set, { totalCars: 6, humanCars: 2, botCars: 4, raceLaps: 20 });
+    // keeps Phaser's canvas bounds fresh for pointer events, until the game is destroyed (issue #41)
+    expect(game.events.once).toHaveBeenCalledWith("destroy", expect.any(Function));
   });
 });
