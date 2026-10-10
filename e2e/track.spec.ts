@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { collectErrors, playMyTurn, quickRace } from "./support/game";
+import { collectErrors, onCi, playMyTurn, quickRace } from "./support/game";
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -25,6 +25,7 @@ test("dragging the active car to a target moves it and advances the turn", async
 });
 
 test("race screen looks like a race track", async ({ page }) => {
+  test.skip(!onCi, "pixel baselines are checked on CI only");
   // chromium on a fixed viewport only (see playwright.config.ts); baselines are not shared across OSes
   await quickRace(page, { bots: 0, laps: 1 });
   await page.evaluate(() => window.__srp!.freezeAnimations());

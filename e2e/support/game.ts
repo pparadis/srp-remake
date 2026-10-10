@@ -3,6 +3,13 @@ import { expect, type Page } from "@playwright/test";
 // eslint-disable-next-line no-undef -- Node-side Playwright code
 const BACKEND_ORIGIN = `http://localhost:${process.env.E2E_BACKEND_PORT ?? "3001"}`;
 
+/**
+ * Set on CI. Screenshot baselines match only the Chromium build CI installs for the locked Playwright, so pixel checks
+ * run on CI only (`CI=1` runs them locally): they are the final pixel check on the PR.
+ */
+// eslint-disable-next-line no-undef -- Node-side Playwright code
+export const onCi = !!process.env.CI;
+
 /** Collects console errors and uncaught page errors; assert `errors` is empty at the end of a test. */
 export function collectErrors(page: Page): string[] {
   const errors: string[] = [];

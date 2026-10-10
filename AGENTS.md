@@ -135,6 +135,8 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
   `npm run backend:build`, plus ONLY the e2e specs the change touches, one chain at a time. Never the full e2e suite,
   the CI shards or repeat loops.
 - One spec: `GITHUB_ACTIONS=true GITHUB_REPOSITORY=pparadis/srp-remake E2E_PORT=5399 E2E_BACKEND_PORT=3311 npx playwright test e2e/hud.spec.ts --workers=2`
+- The 2 screenshot tests (`track` `race-start.png`, `hud` `race-hud.png`) run only when `CI` is set: their baselines
+  match the Chromium build CI installs for the locked Playwright, so they are the final pixel check on the PR.
 - CI runs the full suite and the 2 shards (about 2.5 min). Watch it with `gh run watch` (or `gh run watch <id>`).
 - The e2e (`--mode test`) build caps the game at 10 fps (`src/game/index.ts`); `npm run probe:cpu` measures the browser CPU
   seconds of a variant (see `tools/cpuProbe.mjs`).
