@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { collectErrors, gotoHome, quickRace } from "./support/game";
+import { collectErrors, gotoHome, onCi, quickRace } from "./support/game";
 
 // ~3 s alone, but 25-30 s when it shares the machine with the long multiplayer journeys (several
 // software-rendered Phaser canvases at once), which sat right on the default 30 s limit.
@@ -27,4 +27,14 @@ test("home shows the web and the server version, and they are the same commit", 
   await expect(version).not.toHaveClass(/is-stale/);
   const [web, server] = (await version.innerText()).match(/\b[0-9a-f]{7}\b/g)!;
   expect(server).toBe(web);
+});
+
+test("home page looks welcoming", async ({ page }) => {
+  test.skip(!onCi, "pixel baselines are checked on CI only");
+  // reduced motion is the static grid: the SMIL laps would put the cars somewhere else on every run
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await gotoHome(page);
+  await expect(page.getByTestId("home-track")).toBeVisible();
+  await expect(page.locator("body")).toHaveScreenshot("home.png", { animations: "disabled", timeout: 20_000 });
 });

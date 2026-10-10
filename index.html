@@ -8,29 +8,92 @@
   </head>
   <body data-screen="home">
     <section id="screen-home" data-screen="home" class="screen">
-      <div class="card">
-        <h1>Street Racing Prototype</h1>
-        <p id="homeNotice" class="notice" data-testid="home-notice" hidden></p>
-        <label class="field">
-          <span>Your name</span>
-          <input id="homeName" data-testid="home-name" type="text" value="Player" maxlength="24" />
-        </label>
-        <button id="homeQuickBtn" data-testid="home-quick" type="button" class="primary">
-          Quick race vs bots
-        </button>
-        <button id="homeCreateBtn" data-testid="home-create" type="button">
-          Create online lobby
-        </button>
-        <div class="row">
-          <input
-            id="homeJoinCode"
-            data-testid="home-join-code"
-            type="text"
-            placeholder="Lobby code"
-            aria-label="Lobby code"
-          />
-          <button id="homeJoinBtn" data-testid="home-join" type="button">Join lobby</button>
+      <div class="home">
+        <header class="home-head">
+          <h1 class="home-title">Street Racing Prototype</h1>
+          <p class="home-tagline">Turn-based racing. Every lap is a decision.</p>
+        </header>
+
+        <div class="card home-cta">
+          <p id="homeNotice" class="notice" data-testid="home-notice" hidden></p>
+          <button
+            id="homeQuickBtn"
+            data-testid="home-quick"
+            type="button"
+            class="primary home-race"
+          >
+            Race now
+          </button>
+          <p class="home-sub">Solo against bots, no sign-up.</p>
+          <label class="field home-name">
+            <span>Racing as</span>
+            <input
+              id="homeName"
+              data-testid="home-name"
+              type="text"
+              value="Player"
+              maxlength="24"
+            />
+          </label>
+          <h2>Or race friends online</h2>
+          <button id="homeCreateBtn" data-testid="home-create" type="button">Create lobby</button>
+          <div class="row">
+            <input
+              id="homeJoinCode"
+              data-testid="home-join-code"
+              type="text"
+              placeholder="Lobby code"
+              aria-label="Lobby code"
+            />
+            <button id="homeJoinBtn" data-testid="home-join" type="button">Join with code</button>
+          </div>
         </div>
+
+        <svg
+          id="homeTrack"
+          class="home-track"
+          data-testid="home-track"
+          role="img"
+          aria-label="Three cars lapping the track, one of them stopping in the pit lane"
+          preserveAspectRatio="xMidYMid meet"
+        ></svg>
+
+        <ul class="home-pitch">
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <div>
+              <strong>Plan your stint</strong>
+              <span>Tires and fuel wear with every move, and each lane costs differently.</span>
+            </div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4h12l-3 4 3 4H6" /></svg>
+            <div>
+              <strong>Box at the right time</strong>
+              <span>Pit stops win or lose races.</span>
+            </div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="8" cy="9" r="3" />
+              <circle cx="16" cy="9" r="3" />
+              <path d="M3 20c0-3 2-5 5-5s5 2 5 5M11 20c0-3 2-5 5-5s5 2 5 5" />
+            </svg>
+            <div>
+              <strong>Race bots or friends</strong>
+              <span>Easy, Normal and Hard bots, or an online lobby you share by link.</span>
+            </div>
+          </li>
+        </ul>
+
+        <ol class="home-steps">
+          <li>Drag your car to a highlighted cell.</li>
+          <li>Watch your tires and fuel.</li>
+          <li>First across the line after N laps wins.</li>
+        </ol>
       </div>
     </section>
 

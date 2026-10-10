@@ -742,3 +742,198 @@ body[data-screen="race"] .version {
   font-size: 10px;
   color: #8fb0cc;
 }
+
+/* ---- Home page: hero, pitch, call to action ---- */
+
+body[data-screen="home"] #screen-home {
+  overflow-y: auto;
+  align-items: flex-start;
+}
+
+#screen-home .home {
+  margin: auto;
+  width: min(1040px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-areas:
+    "head  cta"
+    "track cta"
+    "pitch steps";
+  gap: 20px 32px;
+  align-items: start;
+}
+
+#screen-home .home-head {
+  grid-area: head;
+}
+
+#screen-home .home-title {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 0.02em;
+  color: #e6eef6;
+}
+
+#screen-home .home-tagline {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: #8fb0cc;
+}
+
+#screen-home .home-cta {
+  grid-area: cta;
+  width: 100%;
+}
+
+#screen-home .home-race {
+  height: 56px;
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+}
+
+#screen-home .home-sub {
+  margin: -4px 0 4px;
+  font-size: 11px;
+  color: #6b7f92;
+  text-align: center;
+}
+
+#screen-home .home-name {
+  flex-direction: row;
+  align-items: center;
+}
+
+#screen-home .home-name input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#screen-home .home-track {
+  grid-area: track;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1000 / 440;
+  background: #0d1319;
+  border: 1px solid #2a3642;
+  border-radius: 8px;
+}
+
+#screen-home .home-lane {
+  fill: none;
+  stroke-width: 11;
+  stroke-linejoin: round;
+  stroke-opacity: 0.4;
+}
+
+#screen-home .home-lane-1 {
+  stroke: #3aa0ff;
+}
+
+#screen-home .home-lane-2 {
+  stroke: #66ff99;
+}
+
+#screen-home .home-lane-3 {
+  stroke: #ffcc66;
+}
+
+#screen-home .home-lane-pit {
+  stroke: #b87cff;
+  stroke-width: 8;
+  stroke-dasharray: 10 8;
+}
+
+#screen-home .home-start {
+  stroke: #e6eef6;
+  stroke-width: 4;
+  stroke-dasharray: 5 5;
+}
+
+#screen-home .home-pitch,
+#screen-home .home-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+}
+
+#screen-home .home-pitch {
+  grid-area: pitch;
+}
+
+#screen-home .home-pitch li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+#screen-home .home-pitch svg {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #3b86c4;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#screen-home .home-pitch strong {
+  display: block;
+  color: #e6eef6;
+}
+
+#screen-home .home-pitch span {
+  color: #9fb0bf;
+}
+
+#screen-home .home-steps {
+  grid-area: steps;
+  counter-reset: step;
+  color: #9fb0bf;
+}
+
+#screen-home .home-steps li {
+  counter-increment: step;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+#screen-home .home-steps li::before {
+  content: counter(step);
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid #3b86c4;
+  color: #e6eef6;
+  text-align: center;
+  line-height: 22px;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  #screen-home .home {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "cta"
+      "track"
+      "pitch"
+      "steps";
+    gap: 16px;
+  }
+
+  #screen-home .home-title {
+    font-size: 24px;
+  }
+}
+
+#screen-home #homeJoinBtn {
+  white-space: nowrap;
+}

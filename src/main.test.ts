@@ -64,6 +64,32 @@ describe("main (solo flow)", () => {
     expect(startGame).not.toHaveBeenCalled();
   });
 
+  it("draws the home track at startup and pauses its laps while another screen is shown", async () => {
+    const pause = vi.fn();
+    const unpause = vi.fn();
+    Object.assign(SVGSVGElement.prototype, { pauseAnimations: pause, unpauseAnimations: unpause });
+    await import("./main");
+    expect(document.querySelectorAll("#homeTrack g.home-car")).toHaveLength(3);
+    expect(document.querySelector("#homeTrack #home-lane-1")).not.toBeNull();
+    expect([pause.mock.calls.length, unpause.mock.calls.length]).toEqual([0, 1]);
+
+    byId("homeQuickBtn").click(); // the solo lobby
+    expect(pause).toHaveBeenCalledTimes(1);
+    goBack("/");
+    expect(unpause).toHaveBeenCalledTimes(2);
+    delete (SVGSVGElement.prototype as Partial<SVGSVGElement>).pauseAnimations;
+    delete (SVGSVGElement.prototype as Partial<SVGSVGElement>).unpauseAnimations;
+  });
+
+  it("\"Race now\" is the main button and leads to the solo lobby", async () => {
+    await import("./main");
+    expect(byId("homeQuickBtn").textContent?.trim()).toBe("Race now");
+    expect(byId("homeQuickBtn").classList.contains("primary")).toBe(true);
+    byId("homeQuickBtn").click();
+    expect(document.body.dataset.screen).toBe("lobby");
+    expect(window.location.pathname).toBe("/solo");
+  });
+
   it("quick race -> lobby -> start creates the game with the lobby settings", async () => {
     const destroy = vi.fn();
     startGame.mockReturnValue({ destroy });
