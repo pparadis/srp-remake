@@ -5,6 +5,7 @@ import type { Car } from "../../types/car";
 import type { TrackCell } from "../../types/track";
 import type { PitModal } from "../ui/PitModal";
 import { resolvePlayerDragDrop } from "../turns/resolvePlayerDragDrop";
+import { onKeyDown } from "./onKeyDown";
 
 interface RegisterRaceSceneInputHandlersParams {
   scene: Phaser.Scene;
@@ -147,7 +148,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     drawTargets();
   });
 
-  scene.input.keyboard?.on("keydown-F", () => {
+  onKeyDown(scene, "F", () => {
     toggleForwardIndexOverlay();
   });
 
