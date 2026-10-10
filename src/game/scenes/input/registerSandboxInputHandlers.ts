@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import type { TrackCell } from "../../types/track";
+import { onKeyDown } from "./onKeyDown";
 
 interface RegisterSandboxInputHandlersParams {
   scene: Phaser.Scene;
@@ -47,7 +48,7 @@ export function registerSandboxInputHandlers(params: RegisterSandboxInputHandler
     if (typing()) (document.activeElement as HTMLElement).blur();
   });
 
-  scene.input.keyboard?.on("keydown-E", () => {
+  onKeyDown(scene, "E", () => {
     // typing an "e" in the sandbox panel is not a toggle
     if (!typing()) onToggleEditing();
   });
