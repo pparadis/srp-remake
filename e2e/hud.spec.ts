@@ -5,6 +5,7 @@ import {
   guard,
   joinByInvite,
   nextMover,
+  onCi,
   playMyTurn,
   playUntilFinished,
   quickRace,
@@ -150,6 +151,7 @@ test("results overlay shows the winner and the final standings", async ({ page }
 });
 
 test("race screen with the HUD looks right", async ({ page }) => {
+  test.skip(!onCi, "pixel baselines are checked on CI only");
   // chromium on a fixed viewport only; baselines are not shared across OSes
   await quickRace(page, { bots: 0, laps: 1 });
   await page.evaluate(() => window.__srp!.freezeAnimations());
