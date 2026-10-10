@@ -72,6 +72,11 @@ declare global {
         hits: number;
         draggableCarIds: number[];
         activeCarId: number;
+        /**
+         * Where Phaser thinks the canvas is vs where the browser draws it: a gap offsets every pointer hit. Phaser
+         * re-checks this every 500 ms, so a gap that lasts points at something else holding the bounds.
+         */
+        canvas: { phaser: number[]; dom: number[] };
       };
       /** Stops the looping halo pulse so screenshots are deterministic. */
       freezeAnimations: () => void;
@@ -339,13 +344,19 @@ export class RaceScene extends Phaser.Scene {
         cellScreenPos: (cellId) => this.cellScreenPos(cellId),
         pointerProbe: () => {
           const hits = this.input.hitTestPointer(this.input.activePointer);
+          const bounds = this.scale.canvasBounds;
+          const dom = this.game.canvas.getBoundingClientRect();
           const carIdOf = (obj: Phaser.GameObjects.GameObject) =>
             [...this.carTokens].find(([, token]) => token === obj)?.[0] ?? null;
           return {
             topCarId: hits[0] ? carIdOf(hits[0]) : null,
             hits: hits.length,
             draggableCarIds: [...this.carTokens].filter(([, token]) => token.input?.draggable).map(([id]) => id),
-            activeCarId: this.activeCar.carId
+            activeCarId: this.activeCar.carId,
+            canvas: {
+              phaser: [bounds.x, bounds.y, bounds.width, bounds.height].map(Math.round),
+              dom: [dom.x, dom.y, dom.width, dom.height].map(Math.round)
+            }
           };
         },
         tokenScreenPos: (carId) => {
