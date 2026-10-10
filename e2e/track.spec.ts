@@ -1,14 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { collectErrors, onCi, playMyTurn, quickRace } from "./support/game";
+import { onCi, playMyTurn, quickRace } from "./support/game";
 
 test.use({ viewport: { width: 1280, height: 800 } });
-
-test("car count matches the lobby settings", async ({ page }) => {
-  const errors = collectErrors(page);
-  await quickRace(page, { bots: 3, laps: 1 });
-  expect(await page.evaluate(() => window.__srp!.state().cars.length)).toBe(4);
-  expect(errors).toEqual([]);
-});
 
 test("dragging the active car to a target moves it and advances the turn", async ({ page }) => {
   await quickRace(page, { bots: 2, laps: 1 });

@@ -139,8 +139,42 @@ function makeLobby(lobbyId: string) {
   };
 }
 
+// A race in progress between the two players of makeLobby: seat 0 is the host's car 1, seat 1 the guest's car 2.
+function makeRaceLobby(lobbyId: string, activeSeatIndex: number, over: { turnRemainingMs?: number } = {}) {
+  const lobby = makeLobby(lobbyId);
+  return {
+    ...lobby,
+    status: "IN_RACE" as "IN_RACE" | "FINISHED",
+    revision: 3,
+    raceState: {
+      trackId: "oval16_3lanes",
+      raceLaps: 5,
+      turnIndex: 0,
+      activeSeatIndex,
+      winnerCarId: null,
+      seed: 0,
+      cars: lobby.players.map((player) => ({ carId: player.seatIndex + 1, seatIndex: player.seatIndex, playerId: player.playerId, name: player.name })),
+      ...over
+    }
+  };
+}
+
+// Each test imports a fresh main.ts, which adds its own window listeners: drop them after the test, or a
+// back navigation would also reach the pages of earlier tests.
+const added: Array<[string, Parameters<typeof window.removeEventListener>[1]]> = [];
+const realAdd = window.addEventListener.bind(window);
+
 describe("main multiplayer screens", () => {
+  afterEach(() => {
+    for (const [type, listener] of added.splice(0)) window.removeEventListener(type, listener);
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
+    vi.spyOn(window, "addEventListener").mockImplementation((type, listener, options) => {
+      if (listener) added.push([type, listener]);
+      realAdd(type, listener, options);
+    });
     vi.resetModules();
     startGame.mockReset();
     createLobbyMock.mockReset();
@@ -356,6 +390,126 @@ describe("main multiplayer screens", () => {
       expect(byId<HTMLSelectElement>("lobbyTurnTimer").value).toBe("60");
       expect(byId<HTMLSelectElement>("lobbyTurnTimer").disabled).toBe(false);
       expect(byId("lobbyTurnTimerField").hidden).toBe(false);
+    });
+  });
+
+  describe("in the lobby and the race", () => {
+    const socket = () => FakeWebSocket.instances.at(-1)!;
+    const send = (event: string, payload: unknown) => socket().emit("message", { data: JSON.stringify({ event, payload }) });
+    const tid = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
+
+    async function enter(as: "host" | "guest", lobby: { lobbyId: string }) {
+      const playerId = `${as}-player-id`;
+      joinLobbyMock.mockResolvedValue({ lobby, playerId, playerToken: `${as}-token`, isReconnect: false });
+      readLobbyMock.mockResolvedValue({ lobby, playerId });
+      window.history.replaceState({}, "", `/lobby/${lobby.lobbyId}`);
+      await import("./main");
+      await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("a guest sees the host's settings as they change, and cannot edit them", async () => {
+      await enter("guest", makeLobby("settings"));
+      const lobby = makeLobby("settings");
+      lobby.settings = { ...lobby.settings, raceLaps: 3 };
+      send("lobby.state", lobby);
+      expect(byId<HTMLInputElement>("lobbyLaps").value).toBe("3");
+      expect(byId("lobbyBotLevelField").hidden).toBe(true);
+
+      lobby.settings = { ...lobby.settings, totalCars: 3, botCars: 1, botLevel: "hard" };
+      send("lobby.state", lobby);
+      expect(byId("lobbyBotLevelField").hidden).toBe(false);
+      expect(byId<HTMLSelectElement>("lobbyBotLevel").value).toBe("hard");
+      expect(byId<HTMLSelectElement>("lobbyBotLevel").disabled).toBe(true);
+      expect(byId<HTMLButtonElement>("lobbyPlayAgainBtn").hidden).toBe(true);
+    });
+
+    it("the race start takes both pages to the race screen", async () => {
+      await enter("guest", makeLobby("start"));
+      expect(document.body.dataset.screen).toBe("lobby");
+      send("race.started", makeRaceLobby("start", 0));
+      expect(window.location.pathname).toBe("/lobby/start/race");
+      expect(document.body.dataset.screen).toBe("race");
+      await vi.waitFor(() => expect(startGame).toHaveBeenCalledWith(byId("app"), expect.objectContaining({ totalCars: 2, humanCars: 2 })));
+    });
+
+    it("shows everyone the turn countdown, and warns in the last 10 s", async () => {
+      vi.useFakeTimers();
+      await enter("guest", makeRaceLobby("timer", 0, { turnRemainingMs: 42_000 }));
+      expect(document.body.dataset.screen).toBe("race");
+      await vi.advanceTimersByTimeAsync(250); // the countdown ticks every 250 ms
+      expect(tid("hud-timer").hidden).toBe(false);
+      expect(tid("hud-timer").textContent).toBe("Auto-play in 0:42");
+      expect(tid("hud-timer").classList.contains("is-warn")).toBe(false);
+      await vi.advanceTimersByTimeAsync(35_000);
+      expect(tid("hud-timer").textContent).toBe("Auto-play in 0:07");
+      expect(tid("hud-timer").classList.contains("is-warn")).toBe(true);
+      // the guest is not the host: no skip button, not even on the host's turn
+      expect(tid("hud-force-skip").hidden).toBe(true);
+      // a lobby without a timer has no countdown
+      send("race.state", makeRaceLobby("timer", 1));
+      expect(tid("hud-timer").hidden).toBe(true);
+    });
+
+    it("lets the host skip a stuck guest, and only while it is the guest's turn", async () => {
+      await enter("host", makeRaceLobby("skip", 1, { turnRemainingMs: 60_000 }));
+      forceSkipMock.mockResolvedValue({ ok: true });
+      const skip = tid("hud-force-skip");
+      await vi.waitFor(() => expect(skip.hidden).toBe(false));
+      skip.click();
+      await vi.waitFor(() => expect(forceSkipMock).toHaveBeenCalledWith("skip", "host-token", 3));
+
+      send("race.state", makeRaceLobby("skip", 0, { turnRemainingMs: 60_000 }));
+      expect(skip.hidden).toBe(true); // the host's own turn
+    });
+
+    it("warns a guest when the host closes their page, then sends them home once the lobby closes", async () => {
+      await enter("guest", makeRaceLobby("gone", 0));
+      expect(document.body.dataset.screen).toBe("race");
+      const away = makeRaceLobby("gone", 0);
+      away.players[0]!.connected = false;
+      send("lobby.state", away);
+      expect(byId("connectionBanner").textContent).toMatch(/host disconnected/i);
+      expect(document.body.dataset.screen).toBe("race");
+
+      send("lobby.state", { ...away, status: "FINISHED", terminationReason: "host_disconnected" });
+      expect(document.body.dataset.screen).toBe("home");
+      expect(window.location.pathname).toBe("/");
+      expect(byId("homeNotice").textContent).toMatch(/host disconnected/i);
+      expect(window.sessionStorage.getItem("srp:session:gone")).toBeNull();
+    });
+
+    it("sends a guest home when the server closes the socket because the host is gone", async () => {
+      await enter("guest", makeRaceLobby("closed", 0));
+      socket().close(4001, "host_disconnected");
+      expect(document.body.dataset.screen).toBe("home");
+      expect(byId("homeNotice").textContent).toMatch(/host disconnected/i);
+    });
+
+    it("the host copies the invite link", async () => {
+      const writeText = vi.fn(() => Promise.resolve());
+      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+      createLobbyMock.mockResolvedValue({ lobby: makeLobby("copy"), playerId: "host-player-id", playerToken: "host-token" });
+      await import("./main");
+      byId("homeCreateBtn").click();
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe("lobby"));
+      byId("lobbyCopyBtn").click();
+      expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/lobby/copy`);
+    });
+
+    it("back from the host's lobby goes home and leaves the lobby", async () => {
+      createLobbyMock.mockResolvedValue({ lobby: makeLobby("back"), playerId: "host-player-id", playerToken: "host-token" });
+      await import("./main");
+      byId("homeCreateBtn").click();
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe("lobby"));
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      expect(document.body.dataset.screen).toBe("home");
+      expect(FakeWebSocket.instances[0]!.readyState).toBe(3);
+      expect(window.sessionStorage.getItem("srp:session:back")).toBeNull();
     });
   });
 });
