@@ -7,6 +7,9 @@ import type { PitModal } from "../ui/PitModal";
 import { resolvePlayerDragDrop } from "../turns/resolvePlayerDragDrop";
 import { onKeyDown } from "./onKeyDown";
 
+/** How far a pointer may travel between press and release and still count as a tap, in screen pixels. */
+const TAP_SLOP_PX = 10;
+
 interface RegisterRaceSceneInputHandlersParams {
   scene: Phaser.Scene;
   isRaceFinished: () => boolean;
@@ -23,6 +26,8 @@ interface RegisterRaceSceneInputHandlersParams {
   drawTargets: () => void;
   setHoverCell: (cell: TrackCell | null) => void;
   copyCellId: (cellId: string) => void;
+  /** A press and release on the board without a drag, in world coordinates. */
+  onTap?: (x: number, y: number) => void;
   toggleForwardIndexOverlay: () => void;
   openPitModal: (cell: TrackCell, origin: { x: number; y: number }) => void;
   onMove: (targetCellId: string) => void;
@@ -51,6 +56,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     drawTargets,
     setHoverCell,
     copyCellId,
+    onTap,
     toggleForwardIndexOverlay,
     openPitModal,
     onMove,
@@ -146,6 +152,13 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     copyCellId(cell.id);
     recomputeTargets();
     drawTargets();
+  });
+
+  // A tap (no drag between press and release) picks a target to confirm: the way to move on a touchscreen.
+  scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+    if (!onTap || pointer.getDistance() > TAP_SLOP_PX) return;
+    if (isSuspended?.() || isRaceFinished() || pitModal.isActive()) return;
+    onTap(pointer.worldX, pointer.worldY);
   });
 
   onKeyDown(scene, "F", () => {

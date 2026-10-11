@@ -214,6 +214,37 @@ describe("hud", () => {
     expect(text(root, "hud-banner")).toBe("Pit exit blocked - squeeze out (+2 points per car)");
   });
 
+  it("a picked target shows its card beside the cell; Move here and Cancel ask the scene", () => {
+    const card = () => root.querySelector<HTMLElement>('[data-testid="hud-select"]')!;
+    renderHud(root, snap());
+    expect(card().hidden).toBe(true);
+
+    const pick = { x: 700, y: 100, distance: 6, moveSpend: 6, tireCost: 4, fuelCost: 3, isPit: false, tireBefore: 80, fuelBefore: 90 };
+    vi.stubGlobal("innerWidth", 1000);
+    vi.stubGlobal("innerHeight", 400);
+    renderHud(root, snap({ selection: pick }));
+    expect(card().hidden).toBe(false);
+    expect(text(root, "hud-select-info")).toBe("Move 6 - tire 80% → 76% - fuel 90% → 87%");
+    expect(text(root, "hud-select-confirm")).toBe("Move here");
+    // near the right edge and the top: the card opens to the left and below the cell
+    expect(card().classList.contains("is-left")).toBe(true);
+    expect(card().classList.contains("is-below")).toBe(true);
+
+    const commands: string[] = [];
+    const listener = (event: Event) => commands.push((event as CustomEvent<{ type: string }>).detail.type);
+    window.addEventListener("srp:hud-command", listener);
+    root.querySelector<HTMLButtonElement>('[data-testid="hud-select-confirm"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-testid="hud-select-cancel"]')!.click();
+    window.removeEventListener("srp:hud-command", listener);
+    expect(commands).toEqual(["confirm-move", "cancel-move"]);
+
+    renderHud(root, snap({ selection: { ...pick, x: 100, y: 300, isPit: true } }));
+    expect(text(root, "hud-select-confirm")).toBe("Pit here");
+    expect(card().classList.contains("is-left")).toBe(false);
+    expect(card().classList.contains("is-below")).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
   it("the Standings button opens and closes the drawer of the compact layout", () => {
     const toggle = root.querySelector<HTMLButtonElement>('[data-testid="hud-drawer-toggle"]')!;
     toggle.click();

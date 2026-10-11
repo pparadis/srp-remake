@@ -447,3 +447,85 @@ describe("RaceSession: sandbox", () => {
     expect(session.logLines.at(-1)).toBe("Sandbox: playing from here.");
   });
 });
+
+describe("RaceSession: tap to move", () => {
+  const firstTarget = (session: RaceSession, pit = false) =>
+    [...session.validTargets].find(([, t]) => t.isPitTrigger === pit)!;
+
+  it("a picked target shows its card with the same numbers as the hover tooltip, and replaces the tooltip", () => {
+    const session = solo();
+    session.recomputeTargets();
+    const [cellId] = firstTarget(session);
+    const hoverCell = session.cellMap.get(cellId)!;
+    const hover = hud(session, { hoverCell }).hover;
+
+    expect(session.selectTarget(cellId)).toBe(true);
+    const snap = hud(session, { hoverCell });
+    expect(snap.selection).toEqual(hover);
+    expect(snap.hover).toBeNull();
+    expect(session.selectedTarget()?.cellId).toBe(cellId);
+    expect(hud(session, { showCarsAndMoves: false }).selection).toBeNull();
+  });
+
+  it("a pit-box target is flagged, so the card offers a pit stop", () => {
+    const session = solo();
+    const car = session.activeCar;
+    car.cellId = "Z01_L0_00"; // PIT_LINE: the boxes are offered next
+    session.recomputeTargets();
+    const [cellId] = firstTarget(session, true);
+    session.selectTarget(cellId);
+    expect(hud(session).selection?.isPit).toBe(true);
+  });
+
+  it("only one of the player's own targets can be picked, and Cancel drops it", () => {
+    const session = solo();
+    session.recomputeTargets();
+    expect(session.selectTarget(session.activeCar.cellId)).toBe(false); // not a target
+    expect(hud(session).selection).toBeNull();
+    const [cellId] = firstTarget(session);
+    session.selectTarget(cellId);
+    session.clearSelection();
+    expect(session.selectedTarget()).toBeNull();
+    expect(hud(session).selection).toBeNull();
+  });
+
+  it("the pick goes away when the turn is played, and does not come back on a later turn", () => {
+    const session = solo();
+    session.recomputeTargets();
+    const [cellId] = firstTarget(session);
+    session.selectTarget(cellId);
+    playMyTurn(session);
+    expect(session.selectedTarget()).toBeNull();
+    expect(hud(session).selection).toBeNull();
+  });
+
+  it("online: nothing can be picked on the other player's turn, and the pick goes while the server answers", () => {
+    vi.useFakeTimers();
+    const guest = online("guest").session;
+    guest.recomputeTargets();
+    expect(guest.selectTarget("Z02_L1_00")).toBe(false);
+
+    const { session: host, server } = online("host");
+    host.recomputeTargets();
+    const [cellId] = firstTarget(host);
+    host.selectTarget(cellId);
+    host.applyLocal({ type: "move", targetCellId: cellId });
+    expect(host.selectedTarget()).toBeNull();
+
+    vi.advanceTimersByTime(SERVER_WAIT_MS); // no answer: the input unlocks again
+    host.releaseServerWait();
+    host.recomputeTargets();
+    const [again] = firstTarget(host);
+    host.selectTarget(again);
+    host.applyServerState(lobbyOf(server.race), "host");
+    expect(host.selectedTarget()).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("the sandbox editor never picks: dragging is how cars move there", () => {
+    const session = solo({ sandbox: true });
+    session.recomputeTargets();
+    const [cellId] = firstTarget(session);
+    expect(session.selectTarget(cellId)).toBe(false);
+  });
+});

@@ -528,6 +528,65 @@ body[data-screen="race"] .version {
   white-space: nowrap;
 }
 
+/* Tap to move: the picked target's card, beside the cell (is-left / is-below pick the side with room). */
+#hud .hud-select {
+  position: fixed;
+  transform: translate(18px, calc(-100% - 12px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(11, 15, 20, 0.96);
+  border: 1px solid #ffe066;
+  white-space: nowrap;
+  pointer-events: auto;
+  z-index: 6;
+}
+
+#hud .hud-select[hidden] {
+  display: none;
+}
+
+#hud .hud-select.is-left {
+  transform: translate(calc(-100% - 18px), calc(-100% - 12px));
+}
+
+#hud .hud-select.is-below {
+  transform: translate(18px, 12px);
+}
+
+#hud .hud-select.is-left.is-below {
+  transform: translate(calc(-100% - 18px), 12px);
+}
+
+.hud-select-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hud-select-actions button {
+  flex: 1 1 0;
+  min-height: 36px;
+  padding: 6px 14px;
+  font: inherit;
+  font-weight: bold;
+}
+
+.hud-select-confirm {
+  background: #1d4f7a;
+  color: #fff;
+  border: 1px solid #4ea3e0;
+  border-radius: 6px;
+}
+
+.hud-select-cancel {
+  background: #111821;
+  color: #c7d1db;
+  border: 1px solid #2a3642;
+  border-radius: 6px;
+}
+
 .hud-debug {
   position: absolute;
   left: 10px;

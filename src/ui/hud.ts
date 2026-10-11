@@ -35,7 +35,7 @@ export interface HudCar {
   advice: PitAdvice;
 }
 
-interface HudHover {
+export interface HudHover {
   /** Page coordinates of the target cell. */
   x: number;
   y: number;
@@ -67,6 +67,8 @@ export interface HudSnapshot {
   /** All cars in standings order. */
   cars: HudCar[];
   hover: HudHover | null;
+  /** Tap to move: the target the local player picked, with Move here / Cancel. */
+  selection?: HudHover | null;
   /** The active car is boxed in: only squeeze targets exist. */
   boxedIn?: boolean;
   /** With boxedIn: the car is stuck at the pit exit (squeezes out onto lane 1). */
@@ -117,6 +119,13 @@ const TEMPLATE = `
 </div>
 <div class="hud-toast" data-testid="hud-toast" role="status" hidden></div>
 <div class="hud-tooltip" data-testid="hud-tooltip" hidden></div>
+<div class="hud-select" data-testid="hud-select" hidden>
+  <div class="hud-select-info" data-testid="hud-select-info"></div>
+  <div class="hud-select-actions">
+    <button type="button" class="hud-select-confirm" data-testid="hud-select-confirm">Move here</button>
+    <button type="button" class="hud-select-cancel" data-testid="hud-select-cancel">Cancel</button>
+  </div>
+</div>
 <pre class="hud-debug" data-testid="hud-debug" hidden></pre>
 <div class="hud-rotate" data-testid="hud-rotate">Turn your phone sideways to race</div>
 `;
@@ -129,6 +138,16 @@ export function mountHud(root: HTMLElement) {
     const open = root.classList.toggle("is-drawer-open");
     toggle.setAttribute("aria-expanded", String(open));
   });
+  // Tap to move: the picked target's card asks the scene to play it, or to drop the pick.
+  const command = (type: HudCommand["type"]) => () =>
+    window.dispatchEvent(new CustomEvent<HudCommand>("srp:hud-command", { detail: { type } }));
+  q(root, "hud-select-confirm").addEventListener("click", command("confirm-move"));
+  q(root, "hud-select-cancel").addEventListener("click", command("cancel-move"));
+}
+
+/** What the HUD asks the race scene to do (`srp:hud-command` on window). */
+export interface HudCommand {
+  type: "confirm-move" | "cancel-move";
 }
 
 const q = (root: Element, id: string) => root.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
@@ -191,6 +210,21 @@ function renderTooltip(tip: HTMLElement, h: HudHover) {
     }
   }
   tip.replaceChildren(...nodes);
+}
+
+/**
+ * The card of a picked target: the move, then Move here / Pit here and Cancel. It sits beside the cell, on the side
+ * with room, so it stays on screen and off the cell itself.
+ */
+function renderSelection(card: HTMLElement, sel: HudHover | null) {
+  card.hidden = !sel;
+  if (!sel) return;
+  renderTooltip(q(card, "hud-select-info"), sel);
+  q(card, "hud-select-confirm").textContent = sel.isPit ? "Pit here" : "Move here";
+  card.style.left = `${sel.x}px`;
+  card.style.top = `${sel.y}px`;
+  card.classList.toggle("is-left", sel.x > window.innerWidth * 0.55);
+  card.classList.toggle("is-below", sel.y < window.innerHeight * 0.45);
 }
 
 export function renderMute(root: Element, muted: boolean) {
@@ -350,6 +384,7 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     tip.style.left = `${h.x}px`;
     tip.style.top = `${h.y}px`;
   }
+  renderSelection(q(root, "hud-select"), s.selection ?? null);
   const dbg = q(root, "hud-debug");
   dbg.hidden = s.debugText === null;
   dbg.textContent = s.debugText ?? "";
