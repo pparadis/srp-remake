@@ -67,7 +67,9 @@ Project guide for Codex and other automation.
   sends it). Add HUD data to the snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
 - Phones (issue #49): the page is sized with `100dvh` (`body` in `style.css`; `100vh` is only the fallback): on iOS
   Safari `100vh` is the screen without the browser bars, and `overflow: hidden` would cut off the bottom of the race
-  screen while they show. The race screen is landscape-only (portrait shows `hud-rotate`). Under `(max-height: 500px)`
+  screen while they show. Phaser can stay at the old size after a phone rotation (its `orientationchange` handler eats
+  the size change), so `keepGameSizeInSync` (`src/game/gameSize.ts`) re-applies the container's size to the game. The
+  race screen is landscape-only (portrait shows `hud-rotate`). Under `(max-height: 500px)`
   (`COMPACT_HUD_QUERY` in `src/ui/layout.ts`, same query in `style.css`) the car card is a top bar, standings and the
   feed sit in a drawer (`hud-drawer-toggle`) and the canvas hides its debug buttons. Each HUD panel says where it takes
   room from the track with the `--hud-dock` CSS property; `RaceScene.centerTrack()` fits the track to what is left

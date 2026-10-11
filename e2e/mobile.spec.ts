@@ -88,11 +88,23 @@ test("phone with the browser bars showing (a short screen): the whole track stay
   expect(app.y + app.height).toBeLessThanOrEqual(height);
 });
 
-test("phone held upright: the race asks to turn it, and carries on once it is turned", async ({ page }) => {
+test("phone held upright: the race asks to turn it, carries on once it is turned, and the track fits the new size", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await quickRace(page, { bots: 1, laps: 1 });
   await expect(tid(page, "hud-rotate")).toBeVisible();
   await page.setViewportSize({ width: 844, height: 390 });
   await expect(tid(page, "hud-rotate")).toBeHidden();
   await expect(tid(page, "hud-banner")).toHaveText("Your turn - drag your car");
+  // Phaser used to stay at the portrait size after the rotation (390x844 in an 844x390 window), so the track was laid out
+  // for a tall screen: cut off at the bottom with an empty band above. It must fit like a race started in landscape.
+  await expect.poll(() => page.evaluate(() => document.querySelector("canvas")!.getBoundingClientRect().height)).toBe(390);
+  const canvas = await page.evaluate(() => {
+    const r = document.querySelector("canvas")!.getBoundingClientRect();
+    return [Math.round(r.width), Math.round(r.height)];
+  });
+  expect(canvas).toEqual([844, 390]);
+  // the camera follows on the next frame (the e2e build runs at 10 fps)
+  await expect.poll(async () => (await trackBox(page)).b).toBeLessThan(390);
+  const track = await trackBox(page);
+  expect(track.t, JSON.stringify(track)).toBeGreaterThanOrEqual(0);
 });
