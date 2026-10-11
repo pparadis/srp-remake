@@ -72,7 +72,9 @@ Project guide for Codex and other automation.
   (`hudGutters`). Tap to move: a tap on the board (no drag) picks the nearest target in reach
   (`RaceSession.selectTarget`, cleared on every turn change); the HUD card's Move here / Cancel send
   `srp:hud-command`, and Move here goes through the same path as a drop (`resolvePlayerDragDrop`). Drag still works.
-  Copying a cell id on press only happens with the F overlay on. `e2e/mobile.spec.ts` covers it.
+  Copying a cell id on press only happens with the F overlay on. `e2e/mobile.spec.ts` covers it. Add to Home Screen:
+  `public/manifest.webmanifest` (fullscreen, landscape, relative URLs so the Pages base works) and the iOS tags in
+  `index.html`; icons in `public/icons/` are rendered from `icon.svg` by `npm run gen:icons`. No service worker.
 - Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
   `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
 - Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` through
@@ -165,7 +167,7 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 
 ## Common Tasks
 
-1. Regenerate track: `npm run gen:track`
+1. Regenerate track: `npm run gen:track`; app icons from `public/icons/icon.svg`: `npm run gen:icons`
 2. Validate track: `npm run validate:track`
 3. Run tests: `npm test` (frontend), `npm run backend:test` (backend)
 4. Multiplayer: run the backend next to the dev server (`npm --prefix backend run dev`); check it with
