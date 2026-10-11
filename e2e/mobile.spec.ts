@@ -34,6 +34,13 @@ test("phone in landscape: the HUD is a top bar, the track gets the width, standi
   }
   await expect(tid(page, "hud-rotate")).toBeHidden();
 
+  // The version sits under the track, above the canvas Skip button (bottom centre, its bottom 10 px up, ~29 px tall).
+  const version = (await tid(page, "version").boundingBox())!;
+  expect(version.y, `${JSON.stringify(version)} vs track ${JSON.stringify(track)}`).toBeGreaterThan(track.b);
+  expect(version.y + version.height, JSON.stringify(version)).toBeLessThanOrEqual(viewport.height - 39);
+  expect(version.x).toBeGreaterThanOrEqual(0);
+  expect(version.x + version.width).toBeLessThanOrEqual(viewport.width);
+
   await expect(tid(page, "hud-standings")).toBeHidden();
   await tid(page, "hud-drawer-toggle").tap();
   await expect(tid(page, "hud-standings")).toBeVisible();
