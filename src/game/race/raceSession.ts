@@ -33,7 +33,7 @@ import {
   type BotDecisionLogEntry
 } from "../scenes/debug/botDecisionDebug";
 import { buildGameDebugSnapshot } from "../scenes/debug/gameDebugSnapshot";
-import type { HudCar, HudSnapshot } from "../../ui/hud";
+import type { HudCar, HudHover, HudSnapshot } from "../../ui/hud";
 import type { SandboxSnapshot } from "../../ui/sandboxPanel";
 import type { PitStints } from "../scenes/ui/PitModal";
 import type { AppliedTurnSummary, PublicLobby, TurnSource } from "../../net/backendApi";
@@ -86,6 +86,8 @@ export class RaceSession {
   // Rules and race state live in the engine; the session only drives it.
   race: RaceState = { cars: [], turn: { order: [], index: 0 }, raceLaps: 5, winnerCarId: null, seed: 0 };
   validTargets: Map<string, TargetInfo> = new Map();
+  /** Tap to move: the target cell the local player picked and has not confirmed yet. */
+  private selectedCellId: string | null = null;
   editing: boolean;
   readonly logLines: string[] = [];
   readonly botDecisionLog: BotDecisionLogEntry[] = [];
@@ -221,6 +223,7 @@ export class RaceSession {
    * the server, whose race.state redraws the board, and input waits for that answer (see `awaitServer`).
    */
   applyLocal(action: RaceAction): boolean {
+    this.selectedCellId = null;
     if (this.online) {
       this.awaitServer();
       return true;
@@ -257,6 +260,7 @@ export class RaceSession {
       if (!this.playBotTurn()) break;
       steps += 1;
     }
+    if (steps > 0) this.selectedCellId = null;
     return steps;
   }
 
@@ -333,6 +337,7 @@ export class RaceSession {
     const raceState = lobby.raceState;
     if (!raceState || (lobby.status !== "IN_RACE" && lobby.status !== "FINISHED")) return { respawned, applied: false };
 
+    this.selectedCellId = null;
     const wasFinished = this.finished;
     this.race = toEngineRace(raceState);
     if (!this.feelSeededOnline) {
@@ -418,6 +423,50 @@ export class RaceSession {
     return buildPlanContext(this.ctx.trackIndex, this.raceLaps);
   }
 
+  /** What the HUD shows for one target: the move and the tire and fuel it leaves (hover tooltip, tap card). */
+  private targetHud(cell: TrackCell, target: TargetInfo, pos: { x: number; y: number } | null): HudHover | null {
+    if (!pos) return null;
+    return {
+      ...pos,
+      distance: target.distance,
+      moveSpend: this.moveSpendOf(target, cell.laneIndex),
+      tireCost: target.tireCost,
+      fuelCost: target.fuelCost,
+      isPit: target.isPitTrigger,
+      ...(target.squeezePassed ? { squeezePassed: target.squeezePassed } : {}),
+      ...(target.laneChanges ? { laneChanges: target.laneChanges } : {}),
+      tireBefore: this.activeCar.tire,
+      fuelBefore: this.activeCar.fuel
+    };
+  }
+
+  // ---- tap to move ---------------------------------------------------------------------------------------------
+
+  /** Picks one of the active car's targets to confirm later. False (and nothing picked) when the player may not. */
+  selectTarget(cellId: string): boolean {
+    if (this.editing || !this.localCanControl() || !this.validTargets.has(cellId)) {
+      this.selectedCellId = null;
+      return false;
+    }
+    this.selectedCellId = cellId;
+    return true;
+  }
+
+  clearSelection() {
+    this.selectedCellId = null;
+  }
+
+  /** The picked target while it is still one the local player may play; a stale pick is dropped. */
+  selectedTarget(): { cellId: string; info: TargetInfo } | null {
+    const cellId = this.selectedCellId;
+    const info = cellId ? this.validTargets.get(cellId) : undefined;
+    if (!cellId || !info || this.editing || !this.localCanControl()) {
+      this.selectedCellId = null;
+      return null;
+    }
+    return { cellId, info };
+  }
+
   private hudCar(car: Car): HudCar {
     const index = this.cars.indexOf(car);
     const solo = !this.online;
@@ -455,8 +504,14 @@ export class RaceSession {
       turnIndex: this.race.turn.index
     });
     const { hoverCell } = view;
-    const target = hoverCell ? this.validTargets.get(hoverCell.id) : undefined;
-    const pos = hoverCell && target && view.showCarsAndMoves ? view.cellScreenPos(hoverCell.id) : null;
+    const selected = this.selectedTarget();
+    const selectedCell = selected ? this.cellMap.get(selected.cellId) : undefined;
+    const selection =
+      selected && selectedCell && view.showCarsAndMoves
+        ? this.targetHud(selectedCell, selected.info, view.cellScreenPos(selectedCell.id))
+        : null;
+    // while a target is picked, its card replaces the hover tooltip (on a phone the last tap would hover it too)
+    const target = hoverCell && !selection ? this.validTargets.get(hoverCell.id) : undefined;
     return {
       raceLaps: this.raceLaps,
       spineLen: this.ctx.trackIndex.spineLen,
@@ -470,20 +525,10 @@ export class RaceSession {
       boxedIn: [...this.validTargets.values()].some((t) => t.squeezePassed !== undefined),
       pitExitBlocked: this.cellMap.get(this.activeCar.cellId)?.tags?.includes("PIT_EXIT") ?? false,
       hover:
-        pos && target && hoverCell
-          ? {
-              ...pos,
-              distance: target.distance,
-              moveSpend: this.moveSpendOf(target, hoverCell.laneIndex),
-              tireCost: target.tireCost,
-              fuelCost: target.fuelCost,
-              isPit: target.isPitTrigger,
-              ...(target.squeezePassed ? { squeezePassed: target.squeezePassed } : {}),
-              ...(target.laneChanges ? { laneChanges: target.laneChanges } : {}),
-              tireBefore: this.activeCar.tire,
-              fuelBefore: this.activeCar.fuel
-            }
+        hoverCell && target && view.showCarsAndMoves
+          ? this.targetHud(hoverCell, target, view.cellScreenPos(hoverCell.id))
           : null,
+      selection,
       debugText: view.showForwardIndex ? this.makeHudText(hoverCell) : null,
       log: [...this.logLines]
     };
@@ -598,6 +643,7 @@ export class RaceSession {
 
   setEditing(editing: boolean) {
     this.editing = editing;
+    this.selectedCellId = null;
     this.addLog(editing ? "Sandbox: editing." : "Sandbox: playing from here.");
     this.resetFeel();
   }

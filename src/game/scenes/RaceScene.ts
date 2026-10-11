@@ -31,6 +31,9 @@ import { spriteRotation } from "./rendering/heading";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
 import { registerSandboxInputHandlers } from "./input/registerSandboxInputHandlers";
 import { hudGutters, isCompactHud } from "../../ui/layout";
+import type { HudCommand } from "../../ui/hud";
+import { validateMoveAttempt } from "../systems/moveValidationSystem";
+import { resolvePlayerDragDrop } from "./turns/resolvePlayerDragDrop";
 import type { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
 import type { AppliedTurnSummary, BackendTurnAction, PublicLobby, TurnSource } from "../../net/backendApi";
 
@@ -79,7 +82,9 @@ export class RaceScene extends Phaser.Scene {
     bottomButtonYPad: 10
   };
   private static readonly HUD = {
-    hoverMaxDist: 18
+    hoverMaxDist: 18,
+    // tap to move: a fingertip's reach in world units (cells are 24 apart; the nearest target in reach wins)
+    tapMaxDist: 22
   };
   private track!: TrackData;
   private cellMap!: CellMap;
@@ -129,6 +134,15 @@ export class RaceScene extends Phaser.Scene {
     this.showCarsAndMoves = !this.showCarsAndMoves;
     this.updateExternalToggleLabel();
     this.applyCarsAndMovesVisibility();
+  };
+  private readonly onHudCommand = (event: Event) => {
+    const type = (event as CustomEvent<HudCommand>).detail?.type;
+    if (type === "confirm-move") this.confirmSelectedTarget();
+    else if (type === "cancel-move") {
+      this.session.clearSelection();
+      this.drawTargets();
+      this.emitHud();
+    }
   };
   private readonly onSandboxCommand = (event: Event) =>
     this.runSandboxCommand((event as CustomEvent<SandboxCommand>).detail);
@@ -222,6 +236,7 @@ export class RaceScene extends Phaser.Scene {
     // reacting to lobby events (the next online race would hit its destroyed sprites).
     const removeWindowListeners = () => {
       window.removeEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
+      window.removeEventListener("srp:hud-command", this.onHudCommand);
       window.removeEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
       window.removeEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
       window.removeEventListener("srp:sandbox-command", this.onSandboxCommand);
@@ -229,6 +244,7 @@ export class RaceScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, removeWindowListeners);
     this.events.once(Phaser.Scenes.Events.DESTROY, removeWindowListeners);
     window.addEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
+    window.addEventListener("srp:hud-command", this.onHudCommand);
     window.addEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
     window.addEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
     if (this.sandbox) window.addEventListener("srp:sandbox-command", this.onSandboxCommand);
@@ -251,8 +267,10 @@ export class RaceScene extends Phaser.Scene {
       drawTargets: () => this.drawTargets(),
       setHoverCell: (cell) => this.setHoverCell(cell),
       copyCellId: (cellId) => {
-        void this.copyCellId(cellId);
+        // a developer aid: with the F overlay on (on a phone every tap would copy and log otherwise)
+        if (this.showForwardIndex) void this.copyCellId(cellId);
       },
+      onTap: (x, y) => this.tapBoard(x, y),
       toggleForwardIndexOverlay: () => this.toggleForwardIndexOverlay(),
       openPitModal: (cell, origin) => this.openPitModal(cell, origin),
       onMove: (targetCellId) => {
@@ -401,7 +419,9 @@ export class RaceScene extends Phaser.Scene {
 
     const token = this.add.container(cell.pos.x, cell.pos.y, [body, badge, label]);
     token.setDepth(50);
-    token.setSize(28, 18);
+    // a finger needs a bigger target than the sprite; the drawing stays the same
+    const coarse = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    token.setSize(coarse ? 40 : 28, coarse ? 30 : 18);
     token.setInteractive({ useHandCursor: true });
     this.carTokens.set(car.carId, token);
   }
@@ -617,6 +637,62 @@ export class RaceScene extends Phaser.Scene {
       costLabel.setDepth(46);
       this.targetCostLabels.push(costLabel);
     }
+    // tap to move: the picked target, waiting for Move here
+    const selected = this.session.selectedTarget();
+    const selectedCell = selected && this.cellMap.get(selected.cellId);
+    if (selectedCell) {
+      this.gTargets.lineStyle(3, 0xffffff, 1);
+      this.gTargets.strokeCircle(selectedCell.pos.x, selectedCell.pos.y, 16);
+    }
+  }
+
+  /** A tap on the board (a press and release without a drag) picks the nearest target in reach, or drops the pick. */
+  private tapBoard(x: number, y: number) {
+    if (this.editing || this.pitModal.isActive() || !this.showCarsAndMoves || !this.session.localCanControl()) return;
+    let best: { id: string; d: number } | null = null;
+    for (const cellId of this.validTargets.keys()) {
+      const cell = this.cellMap.get(cellId);
+      if (!cell) continue;
+      const d = Math.hypot(cell.pos.x - x, cell.pos.y - y);
+      if (d <= RaceScene.HUD.tapMaxDist && (!best || d < best.d)) best = { id: cellId, d };
+    }
+    if (best) this.session.selectTarget(best.id);
+    else this.session.clearSelection();
+    this.drawTargets();
+    this.emitHud();
+  }
+
+  /** Move here: the picked target goes through the same path as a drop (validation, pit modal, engine or server). */
+  private confirmSelectedTarget() {
+    const selected = this.session.selectedTarget();
+    const cell = selected ? this.cellMap.get(selected.cellId) : undefined;
+    const token = this.getActiveToken();
+    this.session.clearSelection();
+    if (!cell || !token || this.pitModal.isActive()) {
+      this.drawTargets();
+      this.emitHud();
+      return;
+    }
+    const activeCar = this.activeCar;
+    resolvePlayerDragDrop({
+      activeCar,
+      token,
+      origin: { x: token.x, y: token.y },
+      nearestCell: cell,
+      validation: validateMoveAttempt(
+        activeCar,
+        this.cellMap.get(activeCar.cellId) ?? null,
+        cell,
+        this.validTargets,
+        this.session.localCanControl()
+      ),
+      cellMap: this.cellMap,
+      activeHalo: this.activeHalos.get(activeCar.carId) ?? null,
+      onOpenPitModal: (pitCell, origin) => this.openPitModal(pitCell, origin),
+      onMove: (targetCellId) => this.applyLocalAction({ type: "move", targetCellId })
+    });
+    this.drawTargets();
+    this.emitHud();
   }
 
   // Squeeze targets: dashed amber ring (Phaser graphics has no dash style, so draw arcs).

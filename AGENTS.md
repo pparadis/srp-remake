@@ -69,7 +69,10 @@ Project guide for Codex and other automation.
   (`COMPACT_HUD_QUERY` in `src/ui/layout.ts`, same query in `style.css`) the car card is a top bar, standings and the
   feed sit in a drawer (`hud-drawer-toggle`) and the canvas hides its debug buttons. Each HUD panel says where it takes
   room from the track with the `--hud-dock` CSS property; `RaceScene.centerTrack()` fits the track to what is left
-  (`hudGutters`). `e2e/mobile.spec.ts` covers it.
+  (`hudGutters`). Tap to move: a tap on the board (no drag) picks the nearest target in reach
+  (`RaceSession.selectTarget`, cleared on every turn change); the HUD card's Move here / Cancel send
+  `srp:hud-command`, and Move here goes through the same path as a drop (`resolvePlayerDragDrop`). Drag still works.
+  Copying a cell id on press only happens with the F overlay on. `e2e/mobile.spec.ts` covers it.
 - Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
   `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
 - Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` through
