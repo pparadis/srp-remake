@@ -11,6 +11,9 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  /* the visible height: on a phone 100vh is the screen with the browser bars hidden, and overflow: hidden would cut
+     the bottom of the race screen off while they show */
+  min-height: 100dvh;
   overflow: hidden;
 }
 

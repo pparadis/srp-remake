@@ -65,7 +65,9 @@ Project guide for Codex and other automation.
 - The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
   `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceSession.hudSnapshot()` builds (`RaceScene.emitHud()`
   sends it). Add HUD data to the snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
-- Phones (issue #49): the race screen is landscape-only (portrait shows `hud-rotate`). Under `(max-height: 500px)`
+- Phones (issue #49): the page is sized with `100dvh` (`body` in `style.css`; `100vh` is only the fallback): on iOS
+  Safari `100vh` is the screen without the browser bars, and `overflow: hidden` would cut off the bottom of the race
+  screen while they show. The race screen is landscape-only (portrait shows `hud-rotate`). Under `(max-height: 500px)`
   (`COMPACT_HUD_QUERY` in `src/ui/layout.ts`, same query in `style.css`) the car card is a top bar, standings and the
   feed sit in a drawer (`hud-drawer-toggle`) and the canvas hides its debug buttons. Each HUD panel says where it takes
   room from the track with the `--hud-dock` CSS property; `RaceScene.centerTrack()` fits the track to what is left

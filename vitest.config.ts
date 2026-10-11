@@ -5,6 +5,8 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "jsdom",
+    // CSS is not processed in tests, except when a test reads the stylesheet's text (`style.css?raw`)
+    css: { include: [/style\.css\?raw/] },
     coverage: {
       reporter: ["text", "lcov"],
       include: ["src/**/*.ts"],

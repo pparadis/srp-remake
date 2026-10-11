@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hudGutters, isCompactHud } from "./layout";
+import styles from "../style.css?raw";
 
 // A HUD panel at a given page rectangle, docked (or not) through the --hud-dock CSS property.
 function panel(hud: HTMLElement, rect: { x: number; y: number; w: number; h: number }, dock?: string) {
@@ -48,5 +49,16 @@ describe("isCompactHud", () => {
   it("is false without matchMedia", () => {
     vi.stubGlobal("matchMedia", undefined);
     expect(isCompactHud()).toBe(false);
+  });
+});
+
+describe("page height", () => {
+  // On iOS Safari 100vh is the screen with the browser bars hidden; with overflow: hidden on the body the bottom of
+  // the race screen is cut off while they show (the first real-phone screenshot). 100dvh is the visible height, and
+  // the 100vh line before it is the fallback for browsers that do not know the unit.
+  it("sizes the body to the dynamic viewport, with 100vh as the fallback before it", () => {
+    const body = /\nbody \{([^}]*background[^}]*)\}/.exec(styles)?.[1] ?? "";
+    const heights = [...body.matchAll(/min-height:\s*([^;]+);/g)].map((m) => m[1]);
+    expect(heights).toEqual(["100vh", "100dvh"]);
   });
 });
