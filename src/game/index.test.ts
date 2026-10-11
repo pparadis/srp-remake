@@ -23,7 +23,8 @@ vi.mock("phaser", () => {
       Core: { Events: { DESTROY: "destroy" } },
       Scale: {
         RESIZE: "RESIZE",
-        CENTER_BOTH: "CENTER_BOTH"
+        CENTER_BOTH: "CENTER_BOTH",
+        NONE: "NONE"
       },
       Game: MockGame
     }
@@ -86,8 +87,8 @@ describe("startGame", () => {
       width: 1600,
       height: 900,
       backgroundColor: "#0b0f14",
-      scale: { mode: "RESIZE", autoCenter: "CENTER_BOTH" },
-      resolution: 2
+      // a 2x screen, but sharp rendering is opt-in (?hidpi): Phaser follows the container at 1x
+      scale: { mode: "RESIZE", autoCenter: "CENTER_BOTH" }
     });
     expectRegistryComposition(game.registry.set, { totalCars: 6, humanCars: 2, botCars: 4, raceLaps: 20 });
     // keeps Phaser's canvas bounds fresh for pointer events (issue #41) and its size in sync with the container
@@ -95,5 +96,17 @@ describe("startGame", () => {
     expect(observe).toHaveBeenCalledWith(parent);
     expect(game.events.once).toHaveBeenCalledTimes(2);
     expect(game.events.once).toHaveBeenCalledWith("destroy", expect.any(Function));
+  });
+
+  it("?hidpi: a 2x screen gets a canvas with twice the container's pixels, shown at 1/2", async () => {
+    gameCtor.mockReturnValue(mockGameInstance());
+    const { startGame } = await import("./index");
+    const parent = document.createElement("div");
+    parent.getBoundingClientRect = () => new DOMRect(0, 0, 874, 402);
+
+    startGame(parent, { totalCars: 4, humanCars: 1, botCars: 3, raceLaps: 5, hidpi: true });
+
+    const [config] = gameCtor.mock.calls[0] ?? [];
+    expect(config).toMatchObject({ width: 1748, height: 804, scale: { mode: "NONE", zoom: 0.5 } });
   });
 });

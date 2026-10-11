@@ -121,7 +121,8 @@ describe("main (solo flow)", () => {
         botCars: 2,
         raceLaps: 2,
         botLevel: "hard",
-        seed: expect.any(Number)
+        seed: expect.any(Number),
+        hidpi: false
       });
     });
 
