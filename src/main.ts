@@ -4,6 +4,7 @@ import { currentlyMuted, initSound, setMuted } from "./ui/sound";
 import { mountSandboxPanel } from "./ui/sandboxPanel";
 import { renderHomeTrack, setHomeTrackRunning } from "./ui/homeTrack";
 import { mountVersion, renderVersion, type ServerVersion } from "./ui/version";
+import { showUncaughtErrors, startRenderProbe } from "./ui/diagnostics";
 import { MAX_SEED, normalizeSeed } from "./game/systems/botStyle";
 import {
   BackendApiClient,
@@ -33,6 +34,7 @@ function el<T extends HTMLElement>(id: string): T {
 }
 
 const app = el("app");
+showUncaughtErrors(el("crashReport"));
 const homeTrack = document.getElementById("homeTrack") as unknown as SVGSVGElement;
 const statusLine = el("statusLine");
 const homeNotice = el("homeNotice");
@@ -68,6 +70,8 @@ const hud = el("hud");
 mountHud(hud);
 // `?sandbox` (solo only): a dev tool to place cars by hand; `?pos=<base64 of a Copy debug snapshot>` starts from one.
 const sandbox = new URLSearchParams(window.location.search).has("sandbox");
+// `?hidpi`: sharp canvas on a high-density screen plus a probe line (src/game/hidpi.ts); read once, the router drops it
+const hidpi = new URLSearchParams(window.location.search).has("hidpi");
 if (sandbox) mountSandboxPanel(hud.querySelector(".hud-right")!);
 renderMute(hud, currentlyMuted());
 initSound();
@@ -100,6 +104,7 @@ const sandboxPosition = startPosition();
 
 let game: ReturnType<typeof import("./game").startGame> | null = null;
 let gameStarting = false;
+let stopRenderProbe: (() => void) | null = null;
 let backendBusy = false;
 let mode: "solo" | "online" = "solo";
 let soloRaceRequested = false;
@@ -312,6 +317,8 @@ function destroyGame() {
     game.destroy(true);
     game = null;
   }
+  stopRenderProbe?.();
+  stopRenderProbe = null;
   delete window.__srp;
 }
 
@@ -402,7 +409,9 @@ async function ensureGameStarted() {
     const { startGame } = await import("./game");
     // The player may have left while the chunk loaded.
     if (document.body.dataset.screen !== "race" || game) return;
-    game = startGame(app, getComposition());
+    game = startGame(app, { ...getComposition(), hidpi });
+    // `?hidpi` (src/game/hidpi.ts): a line with what the browser really draws, to compare on a phone
+    if (hidpi) stopRenderProbe = startRenderProbe(el("renderProbe"), game);
   } finally {
     gameStarting = false;
   }

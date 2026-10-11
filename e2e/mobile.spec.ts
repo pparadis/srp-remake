@@ -1,5 +1,5 @@
 import { devices, expect, test, type Page } from "@playwright/test";
-import { collectErrors, playMyTurn, quickRace } from "./support/game";
+import { collectErrors, playMyTurn, quickRace, setLobbySettings, startRace } from "./support/game";
 
 // A phone: touch, mobile viewport, landscape. Layout and pixels need a real browser (issue #49).
 const { defaultBrowserType: _ignored, ...iphone } = devices["iPhone 13 landscape"];
@@ -107,4 +107,39 @@ test("phone held upright: the race asks to turn it, carries on once it is turned
   await expect.poll(async () => (await trackBox(page)).b).toBeLessThan(390);
   const track = await trackBox(page);
   expect(track.t, JSON.stringify(track)).toBeGreaterThanOrEqual(0);
+});
+
+test("phone, ?hidpi: the canvas is drawn at the screen's pixel density (capped at 2x), and the race plays", async ({
+  page
+}) => {
+  const errors = collectErrors(page);
+  // like quickRace, with the flag: main.ts reads it once at load, the router drops the query later
+  await page.goto("/?seed=0&hidpi");
+  await tid(page, "home-quick").click();
+  await setLobbySettings(page, { bots: 2, laps: 1 });
+  await startRace(page);
+  const size = await page.evaluate(() => {
+    const canvas = document.querySelector("canvas")!;
+    const box = canvas.getBoundingClientRect();
+    return { w: canvas.width, h: canvas.height, cssW: box.width, cssH: box.height, dpr: window.devicePixelRatio };
+  });
+  expect(size.dpr).toBe(3);
+  // 3x screen, rendered at 2x: twice the CSS pixels, shown at the CSS size
+  expect(Math.abs(size.w - size.cssW * 2)).toBeLessThanOrEqual(2);
+  expect(Math.abs(size.h - size.cssH * 2)).toBeLessThanOrEqual(2);
+  await expect(tid(page, "render-probe")).toContainText(`dpr 3 · canvas ${size.w}x${size.h}`);
+  await expect(tid(page, "render-probe")).toContainText("RaceScene on");
+  await playMyTurn(page);
+  await expect(tid(page, "crash-report")).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test("phone, default: the canvas stays 1x (sharp rendering is opt-in) and there is no probe line", async ({ page }) => {
+  await quickRace(page, { bots: 2, laps: 1 });
+  const ratio = await page.evaluate(() => {
+    const canvas = document.querySelector("canvas")!;
+    return canvas.width / canvas.getBoundingClientRect().width;
+  });
+  expect(ratio).toBeCloseTo(1, 1);
+  await expect(tid(page, "render-probe")).toBeHidden();
 });
