@@ -1,3 +1,4 @@
+import { renderScale, TEXT_RESOLUTION } from "../hidpi";
 import Phaser from "phaser";
 import type { TrackData, TrackCell } from "../types/track";
 import type { BotLevel, Car } from "../types/car";
@@ -412,6 +413,7 @@ export class RaceScene extends Phaser.Scene {
     const badge = this.add.circle(0, 0, 5.5, 0x0b0f14, 0.85);
     const label = this.add.text(0, 0, String(car.carId), {
       fontFamily: "monospace",
+      resolution: TEXT_RESOLUTION,
       fontSize: "9px",
       color: "#ffffff"
     });
@@ -626,6 +628,7 @@ export class RaceScene extends Phaser.Scene {
         String(this.session.moveSpendOf(info, cell.laneIndex)),
         {
           fontFamily: "monospace",
+          resolution: TEXT_RESOLUTION,
           fontSize: "11px",
           color: "#ffffff",
           fontStyle: "bold",
@@ -716,8 +719,9 @@ export class RaceScene extends Phaser.Scene {
 
   private drawFrame() {
     this.gFrame.clear();
-    this.gFrame.lineStyle(1, 0x2a3642, 0.8);
-    this.gFrame.strokeRect(1, 1, this.scale.width - 2, this.scale.height - 2);
+    const s = renderScale(); // a 1 CSS px line
+    this.gFrame.lineStyle(s, 0x2a3642, 0.8);
+    this.gFrame.strokeRect(s / 2, s / 2, this.scale.width - s, this.scale.height - s);
   }
 
   private setUIFixed() {
@@ -746,18 +750,24 @@ export class RaceScene extends Phaser.Scene {
     const pad = 20; // curbs
     const [minX, maxX] = [Math.min(...xs) - pad, Math.max(...xs) + pad];
     const [minY, maxY] = [Math.min(...ys) - pad, Math.max(...ys) + pad];
+    // The canvas has `s` pixels per CSS pixel (hidpi.ts): sizes in CSS pixels are multiplied by it, and the camera
+    // zoom is in canvas pixels per world unit.
+    const s = renderScale();
     const w = this.scale.width;
     const h = this.scale.height;
     const hud = document.getElementById("hud");
-    const { left: gl, right: gr, top } = hud
+    const css = hud
       ? hudGutters(hud, this.game.canvas.getBoundingClientRect())
       : { left: 0, right: 0, top: 0 };
+    const gl = css.left * s;
+    const gr = css.right * s;
+    const top = css.top * s;
     // Room for the Skip button (and, on a desktop, the debug buttons) under the track.
-    const bottom = isCompactHud() ? 32 : 50;
+    const bottom = (isCompactHud() ? 32 : 50) * s;
     const zoom = Phaser.Math.Clamp(
       Math.min((w - gl - gr) / (maxX - minX), (h - top - bottom) / (maxY - minY)),
-      0.4,
-      1
+      0.4 * s,
+      s
     );
     const cam = this.cameras.main;
     cam.setZoom(zoom);
@@ -796,6 +806,7 @@ export class RaceScene extends Phaser.Scene {
     for (const cell of this.track.cells) {
       const label = this.add.text(cell.pos.x + 8, cell.pos.y + 6, String(cell.forwardIndex), {
         fontFamily: "monospace",
+        resolution: TEXT_RESOLUTION,
         fontSize: "10px",
         color: "#e6edf3"
       });
@@ -808,30 +819,32 @@ export class RaceScene extends Phaser.Scene {
     const w = this.scale.width;
     const h = this.scale.height;
     const ui = RaceScene.UI;
+    const s = renderScale(); // canvas pixels per CSS pixel (hidpi.ts)
     if (this.skipButton) {
-      this.skipButton.setPosition(w / 2, h - ui.bottomButtonYPad);
+      this.skipButton.setPosition(w / 2, h - ui.bottomButtonYPad * s);
     }
     if (this.debugButtons) {
-      this.debugButtons.layout(w, h, ui.padding, ui.bottomButtonYPad);
+      this.debugButtons.layout(w, h, ui.padding * s, ui.bottomButtonYPad * s);
       // developer tools: no room for them on a phone, and their F / C / E companions need a keyboard anyway
       for (const t of this.debugButtons.getTexts()) t.setVisible(!isCompactHud());
     }
-    // Fixed (scrollFactor 0) objects are zoomed with the camera; undo that so the UI keeps its size.
+    // Fixed (scrollFactor 0) objects are zoomed with the camera; undo that so the UI keeps its size (`s`: one CSS
+    // pixel per unit, `k` undoes the camera zoom on positions).
     const z = this.cameras.main.zoom;
     const k = 1 / z;
     const texts = [this.skipButton, ...(this.debugButtons?.getTexts() ?? [])];
     for (const t of texts) {
-      if (t) t.setScale(k).setPosition(w / 2 + (t.x - w / 2) * k, h / 2 + (t.y - h / 2) * k);
+      if (t) t.setScale(k * s).setPosition(w / 2 + (t.x - w / 2) * k, h / 2 + (t.y - h / 2) * k);
     }
     const origin = { x: (w / 2) * (1 - k), y: (h / 2) * (1 - k) };
     this.gFrame?.setScale(k).setPosition(origin.x, origin.y);
     // The pit modal: centred, and scaled down when the screen is smaller than the panel (a phone in landscape).
-    const fit = Math.min(1, (w - 16) / PIT_PANEL.width, (h - 16) / PIT_PANEL.height);
-    const s = k * fit;
+    const fit = Math.min(s, (w - 16 * s) / PIT_PANEL.width, (h - 16 * s) / PIT_PANEL.height);
+    const sc = k * fit;
     this.pitModal
       ?.getContainer()
-      .setScale(s)
-      .setPosition(w / 2 - (PIT_PANEL.x + PIT_PANEL.width / 2) * s, h / 2 - (PIT_PANEL.y + PIT_PANEL.height / 2) * s);
+      .setScale(sc)
+      .setPosition(w / 2 - (PIT_PANEL.x + PIT_PANEL.width / 2) * sc, h / 2 - (PIT_PANEL.y + PIT_PANEL.height / 2) * sc);
   }
 
   private createPitModal() {

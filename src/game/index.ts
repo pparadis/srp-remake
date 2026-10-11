@@ -3,6 +3,7 @@ import { BootScene } from "./scenes/BootScene";
 import { RaceScene } from "./scenes/RaceScene";
 import { keepCanvasBoundsFresh } from "./canvasBounds";
 import { keepGameSizeInSync } from "./gameSize";
+import { renderScale } from "./hidpi";
 import {
   REG_BOT_CARS,
   REG_BOT_LEVEL,
@@ -32,6 +33,8 @@ const isTestBuild = import.meta.env.MODE === "test";
 const TEST_FPS = 10;
 
 export function startGame(parent: HTMLElement, options: GameOptions) {
+  const scale = renderScale();
+  const box = parent.getBoundingClientRect();
   const config: Phaser.Types.Core.GameConfig = {
     // Canvas on purpose: a turn-based board (lines, a few sprites, text) needs no WebGL, and software WebGL
     // burned many CPU cores per page (tools/cpuProbe.mjs: 125.6 s vs 8.8 s of CPU for the same race).
@@ -39,20 +42,18 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
     // e2e build only: still lowers the load of many headless pages; tweens use delta time, so they finish.
     ...(isTestBuild ? { fps: { target: TEST_FPS, limit: TEST_FPS } } : {}),
     parent,
-    width: 1600,
-    height: 900,
+    // canvas pixels: the container times `scale` (keepGameSizeInSync keeps it so); 1600x900 until it has a size
+    width: Math.floor(box.width * scale) || 1600,
+    height: Math.floor(box.height * scale) || 900,
     backgroundColor: "#0b0f14",
     scene: [BootScene, RaceScene],
-    scale: {
-      mode: Phaser.Scale.RESIZE,
-      autoCenter: Phaser.Scale.CENTER_BOTH
-    }
+    // NONE + zoom: the canvas has `scale` times the container's pixels and is shown at the container's size
+    scale: { mode: Phaser.Scale.NONE, zoom: 1 / scale }
   };
-  (config as { resolution?: number }).resolution = window.devicePixelRatio ?? 1;
 
   const game = new Phaser.Game(config);
   keepCanvasBoundsFresh(game, Phaser.Core.Events.DESTROY);
-  keepGameSizeInSync(game, parent, Phaser.Core.Events.DESTROY);
+  keepGameSizeInSync(game, parent, scale, Phaser.Core.Events.DESTROY);
   game.registry.set(REG_TOTAL_CARS, options.totalCars);
   game.registry.set(REG_HUMAN_CARS, options.humanCars);
   game.registry.set(REG_BOT_CARS, options.botCars);
