@@ -220,6 +220,22 @@ button {
   color: #e0a030;
 }
 
+/* On the home and lobby screens the status line and the version sit below the screen, not over it: the screen
+   scrolls inside the space above them, so on a phone they never cover the page. */
+body:not([data-screen="race"]) #statusLine,
+body:not([data-screen="race"]) .version {
+  position: static;
+  flex: none;
+  align-self: flex-end;
+  max-width: calc(100vw - 16px);
+  margin: 0 8px 4px;
+  text-align: right;
+}
+
+body:not([data-screen="race"]) #statusLine {
+  align-self: flex-start;
+}
+
 /* The race screen has its own HUD; the status line and the version would sit on the canvas buttons. */
 body[data-screen="race"] #statusLine,
 body[data-screen="race"] .version {
