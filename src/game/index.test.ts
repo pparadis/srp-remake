@@ -22,7 +22,8 @@ vi.mock("phaser", () => {
       CANVAS: "CANVAS",
       Core: { Events: { DESTROY: "destroy" } },
       Scale: {
-        NONE: "NONE"
+        RESIZE: "RESIZE",
+        CENTER_BOTH: "CENTER_BOTH"
       },
       Game: MockGame
     }
@@ -85,8 +86,8 @@ describe("startGame", () => {
       width: 1600,
       height: 900,
       backgroundColor: "#0b0f14",
-      // a 2x screen: the canvas has twice the container's pixels (the parent has no size here) and is shown at 1/2
-      scale: { mode: "NONE", zoom: 0.5 }
+      scale: { mode: "RESIZE", autoCenter: "CENTER_BOTH" },
+      resolution: 2
     });
     expectRegistryComposition(game.registry.set, { totalCars: 6, humanCars: 2, botCars: 4, raceLaps: 20 });
     // keeps Phaser's canvas bounds fresh for pointer events (issue #41) and its size in sync with the container
