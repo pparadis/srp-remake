@@ -75,6 +75,19 @@ test("phone: tap a target, then Move here (Cancel drops the pick)", async ({ pag
   expect(errors).toEqual([]);
 });
 
+test("phone with the browser bars showing (a short screen): the whole track stays on screen", async ({ page }) => {
+  // Safari's address bar and tab strip leave about 300 px of an 844 x 390 phone. The page is sized to the visible
+  // height (100dvh, see style.css); 100vh is the screen without the bars and would cut the bottom off.
+  await page.setViewportSize({ width: 844, height: 300 });
+  await quickRace(page, { bots: 3, laps: 1 });
+  const track = await trackBox(page);
+  const height = page.viewportSize()!.height;
+  expect(track.t, JSON.stringify(track)).toBeGreaterThanOrEqual(0);
+  expect(track.b, JSON.stringify(track)).toBeLessThan(height);
+  const app = (await tid(page, "race-canvas").boundingBox())!;
+  expect(app.y + app.height).toBeLessThanOrEqual(height);
+});
+
 test("phone held upright: the race asks to turn it, and carries on once it is turned", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await quickRace(page, { bots: 1, laps: 1 });
