@@ -17,6 +17,8 @@ test("race screen with the HUD looks right", async ({ page }) => {
   await page.mouse.move(640, 790);
   await expect(page.getByTestId("race-canvas").locator("..")).toHaveScreenshot("race-hud.png", {
     animations: "disabled",
+    // the version line names the commit, so it differs on every build
+    style: '[data-testid="version"] { visibility: hidden; }',
     timeout: 20_000
   });
 });
@@ -39,7 +41,7 @@ for (const size of [
       const ys = pts.map((p) => p.y);
       return { l: Math.min(...xs), r: Math.max(...xs), t: Math.min(...ys), b: Math.max(...ys) };
     });
-    for (const id of ["hud-card", "hud-standings", "hud-feed"]) {
+    for (const id of ["hud-card", "hud-standings", "hud-feed", "version"]) {
       const box = (await tid(page, id).boundingBox())!;
       const apart =
         box.x + box.width <= track.l || box.x >= track.r || box.y + box.height <= track.t || box.y >= track.b;

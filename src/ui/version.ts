@@ -1,4 +1,5 @@
-// The build version shown bottom right on the home and lobby screens: the web commit and day, and the commit the
+// The build version shown bottom right on the home and lobby screens, and in a race too (a home-screen
+// app can run an older copy than the browser): the web commit and day, and the commit the
 // server runs (from /health). A server on another commit than the page shows in amber: a deploy is pending.
 
 export interface WebVersion {

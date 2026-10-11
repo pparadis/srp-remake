@@ -62,3 +62,12 @@ describe("page height", () => {
     expect(heights).toEqual(["100vh", "100dvh"]);
   });
 });
+
+describe("version on the race screen", () => {
+  // A home-screen app can run an older copy than the browser, so the race shows which build it is.
+  it("is not hidden in a race", () => {
+    const rule = /body\[data-screen="race"\] \.version \{([^}]*)\}/.exec(styles)?.[1] ?? "";
+    expect(rule).toContain("bottom");
+    expect(styles).not.toMatch(/body\[data-screen="race"\] \.version[^{]*\{[^}]*display:\s*none/);
+  });
+});
