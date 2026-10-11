@@ -721,7 +721,7 @@ export class RaceScene extends Phaser.Scene {
     this.gFrame.clear();
     const s = renderScale(); // a 1 CSS px line
     this.gFrame.lineStyle(s, 0x2a3642, 0.8);
-    this.gFrame.strokeRect(s / 2, s / 2, this.scale.width - s, this.scale.height - s);
+    this.gFrame.strokeRect(s, s, this.scale.width - 2 * s, this.scale.height - 2 * s);
   }
 
   private setUIFixed() {
