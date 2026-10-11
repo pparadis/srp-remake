@@ -19,6 +19,10 @@ Project guide for Codex and other automation.
 - Plans are GitHub issues (label `plan`, plus `in-progress` once started; closed when shipped), not files in the repo.
   A PR for a plan says `Closes #N`; decisions and results go in issue comments.
 
+## Workflow
+
+- After pushing a branch, always open a PR; do not ask first.
+
 ## Key Rules (Current)
 
 - Movement is BFS on `next[]`. Forward progress ordering uses `forwardIndex`.
