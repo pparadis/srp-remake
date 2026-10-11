@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { renderScale } from "../../hidpi";
 
 interface Piece {
   x: number;
@@ -30,18 +29,17 @@ export class Confetti {
     const { width, height } = scene.scale;
     const zoom = scene.cameras.main.zoom;
     const k = 1 / zoom;
-    const px = renderScale(); // canvas pixels per CSS pixel: the pieces keep their size on screen
     // Fixed objects are zoomed with the camera; undo that so the burst covers the screen.
     this.g = scene.add.graphics().setScrollFactor(0).setDepth(90).setScale(k).setPosition((width / 2) * (1 - k), (height / 2) * (1 - k));
     for (let i = 0; i < count; i += 1) {
       this.pieces.push({
         x: Math.random() * width,
-        y: -20 * px - Math.random() * height * 0.4,
-        vx: (Math.random() - 0.5) * 120 * px,
-        vy: (120 + Math.random() * 220) * px,
+        y: -20 - Math.random() * height * 0.4,
+        vx: (Math.random() - 0.5) * 120,
+        vy: 120 + Math.random() * 220,
         spin: (Math.random() - 0.5) * 8,
         angle: Math.random() * Math.PI,
-        size: (5 + Math.random() * 5) * px,
+        size: 5 + Math.random() * 5,
         color: COLORS[i % COLORS.length]!
       });
     }

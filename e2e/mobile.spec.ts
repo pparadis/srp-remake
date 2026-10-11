@@ -108,24 +108,3 @@ test("phone held upright: the race asks to turn it, carries on once it is turned
   const track = await trackBox(page);
   expect(track.t, JSON.stringify(track)).toBeGreaterThanOrEqual(0);
 });
-
-test("phone: the canvas is drawn at the screen's pixel density, not stretched (capped at 2x)", async ({
-  page
-}) => {
-  await quickRace(page, { bots: 2, laps: 1 });
-  const size = await page.evaluate(() => {
-    const canvas = document.querySelector("canvas")!;
-    const box = canvas.getBoundingClientRect();
-    return {
-      w: canvas.width,
-      h: canvas.height,
-      cssW: box.width,
-      cssH: box.height,
-      dpr: window.devicePixelRatio
-    };
-  });
-  expect(size.dpr).toBe(3);
-  // 3x screen, rendered at 2x: twice the CSS pixels, shown at the CSS size
-  expect(Math.abs(size.w - size.cssW * 2)).toBeLessThanOrEqual(2);
-  expect(Math.abs(size.h - size.cssH * 2)).toBeLessThanOrEqual(2);
-});

@@ -66,10 +66,6 @@ Project guide for Codex and other automation.
 - The game uses Phaser's Canvas renderer on purpose (`type: Phaser.CANVAS` in `src/game/index.ts`): it is a turn-based
   board, and software WebGL cost about 14x the CPU (`npm run probe:cpu`). Do not add WebGL-only features (tint, FX,
   pipelines, shaders, masks, blend modes, particles). `e2e/smoke.spec.ts` asserts the canvas has a 2D context.
-- Sharpness on phones: Phaser 3.90 has no `resolution` option, so the game uses `Scale.NONE` with a canvas `renderScale()`
-  times its container (`src/game/hidpi.ts`, capped at 2) shown at `zoom: 1 / renderScale()`; `keepGameSizeInSync` resizes it.
-  Scene code works in canvas pixels: CSS sizes (HUD gutters, button padding, UI scale) are multiplied by `renderScale()`, and
-  every `add.text` style takes `resolution: TEXT_RESOLUTION`. On a 1x screen everything is as before.
 - The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
   `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceSession.hudSnapshot()` builds (`RaceScene.emitHud()`
   sends it). Add HUD data to the snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.

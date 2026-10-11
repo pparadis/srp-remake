@@ -1,4 +1,3 @@
-import { TEXT_RESOLUTION } from "../../hidpi";
 import type Phaser from "phaser";
 import type { Car } from "../../types/car";
 import { SETUP_LIMITS } from "../../constants";
@@ -55,13 +54,11 @@ export class PitModal {
 
     this.modalTitle = this.scene.add.text(350, 220, "Pit stop", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "18px",
       color: "#e6edf3"
     });
     this.modalBody = this.scene.add.text(350, 255, "", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "13px",
       color: "#c7d1db",
       lineSpacing: 4,
@@ -76,13 +73,11 @@ export class PitModal {
 
     const compoundLabel = this.scene.add.text(labelX, fieldY, "Compound", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "13px",
       color: "#9fb0bf"
     });
     const compoundValue = this.scene.add.text(valueX, fieldY, "", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "13px",
       color: "#e6edf3"
     });
@@ -96,13 +91,11 @@ export class PitModal {
 
     const psiLabel = this.scene.add.text(labelX, fieldY + lineH, "PSI FL/FR/RL/RR", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "13px",
       color: "#9fb0bf"
     });
     const psiValue = this.scene.add.text(labelX, fieldY + lineH + 12, "", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "13px",
       color: "#e6edf3"
     });
@@ -115,13 +108,11 @@ export class PitModal {
 
     const wingLabel = this.scene.add.text(labelX, fieldY + lineH * 2 + 16, "Wing F/R", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "13px",
       color: "#9fb0bf"
     });
     const wingValue = this.scene.add.text(valueX, fieldY + lineH * 2 + 16, "", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "13px",
       color: "#e6edf3"
     });
@@ -134,11 +125,10 @@ export class PitModal {
 
     const stintTitle = this.scene.add.text(labelX, fieldY + lineH * 3 + 14, "Stint on fresh tires and fuel", {
       fontFamily: "monospace",
-      resolution: TEXT_RESOLUTION,
       fontSize: "13px",
       color: "#9fb0bf"
     });
-    const stintStyle = { fontFamily: "monospace", resolution: TEXT_RESOLUTION, fontSize: "13px", color: "#e6edf3" };
+    const stintStyle = { fontFamily: "monospace", fontSize: "13px", color: "#e6edf3" };
     const stintSoft = this.scene.add.text(labelX, fieldY + lineH * 3 + 34, "", stintStyle);
     const stintHard = this.scene.add.text(labelX, fieldY + lineH * 3 + 54, "", stintStyle);
 
