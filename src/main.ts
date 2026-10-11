@@ -314,6 +314,9 @@ function getComposition() {
 
 function destroyGame() {
   if (game) {
+    // Phaser takes its canvas out of the page only on its next frame: do it now, so a race started right away (race
+    // again) never has two canvases on the page
+    game.canvas?.remove();
     game.destroy(true);
     game = null;
   }
