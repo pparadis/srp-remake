@@ -92,7 +92,11 @@ describe("main (solo flow)", () => {
 
   it("quick race -> lobby -> start creates the game with the lobby settings", async () => {
     const destroy = vi.fn();
-    startGame.mockReturnValue({ destroy });
+    const canvas = document.createElement("canvas");
+    startGame.mockImplementation((parent: HTMLElement) => {
+      parent.append(canvas);
+      return { destroy, canvas };
+    });
     await import("./main");
 
     byId("homeQuickBtn").click();
@@ -129,6 +133,8 @@ describe("main (solo flow)", () => {
     byId("lobbyLeaveBtn").click();
     byId("homeQuickBtn").click();
     expect(destroy).toHaveBeenCalled();
+    // Phaser removes its canvas only on its next frame: it leaves the page at once, so a new race never shows two
+    expect(canvas.isConnected).toBe(false);
   });
 
   it("reloading /solo/race falls back to /solo", async () => {
