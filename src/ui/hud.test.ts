@@ -32,6 +32,8 @@ const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   cycle: [3, 0, 0, 0, 0],
   cycleIndex: 1,
   remaining: 37,
+  budget: 40,
+  wing: "medium",
   pitServiced: false,
   stint: { laps: 2.14, moves: 17.2 },
   advice: "ok",
@@ -70,6 +72,7 @@ describe("hud", () => {
     expect(text(root, "hud-tire")).toBe("Tire 80%");
     expect(text(root, "hud-fuel")).toBe("Fuel 90%");
     expect(text(root, "hud-compound")).toBe("SOFT");
+    expect(text(root, "hud-wing")).toBe("MED");
     expect(text(root, "hud-budget")).toBe("37 / 40");
     expect(root.querySelectorAll('[data-testid="hud-pip"]')).toHaveLength(5);
     expect(root.querySelector('[data-testid="hud-state"]')).toHaveProperty("hidden", true);

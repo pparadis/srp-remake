@@ -142,7 +142,7 @@ test("a pit stop needs a legal setup; a valid one refills the car and costs the 
   // Park the host's worn car in the pit lane, one step before the first pit box.
   const hostCar = store.getLobby(lobbyId)!.race!.engine.cars[0]!;
   Object.assign(hostCar, { cellId: "Z01_L0_00", tire: 20, fuel: 25 });
-  const setup = { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wingFrontDeg: 4, wingRearDeg: 10 };
+  const setup = { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wing: "medium" as const };
   const pit = (payloadSetup: unknown, clientCommandId: string, revision: number) =>
     app.inject({
       method: "POST",
@@ -165,8 +165,8 @@ test("a pit stop needs a legal setup; a valid one refills the car and costs the 
   const lobby = await readLobby(app, lobbyId, created.playerToken);
   const car = lobby.raceState.cars[0]!;
   assert.deepEqual(
-    [car.cellId, car.tire, car.fuel, car.pitServiced, car.setup.compound, car.setup.wingFrontDeg],
-    ["Z02_L0_00", 100, 100, true, "hard", 4]
+    [car.cellId, car.tire, car.fuel, car.pitServiced, car.setup.compound, car.setup.wing],
+    ["Z02_L0_00", 100, 100, true, "hard", "medium"]
   );
   // The stop cost the host a turn: the bot played twice before it was the host's again.
   assert.equal(lobby.revision, 3);
@@ -248,4 +248,27 @@ test("reset: only the host may reset, only a naturally finished lobby, and a res
   assert.equal(refused.statusCode, 409);
   assert.match((refused.json() as { error: string }).error, /closed/);
   assert.equal(store.getLobby(dead.lobby.lobbyId)?.status, "FINISHED");
+});
+
+test("a grid setup changes the car for free, keeps the turn, and is refused after the first move", async (t) => {
+  const { app, token, lobbyId, raceState, submit } = await startRace();
+  t.after(() => app.close());
+  const setup = { compound: "soft", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "low" };
+
+  const bad = await submit({ type: "setup", setup: { ...setup, wing: "huge" } }, "setup-bad");
+  assert.equal(bad.statusCode, 400);
+
+  const ok = await submit({ type: "setup", setup }, "setup-ok");
+  assert.equal(ok.statusCode, 200);
+  const afterSetup = await readLobby(app, lobbyId, token);
+  assert.equal(afterSetup.raceState.cars[0]!.setup.wing, "low");
+  // Not a turn: the host still plays, the bot has not moved.
+  assert.equal(afterSetup.raceState.activeSeatIndex ?? 0, 0);
+  assert.equal(afterSetup.raceState.cars[1]!.cellId, raceState.cars[1]!.cellId);
+
+  const move = await submit(legalMove(afterSetup.raceState), "first-move", afterSetup.revision);
+  assert.equal(move.statusCode, 200);
+  const late = await submit({ type: "setup", setup: { ...setup, wing: "high" } }, "setup-late", (await readLobby(app, lobbyId, token)).revision);
+  assert.equal(late.statusCode, 409);
+  assert.equal((late.json() as { reason: string }).reason, "setup_locked");
 });

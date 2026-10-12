@@ -28,8 +28,7 @@ function makeCar(carId: number, cellId: string, overrides: Partial<Car> = {}): C
     setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     },
     state: "ACTIVE",
     pitTurnsRemaining: 0,

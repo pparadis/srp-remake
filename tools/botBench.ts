@@ -4,10 +4,12 @@
 // then per personality and per grid slot. `--strategist` instead runs the scripted human baseline
 // (inner lane, 9-8-8-8-7, and the greedy variant) against 3 bots of a level from every grid slot.
 // Lineup entries: hard, normal, easy, autopilot, scripted, greedy; `--styles pusher,steady,...` forces
-// a personality per line-up entry (it rotates with the line-up).
+// a personality per line-up entry (it rotates with the line-up). `--setups [--laps ..] [--seeds N]` sweeps car 1
+// over every compound and wing level at each race length (the balance gate of the wing, issue #48).
 import { readFileSync } from "node:fs";
-import { playBenchRace, runBench, statsBy, type BenchPolicy } from "../src/game/race/botBench";
+import { playBenchRace, runBench, setupSweep, setupSweepGate, statsBy, type BenchPolicy } from "../src/game/race/botBench";
 import { createRaceContext } from "../src/game/race/raceEngine";
+import { SETUP_CHOICES } from "../src/game/systems/botPlan";
 import type { PersonalityKey } from "../src/game/systems/botStyle";
 import type { TrackData } from "../src/game/types/track";
 
@@ -45,6 +47,23 @@ if (process.argv.includes("--strategist")) {
   }
   console.log(`${seconds()} s`);
   process.exit(0);
+}
+
+if (process.argv.includes("--setups")) {
+  const sweepLaps = process.argv.includes("--laps") ? laps : [3, 5, 7, 8, 9, 10, 12, 15];
+  console.log(`setup sweep: car 1 on each setup vs 3 x normal; laps ${sweepLaps.join("/")}, seeds 1..${seedCount}`);
+  const rows = setupSweep(ctx, { laps: sweepLaps, seeds });
+  console.log(`laps  ${SETUP_CHOICES.map((c) => `${c.compound}/${c.wing}`.padStart(11)).join(" ")}   fastest`);
+  for (const row of rows) {
+    const best = SETUP_CHOICES[row.best]!;
+    console.log(
+      `${String(row.laps).padStart(4)}  ${row.moves.map((m) => m.toFixed(1).padStart(11)).join(" ")}   ${best.compound}/${best.wing}`
+    );
+  }
+  const gate = setupSweepGate(rows);
+  console.log(`\nevery wing wins somewhere: ${gate.everyWingWinsSomewhere}; no setup dominates: ${gate.noSetupDominates} (${gate.winners.join(", ")})`);
+  console.log(`${seconds()} s`);
+  process.exit(gate.everyWingWinsSomewhere && gate.noSetupDominates ? 0 : 1);
 }
 
 const lineup = arg("lineup", "hard,normal,easy,autopilot").split(",") as BenchPolicy[];

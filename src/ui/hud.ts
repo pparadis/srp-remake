@@ -1,5 +1,5 @@
 // Race HUD as a DOM overlay. `renderHud` is pure over the snapshot RaceScene emits as `srp:hud`.
-import { MOVE_BUDGET, MOVE_CYCLE, SQUEEZE_SURCHARGE_PER_CAR } from "../game/constants";
+import { MOVE_BUDGET, SQUEEZE_SURCHARGE_PER_CAR, type WingLevel } from "../game/constants";
 import type { PitAdvice, StintEstimate } from "../game/systems/strategy";
 
 export interface HudCar {
@@ -21,13 +21,15 @@ export interface HudCar {
   tire: number;
   fuel: number;
   compound: "soft" | "hard";
+  wing: WingLevel;
   state: "ACTIVE" | "PITTING" | "WAITING" | "DNF";
   pitTurns: number;
   /** Distance spent in each move of the current cycle, and which one is next. */
   cycle: number[];
   cycleIndex: number;
-  /** Move budget left in the cycle (of 40). */
+  /** Move budget left in the cycle, and the whole budget of this car's setup (Low wing and soft add, High takes). */
   remaining: number;
+  budget: number;
   /** A pit stop is done (and not repeatable until the car is back on the main lanes). */
   pitServiced: boolean;
   /** Racing left on the current tire and fuel at this car's setup (see strategy.ts). */
@@ -99,7 +101,7 @@ const TEMPLATE = `
     <div class="hud-lap" data-testid="hud-lap"></div>
     <div class="hud-lap-hint" data-testid="hud-lap-hint" hidden>Cross the start line to begin lap 1</div>
     <div class="hud-pos" data-testid="hud-position"></div>
-    <div class="hud-meter"><span data-testid="hud-tire"></span><span class="hud-compound" data-testid="hud-compound"></span>
+    <div class="hud-meter"><span data-testid="hud-tire"></span><span class="hud-compound" data-testid="hud-compound"></span><span class="hud-wing" data-testid="hud-wing"></span>
       <div class="hud-bar"><i data-testid="hud-tire-bar"></i></div></div>
     <div class="hud-meter"><span data-testid="hud-fuel"></span>
       <div class="hud-bar"><i data-testid="hud-fuel-bar"></i></div></div>
@@ -339,7 +341,10 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     const compound = q(root, "hud-compound");
     compound.textContent = me.compound.toUpperCase();
     compound.className = `hud-compound is-${me.compound}`;
-    q(root, "hud-budget").textContent = `${me.remaining} / ${MOVE_CYCLE.budget}`;
+    const wing = q(root, "hud-wing");
+    wing.textContent = me.wing === "medium" ? "MED" : me.wing.toUpperCase();
+    wing.title = `${me.wing} wing`;
+    q(root, "hud-budget").textContent = `${me.remaining} / ${me.budget}`;
     q(root, "hud-stint").textContent = formatStint(me.stint);
     const advice = q(root, "hud-advice");
     const label = ADVICE_LABEL[me.advice];

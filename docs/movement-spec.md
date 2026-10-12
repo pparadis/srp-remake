@@ -12,7 +12,8 @@ and is shared by single-player and the multiplayer server.
 
 ## Step Budget
 
-- The active car has a max step budget (based on tires/fuel and remaining move budget).
+- The active car has a max step budget (based on tires/fuel and remaining move budget). The cycle budget is 40, +1 for
+  Low wing, -1 for High wing, +1 for the soft compound (`cycleBudget`).
 - If the car starts in the pit lane (lane 0), the max steps are forced to `1`.
 - Move spend is based on traveled distance, with a price for every lane change between main lanes (see "Price of a lane change").
 - Pit-lane movement spend remains `1`.
@@ -37,7 +38,7 @@ Every lane change between main lanes costs +1 move point on top of the forward c
 - Each valid target includes computed tire and fuel costs based on:
   - Distance traveled.
   - Lane factors (lane 1 is higher tire/lower fuel, lane 3 is lower tire/higher fuel).
-  - Car setup (wing angles and PSI deltas vs 32).
+  - Car setup (wing level and PSI deltas vs 32): Low wing x1.6 tire / x1.05 fuel, High x0.8 / x0.9 (see `docs/strategy-and-feel.md`).
 - Costs are rounded to integers.
 
 ## Lane Change Rules

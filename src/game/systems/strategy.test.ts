@@ -4,7 +4,7 @@ import { MOVE_RATES } from "../constants";
 import { createRaceContext } from "../race/raceEngine";
 import type { Car } from "../types/car";
 import type { TrackData } from "../types/track";
-import { buildPlanContext, IDEAL_PIT_SETUP, stopIsDue } from "./botPlan";
+import { buildPlanContext, SETUP_CHOICES, stopIsDue } from "./botPlan";
 import { computeValidTargets } from "./movementSystem";
 import { cellsToPitEntry, pitAdvice, stintEstimate } from "./strategy";
 
@@ -21,7 +21,7 @@ function car(over: Partial<Car> = {}): Car {
     lapCount: 0,
     tire: 100,
     fuel: 100,
-    setup: { compound: "soft", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wingFrontDeg: 0, wingRearDeg: 0 },
+    setup: { compound: "soft", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "medium" as const },
     state: "ACTIVE",
     pitTurnsRemaining: 0,
     pitExitBoost: false,
@@ -46,7 +46,7 @@ describe("stintEstimate", () => {
   });
 
   it("wings and psi shorten it, and an empty tank is zero", () => {
-    const loaded = car({ setup: { compound: "soft", psi: { fl: 22, fr: 22, rl: 22, rr: 22 }, wingFrontDeg: 10, wingRearDeg: 10 } });
+    const loaded = car({ setup: { compound: "soft", psi: { fl: 22, fr: 22, rl: 22, rr: 22 }, wing: "medium" as const } });
     expect(stintEstimate(loaded, 28).cells).toBeLessThan(stintEstimate(car(), 28).cells);
     expect(stintEstimate(car({ fuel: 0 }), 28)).toEqual({ cells: 0, laps: 0, moves: 0 });
   });
@@ -114,7 +114,7 @@ describe("pitAdvice", () => {
   });
 
   it("a stop with the ideal setup is always cheaper to run than a loaded one", () => {
-    expect(stintEstimate(car({ setup: IDEAL_PIT_SETUP }), 28).cells).toBeGreaterThanOrEqual(
+    expect(stintEstimate(car({ setup: SETUP_CHOICES[0]! }), 28).cells).toBeGreaterThanOrEqual(
       stintEstimate(car(), 28).cells
     );
   });

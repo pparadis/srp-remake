@@ -6,7 +6,7 @@ export type BackendTurnAction = RaceAction;
 
 // A turn as announced to everyone (the pit setup is not needed to render a log line).
 export interface AppliedTurnSummary {
-  type: "move" | "pit" | "skip";
+  type: "move" | "pit" | "skip" | "setup";
   targetCellId?: string;
 }
 

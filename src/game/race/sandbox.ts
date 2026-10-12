@@ -1,5 +1,5 @@
-import { MOVE_CYCLE } from "../constants";
-import { createMoveCycle, getRemainingBudget, type MoveCycle } from "../systems/moveBudgetSystem";
+import { MOVE_CYCLE, WING_LEVELS, type WingLevel } from "../constants";
+import { createMoveCycle, cycleBudget, getRemainingBudget, type MoveCycle } from "../systems/moveBudgetSystem";
 import type { BotLevel, Car } from "../types/car";
 import { computeTargets, getActiveCar, type RaceContext, type RaceState } from "./raceEngine";
 
@@ -11,7 +11,8 @@ export interface CarEdit {
   tire?: number;
   fuel?: number;
   compound?: "soft" | "hard";
-  /** Move points left in the cycle (0..MOVE_CYCLE.budget); a turn can spend at most min(9, this). */
+  wing?: WingLevel;
+  /** Move points left in the cycle (0..the car's cycle budget); a turn can spend at most min(9, this). */
   budgetLeft?: number;
   isBot?: boolean;
   botLevel?: BotLevel;
@@ -20,8 +21,8 @@ export interface CarEdit {
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(n)));
 
 // A cycle with `left` points unspent: the points already gone sit in the first move slot.
-export function cycleWithBudgetLeft(left: number): MoveCycle {
-  const spent = MOVE_CYCLE.budget - clamp(left, 0, MOVE_CYCLE.budget);
+export function cycleWithBudgetLeft(left: number, total: number = MOVE_CYCLE.budget): MoveCycle {
+  const spent = total - clamp(left, 0, total);
   if (spent === 0) return createMoveCycle();
   const cycle = createMoveCycle();
   cycle.spent[0] = spent;
@@ -43,7 +44,8 @@ export function editCar(ctx: RaceContext, state: RaceState, carId: number, edit:
   if (edit.tire !== undefined) car.tire = clamp(edit.tire, 0, 100);
   if (edit.fuel !== undefined) car.fuel = clamp(edit.fuel, 0, 100);
   if (edit.compound !== undefined) car.setup = { ...car.setup, compound: edit.compound };
-  if (edit.budgetLeft !== undefined) car.moveCycle = cycleWithBudgetLeft(edit.budgetLeft);
+  if (edit.wing !== undefined) car.setup = { ...car.setup, wing: edit.wing };
+  if (edit.budgetLeft !== undefined) car.moveCycle = cycleWithBudgetLeft(edit.budgetLeft, cycleBudget(car.setup));
   if (edit.isBot !== undefined && edit.isBot !== car.isBot) {
     car.isBot = edit.isBot;
     car.ownerId = `${edit.isBot ? "BOT" : "P"}${car.carId}`;
@@ -90,6 +92,15 @@ interface SnapshotCar {
   budgetLeft?: number;
 }
 
+// A position saved before the wing had levels carries two angles and no `wing`: it loads as Medium.
+export function normalizeSetup(setup: Car["setup"]): Car["setup"] {
+  const { wingFrontDeg: _front, wingRearDeg: _rear, ...rest } = setup as Car["setup"] & {
+    wingFrontDeg?: number;
+    wingRearDeg?: number;
+  };
+  return { ...rest, wing: WING_LEVELS.includes(rest.wing) ? rest.wing : "medium" };
+}
+
 /**
  * Puts the cars and the active car of a "Copy debug" snapshot back. All or nothing: returns why it was refused
  * (different car count, unknown or shared cell), or null when applied.
@@ -118,8 +129,8 @@ export function restorePosition(ctx: RaceContext, state: RaceState, snapshot: un
       pitTurnsRemaining: sc.pitTurnsRemaining,
       pitExitBoost: sc.pitExitBoost,
       pitServiced: sc.pitServiced,
-      setup: sc.setup,
-      moveCycle: cycleWithBudgetLeft(sc.budgetLeft ?? MOVE_CYCLE.budget)
+      setup: normalizeSetup(sc.setup),
+      moveCycle: cycleWithBudgetLeft(sc.budgetLeft ?? cycleBudget(normalizeSetup(sc.setup)), cycleBudget(normalizeSetup(sc.setup)))
     });
     editCar(ctx, state, car.carId, { isBot: sc.isBot, ...(sc.botLevel ? { botLevel: sc.botLevel } : {}) });
   }
@@ -128,7 +139,7 @@ export function restorePosition(ctx: RaceContext, state: RaceState, snapshot: un
 }
 
 /** The move points a car has left in its cycle (the sandbox panel shows it). */
-export const budgetLeftOf = (car: Car) => getRemainingBudget(car.moveCycle);
+export const budgetLeftOf = (car: Car) => getRemainingBudget(car.moveCycle, cycleBudget(car.setup));
 
 /**
  * A ready-to-paste vitest case for the current position: the whole state as data, and the targets the engine offers

@@ -12,10 +12,10 @@ export interface CarSetup {
     rl: number;
     rr: number;
   };
-  wingFrontDeg: number;
-  wingRearDeg: number;
+  wing: WingLevel;
 }
 
+import type { WingLevel } from "../constants";
 import type { MoveCycle } from "../systems/moveBudgetSystem";
 
 export interface Car {
@@ -36,4 +36,6 @@ export interface Car {
   pitExitBoost: boolean;
   pitServiced: boolean;
   moveCycle: MoveCycle;
+  // True once the car has played a turn; the grid setup (compound, wing) can only change before that.
+  setupLocked?: boolean;
 }

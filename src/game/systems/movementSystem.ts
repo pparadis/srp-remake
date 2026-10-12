@@ -1,7 +1,14 @@
 import type { TrackCell } from "../types/track";
 import type { CarSetup } from "../types/car";
 import type { TrackIndex } from "./trackIndex";
-import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE, SQUEEZE_SURCHARGE_PER_CAR } from "../constants";
+import {
+  INNER_MAIN_LANE,
+  MIDDLE_MAIN_LANE,
+  OUTER_MAIN_LANE,
+  PIT_LANE,
+  SQUEEZE_SURCHARGE_PER_CAR,
+  WING_EFFECTS
+} from "../constants";
 import { computeMoveSpend } from "./moveBudgetSystem";
 
 export interface TargetInfo {
@@ -38,13 +45,13 @@ function laneFactor(laneIndex: number, factors: { inner: number; middle: number;
 }
 
 // Setup multipliers on per-cell wear (1 = no penalty). Exported so bots can project wear.
-export function setupFactors(setup: CarSetup): { aeroFactor: number; psiFactor: number } {
-  const aeroFactor = 1 + (setup.wingFrontDeg + setup.wingRearDeg) * 0.01;
+export function setupFactors(setup: CarSetup): { aeroTire: number; aeroFuel: number; psiFactor: number } {
+  const { tire: aeroTire, fuel: aeroFuel } = WING_EFFECTS[setup.wing];
   const psi = setup.psi;
   const psiFactor =
     1 +
     (Math.abs(psi.fl - 32) + Math.abs(psi.fr - 32) + Math.abs(psi.rl - 32) + Math.abs(psi.rr - 32)) * 0.002;
-  return { aeroFactor, psiFactor };
+  return { aeroTire, aeroFuel, psiFactor };
 }
 
 // Per-lane wear multipliers: the inner lane is hard on tires, the outer one on fuel.
@@ -56,11 +63,11 @@ export function laneWearFactors(laneIndex: number): { tire: number; fuel: number
 }
 
 function computeCosts(distance: number, laneIndex: number, costs: MovementCostContext): { tireCost: number; fuelCost: number } {
-  const { aeroFactor, psiFactor } = setupFactors(costs.setup);
+  const { aeroTire, aeroFuel, psiFactor } = setupFactors(costs.setup);
   const { tire: tireLaneFactor, fuel: fuelLaneFactor } = laneWearFactors(laneIndex);
 
-  const tireCost = Math.round(distance * costs.tireRate * aeroFactor * psiFactor * tireLaneFactor);
-  const fuelCost = Math.round(distance * costs.fuelRate * aeroFactor * fuelLaneFactor);
+  const tireCost = Math.round(distance * costs.tireRate * aeroTire * psiFactor * tireLaneFactor);
+  const fuelCost = Math.round(distance * costs.fuelRate * aeroFuel * fuelLaneFactor);
 
   return { tireCost, fuelCost };
 }

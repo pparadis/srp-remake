@@ -1,7 +1,8 @@
 import { textResolution } from "../../hidpi";
 import type Phaser from "phaser";
 import type { Car } from "../../types/car";
-import { SETUP_LIMITS } from "../../constants";
+import { SETUP_LIMITS, WING_LEVELS } from "../../constants";
+import { cycleBudget } from "../../systems/moveBudgetSystem";
 import { formatStint } from "../../../ui/hud";
 import type { StintEstimate } from "../../systems/strategy";
 import { makeButton } from "./makeButton";
@@ -20,6 +21,8 @@ interface PitModalTexts {
 }
 
 interface PitModalOpenOptions {
+  /** Heading of the panel; "Pit stop" when omitted (the grid setup reuses the panel). */
+  title?: string;
   setup: Car["setup"];
   bodyLines: string[];
   /** Estimated stint on fresh tires and fuel for each compound at the setup being edited. */
@@ -113,7 +116,7 @@ export class PitModal {
     psiMinus.on("pointerdown", () => this.adjustPsi(-1));
     psiPlus.on("pointerdown", () => this.adjustPsi(1));
 
-    const wingLabel = this.scene.add.text(labelX, fieldY + lineH * 2 + 16, "Wing F/R", {
+    const wingLabel = this.scene.add.text(labelX, fieldY + lineH * 2 + 16, "Wing", {
       fontFamily: "monospace",
       resolution: textResolution(),
       fontSize: "13px",
@@ -185,6 +188,7 @@ export class PitModal {
   open(options: PitModalOpenOptions) {
     this.modalSetup = structuredClone(options.setup);
     this.stints = options.stints;
+    this.modalTitle.setText(options.title ?? "Pit stop");
     this.modalBody.setText(options.bodyLines.join("\n"));
     this.refreshModalValues();
     this.modal.setVisible(true);
@@ -234,7 +238,8 @@ export class PitModal {
     this.modalValueTexts.psi.setText(
       `${this.modalSetup.psi.fl}/${this.modalSetup.psi.fr}/${this.modalSetup.psi.rl}/${this.modalSetup.psi.rr}`
     );
-    this.modalValueTexts.wing.setText(`${this.modalSetup.wingFrontDeg}/${this.modalSetup.wingRearDeg}`);
+    // The cycle budget is what the wing and the compound buy in pace; the wear shows in the stint lines below.
+    this.modalValueTexts.wing.setText(`${this.modalSetup.wing}  (pace ${cycleBudget(this.modalSetup)})`);
     if (!this.stints) return;
     const stints = this.stints(this.modalSetup);
     for (const compound of ["soft", "hard"] as const) {
@@ -255,11 +260,11 @@ export class PitModal {
     this.refreshModalValues();
   }
 
+  // "-" is a lower wing (faster, wears more), "+" a higher one (slower, saves tires and fuel).
   private adjustWing(delta: number) {
     if (!this.modalSetup) return;
-    const clamp = (v: number) => Math.max(SETUP_LIMITS.wingDeg.min, Math.min(SETUP_LIMITS.wingDeg.max, v + delta));
-    this.modalSetup.wingFrontDeg = clamp(this.modalSetup.wingFrontDeg);
-    this.modalSetup.wingRearDeg = clamp(this.modalSetup.wingRearDeg);
+    const index = WING_LEVELS.indexOf(this.modalSetup.wing) + delta;
+    this.modalSetup.wing = WING_LEVELS[Math.max(0, Math.min(WING_LEVELS.length - 1, index))]!;
     this.refreshModalValues();
   }
 }

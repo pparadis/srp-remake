@@ -3,7 +3,8 @@
 ## Strategy helpers (`src/game/systems/strategy.ts`, Phaser-free)
 
 - `stintEstimate(car, spineLen)`: cells, laps and moves until tire or fuel reaches 0 at the car's compound,
-  wings and PSI (middle lane, no safety margin). One move is taken as 8 cells (`MOVE_CYCLE`: 40 per 5 moves).
+  wing and PSI (middle lane, no safety margin). One move is taken as 8 cells (`MOVE_CYCLE`: 40 per 5 moves, plus
+  the wing and compound pace: `cycleBudget(setup)`).
   The wear math is `wearPerCell` in `botPlan.ts`, which uses `setupFactors` from `movementSystem.ts`: there is
   one copy of it, shared by the engine costs, the bots, the HUD and the pit modal.
 - `cellsToPitEntry(cell, plan)`: cells until the car stands on the lane-1 cell next to `PIT_ENTRY` (the only
@@ -19,7 +20,8 @@
 - Hover tooltip: `Move 7 - tire 63% → 58% - fuel ...`, each part coloured by the level it lands on; a move
   that empties tire or fuel adds a warning. Targets that leave tire or fuel under 20% get a red ring on the
   board (thicker when empty).
-- Pit modal: stint of a fresh soft and hard set at the wings and PSI being edited, live.
+- Pit modal: stint of a fresh soft and hard set at the wing and PSI being edited, live. The same panel is the
+  grid setup ("Setup" button next to Skip, until the car's first move).
 
 ## Feel
 
@@ -44,3 +46,19 @@
 - Sound (`src/ui/sound.ts`) is a WebAudio synth without asset files. It stays silent until the first click
   or key press (autoplay policy), while muted, and in test builds. The "Sound: on/off" button in the HUD and
   the `M` key toggle it; the choice is kept in `localStorage["srp:muted"]`.
+
+## Downforce (wing)
+
+Three levels per car, `CarSetup.wing`: `low`, `medium`, `high` (`WING_EFFECTS` in `constants.ts`).
+
+| wing   | cycle budget | tire wear | fuel wear |
+| ------ | ------------ | --------- | --------- |
+| Low    | +1           | x1.6      | x1.05     |
+| Medium | 0            | x1        | x1        |
+| High   | -1           | x0.8      | x0.9      |
+
+The soft compound adds +1 to the cycle budget (`SOFT_PACE_BONUS`) and wears faster; the cycle budget is 40 on the
+plain setup, so 39 to 42. Move cost per move is rounded to whole points as before, so the wing shows over a stint
+rather than on one move. The grid setup is the `setup` action (compound, pressures, wing; free, once, before the car's
+first move; it does not end the turn; `setup_locked` after that). Positions saved with two wing angles load as
+Medium (`normalizeSetup` in `sandbox.ts`).

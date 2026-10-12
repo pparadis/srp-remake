@@ -1,17 +1,17 @@
 // Phaser-free race engine: the one place the turn rules live.
 // Single-player (RaceScene) and the multiplayer server both drive a race through
 // `applyAction`, so the rules can't drift between them.
-import { MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS } from "../constants";
+import { MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS, WING_LEVELS } from "../constants";
 import { hasFinishedRace } from "../systems/lapProgress";
 import type { BotLevel, Car, CarSetup } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
-import { buildPlanContext, IDEAL_PIT_SETUP, type BotPlanContext } from "../systems/botPlan";
+import { bestSetup, buildPlanContext, pitSetupFor, type BotPlanContext } from "../systems/botPlan";
 import { turnOrderOf, personalityFor, personalityOf, PERSONALITIES, type PersonalityKey } from "../systems/botStyle";
 import { trackFwd } from "../systems/trackIndex";
 import { decideBotActionWithTrace, type BotDecisionTrace, type BotPolicy } from "../systems/botSystem";
 import { decideHardBotAction } from "./botHard";
 import { applyMove, crossesStartLine } from "../systems/moveCommitSystem";
-import { getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
+import { cycleBudget, getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
 import { computeSqueezeTargets, computeValidTargets, type TargetInfo } from "../systems/movementSystem";
 import { advancePitPenalty, applyPitStop } from "../systems/pitSystem";
@@ -47,6 +47,8 @@ export interface RaceState {
 export type RaceAction =
   | { type: "move"; targetCellId: string }
   | { type: "pit"; targetCellId: string; setup: CarSetup }
+  // Grid setup: compound, pressures and wing, free, before the car's first turn is played. Does not end the turn.
+  | { type: "setup"; setup: CarSetup }
   | { type: "skip" };
 
 export type RejectReason =
@@ -56,6 +58,7 @@ export type RejectReason =
   | "not_pit_box"
   | "use_pit_action"
   | "invalid_setup"
+  | "setup_locked"
   | "moves_available";
 
 export type ApplyResult =
@@ -92,6 +95,12 @@ export function createRace(ctx: RaceContext, seats: RaceSeat[], raceLaps: number
     if (seat.isBot) car.botLevel = seat.botLevel ?? "normal";
     if (seat.isBot && seat.style) car.style = seat.style;
   });
+  // Bots set up on the grid for the distance they must cover (Easy keeps the default setup it is dealt).
+  const plan = buildPlanContext(ctx.trackIndex, raceLaps);
+  for (const car of cars) {
+    if (!car.isBot || car.botLevel === "easy") continue;
+    car.setup = bestSetup(raceLaps * plan.spineLen);
+  }
   return { cars, turn: { order: turnOrderOf(seed, cars.length), index: 0 }, raceLaps, winnerCarId: null, seed };
 }
 
@@ -111,7 +120,7 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
   const occupied = new Set(state.cars.map((c) => c.cellId));
   const baseMaxSteps =
     car.tire === 0 || car.fuel === 0 ? MOVE_BUDGET.zeroResourceMax : MOVE_BUDGET.baseMax;
-  const maxSteps = Math.min(baseMaxSteps, Math.max(0, getRemainingBudget(car.moveCycle)));
+  const maxSteps = Math.min(baseMaxSteps, Math.max(0, getRemainingBudget(car.moveCycle, cycleBudget(car.setup))));
   const tireRate = car.setup.compound === "soft" ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
   const costs = { tireRate, fuelRate: MOVE_RATES.fuel, setup: car.setup };
   const normal = computeValidTargets(
@@ -127,13 +136,11 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
 }
 
 export function isValidSetup(setup: CarSetup): boolean {
-  const { psi, wingDeg } = SETUP_LIMITS;
+  const { psi } = SETUP_LIMITS;
   const psiOk = [setup.psi.fl, setup.psi.fr, setup.psi.rl, setup.psi.rr].every(
     (v) => Number.isInteger(v) && v >= psi.min && v <= psi.max
   );
-  const wingOk = [setup.wingFrontDeg, setup.wingRearDeg].every(
-    (v) => Number.isInteger(v) && v >= wingDeg.min && v <= wingDeg.max
-  );
+  const wingOk = WING_LEVELS.includes(setup.wing);
   return (setup.compound === "soft" || setup.compound === "hard") && psiOk && wingOk;
 }
 
@@ -169,10 +176,20 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   const log: string[] = [];
   let moveSpend = 0;
 
+  if (action.type === "setup") {
+    if (car.setupLocked) return { ok: false, reason: "setup_locked" };
+    if (!isValidSetup(action.setup)) return { ok: false, reason: "invalid_setup" };
+    car.setup = structuredClone(action.setup);
+    log.push(`Car ${car.carId} set up ${car.setup.compound}, ${car.setup.wing} wing.`);
+    // Not a turn: the same car still plays, and the race cannot end on it.
+    return { ok: true, carId: car.carId, fromCellId, moveSpend: 0, log };
+  }
+
   if (action.type === "skip") {
     if (car.state === "ACTIVE" && computeTargets(ctx, state, car).size > 0) {
       return { ok: false, reason: "moves_available" };
     }
+    car.setupLocked = true;
     recordMove(car.moveCycle, 0);
     log.push(`Car ${car.carId} skipped (no moves).`);
   } else {
@@ -184,6 +201,7 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
     if (action.type === "move") {
       if (check.isPitStop) return { ok: false, reason: "use_pit_action" };
       applyMove(car, fromCell, targetCell, check.info, check.moveSpend, ctx.trackIndex.pitLineFwd);
+      car.setupLocked = true;
       moveSpend = check.moveSpend;
       log.push(`Car ${car.carId} moved to ${targetCell.id}.`);
     } else {
@@ -192,6 +210,7 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
       // A jump from the entry to a box can pass the pit line cell: that is a lap crossing too.
       if (crossesStartLine(fromCell, targetCell, ctx.trackIndex.pitLineFwd)) car.lapCount = (car.lapCount ?? 0) + 1;
       applyPitStop(car, targetCell.id, structuredClone(action.setup));
+      car.setupLocked = true;
       recordMove(car.moveCycle, check.moveSpend);
       moveSpend = check.moveSpend;
       log.push(`Car ${car.carId} pit stop at ${targetCell.id}.`);
@@ -247,7 +266,7 @@ export function decideBotAction(
   }
   if (action.type === "pit") {
     // Easy keeps whatever setup it has; Normal and Hard service with the cheapest-to-run one.
-    const setup = level === "easy" ? car.setup : IDEAL_PIT_SETUP;
+    const setup = level === "easy" ? car.setup : pitSetupFor(car, action.target, plan);
     decision = { action: { type: "pit", targetCellId: action.target.id, setup: structuredClone(setup) }, trace, targets };
   } else {
     decision = { action: { type: "move", targetCellId: action.target.id }, trace, targets };

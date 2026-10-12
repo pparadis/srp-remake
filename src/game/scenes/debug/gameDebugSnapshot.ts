@@ -1,5 +1,5 @@
 import { PIT_LANE } from "../../constants";
-import { getRemainingBudget } from "../../systems/moveBudgetSystem";
+import { cycleBudget, getRemainingBudget } from "../../systems/moveBudgetSystem";
 import type { TargetInfo } from "../../systems/movementSystem";
 import type { Car } from "../../types/car";
 import type { TrackCell, TrackData } from "../../types/track";
@@ -72,7 +72,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
         pitExitBoost: car.pitExitBoost,
         pitServiced: car.pitServiced,
         setup: car.setup,
-        budgetLeft: getRemainingBudget(car.moveCycle),
+        budgetLeft: getRemainingBudget(car.moveCycle, cycleBudget(car.setup)),
         cell: cell
           ? {
               zoneIndex: cell.zoneIndex,
@@ -90,7 +90,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
   const baseMaxSteps = activeCar.tire === 0 || activeCar.fuel === 0
     ? moveBudget.zeroResourceMax
     : moveBudget.baseMax;
-  const remainingBudget = getRemainingBudget(activeCar.moveCycle);
+  const remainingBudget = getRemainingBudget(activeCar.moveCycle, cycleBudget(activeCar.setup));
   const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
   const tireRate = activeCar.setup.compound === "soft" ? moveRates.softTire : moveRates.hardTire;
   const fuelRate = moveRates.fuel;

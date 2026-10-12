@@ -6,7 +6,8 @@ const snapshot = (over: Partial<SandboxSnapshot> = {}): SandboxSnapshot => ({
   activeCarId: 2,
   carIds: [1, 2, 3],
   raceLaps: 5,
-  car: { cellId: "Z20_L1_00", lapCount: 1, tire: 80.4, fuel: 55, compound: "soft", budgetLeft: 40, isBot: true, botLevel: "hard" },
+  car: { cellId: "Z20_L1_00", lapCount: 1, tire: 80.4, fuel: 55, compound: "soft",
+    wing: "medium", budgetLeft: 40, isBot: true, botLevel: "hard" },
   ...over
 });
 

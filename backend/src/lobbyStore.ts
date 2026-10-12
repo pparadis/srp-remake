@@ -432,7 +432,8 @@ export class LobbyStore {
     const result = applyAction(ctx, race.engine, action);
     if (!result.ok) return result;
 
-    race.turnIndex += 1;
+    // A grid setup is not a turn: the same car plays on, and the turn timer keeps running.
+    if (action.type !== "setup") race.turnIndex += 1;
     if (race.engine.winnerCarId !== null) {
       lobby.status = "FINISHED";
       lobby.terminationReason = "race_finished";

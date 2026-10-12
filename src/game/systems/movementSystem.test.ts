@@ -28,8 +28,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A1", new Set(), 2, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("P1")).toBe(false);
   });
@@ -39,8 +38,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A0", new Set(), 2, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("P1")).toBe(true);
   });
@@ -50,8 +48,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "P1", new Set(), 9, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("P2")).toBe(true);
     expect(targets.size).toBe(1);
@@ -62,8 +59,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A0", new Set(), 1, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("B2")).toBe(false);
   });
@@ -74,8 +70,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A2", occupied, 2, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("B1")).toBe(true);
   });
@@ -101,8 +96,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A1", occupied, 3, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("B1")).toBe(true);
     expect(targets.has("B2")).toBe(true);
@@ -115,8 +109,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track as TrackData), "Z10_L1_00", occupied, 3, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("Z12_L1_00")).toBe(false);
     expect(targets.has("Z12_L2_00")).toBe(true);
@@ -127,8 +120,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track as TrackData), "Z06_L0_00", occupied, 1, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("Z07_L1_00")).toBe(true);
   });
@@ -138,8 +130,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track as TrackData), "Z01_L1_00", occupied, 1, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("Z01_L2_00")).toBe(false);
     expect(targets.has("Z02_L1_00")).toBe(true);
@@ -150,8 +141,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track as TrackData), "Z01_L0_00", occupied, 9, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("Z02_L0_00")).toBe(true);
     expect(targets.has("Z03_L0_00")).toBe(true);
@@ -162,8 +152,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track as TrackData), "Z26_L1_00", occupied, 9, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("Z28_L0_00")).toBe(false);
     expect(targets.has("Z01_L0_00")).toBe(false);
@@ -184,8 +173,7 @@ describe("computeValidTargets", () => {
         setup: {
           compound: "soft",
           psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-          wingFrontDeg: 6,
-          wingRearDeg: 12
+          wing: "medium" as const
         }
       }
     );
@@ -213,8 +201,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A1", occupied, 3, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("C1")).toBe(false);
     expect(targets.has("C2")).toBe(true);
@@ -241,8 +228,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A0", occupied, 3, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("C0")).toBe(true);
     expect(targets.has("C1")).toBe(true); // B1 is passed; there is no second car to stop at
@@ -275,8 +261,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A0", occupied, 4, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("C1")).toBe(false);
     expect(targets.has("E1")).toBe(false);
@@ -303,8 +288,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A1", occupied, 2, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("C1")).toBe(true);
   });
@@ -329,8 +313,7 @@ describe("computeValidTargets", () => {
     const targets = computeValidTargets(buildTrackIndex(track), "A1", new Set(), 2, {}, { tireRate: 0.5, fuelRate: 0.45, setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     }});
     expect(targets.has("C1")).toBe(true);
     expect(targets.has("C2")).toBe(false);
@@ -349,8 +332,7 @@ describe("computeValidTargets", () => {
         setup: {
           compound: "soft",
           psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-          wingFrontDeg: 6,
-          wingRearDeg: 12
+          wing: "medium" as const
         }
       }
     );
@@ -376,8 +358,7 @@ describe("computeValidTargets", () => {
     const costs = { tireRate: 100, fuelRate: 100, setup: {
       compound: "soft" as const,
       psi: { fl: 32, fr: 32, rl: 32, rr: 32 },
-      wingFrontDeg: 0,
-      wingRearDeg: 0
+      wing: "medium" as const
     }};
     const targets0 = computeValidTargets(buildTrackIndex(track), "A0", new Set(), 1, {}, costs);
     const targets1 = computeValidTargets(buildTrackIndex(track), "A1", new Set(), 1, {}, costs);
@@ -399,7 +380,7 @@ describe("computeSqueezeTargets (boxed in)", () => {
   const costs = {
     tireRate: 0.5,
     fuelRate: 0.45,
-    setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 }
+    setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" as const }
   };
   const START = "Z05_L2_00";
   // Blocker ahead in the own lane plus both neighbouring-lane cells ahead.
@@ -450,7 +431,7 @@ describe("computeSqueezeTargets (pit exit blocked)", () => {
   const costs = {
     tireRate: 0.5,
     fuelRate: 0.45,
-    setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 }
+    setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" as const }
   };
   const EXIT = "Z06_L0_00";
   const normal = (from: string, occ: Set<string>, max = 9) => computeValidTargets(index, from, occ, max, {}, costs);
@@ -485,5 +466,27 @@ describe("computeSqueezeTargets (pit exit blocked)", () => {
     const free = new Set([EXIT]);
     expect([...normal(EXIT, free).keys()]).toEqual(["Z07_L1_00"]);
     expect(squeeze(EXIT, free).size).toBe(0);
+  });
+});
+
+describe("wing wear", () => {
+  const wearAt = (wing: "low" | "medium" | "high", tireRate: number, fuelRate: number) => {
+    const costs = { tireRate, fuelRate, setup: { compound: "hard" as const, psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing } };
+    // Z01_L1 -> 9 cells ahead on lane 1, straight.
+    const targets = computeValidTargets(buildTrackIndex(track as unknown as TrackData), "Z01_L1_00", new Set(), 9, {}, costs);
+    const lane1 = new Set((track as unknown as TrackData).cells.filter((c) => c.laneIndex === 1).map((c) => c.id));
+    const far = [...targets].find(([id, t]) => t.distance === 9 && lane1.has(id))![1];
+    return { tire: far.tireCost, fuel: far.fuelCost };
+  };
+
+  it("charges Low wing more tire than Medium, and High wing less", () => {
+    // 9 cells at 10 per cell: the rounding of 0.35-a-cell wear cannot hide the factors.
+    const low = wearAt("low", 10, 10);
+    const medium = wearAt("medium", 10, 10);
+    const high = wearAt("high", 10, 10);
+    expect(low.tire).toBeGreaterThan(medium.tire);
+    expect(high.tire).toBeLessThan(medium.tire);
+    expect(low.fuel).toBeGreaterThan(medium.fuel);
+    expect(high.fuel).toBeLessThan(medium.fuel);
   });
 });

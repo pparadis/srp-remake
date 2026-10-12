@@ -8,7 +8,7 @@ import {
   buildPlanContext,
   crawlCost,
   forwardGain,
-  IDEAL_PIT_SETUP,
+  pitSetupFor,
   PIT_LANE_CELLS,
   progressOf,
   type BotPlanContext
@@ -42,10 +42,10 @@ interface HardDeps {
   decideNormal(ctx: RaceContext, state: RaceState): BotTurnDecision;
 }
 
-function actionFor(car: Car, cellId: string, info: TargetInfo): RaceAction {
+function actionFor(ctx: RaceContext, plan: BotPlanContext, car: Car, cellId: string, info: TargetInfo): RaceAction {
   // Same test as the bot system: a PIT_BOX target on an unserviced car is a stop.
   return info.isPitTrigger && !car.pitServiced
-    ? { type: "pit", targetCellId: cellId, setup: structuredClone(IDEAL_PIT_SETUP) }
+    ? { type: "pit", targetCellId: cellId, setup: pitSetupFor(car, ctx.cellMap.get(cellId)!, plan) }
     : { type: "move", targetCellId: cellId };
 }
 
@@ -76,7 +76,7 @@ function valueOf(
   let crawl = crawlCost(me, myCell, plan);
   if (myCell.laneIndex === PIT_LANE && !me.pitServiced) {
     // A stop under way: count the fresh tires and tank it is about to get, less the pit moves left.
-    const fresh = { ...me, tire: 100, fuel: 100, setup: IDEAL_PIT_SETUP };
+    const fresh = { ...me, tire: 100, fuel: 100, setup: pitSetupFor(me, myCell, plan) };
     crawl = Math.min(crawl, crawlCost(fresh, myCell, plan) + PIT_LANE_CELLS);
   }
   return mine - rivalTerm - crawl;
@@ -119,7 +119,7 @@ export function decideHardBotAction(
   const evaluated: BotDecisionTrace["candidates"] = [];
   let best: { cellId: string; value: number } | null = null;
   for (const candidate of top) {
-    const sim = simulateRound(ctx, state, car.carId, actionFor(car, candidate.cellId, candidate.info), deps);
+    const sim = simulateRound(ctx, state, car.carId, actionFor(ctx, plan, car, candidate.cellId, candidate.info), deps);
     if (!sim) continue;
     // What the Normal score knows beyond progress (budget cycle, resource worth, pit plan) is
     // kept, scaled to cells; the simulation adds what only the next round can show.
@@ -132,7 +132,7 @@ export function decideHardBotAction(
 
   const info = trace.candidates.find((c) => c.cellId === best.cellId)!.info;
   return {
-    action: actionFor(car, best.cellId, info),
+    action: actionFor(ctx, plan, car, best.cellId, info),
     trace: { ...trace, candidates: evaluated, selectedCellId: best.cellId },
     targets: normal.targets
   };
