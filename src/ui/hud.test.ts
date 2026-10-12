@@ -32,6 +32,8 @@ const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   cycle: [3, 0, 0, 0, 0],
   cycleIndex: 1,
   remaining: 37,
+  drafting: false,
+  draftTurns: 0,
   budget: 40,
   wing: "medium",
   pitServiced: false,
@@ -196,6 +198,29 @@ describe("hud", () => {
     expect(text(root, "hud-tooltip")).toContain("Empties your tire: max 4 moves next");
     renderHud(root, snap({ hover: { ...base, tireBefore: 0, fuelBefore: 80 } }));
     expect(text(root, "hud-tooltip")).not.toContain("Empties");
+  });
+
+  it("shows the draft on the car card: turns so far, then slingshot ready, and nothing when not drafting", () => {
+    const draft = () => root.querySelector<HTMLElement>('[data-testid="hud-draft"]')!;
+    renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 1 })] }));
+    expect(draft().hidden).toBe(false);
+    expect(draft().textContent).toBe("Drafting 1/2");
+    expect(draft().classList.contains("is-ready")).toBe(false);
+    renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 2 })] }));
+    expect(draft().textContent).toBe("Drafting - slingshot ready");
+    expect(draft().classList.contains("is-ready")).toBe(true);
+    renderHud(root, snap({ cars: [car(2, { drafting: false, draftTurns: 0 })] }));
+    expect(draft().hidden).toBe(true);
+  });
+
+  it("tooltip says when a move is drafted, and when it is a slingshot", () => {
+    const hover = { x: 1, y: 2, distance: 3, moveSpend: 4, tireCost: 2, fuelCost: 2, isPit: false, tireBefore: 90, fuelBefore: 90 };
+    renderHud(root, snap({ hover }));
+    expect(text(root, "hud-tooltip")).not.toContain("Draft");
+    renderHud(root, snap({ hover: { ...hover, drafted: true } }));
+    expect(text(root, "hud-tooltip")).toContain("Draft: less wear");
+    renderHud(root, snap({ hover: { ...hover, drafted: true, slingshot: true } }));
+    expect(text(root, "hud-tooltip")).toContain("Slingshot: the lane change is free");
   });
 
   it("tooltip names the lane changes of a route that changes lane 2 or more times", () => {

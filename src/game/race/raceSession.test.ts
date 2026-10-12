@@ -68,6 +68,23 @@ describe("RaceSession: grid setup", () => {
   });
 });
 
+describe("RaceSession: drafting", () => {
+  it("the HUD says who is drafting and for how many turns, and marks drafted and slingshot targets", () => {
+    const session = solo();
+    session.recomputeTargets();
+    const me = session.activeCar;
+    const other = session.cars.find((c) => c.carId !== me.carId)!;
+    Object.assign(me, { cellId: "Z05_L1_00", draftTurns: 2 });
+    Object.assign(other, { cellId: "Z07_L1_00" });
+    session.recomputeTargets();
+
+    const card = hud(session).cars.find((c) => c.carId === me.carId)!;
+    expect(card).toMatchObject({ drafting: true, draftTurns: 2 });
+    expect([...session.validTargets.values()].some((t) => t.slingshot)).toBe(true);
+    expect(hud(session).cars.find((c) => c.carId === other.carId)).toMatchObject({ drafting: false });
+  });
+});
+
 describe("RaceSession: solo", () => {
   it("starts with the human on pole and the bots behind, on turn when the race opens", () => {
     const session = solo({ botCars: 3 });

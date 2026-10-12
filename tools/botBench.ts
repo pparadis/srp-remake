@@ -36,7 +36,7 @@ if (process.argv.includes("--strategist")) {
     for (const lapCount of laps) {
       const results = seeds.map((seed) => playBenchRace(ctx, [variant, level, level, level], lapCount, seed));
       const me = results.flatMap((r) => r.finishers.filter((f) => f.slot === 0));
-      const bySlot = statsBy([{ finishers: me, order: [], decisionMs: {} }], (f) => String(f.grid));
+      const bySlot = statsBy([{ finishers: me, order: [], decisionMs: {}, overtakes: 0 }], (f) => String(f.grid));
       const wins = me.filter((f) => f.place === 1).length;
       const avg = me.reduce((sum, f) => sum + f.place, 0) / me.length;
       const slots = [0, 1, 2, 3].map((g) => bySlot.get(String(g))?.avgFinish.toFixed(1) ?? "-").join(" ");
@@ -69,8 +69,9 @@ if (process.argv.includes("--setups")) {
 const lineup = arg("lineup", "hard,normal,easy,autopilot").split(",") as BenchPolicy[];
 const styleArg = arg("styles", "");
 const styles = styleArg ? (styleArg.split(",") as PersonalityKey[]) : undefined;
-const { races, stats, results } = runBench(ctx, { lineup, laps, seeds, ...(styles ? { styles } : {}) });
+const { races, stats, results, overtakesPerRace } = runBench(ctx, { lineup, laps, seeds, ...(styles ? { styles } : {}) });
 console.log(`${races} races (${lineup.join(", ")}; laps ${laps.join("/")}; ${seedCount} seeds) in ${seconds()} s`);
+console.log(`overtakes per race: ${overtakesPerRace.toFixed(1)} (position swaps in the standings)`);
 console.log("policy      wins  win rate  avg finish  avg moves  ms/decision");
 for (const [policy, s] of [...stats].sort((a, b) => a[1].avgFinish - b[1].avgFinish)) {
   console.log(

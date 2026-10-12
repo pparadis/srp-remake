@@ -1,7 +1,7 @@
 // Phaser-free race engine: the one place the turn rules live.
 // Single-player (RaceScene) and the multiplayer server both drive a race through
 // `applyAction`, so the rules can't drift between them.
-import { MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS, WING_LEVELS } from "../constants";
+import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS, WING_LEVELS } from "../constants";
 import { hasFinishedRace } from "../systems/lapProgress";
 import type { BotLevel, Car, CarSetup } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
@@ -14,6 +14,7 @@ import { applyMove, crossesStartLine } from "../systems/moveCommitSystem";
 import { cycleBudget, getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
 import { computeSqueezeTargets, computeValidTargets, type TargetInfo } from "../systems/movementSystem";
+import { draftAhead } from "../systems/draftSystem";
 import { advancePitPenalty, applyPitStop } from "../systems/pitSystem";
 import { spawnCars } from "../systems/spawnSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
@@ -128,11 +129,20 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
     car.cellId,
     occupied,
     maxSteps,
-    { allowPitExitSkip: car.pitExitBoost, disallowPitBoxTargets: car.pitServiced },
+    {
+      allowPitExitSkip: car.pitExitBoost,
+      disallowPitBoxTargets: car.pitServiced,
+      slingshotReady: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS
+    },
     costs
   );
   if (normal.size > 0 || car.state !== "ACTIVE") return normal;
   return computeSqueezeTargets(ctx.trackIndex, car.cellId, occupied, maxSteps, costs);
+}
+
+// True when the car stands in a draft: another car 1 to DRAFT_RANGE cells ahead in its own lane.
+export function isDrafting(ctx: RaceContext, state: RaceState, car: Car): boolean {
+  return draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId)) !== null;
 }
 
 export function isValidSetup(setup: CarSetup): boolean {
@@ -175,6 +185,8 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   const fromCellId = car.cellId;
   const log: string[] = [];
   let moveSpend = 0;
+  // Read before the car moves: the draft counts the turns that BEGIN in it.
+  const startedInDraft = isDrafting(ctx, state, car);
 
   if (action.type === "setup") {
     if (car.setupLocked) return { ok: false, reason: "setup_locked" };
@@ -216,6 +228,9 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
       log.push(`Car ${car.carId} pit stop at ${targetCell.id}.`);
     }
   }
+
+  // A setup returned above (it is not a turn). Here the turn was played: a skip or a pit stop breaks the run too.
+  car.draftTurns = startedInDraft && action.type === "move" ? (car.draftTurns ?? 0) + 1 : 0;
 
   const winner = findWinner(state);
   if (winner) {

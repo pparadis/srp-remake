@@ -6,9 +6,12 @@ import {
   MIDDLE_MAIN_LANE,
   OUTER_MAIN_LANE,
   PIT_LANE,
+  DRAFT_FUEL_FACTOR,
+  DRAFT_TIRE_FACTOR,
   SQUEEZE_SURCHARGE_PER_CAR,
   WING_EFFECTS
 } from "../constants";
+import { draftAhead } from "./draftSystem";
 import { computeMoveSpend } from "./moveBudgetSystem";
 
 export interface TargetInfo {
@@ -21,11 +24,17 @@ export interface TargetInfo {
   squeezePassed?: number;
   // Set only when the route changes lane 2 or more times (go around a blocker and rejoin, or a zig-zag).
   laneChanges?: number;
+  // Set only when the move starts in a draft: its tire and fuel cost carry the draft discount.
+  drafted?: true;
+  // Set only on a slingshot: a pull-out pass of the drafted car whose lane-change surcharge was waived.
+  slingshot?: true;
 }
 
 interface MovementOptions {
   allowPitExitSkip?: boolean;
   disallowPitBoxTargets?: boolean;
+  // The car has been in the draft long enough (DRAFT_SLINGSHOT_TURNS turns) to slingshot past the car it drafts.
+  slingshotReady?: boolean;
 }
 
 interface MovementCostRates {
@@ -62,12 +71,19 @@ export function laneWearFactors(laneIndex: number): { tire: number; fuel: number
   };
 }
 
-function computeCosts(distance: number, laneIndex: number, costs: MovementCostContext): { tireCost: number; fuelCost: number } {
+function computeCosts(
+  distance: number,
+  laneIndex: number,
+  costs: MovementCostContext,
+  drafting = false
+): { tireCost: number; fuelCost: number } {
   const { aeroTire, aeroFuel, psiFactor } = setupFactors(costs.setup);
   const { tire: tireLaneFactor, fuel: fuelLaneFactor } = laneWearFactors(laneIndex);
+  const draftTire = drafting ? DRAFT_TIRE_FACTOR : 1;
+  const draftFuel = drafting ? DRAFT_FUEL_FACTOR : 1;
 
-  const tireCost = Math.round(distance * costs.tireRate * aeroTire * psiFactor * tireLaneFactor);
-  const fuelCost = Math.round(distance * costs.fuelRate * aeroFuel * fuelLaneFactor);
+  const tireCost = Math.round(distance * costs.tireRate * aeroTire * psiFactor * tireLaneFactor * draftTire);
+  const fuelCost = Math.round(distance * costs.fuelRate * aeroFuel * fuelLaneFactor * draftFuel);
 
   return { tireCost, fuelCost };
 }
@@ -241,6 +257,9 @@ export function computeValidTargets(
     }
   }
 
+  // Drafting: the car starts this move in the slipstream of the nearest car ahead in its own lane (see draftSystem).
+  const drafted = !startIsPitLane ? draftAhead(trackIndex, startCellId, occupied) : null;
+
   const blockerDeltasByLane = new Map<number, number[]>();
   if (!startIsPitLane) {
     for (const occId of occupied) {
@@ -321,18 +340,30 @@ export function computeValidTargets(
       if (d !== 1) continue;
     }
     const steps = route?.steps ?? d;
-    const moveSpend = route?.price ?? computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, targetDelta);
+    let moveSpend = route?.price ?? computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, targetDelta);
+    // Slingshot: after enough turns in the draft, a pull-out pass of the drafted car (a route with a lane change that
+    // ends beyond it) skips the +1 lane-change surcharge. The walk itself is still paid.
+    const slingshot =
+      drafted !== null &&
+      options.slingshotReady === true &&
+      route !== undefined &&
+      route.laneChanges >= 1 &&
+      targetDelta > drafted.gap &&
+      moveSpend > steps;
+    if (slingshot) moveSpend -= 1;
     if (moveSpend > maxSteps) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
-    const { tireCost, fuelCost } = computeCosts(steps, cell.laneIndex, costs);
+    const { tireCost, fuelCost } = computeCosts(steps, cell.laneIndex, costs, drafted !== null);
     targets.set(cellId, {
       distance: steps,
       moveSpend,
       tireCost,
       fuelCost,
       isPitTrigger: (cell.tags ?? []).includes("PIT_BOX"),
-      ...(route && route.laneChanges >= 2 ? { laneChanges: route.laneChanges } : {})
+      ...(route && route.laneChanges >= 2 ? { laneChanges: route.laneChanges } : {}),
+      ...(drafted ? { drafted: true as const } : {}),
+      ...(slingshot ? { slingshot: true as const } : {})
     });
   }
 

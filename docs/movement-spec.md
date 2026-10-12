@@ -141,3 +141,21 @@ nothing is served after the line.)
 
 - Movement targets are computed independently each turn.
 - Any change to rules should include a unit test in `src/game/systems/movementSystem.test.ts`.
+
+## Drafting (slipstream, issue #55)
+
+A car is **drafting** when it is in a main lane and another car (any owner) stands in the **same lane**, 1 to
+`DRAFT_RANGE` (2) cells directly ahead by `forwardIndex` (wrapping at the start line). Adjacent lanes and the pit lane
+(entry and exit included) never count. `draftAhead` in `src/game/systems/draftSystem.ts` is the only definition.
+
+- **Wear:** a move that starts in a draft costs `DRAFT_FUEL_FACTOR` (0.8) of the fuel and `DRAFT_TIRE_FACTOR` (0.9) of
+  the tire, applied in `computeCosts` with the other factors and rounded once. On the plain setup (hard, Medium wing) the
+  tire discount rounds away on every move length; the fuel discount shows (1 point) on 4, 6, 8 and 9 cell moves.
+  `TargetInfo.drafted` marks the targets of such a move.
+- **Slingshot:** a car that has begun `DRAFT_SLINGSHOT_TURNS` (2) consecutive turns in a draft pays no +1 lane-change
+  surcharge on a route with a lane change that ends beyond the car it drafts (`TargetInfo.slingshot`). The pass rules
+  themselves (one blocker, go-round) and the squeeze surcharge are unchanged: only the price drops.
+- **`Car.draftTurns`:** after each turn played, `draftTurns + 1` if the car began that turn in a draft and moved, else
+  0 (a skip, a pit stop or a turn that began out of the draft resets it). A grid `setup` is not a turn. It starts at 0.
+  So: two turns begun in the draft, then the third may slingshot.
+- No lobby setting: always on. The engine computes it (`computeTargets`, `applyAction`), so solo and the server agree.

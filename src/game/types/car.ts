@@ -38,4 +38,6 @@ export interface Car {
   moveCycle: MoveCycle;
   // True once the car has played a turn; the grid setup (compound, wing) can only change before that.
   setupLocked?: boolean;
+  // Consecutive turns this car has begun in a draft (see draftSystem): the slingshot needs DRAFT_SLINGSHOT_TURNS.
+  draftTurns?: number;
 }

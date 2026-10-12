@@ -17,6 +17,7 @@ export interface SandboxSnapshot {
     compound: "soft" | "hard";
     wing: WingLevel;
     budgetLeft: number;
+    draftTurns: number;
     isBot: boolean;
     botLevel: BotLevel;
   };
@@ -50,6 +51,7 @@ const TEMPLATE = `
   <label>Tire % <input data-testid="sandbox-tire" type="number" min="0" max="100" /></label>
   <label>Fuel % <input data-testid="sandbox-fuel" type="number" min="0" max="100" /></label>
   <label>Moves left <input data-testid="sandbox-budget" type="number" min="0" max="42" /></label>
+  <label>Draft turns <input data-testid="sandbox-draft" type="number" min="0" max="9" /></label>
   <label>Compound
     <select data-testid="sandbox-compound"><option value="soft">Soft</option><option value="hard">Hard</option></select>
   </label>
@@ -83,7 +85,7 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
   let last: SandboxSnapshot | null = null;
   const carId = () => last?.activeCarId ?? 0;
   const edit = (patch: CarEdit) => send({ type: "edit", carId: carId(), edit: patch });
-  const num = (id: string, key: "lapCount" | "tire" | "fuel" | "budgetLeft") =>
+  const num = (id: string, key: "lapCount" | "tire" | "fuel" | "budgetLeft" | "draftTurns") =>
     q<HTMLInputElement>(id).addEventListener("change", (e) => {
       const value = Number.parseFloat((e.target as HTMLInputElement).value);
       if (Number.isFinite(value)) edit({ [key]: value });
@@ -92,6 +94,7 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
   num("sandbox-tire", "tire");
   num("sandbox-fuel", "fuel");
   num("sandbox-budget", "budgetLeft");
+  num("sandbox-draft", "draftTurns");
   q("sandbox-car").addEventListener("change", (e) =>
     send({ type: "select", carId: Number((e.target as HTMLSelectElement).value) })
   );
@@ -143,6 +146,7 @@ export function renderSandboxPanel(root: HTMLElement, s: SandboxSnapshot) {
   setValue(q<HTMLInputElement>("sandbox-tire"), String(Math.round(s.car.tire)));
   setValue(q<HTMLInputElement>("sandbox-fuel"), String(Math.round(s.car.fuel)));
   setValue(q<HTMLInputElement>("sandbox-budget"), String(s.car.budgetLeft));
+  setValue(q<HTMLInputElement>("sandbox-draft"), String(s.car.draftTurns));
   setValue(q<HTMLSelectElement>("sandbox-compound"), s.car.compound);
   setValue(q<HTMLSelectElement>("sandbox-wing"), s.car.wing);
 }

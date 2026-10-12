@@ -143,3 +143,15 @@ describe("positions saved before the wing had levels", () => {
     expect(normalizeSetup({ compound: "hard", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "high" }).wing).toBe("high");
   });
 });
+
+describe("sandbox draft turns", () => {
+  it("edits the consecutive draft turns of a car, clamped to 0..9", () => {
+    const state = createRace(ctx, [{ isBot: false, ownerId: "P1" }, { isBot: true, ownerId: "B2" }], 3);
+    expect(editCar(ctx, state, 1, { draftTurns: 2 })).toBeNull();
+    expect(state.cars[0]!.draftTurns).toBe(2);
+    editCar(ctx, state, 1, { draftTurns: 50 });
+    expect(state.cars[0]!.draftTurns).toBe(9);
+    editCar(ctx, state, 1, { draftTurns: -3 });
+    expect(state.cars[0]!.draftTurns).toBe(0);
+  });
+});

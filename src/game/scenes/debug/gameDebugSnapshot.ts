@@ -73,6 +73,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
         pitServiced: car.pitServiced,
         setup: car.setup,
         budgetLeft: getRemainingBudget(car.moveCycle, cycleBudget(car.setup)),
+        draftTurns: car.draftTurns ?? 0,
         cell: cell
           ? {
               zoneIndex: cell.zoneIndex,
@@ -103,7 +104,9 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
     fuelCost: info.fuelCost,
     isPitTrigger: info.isPitTrigger,
     ...(info.squeezePassed ? { squeezePassed: info.squeezePassed } : {}),
-    ...(info.laneChanges ? { laneChanges: info.laneChanges } : {})
+    ...(info.laneChanges ? { laneChanges: info.laneChanges } : {}),
+    ...(info.drafted ? { drafted: true } : {}),
+    ...(info.slingshot ? { slingshot: true } : {})
   }));
 
   return {

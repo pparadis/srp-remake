@@ -40,5 +40,13 @@ export const WING_EFFECTS: Record<WingLevel, { pace: number; tire: number; fuel:
 // The soft compound grips better: it adds this to the cycle budget (and wears faster, see MOVE_RATES).
 export const SOFT_PACE_BONUS = 1;
 
+// Drafting (issue #55): a car in a main lane with another car 1 to DRAFT_RANGE cells directly ahead in its own lane
+// runs in its slipstream. A move that starts there wears less; after DRAFT_SLINGSHOT_TURNS consecutive turns begun in
+// the draft, a pull-out pass of the drafted car skips the +1 lane-change surcharge (the slingshot).
+export const DRAFT_RANGE = 2;
+export const DRAFT_FUEL_FACTOR = 0.8;
+export const DRAFT_TIRE_FACTOR = 0.9;
+export const DRAFT_SLINGSHOT_TURNS = 2;
+
 // Extra move points per car passed when a boxed-in car squeezes past (see docs/movement-spec.md).
 export const SQUEEZE_SURCHARGE_PER_CAR = 2;
