@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm run test:coverage)",
+      "Bash(npm run validate:track)",
+      "Bash(npm run backend:test)",
+      "Bash(npm run backend:build)",
+      "Bash(npx tsc --noEmit -p .)",
+      "Bash(git diff --stat)",
+      "Bash(git stash list)"
+    ]
+  }
+}
