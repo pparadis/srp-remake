@@ -40,6 +40,7 @@ export class PitModal {
   private modalTitle: Phaser.GameObjects.Text;
   private modalBody: Phaser.GameObjects.Text;
   private modalConfirm: Phaser.GameObjects.Text;
+  private wingButtons!: { minus: Phaser.GameObjects.Text; plus: Phaser.GameObjects.Text };
   private modalCancel: Phaser.GameObjects.Text;
   private modalSetup: Car["setup"] | null = null;
   private stints: PitModalOpenOptions["stints"] | null = null;
@@ -134,6 +135,7 @@ export class PitModal {
     wingPlus.setScale(0.85);
     wingMinus.on("pointerdown", () => this.adjustWing(-1));
     wingPlus.on("pointerdown", () => this.adjustWing(1));
+    this.wingButtons = { minus: wingMinus, plus: wingPlus };
 
     const stintTitle = this.scene.add.text(labelX, fieldY + lineH * 3 + 14, "Stint on fresh tires and fuel", {
       fontFamily: "monospace",
@@ -183,6 +185,11 @@ export class PitModal {
 
   isActive() {
     return this.active;
+  }
+
+  /** The buttons an e2e test presses with the real mouse (see `window.__srp.uiButtonPos`). */
+  button(name: "wing-minus" | "wing-plus" | "confirm"): Phaser.GameObjects.Text {
+    return name === "confirm" ? this.modalConfirm : name === "wing-minus" ? this.wingButtons.minus : this.wingButtons.plus;
   }
 
   open(options: PitModalOpenOptions) {
