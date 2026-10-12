@@ -466,6 +466,29 @@ describe("main multiplayer screens", () => {
       expect(skip.hidden).toBe(true); // the host's own turn
     });
 
+    it("sends the grid setup to the server as a turn action, and tells the scene when it was applied", async () => {
+      await enter("host", makeRaceLobby("grid", 0));
+      expect(document.body.dataset.screen).toBe("race");
+      const setup = { compound: "soft", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "low" };
+      submitTurnMock.mockResolvedValue({ ok: true, revision: 4 });
+
+      window.dispatchEvent(new CustomEvent("srp:local-turn-action", { detail: { type: "setup", setup } }));
+      await vi.waitFor(() => expect(submitTurnMock).toHaveBeenCalled());
+      expect(submitTurnMock.mock.calls.at(-1)?.[4]).toEqual({ type: "setup", setup });
+
+      const applied = vi.fn();
+      window.addEventListener("srp:backend-turn-applied", applied);
+      send("turn.applied", {
+        lobbyId: "grid",
+        playerId: "host-player-id",
+        revision: 4,
+        applied: { type: "setup" }
+      });
+      expect(applied).toHaveBeenCalledTimes(1);
+      expect((applied.mock.calls[0]![0] as CustomEvent).detail.applied).toEqual({ type: "setup" });
+      window.removeEventListener("srp:backend-turn-applied", applied);
+    });
+
     it("warns a guest when the host closes their page, then sends them home once the lobby closes", async () => {
       await enter("guest", makeRaceLobby("gone", 0));
       expect(document.body.dataset.screen).toBe("race");

@@ -43,6 +43,8 @@ declare global {
     __srp?: {
       state: () => ReturnType<typeof buildGameDebugSnapshot>;
       cellScreenPos: (cellId: string) => { x: number; y: number } | null;
+      /** Centre of a canvas button (page coordinates): Setup, and the pit modal's wing -/+ and Confirm. Null when hidden. */
+      uiButtonPos: (name: "setup" | "wing-minus" | "wing-plus" | "confirm") => { x: number; y: number } | null;
       /** Where a car token is drawn right now (page coordinates), mid-tween included. */
       tokenScreenPos: (carId: number) => { x: number; y: number } | null;
       /** What Phaser's own hit test finds under the pointer: a drag needs the active car's token on top and draggable. */
@@ -323,6 +325,7 @@ export class RaceScene extends Phaser.Scene {
           this.animationsFrozen = true;
         },
         cellScreenPos: (cellId) => this.cellScreenPos(cellId),
+        uiButtonPos: (name) => this.uiButtonScreenPos(name),
         pointerProbe: () => {
           const pointer = this.input.activePointer;
           const hits = this.input.hitTestPointer(pointer);
@@ -1088,6 +1091,24 @@ export class RaceScene extends Phaser.Scene {
   private cellScreenPos(cellId: string): { x: number; y: number } | null {
     const cell = this.cellMap.get(cellId);
     return cell ? this.worldToScreen(cell.pos.x, cell.pos.y) : null;
+  }
+
+  // Centre of a canvas button in page coordinates, or null while it is not on screen. The buttons are fixed
+  // (scrollFactor 0) and zoomed with the camera around its centre.
+  private uiButtonScreenPos(name: "setup" | "wing-minus" | "wing-plus" | "confirm"): { x: number; y: number } | null {
+    const button = name === "setup" ? this.setupButton : this.pitModal.button(name);
+    if (!button || !button.visible || (name !== "setup" && !this.pitModal.isActive())) return null;
+    const b = button.getBounds();
+    const cam = this.cameras.main;
+    const rect = this.game.canvas.getBoundingClientRect();
+    const cx = cam.width / 2;
+    const cy = cam.height / 2;
+    const canvasX = (b.centerX - cx) * cam.zoom + cx;
+    const canvasY = (b.centerY - cy) * cam.zoom + cy;
+    return {
+      x: rect.left + canvasX * (rect.width / this.scale.width),
+      y: rect.top + canvasY * (rect.height / this.scale.height)
+    };
   }
 
   private worldToScreen(wx: number, wy: number): { x: number; y: number } {

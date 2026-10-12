@@ -265,10 +265,26 @@ test("a grid setup changes the car for free, keeps the turn, and is refused afte
   // Not a turn: the host still plays, the bot has not moved.
   assert.equal(afterSetup.raceState.activeSeatIndex ?? 0, 0);
   assert.equal(afterSetup.raceState.cars[1]!.cellId, raceState.cars[1]!.cellId);
+  // ...and it does not count as a turn: the turn index (what the timer and the AFK check read) stays put.
+  assert.equal(afterSetup.raceState.turnIndex, raceState.turnIndex);
+  assert.equal(afterSetup.raceState.cars[0]!.setupLocked ?? false, false);
 
   const move = await submit(legalMove(afterSetup.raceState), "first-move", afterSetup.revision);
   assert.equal(move.statusCode, 200);
   const late = await submit({ type: "setup", setup: { ...setup, wing: "high" } }, "setup-late", (await readLobby(app, lobbyId, token)).revision);
   assert.equal(late.statusCode, 409);
   assert.equal((late.json() as { reason: string }).reason, "setup_locked");
+});
+
+test("the server's bots set up on the grid for the distance; a human keeps the plain setup", async (t) => {
+  const { app, raceState } = await startRace({ totalCars: 3, humanCars: 1, botCars: 2, raceLaps: 3 });
+  t.after(() => app.close());
+  const [human, ...bots] = raceState.cars;
+  assert.equal(human!.setup.wing, "medium");
+  assert.equal(human!.setup.compound, "hard");
+  // 3 laps: a sprint, so soft tires and Low wing
+  for (const bot of bots) {
+    assert.equal(bot.setup.compound, "soft");
+    assert.equal(bot.setup.wing, "low");
+  }
 });
