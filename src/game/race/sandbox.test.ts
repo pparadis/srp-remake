@@ -4,7 +4,7 @@ import { MOVE_BUDGET, MOVE_RATES } from "../constants";
 import { buildGameDebugSnapshot } from "../scenes/debug/gameDebugSnapshot";
 import type { TrackData } from "../types/track";
 import { computeTargets, createRace, createRaceContext, getActiveCar, type RaceState } from "./raceEngine";
-import { budgetLeftOf, editCar, placeCar, positionAsTest, restorePosition, setActiveCar } from "./sandbox";
+import { budgetLeftOf, editCar, normalizeSetup, placeCar, positionAsTest, restorePosition, setActiveCar } from "./sandbox";
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const newRace = (cars = 3): RaceState =>
@@ -129,5 +129,17 @@ describe("sandbox positions", () => {
     // the state literal is plain JSON of the race
     const literal = text.slice(text.indexOf("= {", text.indexOf("const state")) + 2, text.indexOf(";\n\ndescribe"));
     expect(JSON.parse(literal)).toEqual(JSON.parse(JSON.stringify(state)));
+  });
+});
+
+describe("positions saved before the wing had levels", () => {
+  it("loads a setup with two wing angles as Medium", () => {
+    expect(
+      normalizeSetup({ compound: "soft", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 } as never)
+    ).toEqual({ compound: "soft", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" });
+  });
+
+  it("keeps a wing level it knows", () => {
+    expect(normalizeSetup({ compound: "hard", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "high" }).wing).toBe("high");
   });
 });

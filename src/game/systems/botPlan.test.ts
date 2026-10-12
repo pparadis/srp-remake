@@ -1,3 +1,4 @@
+import { bestSetup } from "./botPlan";
 import { describe, expect, it } from "vitest";
 import track from "../../../public/tracks/oval16_3lanes.json";
 import { createRaceContext } from "../race/raceEngine";
@@ -7,7 +8,7 @@ import {
   buildPlanContext,
   cellsToFeeder,
   forwardGain,
-  IDEAL_PIT_SETUP,
+  SETUP_CHOICES,
   isFinalLap,
   progressOf,
   resourceWeights,
@@ -28,7 +29,7 @@ function car(overrides: Partial<Car> = {}): Car {
     lapCount: 0,
     tire: 100,
     fuel: 100,
-    setup: { compound: "soft", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 },
+    setup: { compound: "soft", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" as const },
     state: "ACTIVE",
     pitTurnsRemaining: 0,
     pitExitBoost: false,
@@ -53,12 +54,18 @@ describe("plan context", () => {
 });
 
 describe("wear and ideal setup", () => {
-  it("the ideal setup wears less than any default setup", () => {
-    const ideal = wearPerCell(IDEAL_PIT_SETUP);
-    const soft = wearPerCell(car().setup);
-    expect(ideal.tire).toBeLessThan(soft.tire);
-    expect(ideal.fuel).toBeLessThan(soft.fuel);
-    expect(ideal.fuel).toBeCloseTo(0.45, 5);
+  it("Low wing wears more than Medium and High wear less, on tires and fuel", () => {
+    const at = (wing: "low" | "medium" | "high") => wearPerCell({ ...SETUP_CHOICES[0]!, wing });
+    expect(at("low").tire).toBeGreaterThan(at("medium").tire);
+    expect(at("low").fuel).toBeGreaterThan(at("medium").fuel);
+    expect(at("high").tire).toBeLessThan(at("medium").tire);
+    expect(at("high").fuel).toBeLessThan(at("medium").fuel);
+    expect(at("medium").fuel).toBeCloseTo(0.45, 5);
+  });
+
+  it("the soft compound wears tires faster than hard", () => {
+    const soft = wearPerCell({ ...SETUP_CHOICES[0]!, compound: "soft" });
+    expect(soft.tire).toBeGreaterThan(wearPerCell(SETUP_CHOICES[0]!).tire);
   });
 });
 
@@ -101,9 +108,9 @@ describe("stop planning breaks even earlier now that the pit lane keeps the lap"
     const used = lap * 28 + 26;
     return car({ cellId: "Z27_L1_00", lapCount: lap, tire: 100 - used * wear.tire, fuel: 100 - used * wear.fuel });
   };
-  it("pays off from 7 laps (it took 8 when the stop cost a lap)", () => {
-    expect(stopIsDue(arrive(4), cell("Z27_L1_00"), plan(7))).toBe(true);
-    expect(stopIsDue(arrive(4), cell("Z27_L1_00"), plan(6))).toBe(false);
+  it("pays off from 9 laps on the plain setup (the tank lasts 7.5 laps; a stop used to pay from 7)", () => {
+    expect(stopIsDue(arrive(6), cell("Z27_L1_00"), plan(9))).toBe(true);
+    expect(stopIsDue(arrive(6), cell("Z27_L1_00"), plan(8))).toBe(false);
   });
 });
 
@@ -131,5 +138,23 @@ describe("progress of a car in the pit lane", () => {
     expect(at("Z01_L0_00", 2) - at("Z28_L0_00", 1)).toBe(1);
     expect(at("Z02_L0_00", 2) - at("Z01_L0_00", 2)).toBe(1);
     expect(at("Z07_L1_00", 2) - at("Z06_L0_00", 2)).toBe(1);
+  });
+});
+
+describe("bestSetup", () => {
+  const lengths = Array.from({ length: 24 }, (_, i) => (i + 1) * 28);
+
+  it("picks Low wing, High wing and Medium wing for some race length each", () => {
+    const wings = new Set(lengths.map((cells) => bestSetup(cells).wing));
+    expect(wings).toEqual(new Set(["low", "medium", "high"]));
+  });
+
+  it("has no setup that is best at every length", () => {
+    const keys = new Set(lengths.map((cells) => `${bestSetup(cells).compound}/${bestSetup(cells).wing}`));
+    expect(keys.size).toBeGreaterThan(2);
+  });
+
+  it("wants soft tires and Low wing for a short sprint, never High wing", () => {
+    expect(bestSetup(28)).toMatchObject({ compound: "soft", wing: "low" });
   });
 });

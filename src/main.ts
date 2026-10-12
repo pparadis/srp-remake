@@ -631,7 +631,7 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
         const applied = turnPayload.applied as { type?: unknown; targetCellId?: unknown };
         const source = (payload as { source?: unknown }).source;
         if (
-          (applied.type === "move" || applied.type === "pit" || applied.type === "skip") &&
+          (applied.type === "move" || applied.type === "pit" || applied.type === "skip" || applied.type === "setup") &&
           (applied.targetCellId === undefined || typeof applied.targetCellId === "string")
         ) {
           window.dispatchEvent(

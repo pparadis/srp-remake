@@ -10,7 +10,7 @@ import { applyAction, computeTargets, createRace, createRaceContext, getActiveCa
 // Real track: lane-1 feeder Z27_L1_00 -> PIT_ENTRY Z28_L0_00 -> Z01_L0_00 (PIT_LINE, under the
 // START_FINISH cell) -> Z02/Z03 boxes -> Z04, Z05 -> PIT_EXIT Z06_L0_00 -> Z07_L1_00.
 const ctx = createRaceContext(track as unknown as TrackData);
-const SETUP: CarSetup = { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wingFrontDeg: 4, wingRearDeg: 10 };
+const SETUP: CarSetup = { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wing: "medium" as const };
 
 function race(laps = 5, cars = 2): RaceState {
   return createRace(

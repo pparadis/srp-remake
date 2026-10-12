@@ -111,11 +111,17 @@ pass `"autopilot"` explicitly.
 - **Pit stop**: the start line crosses the pit lane, so the lap is not lost (a stop credits it at `Z01_L0_00`); a
   stop costs the lost turn and the slow one-step pit lane, about 40 cells (`PIT_LANE_CELLS`; 15 to 55 were tried,
   40 finished races fastest). `stopIsDue` compares that with the crawl it saves and stops on the last pass at the
-  entry that still beats crawling; it pays from about 7 laps on fresh soft tires, solo (8 when a stop cost a lap). The entry is
+  entry that still beats crawling; on the plain setup (hard, Medium wing) it pays from about 9 laps, solo. The entry is
   reachable only from lane 1 at one cell (the "feeder" cell, `forwardIndex` 26 on `oval16_3lanes`), so a due stop
   drifts to lane 1 and lands exactly on it; in the pit lane it takes a box.
-- **Setup at a stop**: hard compound, 32 psi, wings 0. In the current cost model wings and off-32 pressure only
-  add wear and the hard compound wears less than the soft one, so this is best for every race length.
+- **Setup (on the grid and at a stop)**: 32 psi, and the compound and wing level from `bestSetup(cells)` in
+  `botPlan.ts`: for each of the six pairs it projects the moves to cover the distance still to go (`projectedMoves`:
+  the cycle budget gives the pace, `cellsUntilEmpty` the stint, then either crawl the rest at 4 a move or stop, a stop
+  costing `PIT_STOP_MOVES` = 8 turns, measured) and takes the fastest. In practice: soft and Low wing for a sprint
+  (1 to 4 laps), hard and Low for 5 to 7, High for the stint-length races (8 to 12), Medium or Low beyond.
+  Normal and Hard set up on the grid in `createRace` (the setup cannot change after the first move) and service with
+  the same choice at a stop; Easy keeps the setup it is dealt (also at a stop). The model is
+  a projection, not a race: `npx tsx tools/botBench.ts --setups` plays the real thing (below).
 - **Final lap**: never enters the pit lane. A pit-lane crossing could now finish the race, but the lane is a one-step
   crawl and the lap is not lost either way, so the rule is kept.
 
@@ -273,3 +279,18 @@ of this file.
 5. [x] Integrate bot turn execution in the turn loop.
 6. [x] Ensure logging and UI updates for bot actions.
 7. [x] Add tests for heuristic choices and skip behavior.
+
+## Setup sweep (the wing's balance gate, issue #48)
+
+`npx tsx tools/botBench.ts --setups [--laps 3,5,8] [--seeds N]` plays car 1 on each of the six compound and wing
+pairs against three Normal bots at each race length and prints its turns to finish (a fraction: the part of the last
+turn it did not need is subtracted, so a 2.5% pace gap shows in an 11-turn race). The gate: every wing level is the
+fastest at some length, and no single setup is fastest at every length. `botLevels.test.ts` asserts it on a smaller
+sweep. With the shipped numbers (Low: budget +1, tire x1.6, fuel x1.05; High: -1, x0.8, x0.9; soft +1) the fastest is:
+
+| laps    | 3-4      | 5        | 6-7    | 8-12      | 15        |
+| ------- | -------- | -------- | ------ | --------- | --------- |
+| fastest | soft/Low | hard/Low | Medium | soft/High | soft/High |
+
+13 and 14 laps are noisy (the stop timing against the pit entry once a lap). The plan's first numbers (Low tire x1.4,
+High x0.7) passed the gate too, but Medium won a single length; x1.6 and x0.8 give it a clean 6-7 lap window.

@@ -12,7 +12,7 @@ import {
 } from "./botPlan";
 import { BLOCK_RANGE, EASY_IGNORE_STYLE, EASY_NOISE, HARD_ADAPT, LANE_SPAN, PERSONALITIES, QUEUE_RANGE } from "./botStyle";
 import type { TargetInfo } from "./movementSystem";
-import { computeMoveSpend, getRemainingBudget } from "./moveBudgetSystem";
+import { computeMoveSpend, cycleBudget, getRemainingBudget } from "./moveBudgetSystem";
 import { shouldOpenPitModal } from "./pitSystem";
 
 export type { BotLevel };
@@ -264,7 +264,7 @@ export function evaluateNormalTargets(
   const lowResources = car.tire <= heuristics.lowResourceThreshold || car.fuel <= heuristics.lowResourceThreshold;
   const from = cellMap.get(car.cellId);
   const inPitLane = from?.laneIndex === PIT_LANE;
-  const budget = getRemainingBudget(car.moveCycle);
+  const budget = getRemainingBudget(car.moveCycle, cycleBudget(car.setup));
   const movesLeft = car.moveCycle.spent.length - car.moveCycle.index;
   const finalLap = plan ? isFinalLap(car, plan) : false;
   const stopDue = plan && from && !inPitLane ? stopIsDue(car, from, plan) : false;

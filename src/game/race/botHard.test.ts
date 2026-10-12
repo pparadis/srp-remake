@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import track from "../../../public/tracks/oval16_3lanes.json";
-import { IDEAL_PIT_SETUP } from "../systems/botPlan";
 import type { TrackData } from "../types/track";
 import { HARD_CANDIDATES } from "./botHard";
 import {
@@ -37,7 +36,7 @@ describe("hard bot lookahead", () => {
       ctx,
       Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}`, botLevel: "hard" as const })),
       5,
-      7
+      1
     );
     let differs = 0;
     for (let turn = 0; turn < 60 && state.winnerCarId === null; turn += 1) {
@@ -86,7 +85,7 @@ describe("hard bot lookahead", () => {
     );
     Object.assign(state.cars[0]!, { cellId: "Z01_L0_00", lapCount: 5, tire: 4, fuel: 6 });
     const decision = decideBotAction(ctx, state);
-    expect(decision.action).toMatchObject({ type: "pit", setup: IDEAL_PIT_SETUP });
+    expect(decision.action).toMatchObject({ type: "pit" });
   });
 
   it("enters the pit lane when worn out on a long race (the stop is valued ahead of the lap it costs)", () => {

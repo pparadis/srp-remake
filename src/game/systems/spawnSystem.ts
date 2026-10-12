@@ -17,11 +17,12 @@ export const CAR_SPRITES = ["car-red", "car-blue", "car-yellow", "car-green", "c
 // Same order as CAR_SPRITES, for the DOM HUD chips.
 const CAR_COLORS = ["#e5484d", "#3b86c4", "#f5d90a", "#4cd964", "#3a3f47", "#ff8a3d"];
 export const carColor = (index: number) => CAR_COLORS[index % CAR_COLORS.length]!;
+// Everyone is dealt the plain setup (hard, Medium wing); soft and the wing are a choice made on the grid.
 const DEFAULT_SETUPS: Car["setup"][] = [
-  { compound: "soft", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 },
-  { compound: "hard", psi: { fl: 24, fr: 24, rl: 22, rr: 22 }, wingFrontDeg: 5, wingRearDeg: 11 },
-  { compound: "soft", psi: { fl: 25, fr: 25, rl: 23, rr: 23 }, wingFrontDeg: 7, wingRearDeg: 13 },
-  { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wingFrontDeg: 4, wingRearDeg: 10 }
+  { compound: "hard", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" },
+  { compound: "hard", psi: { fl: 24, fr: 24, rl: 22, rr: 22 }, wing: "medium" },
+  { compound: "hard", psi: { fl: 25, fr: 25, rl: 23, rr: 23 }, wing: "medium" },
+  { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wing: "medium" }
 ];
 
 export function carSprite(index: number): string {

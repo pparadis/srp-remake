@@ -1,19 +1,18 @@
 // Race-level planning shared by the Normal and Hard bots: wear projection and pit-stop timing.
-import { MOVE_RATES, PIT_LANE } from "../constants";
+import { MOVE_BUDGET, MOVE_CYCLE, MOVE_RATES, PIT_LANE } from "../constants";
 import type { Car, CarSetup } from "../types/car";
 import type { TrackCell } from "../types/track";
+import { cycleBudget } from "./moveBudgetSystem";
 import { setupFactors } from "./movementSystem";
 import type { Personality } from "./botStyle";
 import { trackFwd, type TrackIndex } from "./trackIndex";
 
-// Wings 0 and 32 psi everywhere cost nothing extra, and in the current cost model the hard
-// compound wears less than the soft one, so this is the best setup for every race length.
-export const IDEAL_PIT_SETUP: CarSetup = {
-  compound: "hard",
-  psi: { fl: 32, fr: 32, rl: 32, rr: 32 },
-  wingFrontDeg: 0,
-  wingRearDeg: 0
-};
+// 32 psi everywhere costs nothing extra; compound and wing are the real choice (see bestSetup).
+const NEUTRAL_PSI = { fl: 32, fr: 32, rl: 32, rr: 32 } as const;
+// Every compound and wing level a car can run, in the order bestSetup breaks ties (the plain one first).
+export const SETUP_CHOICES: readonly CarSetup[] = (["hard", "soft"] as const).flatMap((compound) =>
+  (["medium", "low", "high"] as const).map((wing) => ({ compound, psi: { ...NEUTRAL_PSI }, wing }))
+);
 
 // A pit stop costs about this many cells of racing: the lost turn plus the slow single-step pit
 // lane (entry, box, exit use several moves that each cover 1-5 cells instead of ~8). The lap is
@@ -65,9 +64,9 @@ export function buildPlanContext(trackIndex: TrackIndex, raceLaps: number): BotP
 }
 
 export function wearPerCell(setup: CarSetup): { tire: number; fuel: number } {
-  const { aeroFactor, psiFactor } = setupFactors(setup);
+  const { aeroTire, aeroFuel, psiFactor } = setupFactors(setup);
   const tireRate = setup.compound === "soft" ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
-  return { tire: tireRate * aeroFactor * psiFactor, fuel: MOVE_RATES.fuel * aeroFactor };
+  return { tire: tireRate * aeroTire * psiFactor, fuel: MOVE_RATES.fuel * aeroFuel };
 }
 
 export function progressOf(car: Car, cell: TrackCell, plan: BotPlanContext): number {
@@ -82,6 +81,42 @@ export function isFinalLap(car: Car, plan: BotPlanContext): boolean {
 export function cellsUntilEmpty(tire: number, fuel: number, setup: CarSetup, safety = SAFETY): number {
   const wear = wearPerCell(setup);
   return Math.min(tire / wear.tire, fuel / wear.fuel) * safety;
+}
+
+// What a stop costs a car in turns, measured on the setup sweep (`npx tsx tools/botBench.ts --setups`): the lost
+// turn, the single-step pit lane and the laps' worth of rhythm. PIT_LANE_CELLS (about 5 turns of racing) is what
+// the stop timing is weighed with; this is what a whole race on a setup is projected with.
+const PIT_STOP_MOVES = 8;
+
+// Moves a fresh car on `setup` needs to cover `cells`: it either crawls the part past its tires and tank at the
+// empty-resource speed, or stops (as often as it takes) and loses PIT_STOP_MOVES per stop.
+export function projectedMoves(setup: CarSetup, cells: number): number {
+  const pace = Math.min(cycleBudget(setup) / MOVE_CYCLE.moves, MOVE_BUDGET.baseMax);
+  const untilEmpty = cellsUntilEmpty(100, 100, setup);
+  const crawl = Math.min(cells, untilEmpty) / pace + Math.max(0, cells - untilEmpty) / MOVE_BUDGET.zeroResourceMax;
+  const stops = Math.max(0, Math.ceil(cells / untilEmpty) - 1);
+  const stopping = cells / pace + stops * PIT_STOP_MOVES;
+  return Math.min(crawl, stopping);
+}
+
+// The compound and wing level that finish `cells` of racing soonest from fresh tires and a full tank.
+// Short races want soft and Low wing, a stint that just fits wants High wing to skip a stop.
+export function bestSetup(cells: number): CarSetup {
+  let best = SETUP_CHOICES[0]!;
+  let bestMoves = projectedMoves(best, cells);
+  for (const choice of SETUP_CHOICES.slice(1)) {
+    const moves = projectedMoves(choice, cells);
+    if (moves < bestMoves - 1e-9) {
+      best = choice;
+      bestMoves = moves;
+    }
+  }
+  return structuredClone(best);
+}
+
+// The setup a stop should service with: the best one for what the car still has to cover from this cell.
+export function pitSetupFor(car: Car, cell: TrackCell, plan: BotPlanContext): CarSetup {
+  return bestSetup(Math.max(0, plan.raceLaps * plan.spineLen - progressOf(car, cell, plan)));
 }
 
 // Cells the car must still cover and, at the current wear, how many of them it will crawl through
@@ -111,7 +146,7 @@ export function stopIsDue(car: Car, cell: TrackCell, plan: BotPlanContext): bool
   if (toFeeder === null) return false;
   const { remaining, untilEmpty, shortfall } = projectShortfall(car, cell, plan);
   if (shortfall === 0) return false;
-  const fresh = cellsUntilEmpty(100, 100, IDEAL_PIT_SETUP);
+  const fresh = cellsUntilEmpty(100, 100, bestSetup(remaining - toFeeder));
   const afterStop = Math.max(0, remaining - toFeeder - fresh);
   const gain = (shortfall - afterStop) * EMPTY_SLOWDOWN - PIT_LANE_CELLS + (plan.style?.pitGain ?? 0);
   if (gain <= 0) return false;

@@ -8,7 +8,7 @@ import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movem
 import { buildPlanContext, progressOf, type BotPlanContext } from "../systems/botPlan";
 import { pitAdvice, stintEstimate } from "../systems/strategy";
 import { createFeelMemory, detectFeel, type FeelEvent } from "../systems/feelEvents";
-import { computeMoveSpend, getRemainingBudget } from "../systems/moveBudgetSystem";
+import { computeMoveSpend, cycleBudget, getRemainingBudget } from "../systems/moveBudgetSystem";
 import { carColor } from "../systems/spawnSystem";
 import { hasFinishedRace, lapInProgress } from "../systems/lapProgress";
 import { sortCarsByProgress } from "../systems/orderingSystem";
@@ -196,6 +196,18 @@ export class RaceSession {
     return !this.finished && this.canControlActiveCar() && !this.activeCar.isBot;
   }
 
+  /** The grid setup (compound, wing) is open until the car's first turn is played. */
+  canSetup(): boolean {
+    return (
+      !this.finished &&
+      !this.editing &&
+      !this.activeCar.setupLocked &&
+      this.activeCar.state === "ACTIVE" &&
+      this.canControlActiveCar() &&
+      !this.activeCar.isBot
+    );
+  }
+
   /** Skip is only for a car with no move at all. */
   canSkip(): boolean {
     return (
@@ -283,7 +295,7 @@ export class RaceSession {
       {
         validTargets: serializeBotTargets(decision.targets),
         action:
-          action.type === "skip"
+          action.type === "skip" || action.type === "setup"
             ? { type: "skip", note: decision.skipNote ?? "no-target" }
             : { type: action.type, targetCellId: action.targetCellId, moveSpend: result.moveSpend },
         trace: serializeBotTrace(decision.trace)
@@ -364,6 +376,8 @@ export class RaceSession {
       this.addLog(`Car ${car.carId} skipped (no moves).`);
     } else if (action.type === "pit") {
       this.addLog(`Car ${car.carId} pit stop at ${action.targetCellId ?? "?"}.`);
+    } else if (action.type === "setup") {
+      this.addLog(`Car ${car.carId} set up on the grid.`);
     } else {
       this.addLog(`Car ${car.carId} moved to ${action.targetCellId ?? "?"}.`);
     }
@@ -484,11 +498,13 @@ export class RaceSession {
       tire: car.tire,
       fuel: car.fuel,
       compound: car.setup.compound,
+      wing: car.setup.wing,
       state: car.state,
       pitTurns: car.pitTurnsRemaining,
       cycle: [...car.moveCycle.spent],
       cycleIndex: car.moveCycle.index,
-      remaining: getRemainingBudget(car.moveCycle),
+      remaining: getRemainingBudget(car.moveCycle, cycleBudget(car.setup)),
+      budget: cycleBudget(car.setup),
       pitServiced: car.pitServiced,
       stint: stintEstimate(car, this.ctx.trackIndex.spineLen),
       advice: pitAdvice(car, this.cellMap.get(car.cellId)!, this.plan())
@@ -552,7 +568,7 @@ export class RaceSession {
       ? `${HUD_LABELS.targetPrefix} d${targetInfo.distance}  tire-${targetInfo.tireCost}  fuel-${targetInfo.fuelCost}${targetInfo.isPitTrigger ? "  PIT" : ""}`
       : null;
     const factorLine = factors
-      ? `${HUD_LABELS.factorsPrefix} aero x${factors.aero.toFixed(2)}  psi x${factors.psi.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
+      ? `${HUD_LABELS.factorsPrefix} aeroT x${factors.aeroT.toFixed(2)}  aeroF x${factors.aeroF.toFixed(2)}  psi x${factors.psi.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
       : null;
     return [
       `cell: ${cell.id}`,
@@ -567,9 +583,9 @@ export class RaceSession {
   }
 
   private computeCostFactors(laneIndex: number) {
-    const { aeroFactor, psiFactor } = setupFactors(this.activeCar.setup);
+    const { aeroTire, aeroFuel, psiFactor } = setupFactors(this.activeCar.setup);
     const lane = laneWearFactors(laneIndex);
-    return { aero: aeroFactor, psi: psiFactor, laneT: lane.tire, laneF: lane.fuel };
+    return { aeroT: aeroTire, aeroF: aeroFuel, psi: psiFactor, laneT: lane.tire, laneF: lane.fuel };
   }
 
   // ---- debug -----------------------------------------------------------------------------------------------------
@@ -610,6 +626,7 @@ export class RaceSession {
         tire: car.tire,
         fuel: car.fuel,
         compound: car.setup.compound,
+        wing: car.setup.wing,
         budgetLeft: budgetLeftOf(car),
         isBot: car.isBot,
         botLevel: car.botLevel ?? "normal"

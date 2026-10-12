@@ -107,6 +107,7 @@ export class RaceScene extends Phaser.Scene {
   private pendingPit: { cell: TrackCell; origin: { x: number; y: number } } | null = null;
   private pitModal!: PitModal;
   private skipButton!: Phaser.GameObjects.Text;
+  private setupButton!: Phaser.GameObjects.Text;
   private debugButtons!: DebugButtons;
   private showCarsAndMoves = true;
   private confetti: Confetti | null = null;
@@ -226,6 +227,7 @@ export class RaceScene extends Phaser.Scene {
     this.layoutUI();
     this.createPitModal();
     this.createSkipButton();
+    this.createSetupButton();
     this.createDebugButtons();
     this.emitHud();
     this.centerTrack(); // the HUD has its content now: fit the track to the space it really leaves
@@ -495,7 +497,7 @@ export class RaceScene extends Phaser.Scene {
   // Online, the server moves the car: until it answers, the car we just dropped keeps the
   // place and heading of its target cell instead of sliding back to the old one.
   private faceDroppedCell(action: RaceAction) {
-    if (action.type === "skip") return;
+    if (action.type === "skip" || action.type === "setup") return;
     const cell = this.cellMap.get(action.targetCellId);
     const token = this.carTokens.get(this.activeCar.carId);
     if (!cell || !token) return;
@@ -725,7 +727,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private setUIFixed() {
-    const fixed = [this.gFrame, this.skipButton].filter(Boolean);
+    const fixed = [this.gFrame, this.skipButton, this.setupButton].filter(Boolean);
     for (const obj of fixed) {
       if (
         typeof (obj as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor ===
@@ -821,6 +823,9 @@ export class RaceScene extends Phaser.Scene {
     const h = this.scale.height;
     const ui = RaceScene.UI;
     const s = renderScale(); // canvas pixels per CSS pixel (hidpi.ts)
+    if (this.setupButton) {
+      this.setupButton.setPosition(w / 2 - 90 * s, h - ui.bottomButtonYPad * s);
+    }
     if (this.skipButton) {
       this.skipButton.setPosition(w / 2, h - ui.bottomButtonYPad * s);
     }
@@ -833,7 +838,7 @@ export class RaceScene extends Phaser.Scene {
     // pixel per unit, `k` undoes the camera zoom on positions).
     const z = this.cameras.main.zoom;
     const k = 1 / z;
-    const texts = [this.skipButton, ...(this.debugButtons?.getTexts() ?? [])];
+    const texts = [this.skipButton, this.setupButton, ...(this.debugButtons?.getTexts() ?? [])].filter(Boolean);
     for (const t of texts) {
       if (t) t.setScale(k * s).setPosition(w / 2 + (t.x - w / 2) * k, h / 2 + (t.y - h / 2) * k);
     }
@@ -862,6 +867,34 @@ export class RaceScene extends Phaser.Scene {
     this.updateSkipButtonState();
     this.layoutUI();
     this.setUIFixed();
+  }
+
+  private createSetupButton() {
+    this.setupButton = makeButton(this, "Setup", {
+      fontSize: "14px",
+      originX: 0.5,
+      originY: 1,
+      onClick: () => this.openGridSetup()
+    });
+    this.updateSkipButtonState();
+    this.layoutUI();
+    this.setUIFixed();
+  }
+
+  // Before a car's first turn: compound and wing, once and free (the car keeps the turn).
+  private openGridSetup() {
+    if (!this.session.canSetup() || this.pitModal.isActive()) return;
+    this.pitModal.open({
+      title: "Grid setup",
+      setup: this.activeCar.setup,
+      stints: (setup) => this.session.pitStints(setup),
+      bodyLines: ["Compound, pressures and wing,", "free until your first move.", "Low wing is fast and hard on tires."],
+      onConfirm: (setup) => {
+        this.pitModal.close();
+        this.applyLocalAction({ type: "setup", setup });
+      },
+      onCancel: () => this.pitModal.close()
+    });
   }
 
   private createDebugButtons() {
@@ -903,6 +936,12 @@ export class RaceScene extends Phaser.Scene {
     this.skipButton.setAlpha(canSkip ? 1 : 0.4);
     if (canSkip) this.skipButton.setInteractive({ useHandCursor: true });
     else this.skipButton.disableInteractive();
+    if (this.setupButton) {
+      const canSetup = this.session.canSetup();
+      this.setupButton.setVisible(canSetup);
+      if (canSetup) this.setupButton.setInteractive({ useHandCursor: true });
+      else this.setupButton.disableInteractive();
+    }
   }
 
   private async copyDebugSnapshot() {

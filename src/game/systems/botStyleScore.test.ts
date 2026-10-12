@@ -8,7 +8,10 @@ import { PERSONALITIES, personalityFor, type PersonalityKey } from "./botStyle";
 const ctx = createRaceContext(track as unknown as TrackData);
 
 function solo(style: PersonalityKey, laps = 5, level: "easy" | "normal" | "hard" = "normal"): RaceState {
-  return createRace(ctx, [{ isBot: true, ownerId: "BOT1", botLevel: level, style }], laps, 3);
+  const state = createRace(ctx, [{ isBot: true, ownerId: "BOT1", botLevel: level, style }], laps, 3);
+  // The plain setup (budget 40), whatever the bot would pick on the grid.
+  Object.assign(state.cars[0]!.setup, { compound: "hard", wing: "medium" });
+  return state;
 }
 
 function spends(style: PersonalityKey, moves = 10): number[] {

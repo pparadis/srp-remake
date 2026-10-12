@@ -153,7 +153,9 @@ REST:
   turn for the active human seat. `401` bad token, `403` non-host, `404` unknown lobby, `409` unless the race
   is `IN_RACE` with a human seat to play (or `revision` is stale).
 - `POST /lobbies/:lobbyId/turns` `{ playerToken, clientCommandId, revision, action }` where `action` is
-  `{ type: "move", targetCellId }`, `{ type: "pit", targetCellId, setup }` or `{ type: "skip" }`.
+  `{ type: "move", targetCellId }`, `{ type: "pit", targetCellId, setup }`, `{ type: "skip" }` or
+  `{ type: "setup", setup }` (grid setup: free, before the car's first move, does not end the turn or advance
+  `turnIndex`; refused with `setup_locked` afterwards).
 
 WebSocket events (server -> client): `lobby.state`, `race.started`, `race.state` (all carry the full public
 lobby, including `raceState`), `turn.applied` and `race.ended`.

@@ -24,12 +24,15 @@ const SEATS: RaceSeat[] = [
 const SETUP: CarSetup = {
   compound: "hard",
   psi: { fl: 22, fr: 22, rl: 20, rr: 20 },
-  wingFrontDeg: 4,
-  wingRearDeg: 10
+  wing: "medium" as const
 };
 
+// The plain setup (hard, Medium wing: a cycle budget of 40). createRace gives bots a setup for the distance; the
+// rules tests below want the same budget on every car, and the grid-setup tests pick their own.
 function newRace(laps = 5, seats = SEATS): RaceState {
-  return createRace(ctx, seats, laps);
+  const state = createRace(ctx, seats, laps);
+  for (const car of state.cars) Object.assign(car.setup, { compound: "hard", wing: "medium" });
+  return state;
 }
 
 function firstTarget(state: RaceState): string {
@@ -166,8 +169,8 @@ describe("applyAction: pit", () => {
   it("validates setup limits", () => {
     expect(isValidSetup(SETUP)).toBe(true);
     expect(isValidSetup({ ...SETUP, compound: "wet" as never })).toBe(false);
-    expect(isValidSetup({ ...SETUP, wingRearDeg: 21 })).toBe(false);
-    expect(isValidSetup({ ...SETUP, wingFrontDeg: 1.5 })).toBe(false);
+    expect(isValidSetup({ ...SETUP, wing: "huge" as never })).toBe(false);
+    expect(isValidSetup({ ...SETUP, wing: "high" })).toBe(true);
     expect(isValidSetup({ ...SETUP, psi: { ...SETUP.psi, rr: 14 } })).toBe(false);
   });
 });
@@ -286,11 +289,8 @@ describe("decideBotAction", () => {
     const { state, car } = wornInPitLane();
     const decision = decideBotAction(ctx, state);
 
-    // Wings 0 and 32 psi cost nothing extra, and hard tires wear less than soft ones.
-    expect(decision.action).toMatchObject({
-      type: "pit",
-      setup: { compound: "hard", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wingFrontDeg: 0, wingRearDeg: 0 }
-    });
+    // 32 psi costs nothing extra; the wing and compound are the best pair for what is left of the 5 laps.
+    expect(decision.action).toMatchObject({ type: "pit", setup: { psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "low" } });
     expect(applyAction(ctx, state, decision.action).ok).toBe(true);
     expect(car).toMatchObject({ tire: 100, fuel: 100, state: "PITTING", pitServiced: true });
   });
@@ -354,7 +354,7 @@ describe("decideBotAction", () => {
     };
     const targetCell = (state: RaceState) => {
       const action = decideBotAction(ctx, state).action;
-      if (action.type === "skip") throw new Error("unexpected skip");
+      if (action.type === "skip" || action.type === "setup") throw new Error("unexpected skip");
       return ctx.cellMap.get(action.targetCellId)!;
     };
 
@@ -529,5 +529,78 @@ describe("squeeze out of a blocked pit exit", () => {
     const decision = decideBotAction(ctx, state, level);
     expect(decision.action.type).toBe("move");
     expect(applyAction(ctx, state, decision.action).ok).toBe(true);
+  });
+});
+
+describe("grid setup and the wing", () => {
+  const fresh = () => newRace(5, [{ isBot: false, ownerId: "P1" }, { isBot: false, ownerId: "P2" }]);
+  const lowSoft: CarSetup = { compound: "soft", psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "low" };
+
+  it("changes the car's setup for free and leaves the turn with the same car", () => {
+    const state = fresh();
+    const result = applyAction(ctx, state, { type: "setup", setup: lowSoft });
+    expect(result).toMatchObject({ ok: true, carId: 1, moveSpend: 0 });
+    expect(getActiveCar(state)).toMatchObject({ carId: 1, setup: lowSoft });
+    expect(getActiveCar(state).moveCycle.index).toBe(0);
+  });
+
+  it("can be changed again until the car has played a turn", () => {
+    const state = fresh();
+    expect(applyAction(ctx, state, { type: "setup", setup: lowSoft }).ok).toBe(true);
+    expect(applyAction(ctx, state, { type: "setup", setup: { ...lowSoft, wing: "high" } }).ok).toBe(true);
+    expect(getActiveCar(state).setup.wing).toBe("high");
+  });
+
+  it("is refused after the car's first move, and for another car's later turn", () => {
+    const state = fresh();
+    expect(applyAction(ctx, state, { type: "move", targetCellId: firstTarget(state) }).ok).toBe(true);
+    expect(getActiveCar(state).carId).toBe(2);
+    // car 2 has not moved yet: it can still set up
+    expect(applyAction(ctx, state, { type: "setup", setup: lowSoft }).ok).toBe(true);
+    expect(applyAction(ctx, state, { type: "move", targetCellId: firstTarget(state) }).ok).toBe(true);
+    // back to car 1, which has moved
+    expect(applyAction(ctx, state, { type: "setup", setup: lowSoft })).toEqual({ ok: false, reason: "setup_locked" });
+    expect(getActiveCar(state).setup.wing).toBe("medium");
+  });
+
+  it("rejects an invalid setup and leaves the car untouched", () => {
+    const state = fresh();
+    const bad = { ...lowSoft, wing: "huge" as never };
+    expect(applyAction(ctx, state, { type: "setup", setup: bad })).toEqual({ ok: false, reason: "invalid_setup" });
+    expect(getActiveCar(state).setup.wing).toBe("medium");
+  });
+
+  it("sets the cycle budget: Low wing +1, High wing -1, soft +1", () => {
+    const budget = (setup: CarSetup) => {
+      const state = fresh();
+      expect(applyAction(ctx, state, { type: "setup", setup }).ok).toBe(true);
+      // The 9 cells a move covers at most, so read the budget through the move cap of a fresh cycle.
+      const car = getActiveCar(state);
+      car.moveCycle.spent = [8, 8, 8, 8, 0];
+      car.moveCycle.index = 4;
+      return Math.max(...[...computeTargets(ctx, state, car).values()].map((t) => t.moveSpend ?? t.distance));
+    };
+    const plain = { ...SETUP, psi: lowSoft.psi };
+    // 32 of 40 spent leaves 8; with Low wing 9 (41), with soft + Low 10 (capped at 9 a move), with High 7 (39)
+    expect(budget(plain)).toBe(8);
+    expect(budget({ ...plain, wing: "low" })).toBe(9);
+    expect(budget({ ...plain, wing: "high" })).toBe(7);
+    expect(budget({ ...plain, compound: "soft" })).toBe(9);
+    expect(budget({ ...plain, compound: "soft", wing: "high" })).toBe(8);
+  });
+
+  it("gives every non-Easy bot a setup for the distance on the grid, and Easy keeps the default", () => {
+    const state = createRace(
+      ctx,
+      [
+        { isBot: true, ownerId: "B1", botLevel: "normal" },
+        { isBot: true, ownerId: "B2", botLevel: "easy" },
+        { isBot: false, ownerId: "P3" }
+      ],
+      3
+    );
+    expect(state.cars[0]!.setup).toMatchObject({ compound: "soft", wing: "low" });
+    expect(state.cars[1]!.setup).toMatchObject({ compound: "hard", wing: "medium" });
+    expect(state.cars[2]!.setup).toMatchObject({ compound: "hard", wing: "medium" });
   });
 });

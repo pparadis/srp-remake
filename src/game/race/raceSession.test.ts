@@ -34,6 +34,40 @@ function playMyTurn(session: RaceSession) {
   session.recomputeTargets();
 }
 
+describe("RaceSession: grid setup", () => {
+  const lowSoft = { compound: "soft" as const, psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "low" as const };
+
+  it("offers the setup to the player until the first move, and the HUD shows the wing and the budget", () => {
+    const session = solo();
+    session.recomputeTargets();
+    expect(session.canSetup()).toBe(true);
+    expect(hud(session).cars.find((c) => c.carId === 1)).toMatchObject({ wing: "medium", budget: 40, remaining: 40 });
+
+    expect(session.applyLocal({ type: "setup", setup: lowSoft })).toBe(true);
+    session.recomputeTargets();
+    expect(session.activeCar.carId).toBe(1);
+    expect(hud(session).cars.find((c) => c.carId === 1)).toMatchObject({
+      compound: "soft",
+      wing: "low",
+      budget: 42,
+      remaining: 42
+    });
+
+    playMyTurn(session);
+    expect(session.canSetup()).toBe(false);
+    expect(session.applyLocal({ type: "setup", setup: { ...lowSoft, wing: "high" } })).toBe(false);
+  });
+
+  it("is not offered to a bot's turn", () => {
+    const session = solo();
+    session.recomputeTargets();
+    playMyTurn(session);
+    const bot = session.cars.find((c) => c.isBot)!;
+    expect(bot.setupLocked).toBe(true);
+    expect(session.canSetup()).toBe(false);
+  });
+});
+
 describe("RaceSession: solo", () => {
   it("starts with the human on pole and the bots behind, on turn when the race opens", () => {
     const session = solo({ botCars: 3 });
@@ -134,7 +168,7 @@ describe("RaceSession: solo", () => {
     const text = hud(session, { showForwardIndex: true, hoverCell: session.cellMap.get(cellId)! }).debugText!;
     expect(text).toContain(`cell: ${cellId}`);
     expect(text).toMatch(/\ntarget: d\d+ {2}tire-/);
-    expect(text).toMatch(/\nfactors: aero x/);
+    expect(text).toMatch(/\nfactors: aeroT x/);
   });
 
   it("lap and final-lap feel events are for my car only, and never on the first snapshot", () => {

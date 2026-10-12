@@ -2,8 +2,10 @@
 // One policy per grid slot; rotating the line-up gives every policy every grid slot (and every
 // starting tire), so pole position and the default setups are not a bias. Each race has a seed
 // (it decides the bots' personalities); results can be cut by policy, personality or grid slot.
-import { IDEAL_PIT_SETUP } from "../systems/botPlan";
-import { getRemainingBudget } from "../systems/moveBudgetSystem";
+import { SETUP_CHOICES } from "../systems/botPlan";
+import { trackFwd } from "../systems/trackIndex";
+import type { CarSetup } from "../types/car";
+import { cycleBudget, getRemainingBudget } from "../systems/moveBudgetSystem";
 import type { BotPolicy } from "../systems/botSystem";
 import { gridSlots, personalityFor, personalityOf, type PersonalityKey } from "../systems/botStyle";
 import {
@@ -33,6 +35,10 @@ interface BenchFinisher {
   style: PersonalityKey | null;
   // 1-based finishing place.
   place: number;
+  // Turns the car played to cover the distance (the pit stop and the skips included), less the part of the last
+  // turn it did not need: it crossed the line `overshoot` cells in, of a move of `moveSpend`. A fraction, so that
+  // a 2.5% pace difference shows in a race of 11 turns.
+  moves: number;
 }
 
 interface BenchRaceResult {
@@ -59,7 +65,7 @@ interface PolicyStats extends Stat {
 function scriptedAction(ctx: RaceContext, state: RaceState, policy: ScriptedPolicy): RaceAction {
   const car = getActiveCar(state);
   const want =
-    policy === "greedy" ? 99 : Math.min(SCRIPT[car.moveCycle.index] ?? 7, getRemainingBudget(car.moveCycle));
+    policy === "greedy" ? 99 : Math.min(SCRIPT[car.moveCycle.index] ?? 7, getRemainingBudget(car.moveCycle, cycleBudget(car.setup)));
   let best: { id: string; score: number } | null = null;
   for (const [id, info] of computeTargets(ctx, state, car)) {
     if (info.isPitTrigger) continue;
@@ -72,7 +78,7 @@ function scriptedAction(ctx: RaceContext, state: RaceState, policy: ScriptedPoli
   if (best) return { type: "move", targetCellId: best.id };
   // Only pit boxes reachable (it never plans a stop, but a skip would be rejected): take the box.
   const [id] = computeTargets(ctx, state, car).keys();
-  return id ? { type: "pit", targetCellId: id, setup: structuredClone(IDEAL_PIT_SETUP) } : { type: "skip" };
+  return id ? { type: "pit", targetCellId: id, setup: structuredClone(SETUP_CHOICES[0]!) } : { type: "skip" };
 }
 
 // Plays until every car has covered the distance; the order cars cross the line is the finishing
@@ -83,7 +89,9 @@ export function playBenchRace(
   policies: BenchPolicy[],
   laps: number,
   seed = 0,
-  styles?: Array<PersonalityKey | undefined>
+  styles?: Array<PersonalityKey | undefined>,
+  // Forces a car's setup after the grid setup the bots made (by slot), to sweep compounds and wings.
+  setups?: Array<CarSetup | undefined>
 ): BenchRaceResult {
   const isScripted = (p: BenchPolicy) => p === "scripted" || p === "greedy";
   const state = createRace(
@@ -96,6 +104,10 @@ export function playBenchRace(
     laps,
     seed
   );
+  setups?.forEach((setup, slot) => {
+    if (setup) state.cars[slot]!.setup = structuredClone(setup);
+  });
+  const turnsPlayed = new Map<number, number>();
   const decisionMs: BenchRaceResult["decisionMs"] = {};
   const finishers: BenchFinisher[] = [];
   const maxTurns = laps * 400 * policies.length;
@@ -109,6 +121,7 @@ export function playBenchRace(
     const stat = (decisionMs[policy] ??= { totalMs: 0, count: 0 });
     stat.totalMs += performance.now() - t0;
     stat.count += 1;
+    turnsPlayed.set(car.carId, (turnsPlayed.get(car.carId) ?? 0) + 1);
     const applied = applyAction(ctx, state, action);
     if (!applied.ok) throw new Error(`bench: ${policy} action rejected (${applied.reason} ${JSON.stringify(action)})`);
     if (state.winnerCarId !== null) {
@@ -120,7 +133,8 @@ export function playBenchRace(
         slot: finished - 1,
         grid: gridSlots(seed, policies.length)[finished - 1]!,
         style: isScripted(p) || p === "autopilot" ? null : p === "hard" ? "adaptive" : (forced ? personalityFor(forced, seed, finished) : personalityOf(seed, finished)).key,
-        place: finishers.length + 1
+        place: finishers.length + 1,
+        moves: (turnsPlayed.get(finished) ?? 0) - overshootOf(ctx, state, finished, applied.moveSpend)
       });
       // Drop the finisher; the next car in the turn order is the one that was about to play.
       const at = state.turn.order.indexOf(finished);
@@ -132,6 +146,14 @@ export function playBenchRace(
   }
   if (finishers.length !== policies.length) throw new Error("bench: race did not finish");
   return { finishers, order: finishers.map((f) => f.policy), decisionMs };
+}
+
+function overshootOf(ctx: RaceContext, state: RaceState, carId: number, moveSpend: number): number {
+  const car = state.cars.find((c) => c.carId === carId)!;
+  const cell = ctx.cellMap.get(car.cellId)!;
+  // Cells past the line when the last turn ended; a rear-row start (negative) or a pit-lane cell reads 0.
+  const past = Math.max(0, trackFwd(cell, ctx.trackIndex.lane1FwdByZone));
+  return moveSpend > 0 ? Math.min(1, past / moveSpend) : 0;
 }
 
 interface BenchOptions {
@@ -191,4 +213,44 @@ export function runBench(ctx: RaceContext, { lineup, laps, seeds = [0], styles }
     });
   }
   return { races: results.length, stats, results };
+}
+
+// Setup sweep: how many turns car 1 needs to finish on each compound and wing, at each race length, with three
+// Normal bots (on the grid setup they pick) around it. Fewer is faster. The balance gate of the wing (issue #48):
+// every wing level is the fastest at some length, and no one setup is the fastest at every length.
+export interface SetupSweepRow {
+  laps: number;
+  // Mean turns to finish, one entry per SETUP_CHOICES, in that order.
+  moves: number[];
+  // Index into SETUP_CHOICES of the fastest (the first one on a tie).
+  best: number;
+}
+
+export function setupSweep(ctx: RaceContext, { laps, seeds = [1] }: { laps: number[]; seeds?: number[] }): SetupSweepRow[] {
+  return laps.map((lapCount) => {
+    const moves = SETUP_CHOICES.map((choice) => {
+      let total = 0;
+      for (const seed of seeds) {
+        const result = playBenchRace(ctx, ["normal", "normal", "normal", "normal"], lapCount, seed, undefined, [choice]);
+        total += result.finishers.find((f) => f.slot === 0)!.moves;
+      }
+      return total / seeds.length;
+    });
+    let best = 0;
+    moves.forEach((m, i) => {
+      if (m < moves[best]! - 1e-9) best = i;
+    });
+    return { laps: lapCount, moves, best };
+  });
+}
+
+// The gate on a sweep: which wing levels win somewhere, and whether one setup wins everywhere.
+export function setupSweepGate(rows: SetupSweepRow[]) {
+  const winners = new Set(rows.map((r) => r.best));
+  const wings = new Set([...winners].map((i) => SETUP_CHOICES[i]!.wing));
+  return {
+    everyWingWinsSomewhere: wings.size === 3,
+    noSetupDominates: winners.size > 1,
+    winners: [...winners].map((i) => `${SETUP_CHOICES[i]!.compound}/${SETUP_CHOICES[i]!.wing}`)
+  };
 }

@@ -91,6 +91,10 @@ Project guide for Codex and other automation.
   Copying a cell id on press only happens with the F overlay on. `e2e/mobile.spec.ts` covers it. Add to Home Screen:
   `public/manifest.webmanifest` (fullscreen, landscape, relative URLs so the Pages base works) and the iOS tags in
   `index.html`; icons in `public/icons/` are rendered from `icon.svg` by `npm run gen:icons`. No service worker.
+- Downforce (#48): `CarSetup.wing` is `low | medium | high` (`WING_EFFECTS`, `SOFT_PACE_BONUS` in `constants.ts`); the cycle
+  budget is `cycleBudget(setup)` (40, +1 Low, -1 High, +1 soft), never `MOVE_CYCLE.budget` for a car. The `setup` action
+  (grid setup, before the first move, not a turn) sets it; bots set up in `createRace` with `bestSetup`. A change to the
+  numbers must keep `npx tsx tools/botBench.ts --setups` passing the gate (`docs/bot-system.md`).
 - Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
   `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
 - Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` through

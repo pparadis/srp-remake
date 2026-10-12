@@ -1,3 +1,4 @@
+import type { WingLevel } from "../game/constants";
 import type { CarEdit } from "../game/race/sandbox";
 import type { BotLevel } from "../game/types/car";
 
@@ -14,6 +15,7 @@ export interface SandboxSnapshot {
     tire: number;
     fuel: number;
     compound: "soft" | "hard";
+    wing: WingLevel;
     budgetLeft: number;
     isBot: boolean;
     botLevel: BotLevel;
@@ -47,9 +49,12 @@ const TEMPLATE = `
   <label>Lap done <input data-testid="sandbox-lap" type="number" step="1" /></label>
   <label>Tire % <input data-testid="sandbox-tire" type="number" min="0" max="100" /></label>
   <label>Fuel % <input data-testid="sandbox-fuel" type="number" min="0" max="100" /></label>
-  <label>Moves left <input data-testid="sandbox-budget" type="number" min="0" max="40" /></label>
+  <label>Moves left <input data-testid="sandbox-budget" type="number" min="0" max="42" /></label>
   <label>Compound
     <select data-testid="sandbox-compound"><option value="soft">Soft</option><option value="hard">Hard</option></select>
+  </label>
+  <label>Wing
+    <select data-testid="sandbox-wing"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
   </label>
 </fieldset>
 <div class="sandbox-row">
@@ -94,6 +99,9 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
   q("sandbox-compound").addEventListener("change", (e) =>
     edit({ compound: (e.target as HTMLSelectElement).value as "soft" | "hard" })
   );
+  q("sandbox-wing").addEventListener("change", (e) =>
+    edit({ wing: (e.target as HTMLSelectElement).value as WingLevel })
+  );
   q("sandbox-driver").addEventListener("change", (e) => {
     const value = (e.target as HTMLSelectElement).value;
     edit(value === "human" ? { isBot: false } : { isBot: true, botLevel: value as BotLevel });
@@ -136,4 +144,5 @@ export function renderSandboxPanel(root: HTMLElement, s: SandboxSnapshot) {
   setValue(q<HTMLInputElement>("sandbox-fuel"), String(Math.round(s.car.fuel)));
   setValue(q<HTMLInputElement>("sandbox-budget"), String(s.car.budgetLeft));
   setValue(q<HTMLSelectElement>("sandbox-compound"), s.car.compound);
+  setValue(q<HTMLSelectElement>("sandbox-wing"), s.car.wing);
 }

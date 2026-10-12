@@ -22,8 +22,7 @@ function makeCar(overrides: Partial<Car> = {}): Car {
     setup: {
       compound: "soft",
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wingFrontDeg: 6,
-      wingRearDeg: 12
+      wing: "medium" as const
     },
     state: "ACTIVE",
     pitTurnsRemaining: 0,

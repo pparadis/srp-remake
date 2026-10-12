@@ -10,7 +10,7 @@ const ctx = createRaceContext(track as unknown as TrackData);
 const costs = {
   tireRate: 0.5,
   fuelRate: 0.45,
-  setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wingFrontDeg: 6, wingRearDeg: 12 }
+  setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" as const }
 };
 const targetsFrom = (start: string, occupied: string[] = [], maxSteps = 9) =>
   computeValidTargets(trackIndex, start, new Set(occupied), maxSteps, {}, costs);
@@ -178,7 +178,7 @@ describe("over simulated races", () => {
     let positions = 0;
     let goArounds = 0;
     for (const cars of [4, 8]) {
-      for (const seed of [1, 2]) {
+      for (const seed of [1, 2, 3, 4]) {
         const state = createRace(
           ctx,
           Array.from({ length: cars }, (_, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: "normal" as const })),

@@ -94,18 +94,19 @@ const ForceSkipSchema = z.object({
   revision: z.number().int().min(0).optional()
 });
 
-// Shape only; the race engine enforces the PSI/wing limits and every game rule.
+// Shape only; the race engine enforces the PSI limits and every game rule.
 const CarSetupSchema = z.object({
   compound: z.enum(["soft", "hard"]),
   psi: z.object({ fl: z.number(), fr: z.number(), rl: z.number(), rr: z.number() }),
-  wingFrontDeg: z.number(),
-  wingRearDeg: z.number()
+  wing: z.enum(["low", "medium", "high"])
 });
 
 const TurnActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("skip") }),
   z.object({ type: z.literal("move"), targetCellId: z.string().min(1) }),
-  z.object({ type: z.literal("pit"), targetCellId: z.string().min(1), setup: CarSetupSchema })
+  z.object({ type: z.literal("pit"), targetCellId: z.string().min(1), setup: CarSetupSchema }),
+  // Grid setup: free, before the car's first move, and it does not end the turn.
+  z.object({ type: z.literal("setup"), setup: CarSetupSchema })
 ]);
 
 const SubmitTurnSchema = z.object({

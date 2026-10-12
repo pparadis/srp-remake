@@ -150,7 +150,8 @@ test("runs bot turns on backend", async (t) => {
   assert.equal(raceState.cars[0]?.cellId, hostMove.type === "move" ? hostMove.targetCellId : "");
   for (const seat of [0, 1, 2]) {
     assert.notEqual(raceState.cars[seat]?.cellId, startState.cars[seat]?.cellId);
-    assert.ok((raceState.cars[seat]?.tire ?? 100) < 100);
+    // A one-cell move on hard tires rounds to no wear, so only the bots (which move far) are checked for it.
+    if (seat > 0) assert.ok((raceState.cars[seat]?.tire ?? 100) < 100);
   }
 });
 
