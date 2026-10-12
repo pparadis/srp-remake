@@ -456,6 +456,20 @@ body[data-screen="race"] #statusLine {
   background: #e6eef6;
 }
 
+.hud-draft {
+  font-size: 11px;
+  color: #7fb4ff;
+}
+
+.hud-draft.is-ready {
+  color: #ffd166;
+  font-weight: 600;
+}
+
+.hud-tooltip-draft {
+  color: #7fb4ff;
+}
+
 .hud-wing {
   font-size: 10px;
   padding: 1px 6px;
@@ -467,7 +481,8 @@ body[data-screen="race"] #statusLine {
 
 /* The compact top bar is one line wide to the pixel: the wing shows in the budget there, not as a chip. */
 @media (max-height: 500px) {
-  .hud-wing {
+  .hud-wing,
+  .hud-draft {
     display: none;
   }
 }

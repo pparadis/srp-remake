@@ -43,6 +43,8 @@ interface BenchFinisher {
 
 interface BenchRaceResult {
   finishers: BenchFinisher[];
+  // Times a car got ahead of another in the standings during the race (position swaps, not passes by lap count).
+  overtakes: number;
   // Policy of each finisher, best first (index 0 won).
   order: BenchPolicy[];
   decisionMs: Partial<Record<BenchPolicy, { totalMs: number; count: number }>>;
@@ -110,6 +112,18 @@ export function playBenchRace(
   const turnsPlayed = new Map<number, number>();
   const decisionMs: BenchRaceResult["decisionMs"] = {};
   const finishers: BenchFinisher[] = [];
+  let overtakes = 0;
+  const spineLen = ctx.trackIndex.spineLen;
+  // Cars ahead first, by laps done then place along the lap (pit cells ranked by the lane-1 cell beside them).
+  const standings = () =>
+    state.cars
+      .map((c) => ({
+        id: c.carId,
+        progress: (c.lapCount ?? 0) * spineLen + trackFwd(ctx.cellMap.get(c.cellId)!, ctx.trackIndex.lane1FwdByZone)
+      }))
+      .sort((a, b) => b.progress - a.progress || a.id - b.id)
+      .map((c) => c.id);
+  let before = standings();
   const maxTurns = laps * 400 * policies.length;
   for (let turn = 0; turn < maxTurns && state.cars.length > 0; turn += 1) {
     const car = getActiveCar(state);
@@ -123,6 +137,19 @@ export function playBenchRace(
     stat.count += 1;
     turnsPlayed.set(car.carId, (turnsPlayed.get(car.carId) ?? 0) + 1);
     const applied = applyAction(ctx, state, action);
+    if (applied.ok) {
+      // Pairs whose order flipped since the last turn: the mover got ahead of each car it passed.
+      const after = standings();
+      const rank = new Map(after.map((id, i) => [id, i]));
+      for (let i = 0; i < before.length; i += 1) {
+        for (let j = i + 1; j < before.length; j += 1) {
+          const a = rank.get(before[i]!);
+          const b = rank.get(before[j]!);
+          if (a !== undefined && b !== undefined && a > b) overtakes += 1;
+        }
+      }
+      before = after;
+    }
     if (!applied.ok) throw new Error(`bench: ${policy} action rejected (${applied.reason} ${JSON.stringify(action)})`);
     if (state.winnerCarId !== null) {
       const finished = state.winnerCarId;
@@ -145,7 +172,7 @@ export function playBenchRace(
     }
   }
   if (finishers.length !== policies.length) throw new Error("bench: race did not finish");
-  return { finishers, order: finishers.map((f) => f.policy), decisionMs };
+  return { finishers, order: finishers.map((f) => f.policy), decisionMs, overtakes };
 }
 
 function overshootOf(ctx: RaceContext, state: RaceState, carId: number, moveSpend: number): number {
@@ -202,6 +229,7 @@ export function runBench(ctx: RaceContext, { lineup, laps, seeds = [0], styles }
       timing.set(policy, t);
     }
   }
+  const overtakesPerRace = results.reduce((sum, r) => sum + r.overtakes, 0) / Math.max(1, results.length);
   const stats = new Map<BenchPolicy, PolicyStats>();
   for (const [policy, s] of statsBy(results, (f) => f.policy)) {
     const t = timing.get(policy as BenchPolicy)!;
@@ -212,7 +240,7 @@ export function runBench(ctx: RaceContext, { lineup, laps, seeds = [0], styles }
       meanDecisionMs: t.count > 0 ? t.totalMs / t.count : 0
     });
   }
-  return { races: results.length, stats, results };
+  return { races: results.length, stats, results, overtakesPerRace };
 }
 
 // Setup sweep: how many turns car 1 needs to finish on each compound and wing, at each race length, with three

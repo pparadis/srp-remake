@@ -13,7 +13,7 @@ import {
   type RaceSeat,
   type RaceState
 } from "./raceEngine";
-import type { BotLevel } from "../types/car";
+import type { BotLevel, Car } from "../types/car";
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const SEATS: RaceSeat[] = [
@@ -602,5 +602,93 @@ describe("grid setup and the wing", () => {
     expect(state.cars[0]!.setup).toMatchObject({ compound: "soft", wing: "low" });
     expect(state.cars[1]!.setup).toMatchObject({ compound: "hard", wing: "medium" });
     expect(state.cars[2]!.setup).toMatchObject({ compound: "hard", wing: "medium" });
+  });
+});
+
+describe("drafting turns and the slingshot", () => {
+  const humans = (): RaceState =>
+    newRace(5, [
+      { isBot: false, ownerId: "P1" },
+      { isBot: false, ownerId: "P2" },
+      { isBot: false, ownerId: "P3" }
+    ]);
+  // Car 1 in lane 1 at Z05, car 2 two cells ahead of it in the same lane; car 3 out of the way. Car 1 plays first.
+  const draftRace = (): RaceState => {
+    const state = humans();
+    const [c1, c2, c3] = state.cars as [Car, Car, Car];
+    Object.assign(c1, { cellId: "Z05_L1_00", lapCount: 0 });
+    Object.assign(c2, { cellId: "Z07_L1_00", lapCount: 0 });
+    Object.assign(c3, { cellId: "Z20_L3_00", lapCount: 0 });
+    return state;
+  };
+  // Hands the turn back to car 1 with the other cars where the test wants them.
+  const backToCar1 = (state: RaceState, car2At: string) => {
+    const [, c2, c3] = state.cars as [Car, Car, Car];
+    for (const car of [c2, c3]) expect(applyAction(ctx, state, { type: "move", targetCellId: firstTargetFor(state, car) }).ok).toBe(true);
+    c2.cellId = car2At;
+    c3.cellId = "Z20_L3_00";
+    expect(getActiveCar(state).carId).toBe(1);
+  };
+  const firstTargetFor = (state: RaceState, car: Car): string => {
+    expect(getActiveCar(state).carId).toBe(car.carId);
+    return firstTarget(state);
+  };
+
+  it("counts the turns that begin in a draft, and the slingshot opens on the third", () => {
+    const state = draftRace();
+    const car1 = state.cars[0]!;
+    expect(computeTargets(ctx, state, car1).get("Z08_L2_00")).toMatchObject({ moveSpend: 4 });
+
+    // turn 1 begins in the draft (car 2 is 2 cells ahead): the counter goes to 1
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z06_L1_00" }).ok).toBe(true);
+    expect(car1.draftTurns).toBe(1);
+
+    backToCar1(state, "Z08_L1_00"); // still 2 ahead of car 1 at Z06
+    expect(computeTargets(ctx, state, car1).get("Z09_L2_00")?.slingshot).toBeUndefined();
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z07_L1_00" }).ok).toBe(true);
+    expect(car1.draftTurns).toBe(2);
+
+    backToCar1(state, "Z09_L1_00"); // again 2 ahead of car 1 at Z07
+    const offered = [...computeTargets(ctx, state, car1).values()];
+    const slingshots = offered.filter((t) => t.slingshot);
+    expect(slingshots.length).toBeGreaterThan(0);
+    // the pull-out passes car 2: a lane change that cost its cells plus 1 now costs the cells
+    for (const t of slingshots) expect(t).toMatchObject({ drafted: true, moveSpend: t.distance });
+    // a lane change that does not get past car 2 still pays the surcharge
+    expect(computeTargets(ctx, state, car1).get("Z08_L2_00")?.slingshot).toBeUndefined();
+  });
+
+  it("resets when a turn begins out of the draft, and on a skip", () => {
+    const state = draftRace();
+    const car1 = state.cars[0]!;
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z06_L1_00" }).ok).toBe(true);
+    expect(car1.draftTurns).toBe(1);
+
+    backToCar1(state, "Z20_L1_00"); // car 2 far ahead: no draft at the start of this turn
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z07_L1_00" }).ok).toBe(true);
+    expect(car1.draftTurns).toBe(0);
+  });
+
+  it("a setup is not a turn: it leaves the counter alone", () => {
+    const state = draftRace();
+    const car1 = state.cars[0]!;
+    car1.draftTurns = 1;
+    expect(applyAction(ctx, state, { type: "setup", setup: { ...car1.setup, wing: "low" } }).ok).toBe(true);
+    expect(car1.draftTurns).toBe(1);
+  });
+
+  it("charges the discounted wear and the slingshot price when the move is played", () => {
+    const state = draftRace();
+    const car1 = state.cars[0]!;
+    car1.draftTurns = 2;
+    const tire = car1.tire;
+    const fuel = car1.fuel;
+    const info = computeTargets(ctx, state, car1).get("Z08_L2_00")!;
+    expect(info.slingshot).toBe(true);
+    const result = applyAction(ctx, state, { type: "move", targetCellId: "Z08_L2_00" });
+    expect(result).toMatchObject({ ok: true, moveSpend: info.moveSpend });
+    expect(tire - car1.tire).toBe(info.tireCost);
+    expect(fuel - car1.fuel).toBe(info.fuelCost);
+    expect(car1.moveCycle.spent[0]).toBe(3);
   });
 });

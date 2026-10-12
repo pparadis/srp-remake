@@ -268,6 +268,8 @@ test("a grid setup changes the car for free, keeps the turn, and is refused afte
   // ...and it does not count as a turn: the turn index (what the timer and the AFK check read) stays put.
   assert.equal(afterSetup.raceState.turnIndex, raceState.turnIndex);
   assert.equal(afterSetup.raceState.cars[0]!.setupLocked ?? false, false);
+  // the draft counter travels with the car state (the HUD and a reload read it)
+  assert.equal(afterSetup.raceState.cars[0]!.draftTurns, 0);
 
   const move = await submit(legalMove(afterSetup.raceState), "first-move", afterSetup.revision);
   assert.equal(move.statusCode, 200);

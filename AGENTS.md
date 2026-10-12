@@ -35,6 +35,9 @@ Project guide for Codex and other automation.
   - Lane-change moves may pass one target-lane blocker to merge into a gap, but cannot pass the next blocker.
   - Adjacent lanes do not block unless they are the target lane.
 - Occupied cells are non-traversable for movement target search (except the start cell).
+- Drafting (#55): a car 1-2 cells behind another in the same lane wears less (fuel x0.8, tire x0.9, `draftAhead` in
+  `draftSystem.ts`); after 2 consecutive turns begun in the draft (`Car.draftTurns`) a pull-out pass of the drafted car
+  skips the +1 lane-change surcharge (`TargetInfo.slingshot`). Always on; see `docs/movement-spec.md`.
 - Squeeze: only when a car has no normal target, `computeTargets` offers targets that pass cars (free target cell, main lanes, +2 move points per car passed); also from the `PIT_EXIT` cell onto lane 1 (max 3 cells); see `docs/movement-spec.md`.
 - Pit lane rules:
   - Entry only via `PIT_ENTRY` from lane 1 (inner race lane).

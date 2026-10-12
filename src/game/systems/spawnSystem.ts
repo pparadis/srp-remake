@@ -117,6 +117,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions, seed = 0) {
       pitTurnsRemaining: 0,
       pitExitBoost: false,
       pitServiced: false,
+      draftTurns: 0,
       moveCycle: createMoveCycle()
     };
     cars.push(car);

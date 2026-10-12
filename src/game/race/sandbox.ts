@@ -14,6 +14,8 @@ export interface CarEdit {
   wing?: WingLevel;
   /** Move points left in the cycle (0..the car's cycle budget); a turn can spend at most min(9, this). */
   budgetLeft?: number;
+  /** Consecutive turns begun in a draft (the slingshot needs DRAFT_SLINGSHOT_TURNS). */
+  draftTurns?: number;
   isBot?: boolean;
   botLevel?: BotLevel;
 }
@@ -45,6 +47,7 @@ export function editCar(ctx: RaceContext, state: RaceState, carId: number, edit:
   if (edit.fuel !== undefined) car.fuel = clamp(edit.fuel, 0, 100);
   if (edit.compound !== undefined) car.setup = { ...car.setup, compound: edit.compound };
   if (edit.wing !== undefined) car.setup = { ...car.setup, wing: edit.wing };
+  if (edit.draftTurns !== undefined) car.draftTurns = clamp(edit.draftTurns, 0, 9);
   if (edit.budgetLeft !== undefined) car.moveCycle = cycleWithBudgetLeft(edit.budgetLeft, cycleBudget(car.setup));
   if (edit.isBot !== undefined && edit.isBot !== car.isBot) {
     car.isBot = edit.isBot;
@@ -90,6 +93,7 @@ interface SnapshotCar {
   pitServiced: boolean;
   setup: Car["setup"];
   budgetLeft?: number;
+  draftTurns?: number;
 }
 
 // A position saved before the wing had levels carries two angles and no `wing`: it loads as Medium.
@@ -130,6 +134,7 @@ export function restorePosition(ctx: RaceContext, state: RaceState, snapshot: un
       pitExitBoost: sc.pitExitBoost,
       pitServiced: sc.pitServiced,
       setup: normalizeSetup(sc.setup),
+      ...(sc.draftTurns !== undefined ? { draftTurns: sc.draftTurns } : {}),
       moveCycle: cycleWithBudgetLeft(sc.budgetLeft ?? cycleBudget(normalizeSetup(sc.setup)), cycleBudget(normalizeSetup(sc.setup)))
     });
     editCar(ctx, state, car.carId, { isBot: sc.isBot, ...(sc.botLevel ? { botLevel: sc.botLevel } : {}) });

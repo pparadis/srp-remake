@@ -1,5 +1,5 @@
 // Race HUD as a DOM overlay. `renderHud` is pure over the snapshot RaceScene emits as `srp:hud`.
-import { MOVE_BUDGET, SQUEEZE_SURCHARGE_PER_CAR, type WingLevel } from "../game/constants";
+import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, SQUEEZE_SURCHARGE_PER_CAR, type WingLevel } from "../game/constants";
 import type { PitAdvice, StintEstimate } from "../game/systems/strategy";
 
 export interface HudCar {
@@ -32,6 +32,9 @@ export interface HudCar {
   budget: number;
   /** A pit stop is done (and not repeatable until the car is back on the main lanes). */
   pitServiced: boolean;
+  /** In another car's slipstream right now, and the consecutive turns begun there (the slingshot needs 2). */
+  drafting: boolean;
+  draftTurns: number;
   /** Racing left on the current tire and fuel at this car's setup (see strategy.ts). */
   stint: Pick<StintEstimate, "laps" | "moves">;
   advice: PitAdvice;
@@ -50,6 +53,10 @@ export interface HudHover {
   squeezePassed?: number;
   /** Set when the route changes lane 2 or more times (every lane change costs a move point). */
   laneChanges?: number;
+  /** The move starts in a draft: its tire and fuel cost carry the discount. */
+  drafted?: boolean;
+  /** A pull-out pass of the drafted car: the lane-change surcharge was waived. */
+  slingshot?: boolean;
   /** The active car's tire and fuel (percent) before the move, to show what is left after it. */
   tireBefore: number;
   fuelBefore: number;
@@ -106,6 +113,7 @@ const TEMPLATE = `
     <div class="hud-meter"><span data-testid="hud-fuel"></span>
       <div class="hud-bar"><i data-testid="hud-fuel-bar"></i></div></div>
     <div class="hud-stint" data-testid="hud-stint"></div>
+    <div class="hud-draft" data-testid="hud-draft" hidden></div>
     <div class="hud-advice" data-testid="hud-advice" hidden></div>
     <div class="hud-warning" data-testid="hud-warning" hidden></div>
     <div class="hud-meter"><span>Moves</span><span data-testid="hud-budget"></span>
@@ -203,6 +211,12 @@ function renderTooltip(tip: HTMLElement, h: HudHover) {
     const tire = part("tire", h.tireBefore, h.tireCost);
     const fuel = part("fuel", h.fuelBefore, h.fuelCost);
     nodes.push(tire.span, " - ", fuel.span);
+    if (h.drafted || h.slingshot) {
+      const note = document.createElement("div");
+      note.className = "hud-tooltip-draft";
+      note.textContent = h.slingshot ? "Slingshot: the lane change is free" : "Draft: less wear";
+      nodes.push(note);
+    }
     const empties = [tire.empty && h.tireBefore > 0 ? "tire" : null, fuel.empty && h.fuelBefore > 0 ? "fuel" : null].filter(Boolean);
     if (empties.length > 0) {
       const warn = document.createElement("div");
@@ -346,6 +360,10 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     wing.title = `${me.wing} wing`;
     q(root, "hud-budget").textContent = `${me.remaining} / ${me.budget}`;
     q(root, "hud-stint").textContent = formatStint(me.stint);
+    const draft = q(root, "hud-draft");
+    draft.hidden = !me.drafting;
+    draft.textContent = me.draftTurns >= DRAFT_SLINGSHOT_TURNS ? "Drafting - slingshot ready" : `Drafting ${me.draftTurns}/${DRAFT_SLINGSHOT_TURNS}`;
+    draft.classList.toggle("is-ready", me.drafting && me.draftTurns >= DRAFT_SLINGSHOT_TURNS);
     const advice = q(root, "hud-advice");
     const label = ADVICE_LABEL[me.advice];
     advice.hidden = !label;

@@ -16,6 +16,7 @@ import { PERSONALITIES, personalityOf } from "../systems/botStyle";
 import {
   applyAction,
   computeTargets,
+  isDrafting,
   createRace,
   createRaceContext,
   decideBotAction,
@@ -449,6 +450,8 @@ export class RaceSession {
       isPit: target.isPitTrigger,
       ...(target.squeezePassed ? { squeezePassed: target.squeezePassed } : {}),
       ...(target.laneChanges ? { laneChanges: target.laneChanges } : {}),
+      ...(target.drafted ? { drafted: true } : {}),
+      ...(target.slingshot ? { slingshot: true } : {}),
       tireBefore: this.activeCar.tire,
       fuelBefore: this.activeCar.fuel
     };
@@ -506,6 +509,8 @@ export class RaceSession {
       remaining: getRemainingBudget(car.moveCycle, cycleBudget(car.setup)),
       budget: cycleBudget(car.setup),
       pitServiced: car.pitServiced,
+      drafting: isDrafting(this.ctx, this.race, car),
+      draftTurns: car.draftTurns ?? 0,
       stint: stintEstimate(car, this.ctx.trackIndex.spineLen),
       advice: pitAdvice(car, this.cellMap.get(car.cellId)!, this.plan())
     };
@@ -628,6 +633,7 @@ export class RaceSession {
         compound: car.setup.compound,
         wing: car.setup.wing,
         budgetLeft: budgetLeftOf(car),
+        draftTurns: car.draftTurns ?? 0,
         isBot: car.isBot,
         botLevel: car.botLevel ?? "normal"
       }

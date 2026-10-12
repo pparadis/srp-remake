@@ -490,3 +490,55 @@ describe("wing wear", () => {
     expect(high.fuel).toBeLessThan(medium.fuel);
   });
 });
+
+describe("drafting costs and the slingshot", () => {
+  const idx = buildTrackIndex(track as unknown as TrackData);
+  const costs = {
+    tireRate: 20,
+    fuelRate: 20,
+    setup: { compound: "hard" as const, psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: "medium" as const }
+  };
+  const targets = (start: string, others: string[], slingshotReady = false) =>
+    computeValidTargets(idx, start, new Set([start, ...others]), 9, { slingshotReady }, costs);
+
+  it("wears less on a move that starts in a draft: fuel x0.8, tire x0.9", () => {
+    const plain = targets("Z05_L1_00", ["Z09_L1_00"]).get("Z06_L1_00")!;
+    const drafted = targets("Z05_L1_00", ["Z07_L1_00"]).get("Z06_L1_00")!;
+    // lane 1 is x1.05 on tires and x0.98 on fuel: 21 and 20 at 20 a cell
+    expect(plain).toMatchObject({ tireCost: 21, fuelCost: 20 });
+    expect(plain.drafted).toBeUndefined();
+    expect(drafted).toMatchObject({ tireCost: 19, fuelCost: 16, drafted: true });
+  });
+
+  it("does not discount a move that starts beside a car or behind a car in another lane", () => {
+    const t = targets("Z05_L1_00", ["Z07_L2_00"]).get("Z06_L1_00")!;
+    expect(t).toMatchObject({ tireCost: 21, fuelCost: 20 });
+  });
+
+  it("the slingshot waives the lane-change surcharge on a pull-out pass of the drafted car, once ready", () => {
+    // car ahead 2 cells in lane 1; pulling out into lane 2 and landing 3 cells on is past it: 3 cells + 1 surcharge
+    const notReady = targets("Z05_L1_00", ["Z07_L1_00"], false).get("Z08_L2_00")!;
+    const ready = targets("Z05_L1_00", ["Z07_L1_00"], true).get("Z08_L2_00")!;
+    expect(notReady).toMatchObject({ moveSpend: 4 });
+    expect(notReady.slingshot).toBeUndefined();
+    expect(ready).toMatchObject({ moveSpend: 3, distance: 3, slingshot: true });
+  });
+
+  it("the slingshot is for passing: a lane change that stays behind the drafted car pays the surcharge", () => {
+    const t = targets("Z05_L1_00", ["Z07_L1_00"], true).get("Z06_L2_00")!;
+    expect(t.moveSpend).toBe(2);
+    expect(t.slingshot).toBeUndefined();
+  });
+
+  it("there is no slingshot without a draft, however ready the car is", () => {
+    const t = targets("Z05_L1_00", ["Z10_L1_00"], true).get("Z08_L2_00")!;
+    expect(t.moveSpend).toBe(4);
+    expect(t.slingshot).toBeUndefined();
+  });
+
+  it("the slingshot does not touch a same-lane move", () => {
+    const t = targets("Z05_L1_00", ["Z07_L1_00"], true).get("Z06_L1_00")!;
+    expect(t.moveSpend).toBe(1);
+    expect(t.slingshot).toBeUndefined();
+  });
+});
