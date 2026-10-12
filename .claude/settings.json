@@ -10,7 +10,17 @@
       "Bash(npm run backend:build)",
       "Bash(npx tsc --noEmit -p .)",
       "Bash(git diff --stat)",
-      "Bash(git stash list)"
+      "Bash(git stash list)",
+      "Bash(git fetch *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run watch *)"
     ]
   }
 }
