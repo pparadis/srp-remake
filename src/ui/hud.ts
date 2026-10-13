@@ -121,6 +121,8 @@ const TEMPLATE = `
   </section>
   <div class="hud-hint" data-testid="hud-hint">F: fwd overlay &middot; C: cars+moves &middot; M: sound</div>
   <button type="button" class="hud-mute" data-testid="hud-mute" aria-pressed="false">Sound: on</button>
+  <div class="hud-fps" data-testid="hud-fps" hidden></div>
+  <button type="button" class="hud-fps-toggle" data-testid="hud-fps-toggle" aria-pressed="false">FPS: off</button>
 </div>
 <button type="button" class="hud-drawer-toggle" data-testid="hud-drawer-toggle" aria-expanded="false">Standings<span class="hud-drawer-dot" data-testid="hud-drawer-dot" aria-label="Unread chat" hidden></span></button>
 <div class="hud-right">
@@ -251,6 +253,16 @@ export function renderMute(root: Element, muted: boolean) {
   const button = q(root, "hud-mute");
   button.textContent = muted ? "Sound: off" : "Sound: on";
   button.setAttribute("aria-pressed", String(muted));
+}
+
+/** The frame-rate readout (P key, `?fps`): the line shows `text` while `on`; the touch button follows the state. */
+export function renderFps(root: Element, on: boolean, text: string) {
+  const line = q(root, "hud-fps");
+  line.hidden = !on;
+  line.textContent = on ? text : "";
+  const button = q(root, "hud-fps-toggle");
+  button.textContent = on ? "FPS: on" : "FPS: off";
+  button.setAttribute("aria-pressed", String(on));
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;

@@ -1,5 +1,15 @@
 import "./style.css";
-import { formatCountdown, mountHud, renderHud, renderMute, renderResults, showToast, type HudSnapshot } from "./ui/hud";
+import {
+  formatCountdown,
+  mountHud,
+  renderFps,
+  renderHud,
+  renderMute,
+  renderResults,
+  showToast,
+  type HudSnapshot
+} from "./ui/hud";
+import { fpsText, startFpsMeter } from "./ui/fpsMeter";
 import { currentlyMuted, initSound, setMuted } from "./ui/sound";
 import { mountSandboxPanel } from "./ui/sandboxPanel";
 import { createChat, isChatMessage } from "./ui/chat";
@@ -82,15 +92,36 @@ const hudDrawerToggle = hud.querySelector<HTMLElement>('[data-testid="hud-drawer
 const sandbox = new URLSearchParams(window.location.search).has("sandbox");
 // `?hidpi`: sharp canvas on a high-density screen plus a probe line (src/game/hidpi.ts); read once, the router drops it
 const hidpi = new URLSearchParams(window.location.search).has("hidpi");
+// `?fps` starts the frame-rate readout on; the P key (or the touch button) toggles it during a race (issue #79)
+let fpsOn = new URLSearchParams(window.location.search).has("fps");
+let stopFps: (() => void) | null = null;
 if (sandbox) mountSandboxPanel(hud.querySelector(".hud-right")!);
 renderMute(hud, currentlyMuted());
 initSound();
+
+// Starts or stops the readout for the current game; with no game yet it only remembers the choice
+// (ensureGameStarted applies it).
+function applyFps() {
+  stopFps?.();
+  stopFps = null;
+  renderFps(hud, fpsOn, "fps \u2026");
+  if (fpsOn && game) {
+    stopFps = startFpsMeter((stats) => renderFps(hud, true, fpsText(stats)), game);
+  }
+}
+
+function toggleFps() {
+  fpsOn = !fpsOn;
+  applyFps();
+}
 
 function toggleMute() {
   setMuted(!currentlyMuted());
   renderMute(hud, currentlyMuted());
 }
 hud.querySelector('[data-testid="hud-mute"]')!.addEventListener("click", toggleMute);
+hud.querySelector('[data-testid="hud-fps-toggle"]')!.addEventListener("click", toggleFps);
+renderFps(hud, fpsOn, "fps \u2026"); // `?fps`: the meter itself starts with the game (ensureGameStarted)
 const hudTimer = hud.querySelector<HTMLElement>('[data-testid="hud-timer"]')!;
 const hudForceSkip = hud.querySelector<HTMLButtonElement>('[data-testid="hud-force-skip"]')!;
 
@@ -376,6 +407,8 @@ function destroyGame() {
   }
   stopRenderProbe?.();
   stopRenderProbe = null;
+  stopFps?.();
+  stopFps = null;
   delete window.__srp;
 }
 
@@ -477,6 +510,7 @@ async function ensureGameStarted() {
     game = startGame(app, { ...getComposition(), hidpi });
     // `?hidpi` (src/game/hidpi.ts): a line with what the browser really draws, to compare on a phone
     if (hidpi) stopRenderProbe = startRenderProbe(el("renderProbe"), game);
+    applyFps();
   } finally {
     gameStarting = false;
   }
@@ -1142,9 +1176,10 @@ window.addEventListener("srp:scene-ready", () => {
 // Keyboard shortcut next to the scene's F (forwardIndex overlay).
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
-  if ((key !== "c" && key !== "m") || event.ctrlKey || event.metaKey || event.altKey) return;
+  if ((key !== "c" && key !== "m" && key !== "p") || event.ctrlKey || event.metaKey || event.altKey) return;
   if (document.body.dataset.screen !== "race" || isTypingTarget()) return;
   if (key === "m") toggleMute();
+  else if (key === "p") toggleFps();
   else window.dispatchEvent(new Event("srp:toggle-cars-moves"));
 });
 
