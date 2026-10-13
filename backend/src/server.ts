@@ -48,6 +48,8 @@ type AppliedTurnEvent = {
 
 type CreateAppOptions = {
   logger?: boolean;
+  // Where the request log goes (default stdout); lets a test read what is logged.
+  logStream?: { write(line: string): void };
   // Lets tests set up lobby state directly (e.g. park a car in the pit lane).
   lobbyStore?: LobbyStore;
 };
@@ -160,6 +162,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     logger:
       (options.logger ?? true)
         ? {
+            ...(options.logStream ? { stream: options.logStream } : {}),
             serializers: {
               // The default one logs the raw url, player token included.
               req: (request) => ({

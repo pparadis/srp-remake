@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import type { BackendConfig } from "../src/config.js";
+import { loadConfig } from "../src/config.js";
 import { createApp, redactTokens } from "../src/server.js";
 import { playRaceToEnd } from "./helpers.js";
 
@@ -231,4 +232,93 @@ test("TRUST_PROXY: X-Forwarded-For picks the bucket only when trusted", async (t
   const direct = await startApp(t, { RATE_LIMIT_ENABLED: true, TRUST_PROXY: false });
   for (let i = 0; i < 10; i += 1) assert.equal((await fromClient(direct, `3.3.3.${i}`)).statusCode, 201);
   assert.equal((await fromClient(direct, "4.4.4.4")).statusCode, 429);
+});
+
+test("the request log carries the redacted url, never the player token", async (t) => {
+  const lines: string[] = [];
+  const app = await createApp({ ...TEST_CONFIG }, { logStream: { write: (line) => lines.push(line) } });
+  t.after(async () => {
+    await app.close();
+  });
+  const { lobbyId, token } = await lobbyOf(app);
+  assert.equal(await readStatus(app, lobbyId, token), 200);
+
+  const log = lines.join("");
+  assert.ok(log.includes(`/api/v1/lobbies/${lobbyId}?playerToken=[redacted]`));
+  assert.ok(!log.includes(token));
+});
+
+test("TRUST_PROXY with a hop count trusts that many proxies from the right", async (t) => {
+  const app = await startApp(t, { RATE_LIMIT_ENABLED: true, TRUST_PROXY: 1 });
+  const create = (forwardedFor: string) =>
+    app.inject({
+      method: "POST",
+      url: "/api/v1/lobbies",
+      payload: { name: "Host" },
+      headers: { "x-forwarded-for": forwardedFor },
+      remoteAddress: "10.9.9.9"
+    });
+  // One trusted proxy: the client is the last entry, so a faked first entry buys no new bucket.
+  for (let i = 0; i < 10; i += 1) assert.equal((await create(`6.6.6.${i}, 5.5.5.5`)).statusCode, 201);
+  assert.equal((await create("7.7.7.7, 5.5.5.5")).statusCode, 429);
+  assert.equal((await create("7.7.7.7, 5.5.5.6")).statusCode, 201);
+});
+
+test("TRUST_PROXY and the other limits are read from the environment", () => {
+  const env = { GIT_SHA: "x" };
+  const defaults = loadConfig(env);
+  assert.equal(defaults.TRUST_PROXY, false);
+  assert.equal(defaults.RATE_LIMIT_ENABLED, true);
+  assert.equal(defaults.MAX_LOBBIES, 1000);
+  assert.equal(defaults.LOBBY_IDLE_SECONDS, 3600);
+
+  assert.equal(loadConfig({ ...env, TRUST_PROXY: "true" }).TRUST_PROXY, true);
+  assert.equal(loadConfig({ ...env, TRUST_PROXY: "2" }).TRUST_PROXY, 2);
+  assert.equal(loadConfig({ ...env, RATE_LIMIT_ENABLED: "false" }).RATE_LIMIT_ENABLED, false);
+  assert.equal(loadConfig({ ...env, MAX_LOBBIES: "5" }).MAX_LOBBIES, 5);
+  assert.throws(() => loadConfig({ ...env, TRUST_PROXY: "banana" }));
+});
+
+// Each route has its own limit; the limiter runs before validation, so any request counts.
+const ROUTE_LIMITS: [method: "GET" | "POST" | "PATCH", url: string, max: number][] = [
+  ["GET", "/api/v1/lobbies/x?playerToken=t", 240],
+  ["POST", "/api/v1/lobbies/x/join", 30],
+  ["PATCH", "/api/v1/lobbies/x/settings", 240],
+  ["POST", "/api/v1/lobbies/x/start", 240],
+  ["POST", "/api/v1/lobbies/x/reset", 240],
+  ["POST", "/api/v1/lobbies/x/force-skip", 240],
+  ["POST", "/api/v1/lobbies/x/turns", 240]
+];
+
+for (const [method, url, max] of ROUTE_LIMITS) {
+  test(`rate limit: ${method} ${url.split("?")[0]} allows ${max} a minute, then 429`, async (t) => {
+    const app = await startApp(t, { RATE_LIMIT_ENABLED: true });
+    for (let i = 0; i < max; i += 1) {
+      const res = await app.inject({ method, url, payload: {} });
+      assert.notEqual(res.statusCode, 429, `request ${i + 1} of ${max}`);
+    }
+    const over = await app.inject({ method, url, payload: {} });
+    assert.equal(over.statusCode, 429);
+  });
+}
+
+test("malformed JSON is a 400, not a 500", async (t) => {
+  const app = await startApp(t);
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/v1/lobbies",
+    headers: { "content-type": "application/json" },
+    payload: "{not json"
+  });
+  assert.equal(res.statusCode, 400);
+  assert.deepEqual(res.json(), { error: "bad_request" });
+});
+
+test("a reaped lobby leaves the lobby count", async (t) => {
+  const app = await startApp(t, { LOBBY_IDLE_SECONDS: 60 }, { fakeTime: true });
+  await lobbyOf(app);
+  const count = async () => ((await app.inject({ method: "GET", url: "/health" })).json() as { lobbies: number }).lobbies;
+  assert.equal(await count(), 1);
+  mock.timers.tick(3 * 60_000);
+  assert.equal(await count(), 0);
 });
