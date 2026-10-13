@@ -198,6 +198,15 @@ describe("main (solo flow)", () => {
     expect(byId("results").hidden).toBe(true);
   });
 
+  it("has no chat in a solo race", async () => {
+    startGame.mockReturnValue({ destroy: vi.fn() });
+    await import("./main");
+    await startSoloRace();
+    expect(document.body.dataset.screen).toBe("race");
+    expect(tid("hud-chat").hidden).toBe(true);
+    expect(byId("lobbyChatBlock").hidden).toBe(true);
+  });
+
   it("the mute toggle follows the button and the M key, and persists across reloads", async () => {
     startGame.mockReturnValue({ destroy: vi.fn() });
     await import("./main");

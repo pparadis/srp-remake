@@ -30,9 +30,26 @@ test("multiplayer: host and guest play a 1-lap race, play again, and finish a se
   const invite = await createLobby(host, { name: "Host", bots: 1, laps: 1 });
   await joinByInvite(guest, invite, "Guest");
   await expect(host.getByTestId("lobby-player")).toHaveCount(2);
+
+  // Chat in the lobby: the host's message (with an emoji) reaches the guest over the real socket.
+  await host.getByTestId("chat-input").fill("hello 👋");
+  await host.getByTestId("chat-send").click();
+  await expect(guest.getByTestId("chat-list")).toContainText("hello 👋");
+  await expect(host.getByTestId("chat-input")).toHaveValue("");
+
   await startRace(host);
   await waitForRace(guest);
   await expectSameCars([host, guest]);
+
+  // ...and in the race: the HUD panel is collapsed, counts the guest's message, and shows it once opened.
+  await expect(host.getByTestId("hud-chat")).toBeVisible();
+  await guest.getByTestId("hud-chat").locator("summary").click();
+  await guest.getByTestId("chat-input").fill("gl hf");
+  await guest.getByTestId("chat-send").click();
+  await expect(host.getByTestId("hud-chat-unread")).toHaveText("(1)");
+  await host.getByTestId("hud-chat").locator("summary").click();
+  await expect(host.getByTestId("chat-list")).toContainText("gl hf");
+  await expect(host.getByTestId("hud-chat-unread")).toBeHidden();
 
   await playOnlineRace([host, guest]);
 

@@ -2,6 +2,9 @@ import "./style.css";
 import { formatCountdown, mountHud, renderHud, renderMute, renderResults, showToast, type HudSnapshot } from "./ui/hud";
 import { currentlyMuted, initSound, setMuted } from "./ui/sound";
 import { mountSandboxPanel } from "./ui/sandboxPanel";
+import { createChat, isChatMessage } from "./ui/chat";
+import { isCompactHud } from "./ui/layout";
+import { isTypingTarget } from "./ui/typing";
 import { renderHomeTrack, setHomeTrackRunning } from "./ui/homeTrack";
 import { mountVersion, renderVersion, type ServerVersion } from "./ui/version";
 import { showUncaughtErrors, startRenderProbe } from "./ui/diagnostics";
@@ -47,6 +50,8 @@ const lobbyTitle = el("lobbyTitle");
 const lobbyNote = el("lobbyNote");
 const lobbyPlayersBlock = el("lobbyPlayersBlock");
 const lobbyPlayers = el("lobbyPlayers");
+const lobbyChatBlock = el("lobbyChatBlock");
+const lobbyChatSlot = el("lobbyChatSlot");
 const lobbyHumans = el<HTMLSelectElement>("lobbyHumans");
 const lobbyHumansField = el("lobbyHumansField");
 const lobbyBots = el<HTMLSelectElement>("lobbyBots");
@@ -68,6 +73,11 @@ const results = el("results");
 const resultsWinner = el("resultsWinner");
 const hud = el("hud");
 mountHud(hud);
+const hudChat = hud.querySelector<HTMLDetailsElement>('[data-testid="hud-chat"]')!;
+const hudChatBody = hud.querySelector<HTMLElement>('[data-testid="hud-chat-body"]')!;
+const hudChatUnread = hud.querySelector<HTMLElement>('[data-testid="hud-chat-unread"]')!;
+const hudDrawerDot = hud.querySelector<HTMLElement>('[data-testid="hud-drawer-dot"]')!;
+const hudDrawerToggle = hud.querySelector<HTMLElement>('[data-testid="hud-drawer-toggle"]')!;
 // `?sandbox` (solo only): a dev tool to place cars by hand; `?pos=<base64 of a Copy debug snapshot>` starts from one.
 const sandbox = new URLSearchParams(window.location.search).has("sandbox");
 // `?hidpi`: sharp canvas on a high-density screen plus a probe line (src/game/hidpi.ts); read once, the router drops it
@@ -289,6 +299,49 @@ function toErrorText(error: unknown): string {
   return "unknown_error";
 }
 
+// ---- chat (online only) ---------------------------------------------------------------------
+// One panel element: the lobby card holds it on the lobby screen, the collapsible HUD panel during the race.
+
+async function sendChatText(text: string) {
+  if (!backendSession) throw new Error("Not connected to a lobby");
+  try {
+    const { message } = await backendClient.sendChat(backendSession.lobbyId, backendSession.playerToken, text);
+    // the broadcast brings it too; the panel drops the duplicate
+    chat.add(message);
+  } catch (error) {
+    throw new Error(toErrorText(error));
+  }
+}
+
+const chat = createChat({ send: sendChatText });
+let chatUnread = 0;
+
+// The panel is "seen" on the lobby screen; in a race only while its HUD panel is open (and, on a phone, the drawer).
+function renderChatBadges() {
+  const drawerOpen = hud.classList.contains("is-drawer-open");
+  const onRace = document.body.dataset.screen === "race";
+  chat.setSeen(!onRace || (hudChat.open && (!isCompactHud() || drawerOpen)));
+  hudChatUnread.hidden = chatUnread === 0;
+  hudChatUnread.textContent = ` (${chatUnread})`;
+  hudDrawerDot.hidden = chatUnread === 0 || drawerOpen;
+}
+
+chat.onUnread((count) => {
+  chatUnread = count;
+  renderChatBadges();
+});
+hudChat.addEventListener("toggle", renderChatBadges);
+hudDrawerToggle.addEventListener("click", renderChatBadges);
+
+function placeChat() {
+  const online = mode === "online" && backendSession !== null;
+  const screen = document.body.dataset.screen;
+  lobbyChatBlock.hidden = !(online && screen === "lobby");
+  hudChat.hidden = !(online && screen === "race");
+  if (online) (screen === "race" ? hudChatBody : lobbyChatSlot).append(chat.element);
+  renderChatBadges();
+}
+
 function getPlayerName(): string {
   const raw = homeName.value.trim();
   return raw.length > 0 ? raw : "Player";
@@ -343,6 +396,7 @@ function showScreen(screen: Screen) {
   }
   if (screen === "home") renderHome();
   else if (screen === "lobby") renderLobby();
+  placeChat();
 }
 
 function renderHome() {
@@ -447,6 +501,8 @@ function leaveOnline() {
   if (backendSession) clearStoredSession(backendSession.lobbyId);
   backendSession = null;
   lastLobby = null;
+  chat.close();
+  placeChat();
 }
 
 function kickToHome(message: string) {
@@ -608,6 +664,15 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
     }
     return;
   }
+  if (eventName === "chat.history") {
+    const messages = (payload as { messages?: unknown } | null)?.messages;
+    if (Array.isArray(messages)) chat.setHistory(messages.filter(isChatMessage));
+    return;
+  }
+  if (eventName === "chat.message") {
+    if (isChatMessage(payload)) chat.add(payload);
+    return;
+  }
   if (eventName === "turn.applied") {
     if (payload && typeof payload === "object" && "revision" in payload) {
       const revision = (payload as { revision: unknown }).revision;
@@ -758,6 +823,7 @@ function openSession(
     revision: response.lobby.revision,
     isHost: response.lobby.hostPlayerId === response.playerId
   };
+  chat.open(response.lobby.lobbyId, response.playerId);
   applyLobbyState(response.lobby, reason);
   void connectBackendSocket(reason);
 }
@@ -1077,7 +1143,7 @@ window.addEventListener("srp:scene-ready", () => {
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
   if ((key !== "c" && key !== "m") || event.ctrlKey || event.metaKey || event.altKey) return;
-  if (document.body.dataset.screen !== "race") return;
+  if (document.body.dataset.screen !== "race" || isTypingTarget()) return;
   if (key === "m") toggleMute();
   else window.dispatchEvent(new Event("srp:toggle-cars-moves"));
 });

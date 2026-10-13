@@ -36,6 +36,22 @@ describe("onKeyDown", () => {
     expect(handler).toHaveBeenCalledTimes(2);
   });
 
+  it("ignores keys typed in a form field (the chat), and runs again once it loses the focus", () => {
+    const { scene, emit } = fakeScene();
+    const handler = vi.fn();
+    onKeyDown(scene, "F", handler);
+    const input = document.createElement("input");
+    document.body.append(input);
+    input.focus();
+    emit("keydown-F", new KeyboardEvent("keydown", { key: "f" }));
+    expect(handler).not.toHaveBeenCalled();
+
+    input.blur();
+    emit("keydown-F", new KeyboardEvent("keydown", { key: "f" }));
+    expect(handler).toHaveBeenCalledTimes(1);
+    input.remove();
+  });
+
   it("does nothing without a keyboard", () => {
     expect(() => onKeyDown({ input: {} } as unknown as Phaser.Scene, "F", vi.fn())).not.toThrow();
   });
