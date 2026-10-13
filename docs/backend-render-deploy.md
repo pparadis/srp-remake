@@ -54,6 +54,35 @@ Example `CORS_ALLOWED_ORIGINS`:
 https://your-frontend.example.com,http://localhost:5173
 ```
 
+Optional, with their defaults:
+
+- `LOBBY_IDLE_SECONDS=3600`: a lobby with no open socket is dropped after this long without activity (a finished
+  one after 10 minutes). A lobby with a connected player is never dropped.
+- `MAX_LOBBIES=1000`: creating a lobby over this answers `503 Server is full`. A backstop for the rate limit.
+- `RATE_LIMIT_ENABLED=true`: per-IP, per-minute limits (lobby create 10, join 30, reads, WebSocket and turn/host
+  actions 240). Over the limit answers `429` with `Retry-After`. Counters live in memory, which is right for one
+  instance; several instances would need a shared store (Redis).
+- `TRUST_PROXY=false`: `true` (or a hop count) makes the server take the client address from `X-Forwarded-For`.
+
+## Security notes
+
+- A player token is a bearer secret: whoever has it plays that seat until it expires (`PLAYER_TOKEN_TTL_SECONDS`,
+  24 h) or the lobby ends. It travels in the URL of the lobby read and the WebSocket, so the request log replaces
+  `playerToken=` values with `[redacted]`. App log lines carry a short fingerprint instead.
+- Set `CORS_ALLOWED_ORIGINS` to the frontend origin in production. The default `*` is for local development
+  (CORS is not an auth boundary here, but there is no reason to leave it open).
+- Inputs are bounded: names 32 characters, request bodies 16 KiB, WebSocket frames 1 KiB.
+
+### TRUST_PROXY on Render
+
+Render puts a proxy in front of the service, so without `TRUST_PROXY` every request comes from the proxy's address
+and shares one rate-limit bucket: the first busy minute would lock every player out. Set `TRUST_PROXY=true` on
+Render, then check in the logs (`remoteAddress` of a request) that it is the client's address and not a Render
+internal one (10.x). If it is the proxy's, use a hop count (`TRUST_PROXY=2`) instead.
+
+Never set it where the backend is reachable directly (the docker-compose stack): a client could then send a fake
+`X-Forwarded-For` to dodge the limit.
+
 ## Health Check
 
 - Set health check path to:
