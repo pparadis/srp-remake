@@ -221,8 +221,9 @@ export class RaceScene extends Phaser.Scene {
       this.layoutUI();
       this.centerTrack();
     });
-    this.spawnCarTokens();
+    // the position first: the tokens are made where the cars are (nothing moves them before the first turn)
     this.loadStartPosition();
+    this.spawnCarTokens();
     this.initTurn();
     this.recomputeTargets();
     this.drawTargets();
