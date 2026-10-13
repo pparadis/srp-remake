@@ -136,6 +136,12 @@ const SubmitTurnSchema = z.object({
   action: TurnActionSchema
 });
 
+const ChatSchema = z.object({
+  playerToken: PlayerTokenSchema,
+  // Generous: normalizeChatText applies the real limit (100 graphemes, 400 code units); this only bounds the work.
+  text: z.string().max(2000)
+});
+
 const LobbyPathSchema = z.object({
   lobbyId: z.string().min(1)
 });
@@ -654,6 +660,14 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return { lobby: toPublicLobby(lobby) };
   });
 
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/chat`, { config: limit(60) }, async (request, reply) => {
+    const params = LobbyPathSchema.parse(request.params);
+    const body = ChatSchema.parse(request.body);
+    const message = lobbyStore.addChatMessage(params.lobbyId, body.playerToken, body.text);
+    broadcast(params.lobbyId, "chat.message", message);
+    return reply.code(201).send({ message });
+  });
+
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/turns`, { config: limit(240) }, async (request, reply) => {
     const params = LobbyPathSchema.parse(request.params);
     const body = SubmitTurnSchema.parse(request.body);
@@ -872,6 +886,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     if (publicLobby.raceState !== undefined) {
       ws.send(JSON.stringify({ event: "race.state", payload: publicLobby }));
     }
+    // This socket only: the others have seen these as they came.
+    ws.send(JSON.stringify({ event: "chat.history", payload: { messages: lobby.chat } }));
 
     ws.on("close", () => {
       // A newer socket of the same player (reload/reconnect) keeps them connected.

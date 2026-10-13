@@ -152,13 +152,21 @@ REST:
 - `POST /lobbies/:lobbyId/force-skip` `{ playerToken, revision? }` (host): the server plays one autopilot
   turn for the active human seat. `401` bad token, `403` non-host, `404` unknown lobby, `409` unless the race
   is `IN_RACE` with a human seat to play (or `revision` is stale).
+- `POST /lobbies/:lobbyId/chat` `{ playerToken, text }` (`201` with the `message`). Any lobby status. `401` bad
+  token, `400` when `normalizeChatText` (`src/game/chatText.ts`) refuses the text (empty, over 100 graphemes or 400
+  UTF-16 units), `429` for a second message within 1 s of the player's last (plus the per-IP limit).
 - `POST /lobbies/:lobbyId/turns` `{ playerToken, clientCommandId, revision, action }` where `action` is
   `{ type: "move", targetCellId }`, `{ type: "pit", targetCellId, setup }`, `{ type: "skip" }` or
   `{ type: "setup", setup }` (grid setup: free, before the car's first move, does not end the turn or advance
   `turnIndex`; refused with `setup_locked` afterwards).
 
 WebSocket events (server -> client): `lobby.state`, `race.started`, `race.state` (all carry the full public
-lobby, including `raceState`), `turn.applied` and `race.ended`.
+lobby, including `raceState`), `turn.applied`, `race.ended`, `chat.message` (a `ChatMessage`: `id`, `playerId`,
+`name`, `text`, `sentAt`) and `chat.history` (`{ messages }`, the last 50, sent to the connecting socket only).
+
+- Chat is not part of the public lobby (that payload goes out on every turn). The server keeps the last 50
+  messages per lobby; "play again" keeps them, reaping the lobby drops them. Muting an author is a client-side
+  choice (`sessionStorage`), the server does no moderation. Solo has no chat.
 
 - `raceState.turnRemainingMs` is the time the active human seat has left, measured by the server (no
   client clock sync needed); it is absent when the timer is Off or a bot is on turn.

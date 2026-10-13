@@ -8,10 +8,12 @@ import {
   type ApplyResult,
   type BotTurnDecision
 } from "../../src/game/race/raceEngine";
+import { normalizeChatText } from "../../src/game/chatText";
 import { MAX_SEED, normalizeSeed } from "../../src/game/systems/botStyle";
 import type { BotPolicy } from "../../src/game/systems/botSystem";
 import { getRaceContext, knownTrackIds } from "./tracks.js";
 import type {
+  ChatMessage,
   Lobby,
   LobbyPlayer,
   RaceCarState,
@@ -25,6 +27,10 @@ import type {
   PublicLobbyPlayer
 } from "./types.js";
 import { BOT_LEVEL_CHOICES, TURN_TIMER_CHOICES } from "./types.js";
+
+// Messages a lobby keeps (and a socket gets on connect), and the pause a player needs between two.
+export const CHAT_HISTORY = 50;
+const CHAT_INTERVAL_MS = 1000;
 
 const DEFAULT_SETTINGS: LobbySettings = {
   trackId: "oval16_3lanes",
@@ -263,7 +269,9 @@ export class LobbyStore {
       updatedAt: now,
       revision: 0,
       settings,
-      players: [host]
+      players: [host],
+      chat: [],
+      chatSeq: 0
     };
 
     this.lobbies.set(lobbyId, lobby);
@@ -332,6 +340,37 @@ export class LobbyStore {
     player.connected = connected;
     lobby.updatedAt = Date.now();
     return { lobby, player };
+  }
+
+  // Any lobby status: chat also works in the lobby and on the results screen. A terminated lobby has revoked
+  // tokens, so it stops by itself.
+  addChatMessage(lobbyId: string, playerToken: string, rawText: string): ChatMessage {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    const player = this.findPlayerByToken(lobby, playerToken);
+    if (!player) {
+      throw new LobbyError(401, "Invalid player token for this lobby.");
+    }
+    const normalized = normalizeChatText(rawText);
+    if (!normalized.ok) {
+      throw new LobbyError(400, normalized.reason === "empty" ? "Chat message is empty." : "Chat message is too long.");
+    }
+    const now = Date.now();
+    if (player.lastChatAt !== undefined && now - player.lastChatAt < CHAT_INTERVAL_MS) {
+      throw new LobbyError(429, "One chat message a second.");
+    }
+
+    player.lastChatAt = now;
+    lobby.chatSeq += 1;
+    const message: ChatMessage = {
+      id: lobby.chatSeq,
+      playerId: player.playerId,
+      name: player.name,
+      text: normalized.text,
+      sentAt: now
+    };
+    lobby.chat.push(message);
+    if (lobby.chat.length > CHAT_HISTORY) lobby.chat.splice(0, lobby.chat.length - CHAT_HISTORY);
+    return message;
   }
 
   updateSettings(lobbyId: string, hostToken: string, patch: Partial<LobbySettings>): Lobby {

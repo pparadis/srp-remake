@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import type { TrackCell } from "../../types/track";
+import { isTypingTarget } from "../../../ui/typing";
 import { onKeyDown } from "./onKeyDown";
 
 interface RegisterSandboxInputHandlersParams {
@@ -40,16 +41,11 @@ export function registerSandboxInputHandlers(params: RegisterSandboxInputHandler
     onDrop(carId, findNearestCell(token.x, token.y, snapDist));
   });
 
-  const typing = () =>
-    document.activeElement instanceof HTMLElement && ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName);
-
   // The canvas swallows the press, so a panel field would keep the focus (and the "E" key) after a click on the board.
   scene.input.on("pointerdown", () => {
-    if (typing()) (document.activeElement as HTMLElement).blur();
+    if (isTypingTarget()) (document.activeElement as HTMLElement).blur();
   });
 
-  onKeyDown(scene, "E", () => {
-    // typing an "e" in the sandbox panel is not a toggle
-    if (!typing()) onToggleEditing();
-  });
+  // onKeyDown skips keys typed in a panel field, so an "e" typed there is not a toggle
+  onKeyDown(scene, "E", () => onToggleEditing());
 }

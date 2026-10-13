@@ -351,7 +351,8 @@ body[data-screen="race"] #statusLine {
 
 #hud .hud-card,
 #hud .hud-standings,
-#hud .hud-feed {
+#hud .hud-feed,
+#hud .hud-chat {
   background: rgba(15, 20, 27, 0.92);
   border: 1px solid #2a3642;
   border-radius: 8px;
@@ -600,13 +601,139 @@ body[data-screen="race"] #statusLine {
   background: rgba(255, 224, 102, 0.18);
 }
 
-#hud .hud-feed {
+#hud .hud-feed,
+#hud .hud-chat {
   pointer-events: auto;
 }
 
-.hud-feed summary {
+.hud-feed summary,
+.hud-chat summary {
   cursor: pointer;
   color: #8fb0cc;
+}
+
+.hud-chat-unread {
+  color: #ffe066;
+}
+
+/* Phone drawer: a dot on the Standings button while a message waits in the closed drawer */
+#hud .hud-drawer-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #ffe066;
+}
+
+#hud .hud-drawer-dot[hidden] {
+  display: none;
+}
+
+/* The chat panel: one element, in the lobby card or the race HUD (src/ui/chat.ts) */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.chat-list li {
+  overflow-wrap: anywhere;
+}
+
+.chat-name {
+  color: #8fb0cc;
+}
+
+.chat-name::after {
+  content: ":";
+}
+
+.chat .chat-mute,
+.chat .chat-unmute {
+  margin-left: 6px;
+  padding: 0 4px;
+  height: auto;
+  font-size: 10px;
+  color: #6f8294;
+  background: transparent;
+  border: 1px solid #2a3642;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.chat-muted {
+  font-size: 11px;
+  color: #6f8294;
+}
+
+.chat-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat .chat-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #0b0f14;
+  color: #c7d1db;
+  border: 1px solid #2a3642;
+  border-radius: 4px;
+  padding: 4px 6px;
+  /* 16px: iOS Safari zooms the page into a smaller field */
+  font-size: 16px;
+  font-family: inherit;
+}
+
+.chat-count {
+  font-size: 10px;
+  color: #6f8294;
+  white-space: nowrap;
+}
+
+.chat-count.is-over {
+  color: #f87171;
+}
+
+.chat .chat-send {
+  padding: 4px 10px;
+  color: #c7d1db;
+  background: #1d4f7a;
+  border: 1px solid #3b86c4;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.chat .chat-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-error {
+  font-size: 11px;
+  color: #f87171;
+}
+
+#hud .hud-chat-body {
+  margin-top: 6px;
+}
+
+#hud .hud-chat .chat-list {
+  height: 90px;
 }
 
 .hud-feed ol {

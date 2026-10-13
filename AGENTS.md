@@ -117,6 +117,11 @@ Project guide for Codex and other automation.
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).
   A reused local backend with real clocks breaks `e2e/afk.spec.ts`: use `E2E_BACKEND_PORT`.
 
+- Chat (#70): `POST /lobbies/:id/chat` (1 message/s per player, last 50 kept per lobby, `chat.message` and
+  `chat.history` on the socket, never inside `PublicLobby`). The text rule is `src/game/chatText.ts` (100 graphemes,
+  400 UTF-16 units), shared by the client and the server. The panel is `src/ui/chat.ts`: one element that `main.ts`
+  moves between the lobby card and the race HUD; messages go in with `textContent` only. Keys typed in any form field
+  are skipped by `onKeyDown` and the C/M handler (`isTypingTarget`). Solo has no chat.
 - Backend hardening (#69): request logs redact `playerToken` (`redactTokens`); lobbies with no open socket are reaped
   (`LOBBY_IDLE_SECONDS`, finished ones after 10 min); inputs are bounded (names 32, body 16 KiB, WS frames 1 KiB,
   `MAX_LOBBIES`); routes are rate limited per IP (`@fastify/rate-limit`, limits at the route in `server.ts`). Behind a

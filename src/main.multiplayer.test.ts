@@ -10,6 +10,7 @@ const readLobbyMock = vi.fn();
 const submitTurnMock = vi.fn();
 const forceSkipMock = vi.fn();
 const updateSettingsMock = vi.fn();
+const sendChatMock = vi.fn();
 
 vi.mock("./game", () => ({
   startGame: (...args: unknown[]) => startGame(...args)
@@ -58,6 +59,10 @@ vi.mock("./net/backendApi", () => ({
 
     updateSettings(...args: unknown[]) {
       return updateSettingsMock(...args);
+    }
+
+    sendChat(...args: unknown[]) {
+      return sendChatMock(...args);
     }
   },
   BackendApiError: MockBackendApiError,
@@ -183,6 +188,7 @@ describe("main multiplayer screens", () => {
     readLobbyMock.mockReset();
     submitTurnMock.mockReset();
     forceSkipMock.mockReset();
+    sendChatMock.mockReset();
     FakeWebSocket.instances = [];
     window.sessionStorage.clear();
     startGame.mockReturnValue({ destroy: vi.fn() });
@@ -448,6 +454,164 @@ describe("main multiplayer screens", () => {
       expect(window.location.pathname).toBe("/lobby/start/race");
       expect(document.body.dataset.screen).toBe("race");
       await vi.waitFor(() => expect(startGame).toHaveBeenCalledWith(byId("app"), expect.objectContaining({ totalCars: 2, humanCars: 2 })));
+    });
+
+    describe("chat", () => {
+      const chatMessage = (id: number, playerId: string, name: string, text: string) => ({
+        id,
+        playerId,
+        name,
+        text,
+        sentAt: id
+      });
+      const rows = () => [...document.querySelectorAll<HTMLElement>('[data-testid="chat-list"] li')];
+      const input = () => tid("chat-input") as HTMLInputElement;
+      const type = (text: string) => {
+        input().value = text;
+        input().dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      const submit = () => tid("chat-form").dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+
+      it("shows the history and live messages in the lobby, as text", async () => {
+        await enter("guest", makeLobby("chat"));
+        expect(byId("lobbyChatBlock").hidden).toBe(false);
+        expect(byId("lobbyChatSlot").contains(tid("chat"))).toBe(true);
+
+        send("chat.history", { messages: [chatMessage(1, "host-player-id", "Host", "welcome 👋")] });
+        send("chat.message", chatMessage(2, "host-player-id", "Host", '<img src=x onerror="window.pwned=1">'));
+        expect(rows().map((row) => row.querySelector(".chat-text")!.textContent)).toEqual([
+          "welcome 👋",
+          '<img src=x onerror="window.pwned=1">'
+        ]);
+        expect(tid("chat-list").querySelector("img")).toBeNull();
+        expect(rows()[0]!.querySelector(".chat-name")!.textContent).toBe("Host");
+
+        // a history sent again (a reconnect) replaces, it does not repeat
+        send("chat.history", { messages: [chatMessage(1, "host-player-id", "Host", "welcome 👋")] });
+        expect(rows()).toHaveLength(1);
+      });
+
+      it("sends what is typed, clears the input, and shows a refusal under it", async () => {
+        await enter("host", makeLobby("send"));
+        sendChatMock.mockResolvedValueOnce({ message: chatMessage(1, "host-player-id", "Host", "gg") });
+        type("  gg  ");
+        expect(tid("chat-count").textContent).toBe("6/100");
+        submit();
+        await vi.waitFor(() => expect(sendChatMock).toHaveBeenCalledWith("send", "host-token", "gg"));
+        await vi.waitFor(() => expect(input().value).toBe(""));
+        expect(rows().map((row) => row.querySelector(".chat-text")!.textContent)).toEqual(["gg"]);
+        // the broadcast of the same message does not repeat it
+        send("chat.message", chatMessage(1, "host-player-id", "Host", "gg"));
+        expect(rows()).toHaveLength(1);
+
+        sendChatMock.mockRejectedValueOnce(new MockBackendApiError(429, { error: "One chat message a second." }));
+        type("again");
+        submit();
+        await vi.waitFor(() => expect(tid("chat-error").hidden).toBe(false));
+        expect(tid("chat-error").textContent).toContain("Too many requests");
+        expect(input().value).toBe("again");
+      });
+
+      it("will not send an empty or over-long message", async () => {
+        await enter("host", makeLobby("limits"));
+        type("   ");
+        expect((tid("chat-send") as HTMLButtonElement).disabled).toBe(true);
+        type("a".repeat(101));
+        expect((tid("chat-send") as HTMLButtonElement).disabled).toBe(true);
+        expect(tid("chat-count").classList.contains("is-over")).toBe(true);
+        type("a".repeat(100));
+        expect((tid("chat-send") as HTMLButtonElement).disabled).toBe(false);
+        sendChatMock.mockResolvedValue({ message: chatMessage(1, "host-player-id", "Host", "a") });
+        submit();
+        await vi.waitFor(() => expect(sendChatMock).toHaveBeenCalledTimes(1));
+      });
+
+      it("mutes an author on this screen, and keeps that across a reload of the lobby", async () => {
+        await enter("guest", makeLobby("mute"));
+        send("chat.history", {
+          messages: [
+            chatMessage(1, "host-player-id", "Host", "annoying"),
+            chatMessage(2, "guest-player-id", "Guest", "mine")
+          ]
+        });
+        // your own message has no mute button
+        expect(rows()[1]!.querySelector('[data-testid="chat-mute"]')).toBeNull();
+        rows()[0]!.querySelector<HTMLButtonElement>('[data-testid="chat-mute"]')!.click();
+        expect(rows().map((row) => row.querySelector(".chat-text")!.textContent)).toEqual(["mine"]);
+        send("chat.message", chatMessage(3, "host-player-id", "Host", "still annoying"));
+        expect(rows()).toHaveLength(1);
+        expect(tid("chat-muted").textContent).toContain("Host");
+        expect(window.sessionStorage.getItem("srp:chat-muted:mute")).toBe('["host-player-id"]');
+
+        // reload: a fresh page, the same tab (sessionStorage stays)
+        for (const [type, listener] of added.splice(0)) window.removeEventListener(type, listener);
+        vi.resetModules();
+        FakeWebSocket.instances = [];
+        setupDom();
+        window.history.replaceState({}, "", "/lobby/mute");
+        await import("./main");
+        await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+        send("chat.history", {
+          messages: [chatMessage(1, "host-player-id", "Host", "annoying"), chatMessage(2, "guest-player-id", "Guest", "mine")]
+        });
+        expect(rows().map((row) => row.querySelector(".chat-text")!.textContent)).toEqual(["mine"]);
+
+        // unmute brings them back
+        tid("chat-unmute").click();
+        expect(rows()).toHaveLength(2);
+      });
+
+      it("keeps the typed letters from the game's shortcuts", async () => {
+        await enter("guest", makeRaceLobby("keys", 0));
+        expect(document.body.dataset.screen).toBe("race");
+        const mute = tid("hud-mute");
+        expect(mute.textContent).toBe("Sound: on");
+
+        input().focus();
+        input().dispatchEvent(new KeyboardEvent("keydown", { key: "m", bubbles: true }));
+        expect(mute.textContent).toBe("Sound: on");
+
+        input().blur();
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "m" }));
+        expect(mute.textContent).toBe("Sound: off");
+      });
+
+      it("lives in the HUD during the race, and counts what came in while it was collapsed", async () => {
+        await enter("guest", makeLobby("unread"));
+        send("race.started", makeRaceLobby("unread", 0));
+        expect(document.body.dataset.screen).toBe("race");
+        expect(byId("lobbyChatBlock").hidden).toBe(true);
+        expect(tid("hud-chat").hidden).toBe(false);
+        expect((tid("hud-chat") as HTMLDetailsElement).open).toBe(false);
+        expect(tid("hud-chat-body").contains(tid("chat"))).toBe(true);
+
+        send("chat.history", { messages: [chatMessage(1, "host-player-id", "Host", "old")] });
+        expect(tid("hud-chat-unread").hidden).toBe(true); // history is not news
+
+        send("chat.message", chatMessage(2, "host-player-id", "Host", "new 1"));
+        send("chat.message", chatMessage(3, "guest-player-id", "Guest", "from me"));
+        send("chat.message", chatMessage(4, "host-player-id", "Host", "new 2"));
+        expect(tid("hud-chat-unread").hidden).toBe(false);
+        expect(tid("hud-chat-unread").textContent).toBe(" (2)");
+
+        const details = tid("hud-chat") as HTMLDetailsElement;
+        details.open = true;
+        details.dispatchEvent(new Event("toggle"));
+        expect(tid("hud-chat-unread").hidden).toBe(true);
+        // open: new messages are read as they arrive
+        send("chat.message", chatMessage(5, "host-player-id", "Host", "new 3"));
+        expect(tid("hud-chat-unread").hidden).toBe(true);
+      });
+
+      it("is not there when the lobby ends", async () => {
+        await enter("guest", makeRaceLobby("bye", 0));
+        send("chat.history", { messages: [chatMessage(1, "host-player-id", "Host", "hi")] });
+        send("lobby.state", { ...makeRaceLobby("bye", 0), status: "FINISHED", terminationReason: "host_disconnected" });
+        expect(document.body.dataset.screen).toBe("home");
+        expect(tid("hud-chat").hidden).toBe(true);
+        expect(byId("lobbyChatBlock").hidden).toBe(true);
+        expect(rows()).toHaveLength(0);
+      });
     });
 
     it("shows everyone the turn countdown, and warns in the last 10 s", async () => {

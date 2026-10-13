@@ -63,6 +63,18 @@ export interface LobbyPlayer {
   playerToken: string;
   tokenIssuedAt: number;
   tokenRevoked: boolean;
+  // Epoch ms of the player's last chat message (one a second).
+  lastChatAt?: number;
+}
+
+export interface ChatMessage {
+  // Per-lobby counter.
+  id: number;
+  playerId: string;
+  // The name at send time.
+  name: string;
+  text: string;
+  sentAt: number;
 }
 
 export interface Lobby {
@@ -76,6 +88,9 @@ export interface Lobby {
   settings: LobbySettings;
   players: LobbyPlayer[];
   race?: ServerRace;
+  // The last CHAT_HISTORY messages. Not part of PublicLobby: that payload goes out on every turn.
+  chat: ChatMessage[];
+  chatSeq: number;
 }
 
 export interface PublicLobbyPlayer {

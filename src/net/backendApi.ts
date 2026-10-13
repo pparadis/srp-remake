@@ -37,6 +37,16 @@ export interface PublicRaceState {
   turnRemainingMs?: number;
 }
 
+export interface ChatMessage {
+  /** Per-lobby counter. */
+  id: number;
+  playerId: string;
+  /** The author's name when they sent it. */
+  name: string;
+  text: string;
+  sentAt: number;
+}
+
 export interface PublicLobby {
   lobbyId: string;
   status: "WAITING" | "IN_RACE" | "FINISHED";
@@ -218,6 +228,11 @@ export class BackendApiClient {
       playerToken,
       ...(revision !== undefined ? { revision } : {})
     });
+  }
+
+  // The server applies the same rule as `normalizeChatText`; a 400 says the text was refused, a 429 to wait a second.
+  sendChat(lobbyId: string, playerToken: string, text: string): Promise<{ message: ChatMessage }> {
+    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/chat`, { playerToken, text });
   }
 
   // Cheap request that wakes a sleeping server; `sha` is the commit it runs (absent on an older server).

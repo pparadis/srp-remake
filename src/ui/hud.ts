@@ -122,10 +122,14 @@ const TEMPLATE = `
   <div class="hud-hint" data-testid="hud-hint">F: fwd overlay &middot; C: cars+moves &middot; M: sound</div>
   <button type="button" class="hud-mute" data-testid="hud-mute" aria-pressed="false">Sound: on</button>
 </div>
-<button type="button" class="hud-drawer-toggle" data-testid="hud-drawer-toggle" aria-expanded="false">Standings</button>
+<button type="button" class="hud-drawer-toggle" data-testid="hud-drawer-toggle" aria-expanded="false">Standings<span class="hud-drawer-dot" data-testid="hud-drawer-dot" aria-label="Unread chat" hidden></span></button>
 <div class="hud-right">
   <table class="hud-standings" data-testid="hud-standings">${HEAD}<tbody></tbody></table>
   <details class="hud-feed" data-testid="hud-feed"><summary>Race feed</summary><ol data-testid="hud-feed-list"></ol></details>
+  <details class="hud-chat" data-testid="hud-chat" hidden>
+    <summary>Chat<span class="hud-chat-unread" data-testid="hud-chat-unread" hidden></span></summary>
+    <div class="hud-chat-body" data-testid="hud-chat-body"></div>
+  </details>
 </div>
 <div class="hud-toast" data-testid="hud-toast" role="status" hidden></div>
 <div class="hud-tooltip" data-testid="hud-tooltip" hidden></div>
