@@ -326,6 +326,7 @@ function destroyGame() {
 }
 
 function showScreen(screen: Screen) {
+  const changed = document.body.dataset.screen !== screen;
   document.body.dataset.screen = screen;
   if (screen !== "race") {
     destroyGame();
@@ -333,6 +334,12 @@ function showScreen(screen: Screen) {
     raceOver = false;
   }
   setHomeTrackRunning(homeTrack, screen === "home");
+  // the race screen can leave the page (or the home screen) scrolled; a screen opens at its top. Only on a change:
+  // every lobby update calls showScreen("lobby") again and must not throw the scroll back
+  if (changed) {
+    document.scrollingElement?.scrollTo?.(0, 0);
+    document.getElementById(`screen-${screen}`)?.scrollTo?.(0, 0);
+  }
   if (screen === "home") renderHome();
   else if (screen === "lobby") renderLobby();
 }

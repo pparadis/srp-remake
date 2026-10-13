@@ -30,7 +30,15 @@ body[data-screen="lobby"] #screen-lobby {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  /* viewport-fit=cover + a translucent status bar: keep the content out from under the notch and the home indicator */
+  padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+    calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+
+/* the lobby card can be taller than a landscape phone: scroll it, and "safe" keeps its top reachable */
+body[data-screen="lobby"] #screen-lobby {
+  overflow-y: auto;
+  align-items: safe center;
 }
 
 body[data-screen="race"] #screen-race {
