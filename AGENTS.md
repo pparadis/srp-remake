@@ -167,7 +167,8 @@ Project guide for Codex and other automation.
 server <sha>`, amber when the server runs another commit (a deploy is pending); a click copies the full commits.
   The web side is `__GIT_SHA__` / `__BUILD_DATE__` (vite `define`), the server side is `/health`'s `sha`.
 - Frame-rate readout (issue #79): press `P` during a race (or add `?fps` to the URL; a small `FPS` button shows on touch
-  screens) for a line under the Sound button: `fps 58 · worst frame 34 ms`. `fps` is the frames the game rendered in the
+  screens, in the right column or the phone drawer) for a line at the bottom left, out of the layout flow so it never
+  moves the track it measures: `fps 58 · worst frame 34 ms`. `fps` is the frames the game rendered in the
   last second (Phaser's `postrender`, `src/ui/fpsMeter.ts`, so a frame-rate cap shows up in it); `worst frame` is the
   longest gap between two renders in that second (a saturated main thread shows there first). Works in solo and online.
   Use it to compare before and after a rendering change, on the machine where it feels slow.

@@ -947,15 +947,20 @@ body[data-screen="race"] #statusLine {
   font-size: 11px;
 }
 
-/* Frame-rate readout (src/ui/fpsMeter.ts): a line under Sound; the button is for touch, desktop uses the P key */
+/* Frame-rate readout (src/ui/fpsMeter.ts): out of the layout flow (it must not move the track it measures), bottom
+   left above the canvas debug buttons and the phone's turn banner. The button, in the right column or the phone
+   drawer, is for touch; desktop uses the P key. */
 #hud .hud-fps {
+  position: fixed;
+  left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(46px + env(safe-area-inset-bottom));
   padding: 1px 6px;
   border-radius: 4px;
   background: rgba(11, 15, 20, 0.8);
   color: #ffe066;
   font-size: 10px;
   white-space: nowrap;
-  align-self: flex-start;
+  pointer-events: none;
 }
 
 #hud .hud-fps-toggle {
