@@ -86,7 +86,8 @@ describe("startGame", () => {
       parent,
       width: 1600,
       height: 900,
-      backgroundColor: "#0b0f14",
+      // the grass is the container's CSS background: a transparent canvas, no big texture drawn per frame (#79)
+      transparent: true,
       // a 2x screen, but sharp rendering is opt-in (?hidpi): Phaser follows the container at 1x
       scale: { mode: "RESIZE", autoCenter: "CENTER_BOTH" }
     });

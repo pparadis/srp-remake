@@ -69,6 +69,10 @@ Project guide for Codex and other automation.
 - The game uses Phaser's Canvas renderer on purpose (`type: Phaser.CANVAS` in `src/game/index.ts`): it is a turn-based
   board, and software WebGL cost about 14x the CPU (`npm run probe:cpu`). Do not add WebGL-only features (tint, FX,
   pipelines, shaders, masks, blend modes, particles). `e2e/smoke.spec.ts` asserts the canvas has a 2D context.
+- Never draw a large texture every frame: the grass is the CSS background of `#app` behind a transparent canvas
+  (`transparent: true`, `style.css`), not a Phaser `tileSprite`. A 4000x3000 `tileSprite` was redrawn each frame and
+  Firefox on a real display (X11) fell to 9 fps while Chromium was at 60 (#79; headless Firefox did not show it, so
+  check a real window with the `P` readout). Draw big static layers once (the track is baked with `generateTexture`).
 - Sharpness on phones (opt-in, `?hidpi`): Phaser 3.90 has no `resolution` option, so the canvas is 1x and a phone
   stretches it (blurry). With `?hidpi` (read once in `main.ts`, passed to `startGame`) the game uses `Scale.NONE` with a
   canvas `renderScale()` times its container (`src/game/hidpi.ts`, capped at 2) shown at `zoom: 1 / renderScale()`;

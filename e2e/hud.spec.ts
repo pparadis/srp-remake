@@ -9,6 +9,28 @@ test.setTimeout(90_000);
 
 const tid = (page: import("@playwright/test").Page, id: string) => page.getByTestId(id);
 
+test("the game draws no large texture per frame: the grass is the page's CSS background (#79)", async ({ page }) => {
+  // Firefox on a real display fell to 9 fps with a 4000x3000 tileSprite redrawn every frame; Chromium and headless
+  // Firefox did not show it, so guard the cause instead of the frame rate.
+  await page.addInitScript(() => {
+    const draw = CanvasRenderingContext2D.prototype.drawImage;
+    (window as unknown as { __maxDrawPx: number }).__maxDrawPx = 0;
+    CanvasRenderingContext2D.prototype.drawImage = function (this: CanvasRenderingContext2D, ...args: unknown[]) {
+      const source = args[0] as { width?: number; height?: number };
+      const px = (source.width ?? 0) * (source.height ?? 0);
+      const w = window as unknown as { __maxDrawPx: number };
+      if (px > w.__maxDrawPx) w.__maxDrawPx = px;
+      return (draw as (...a: unknown[]) => void).apply(this, args);
+    } as typeof draw;
+  });
+  await quickRace(page, { bots: 1, laps: 1 });
+  await page.waitForTimeout(500);
+  const maxPx = await page.evaluate(() => (window as unknown as { __maxDrawPx: number }).__maxDrawPx);
+  expect(maxPx).toBeGreaterThan(0);
+  expect(maxPx, "largest canvas or image drawn in one drawImage").toBeLessThan(2_000_000);
+  expect(await page.locator("#app").evaluate((el) => getComputedStyle(el).backgroundImage)).toContain("grass.png");
+});
+
 test("race screen with the HUD looks right", async ({ page }) => {
   test.skip(!onCi, "pixel baselines are checked on CI only");
   // chromium on a fixed viewport only; baselines are not shared across OSes
