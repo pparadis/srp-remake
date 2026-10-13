@@ -121,8 +121,6 @@ const TEMPLATE = `
   </section>
   <div class="hud-hint" data-testid="hud-hint">F: fwd overlay &middot; C: cars+moves &middot; M: sound</div>
   <button type="button" class="hud-mute" data-testid="hud-mute" aria-pressed="false">Sound: on</button>
-  <div class="hud-fps" data-testid="hud-fps" hidden></div>
-  <button type="button" class="hud-fps-toggle" data-testid="hud-fps-toggle" aria-pressed="false">FPS: off</button>
 </div>
 <button type="button" class="hud-drawer-toggle" data-testid="hud-drawer-toggle" aria-expanded="false">Standings<span class="hud-drawer-dot" data-testid="hud-drawer-dot" aria-label="Unread chat" hidden></span></button>
 <div class="hud-right">
@@ -132,7 +130,9 @@ const TEMPLATE = `
     <summary>Chat<span class="hud-chat-unread" data-testid="hud-chat-unread" hidden></span></summary>
     <div class="hud-chat-body" data-testid="hud-chat-body"></div>
   </details>
+  <button type="button" class="hud-fps-toggle" data-testid="hud-fps-toggle" aria-pressed="false">FPS: off</button>
 </div>
+<div class="hud-fps" data-testid="hud-fps" hidden></div>
 <div class="hud-toast" data-testid="hud-toast" role="status" hidden></div>
 <div class="hud-tooltip" data-testid="hud-tooltip" hidden></div>
 <div class="hud-select" data-testid="hud-select" hidden>
