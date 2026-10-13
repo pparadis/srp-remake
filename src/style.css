@@ -947,6 +947,30 @@ body[data-screen="race"] #statusLine {
   font-size: 11px;
 }
 
+/* Frame-rate readout (src/ui/fpsMeter.ts): a line under Sound; the button is for touch, desktop uses the P key */
+#hud .hud-fps {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(11, 15, 20, 0.8);
+  color: #ffe066;
+  font-size: 10px;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+#hud .hud-fps-toggle {
+  pointer-events: auto;
+  align-self: flex-start;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+@media (pointer: fine) {
+  #hud .hud-fps-toggle {
+    display: none;
+  }
+}
+
 #hud .hud-toast {
   position: absolute;
   top: 88px;

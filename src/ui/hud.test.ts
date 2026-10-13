@@ -6,6 +6,7 @@ import {
   gapLabel,
   mountHud,
   renderHud,
+  renderFps,
   renderMute,
   renderResults,
   resourceLevel,
@@ -289,6 +290,20 @@ describe("hud", () => {
     expect(root.querySelector('[data-testid="hud-mute"]')!.getAttribute("aria-pressed")).toBe("true");
     renderMute(root, false);
     expect(text(root, "hud-mute")).toBe("Sound: on");
+  });
+
+  it("renders the frame-rate readout and its toggle", () => {
+    expect(root.querySelector<HTMLElement>('[data-testid="hud-fps"]')!.hidden).toBe(true);
+    renderFps(root, true, "fps 58 \u00b7 worst frame 40 ms");
+    const line = root.querySelector<HTMLElement>('[data-testid="hud-fps"]')!;
+    expect(line.hidden).toBe(false);
+    expect(line.textContent).toBe("fps 58 \u00b7 worst frame 40 ms");
+    expect(text(root, "hud-fps-toggle")).toBe("FPS: on");
+    expect(root.querySelector('[data-testid="hud-fps-toggle"]')!.getAttribute("aria-pressed")).toBe("true");
+    renderFps(root, false, "stale text");
+    expect(line.hidden).toBe(true);
+    expect(line.textContent).toBe("");
+    expect(text(root, "hud-fps-toggle")).toBe("FPS: off");
   });
 
   describe("toast", () => {

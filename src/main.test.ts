@@ -207,6 +207,91 @@ describe("main (solo flow)", () => {
     expect(byId("lobbyChatBlock").hidden).toBe(true);
   });
 
+  describe("frame-rate readout (issue #79)", () => {
+    // a game with an event emitter, so the meter can hook postrender
+    const listeners = new Set<() => void>();
+    const fakeGame = () => ({
+      destroy: vi.fn(),
+      events: {
+        on: (_event: string, fn: () => void) => listeners.add(fn),
+        off: (_event: string, fn: () => void) => listeners.delete(fn)
+      }
+    });
+    const line = () => tid("hud-fps");
+
+    beforeEach(() => {
+      listeners.clear();
+      startGame.mockReturnValue(fakeGame());
+    });
+
+    it("P toggles it during a race, and it counts the frames the game draws", async () => {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] });
+      await import("./main");
+      await startSoloRace();
+      expect(line().hidden).toBe(true);
+      expect(listeners.size).toBe(0);
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p" }));
+      expect(line().hidden).toBe(false);
+      expect(line().textContent).toBe("fps \u2026");
+      expect(tid("hud-fps-toggle").getAttribute("aria-pressed")).toBe("true");
+      expect(listeners.size).toBe(1);
+
+      for (let i = 0; i < 30; i += 1) {
+        vi.advanceTimersByTime(30);
+        for (const fn of listeners) fn();
+      }
+      vi.advanceTimersByTime(100);
+      expect(line().textContent).toMatch(/^fps 3\d \u00b7 worst frame \d+ ms$/);
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "P" }));
+      expect(line().hidden).toBe(true);
+      expect(listeners.size).toBe(0);
+      vi.useRealTimers();
+    });
+
+    it("ignores P while typing in a field and off the race screen", async () => {
+      await import("./main");
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p" }));
+      expect(line().hidden).toBe(true);
+
+      await startSoloRace();
+      const input = document.createElement("input");
+      document.body.append(input);
+      input.focus();
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p" }));
+      expect(line().hidden).toBe(true);
+      input.blur();
+      input.remove();
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true }));
+      expect(line().hidden).toBe(true);
+    });
+
+    it("the touch button toggles it; ?fps starts it on; a new race starts a fresh meter", async () => {
+      window.history.replaceState({}, "", "/?fps");
+      await import("./main");
+      await startSoloRace();
+      expect(line().hidden).toBe(false);
+      expect(listeners.size).toBe(1);
+
+      tid("hud-fps-toggle").click();
+      expect(line().hidden).toBe(true);
+      expect(listeners.size).toBe(0);
+      tid("hud-fps-toggle").click();
+      expect(listeners.size).toBe(1);
+
+      // leaving the race drops the listener with the game; the next race hooks the new game again
+      vi.stubGlobal("confirm", () => true);
+      goBack("/");
+      expect(listeners.size).toBe(0);
+      startGame.mockClear();
+      startGame.mockReturnValue(fakeGame());
+      await startSoloRace();
+      await vi.waitFor(() => expect(listeners.size).toBe(1));
+      expect(line().hidden).toBe(false);
+    });
+  });
+
   it("the mute toggle follows the button and the M key, and persists across reloads", async () => {
     startGame.mockReturnValue({ destroy: vi.fn() });
     await import("./main");

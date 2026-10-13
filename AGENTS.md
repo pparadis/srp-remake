@@ -166,6 +166,11 @@ Project guide for Codex and other automation.
 - The build version is shown bottom right on the home and lobby screens, and in a race too (bottom right; on a phone centred under the track, above Skip), since a home-screen app can run an older copy than the browser (`src/ui/version.ts`): `web <sha> · <build day> ·
 server <sha>`, amber when the server runs another commit (a deploy is pending); a click copies the full commits.
   The web side is `__GIT_SHA__` / `__BUILD_DATE__` (vite `define`), the server side is `/health`'s `sha`.
+- Frame-rate readout (issue #79): press `P` during a race (or add `?fps` to the URL; a small `FPS` button shows on touch
+  screens) for a line under the Sound button: `fps 58 · worst frame 34 ms`. `fps` is the frames the game rendered in the
+  last second (Phaser's `postrender`, `src/ui/fpsMeter.ts`, so a frame-rate cap shows up in it); `worst frame` is the
+  longest gap between two renders in that second (a saturated main thread shows there first). Works in solo and online.
+  Use it to compare before and after a rendering change, on the machine where it feels slow.
 - Snapshot includes `version` + `gitSha` and the race `seed` for reproducibility (`?seed=N`).
 
 ## Validation & Tests
