@@ -207,8 +207,8 @@ export class RaceScene extends Phaser.Scene {
     });
     this.cellMap = this.session.cellMap;
 
-    const grassCenter = this.getTrackCenter() ?? { x: 0, y: 0 };
-    this.add.tileSprite(grassCenter.x, grassCenter.y, 4000, 3000, "grass").setDepth(-10);
+    // The grass is the CSS background of #app behind this transparent canvas (style.css): a 4000x3000 tileSprite
+    // was redrawn every frame and took Firefox down to 9 fps (issue #79).
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
     this.gFrame = this.add.graphics();
@@ -779,17 +779,6 @@ export class RaceScene extends Phaser.Scene {
     cam.setZoom(zoom);
     cam.centerOn((minX + maxX) / 2 - (gl - gr) / 2 / zoom, (minY + maxY) / 2 + (bottom - top) / 2 / zoom);
     this.layoutUI();
-  }
-
-  private getTrackCenter(): { x: number; y: number } | null {
-    const xs = this.track.cells.map((c) => c.pos.x);
-    const ys = this.track.cells.map((c) => c.pos.y);
-    if (xs.length === 0 || ys.length === 0) return null;
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-    return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
   }
 
   private addLog(line: string) {

@@ -45,7 +45,8 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
     // e2e build only: still lowers the load of many headless pages; tweens use delta time, so they finish.
     ...(isTestBuild ? { fps: { target: TEST_FPS, limit: TEST_FPS } } : {}),
     parent,
-    backgroundColor: "#0b0f14",
+    // The grass is the CSS background of the container (#app in style.css), drawn by the browser instead of the game.
+    transparent: true,
     scene: [BootScene, RaceScene],
     ...(scale === 1
       ? { width: 1600, height: 900, scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH } }

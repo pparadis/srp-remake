@@ -51,6 +51,10 @@ body[data-screen="race"] #screen-race {
   min-height: 0;
   /* a drag on the board is a move, not a page scroll or a pinch-zoom */
   touch-action: none;
+  /* The grass behind the (transparent) canvas: the browser tiles it for free. The game used to draw it as a
+     4000x3000 tileSprite every frame, which took Firefox down to 9 fps (issue #79). The colour shows until the image
+     loads. */
+  background: #27ae60 url("/assets/kenney/grass.png") repeat;
 }
 
 button {
