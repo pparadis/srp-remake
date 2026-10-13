@@ -37,7 +37,9 @@ Project guide for Codex and other automation.
 - Occupied cells are non-traversable for movement target search (except the start cell).
 - Drafting (#55): a car 1-2 cells behind another in the same lane wears less (fuel x0.8, tire x0.9, `draftAhead` in
   `draftSystem.ts`); after 2 consecutive turns begun in the draft (`Car.draftTurns`) a pull-out pass of the drafted car
-  skips the +1 lane-change surcharge (`TargetInfo.slingshot`). Always on; see `docs/movement-spec.md`.
+  skips the +1 lane-change surcharge (`TargetInfo.slingshot`). Always on; see `docs/movement-spec.md`. The HUD (#83): a
+  draft chip in the phone bar, a gold ring on slingshot targets, a "Slingshot!" toast from `Car.slingshots`
+  (`docs/strategy-and-feel.md`).
 - Squeeze: only when a car has no normal target, `computeTargets` offers targets that pass cars (free target cell, main lanes, +2 move points per car passed); also from the `PIT_EXIT` cell onto lane 1 (max 3 cells); see `docs/movement-spec.md`.
 - Pit lane rules:
   - Entry only via `PIT_ENTRY` from lane 1 (inner race lane).

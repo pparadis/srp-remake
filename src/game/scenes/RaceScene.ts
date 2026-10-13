@@ -489,6 +489,10 @@ export class RaceScene extends Phaser.Scene {
         play("lap");
         break;
       }
+      case "slingshot":
+        window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text: "Slingshot!", kind: "slingshot" } }));
+        play("slingshot");
+        break;
       case "finish":
         if (!this.animationsFrozen) this.confetti = new Confetti(this);
         play("finish");
@@ -621,6 +625,13 @@ export class RaceScene extends Phaser.Scene {
       this.gTargets.lineStyle(2, color, 0.95);
       this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 10);
       if (info.squeezePassed) this.strokeDashedRing(cell.pos.x, cell.pos.y, 13, 0xffb020);
+      // Slingshot: the draft makes this move cheaper (or puts it in reach at all): a gold ring, doubled when only the
+      // slingshot puts it in reach. A squeeze target is never a slingshot (squeeze only exists without normal targets).
+      if (info.slingshot) {
+        this.gTargets.lineStyle(2, 0xffd166, 1);
+        this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 13);
+        if (info.slingshotOnly) this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 16);
+      }
       // Risk: the move leaves a resource under 20% (thin ring) or empty (thick ring).
       const left = this.session.resourcesAfter(info);
       if (!info.isPitTrigger && Math.min(left.tire, left.fuel) < 20) {

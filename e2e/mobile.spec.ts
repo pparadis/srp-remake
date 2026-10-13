@@ -82,6 +82,57 @@ test("phone: tap a target, then Move here (Cancel drops the pick)", async ({ pag
   expect(errors).toEqual([]);
 });
 
+test("phone: the draft shows as a chip in the top bar without making it taller, down to an iPhone SE", async ({ page }) => {
+  const errors = collectErrors(page);
+  // The top bar is one line to the pixel at 844 px (an SE already wraps it to two): measure it without the chip first.
+  await page.goto("/?sandbox&seed=0");
+  await tid(page, "home-quick").click();
+  await setLobbySettings(page, { bots: 2, laps: 3 });
+  await startRace(page);
+  await expect(tid(page, "hud-draft")).toBeHidden();
+  const sizes = [{ width: 844, height: 390 }, { width: 667, height: 375 }];
+  const plain: number[] = [];
+  for (const size of sizes) {
+    await page.setViewportSize(size);
+    plain.push((await tid(page, "hud-card").boundingBox())!.height);
+  }
+
+  // Car 1 two cells behind car 2 in lane 1, two turns in the draft already: drafting, slingshot ready.
+  const snap = await page.evaluate(() => window.__srp!.state());
+  const at: Record<number, string> = { 1: "Z05_L1_00", 2: "Z07_L1_00", 3: "Z20_L3_00" };
+  const position = {
+    ...snap,
+    activeCarId: 1,
+    cars: snap.cars.map((car) => ({ ...car, cellId: at[car.carId]!, ...(car.carId === 1 ? { draftTurns: 2 } : {}) }))
+  };
+  await page.goto(`/?sandbox&seed=0&pos=${encodeURIComponent(btoa(JSON.stringify(position)))}`);
+  await tid(page, "home-quick").click();
+  await setLobbySettings(page, { bots: 2, laps: 3 });
+  await startRace(page);
+
+  // the cars are drawn where the position puts them, not on the grid
+  const token = await page.evaluate(() => window.__srp!.tokenScreenPos(1));
+  const cell = await page.evaluate(() => window.__srp!.cellScreenPos("Z05_L1_00"));
+  expect(Math.hypot(token!.x - cell!.x, token!.y - cell!.y), JSON.stringify({ token, cell })).toBeLessThan(2);
+
+  for (const [i, size] of sizes.entries()) {
+    await page.setViewportSize(size);
+    const label = JSON.stringify(size);
+    await expect(tid(page, "hud-draft"), label).toBeVisible();
+    await expect(tid(page, "hud-draft-short"), label).toHaveText("SLINGSHOT");
+    await expect(tid(page, "hud-draft-long"), label).toBeHidden();
+    await expect.poll(async () => (await tid(page, "hud-card").boundingBox())!.height, label).toBe(plain[i]);
+    const chip = (await tid(page, "hud-draft").boundingBox())!;
+    const toggle = (await tid(page, "hud-drawer-toggle").boundingBox())!;
+    expect(chip.x + chip.width, `${label} chip ${JSON.stringify(chip)} toggle ${JSON.stringify(toggle)}`).toBeLessThanOrEqual(toggle.x);
+  }
+  // the board marks the slingshot targets; one of them is in reach only thanks to the draft
+  const targets = await page.evaluate(() => window.__srp!.state().movement.validTargets);
+  expect(targets.some((t) => t.slingshot)).toBe(true);
+  expect(targets.some((t) => t.slingshotOnly)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test("phone with the browser bars showing (a short screen): the whole track stays on screen", async ({ page }) => {
   // Safari's address bar and tab strip leave about 300 px of an 844 x 390 phone. The page is sized to the visible
   // height (100dvh, see style.css); 100vh is the screen without the bars and would cut the bottom off.

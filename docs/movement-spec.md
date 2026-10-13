@@ -155,6 +155,9 @@ A car is **drafting** when it is in a main lane and another car (any owner) stan
 - **Slingshot:** a car that has begun `DRAFT_SLINGSHOT_TURNS` (2) consecutive turns in a draft pays no +1 lane-change
   surcharge on a route with a lane change that ends beyond the car it drafts (`TargetInfo.slingshot`). The pass rules
   themselves (one blocker, go-round) and the squeeze surcharge are unchanged: only the price drops.
+  `TargetInfo.slingshotOnly` marks a slingshot that would be out of reach with the surcharge.
+- **`Car.slingshots`:** the slingshot moves a car has played (the engine counts them in `applyAction`). It is a
+  counter so a client can tell from two states that one just landed (the toast and the online feed line).
 - **`Car.draftTurns`:** after each turn played, `draftTurns + 1` if the car began that turn in a draft and moved, else
   0 (a skip, a pit stop or a turn that began out of the draft resets it). A grid `setup` is not a turn. It starts at 0.
   So: two turns begun in the draft, then the third may slingshot.

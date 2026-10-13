@@ -524,6 +524,15 @@ describe("drafting costs and the slingshot", () => {
     expect(ready).toMatchObject({ moveSpend: 3, distance: 3, slingshot: true });
   });
 
+  it("flags a slingshot that only the waiver puts in reach", () => {
+    // Z08_L2_00 costs 3 with the slingshot, 4 without: in reach only thanks to the draft when 3 moves are left
+    const tight = computeValidTargets(idx, "Z05_L1_00", new Set(["Z05_L1_00", "Z07_L1_00"]), 3, { slingshotReady: true }, costs);
+    expect(tight.get("Z08_L2_00")).toMatchObject({ moveSpend: 3, slingshot: true, slingshotOnly: true });
+    expect(targets("Z05_L1_00", ["Z07_L1_00"], true).get("Z08_L2_00")!.slingshotOnly).toBeUndefined();
+    const notReady = computeValidTargets(idx, "Z05_L1_00", new Set(["Z05_L1_00", "Z07_L1_00"]), 3, {}, costs);
+    expect(notReady.has("Z08_L2_00")).toBe(false);
+  });
+
   it("the slingshot is for passing: a lane change that stays behind the drafted car pays the surcharge", () => {
     const t = targets("Z05_L1_00", ["Z07_L1_00"], true).get("Z06_L2_00")!;
     expect(t.moveSpend).toBe(2);

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import track from "../../../public/tracks/oval16_3lanes.json";
 import type { TrackData } from "../types/track";
 import type { PublicLobby } from "../../net/backendApi";
+import type { Car } from "../types/car";
 import { stintEstimate } from "../systems/strategy";
 import { applyAction, computeTargets, createRace, getActiveCar, type RaceAction, type RaceSeat, type RaceState } from "./raceEngine";
 import { RaceSession, SERVER_WAIT_MS, type HudView, type RaceSessionSetup } from "./raceSession";
@@ -206,6 +207,25 @@ describe("RaceSession: solo", () => {
     ]);
   });
 
+  it("a slingshot: the target says the draft puts it in reach, and playing it toasts once and logs the pass", () => {
+    const session = solo({ botCars: 1 });
+    const [me, bot] = session.cars as [Car, Car];
+    Object.assign(me, { cellId: "Z05_L1_00", draftTurns: 2 });
+    Object.assign(bot, { cellId: "Z07_L1_00" });
+    session.recomputeTargets();
+    session.drainFeel();
+    // 9 cells into lane 2 cost 10 without the slingshot: past the 9-move cap, so only the draft opens it
+    const only = [...session.validTargets].find(([, t]) => t.slingshotOnly);
+    expect(only).toBeDefined();
+    expect(session.selectTarget(only![0])).toBe(true);
+    expect(hud(session).selection).toMatchObject({ slingshot: true, slingshotOnly: true, moveSpend: 9 });
+
+    expect(session.applyLocal({ type: "move", targetCellId: only![0] })).toBe(true);
+    expect(session.drainFeel().filter((e) => e.type === "slingshot")).toHaveLength(1);
+    expect(session.logLines).toContain("Car 1 slingshots past Car 2.");
+    expect(session.drainFeel().filter((e) => e.type === "slingshot")).toHaveLength(0);
+  });
+
   it("a full race against bots plays to the end through the session and announces the finish once", () => {
     const session = solo({ botCars: 2, raceLaps: 1, botLevel: "hard" });
     expect(session.cars.map((c) => c.botLevel ?? null)).toEqual([null, "hard", "hard"]);
@@ -350,6 +370,21 @@ describe("RaceSession: online", () => {
     serverMove(server);
     guest.applyServerState(lobbyOf(server.race), "guest");
     expect(hud(guest)).toMatchObject({ activeCarId: 1, canControl: false });
+  });
+
+  it("logs another player's slingshot once from the server's counter, naming the car it passed", () => {
+    const { session: guest, server } = online("guest");
+    const [c1, c2] = server.race.cars as [Car, Car];
+    Object.assign(c1, { cellId: "Z05_L1_00", draftTurns: 2 });
+    Object.assign(c2, { cellId: "Z07_L1_00" });
+    guest.applyServerState(lobbyOf(server.race), "guest");
+    expect(applyAction(server.ctx, server.race, { type: "move", targetCellId: "Z08_L2_00" }).ok).toBe(true);
+    expect(c1.slingshots).toBe(1);
+    guest.applyServerState(lobbyOf(server.race), "guest");
+    guest.applyServerState(lobbyOf(server.race), "guest"); // a repeated state is not a second slingshot
+    expect(guest.logLines.filter((line) => line === "Car 1 slingshots past Car 2.")).toHaveLength(1);
+    // the guest's own feel: someone else's slingshot is no toast
+    expect(guest.drainFeel().some((e) => e.type === "slingshot")).toBe(false);
   });
 
   it("without a seat (spectating) nobody controls anything", () => {

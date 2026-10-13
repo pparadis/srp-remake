@@ -59,9 +59,14 @@ Three levels per car, `CarSetup.wing`: `low`, `medium`, `high` (`WING_EFFECTS` i
 
 The soft compound adds +1 to the cycle budget (`SOFT_PACE_BONUS`) and wears faster; the cycle budget is 40 on the
 plain setup, so 39 to 42. Move cost per move is rounded to whole points as before, so the wing shows over a stint
-rather than on one move. **Drafting** (see `docs/movement-spec.md`): the car card shows "Drafting 1/2" and then "Drafting - slingshot ready"
-(hidden in the compact phone bar, which has no spare width); the hover tooltip and the tap card say "Draft: less wear"
-or "Slingshot: the lane change is free". The data comes from `RaceSession.hudSnapshot()` (`drafting`, `draftTurns`).
+rather than on one move. **Drafting** (see `docs/movement-spec.md`, issue #83): the car card shows "Drafting 1/2" and then "Drafting - slingshot ready";
+the compact phone bar shows a short chip instead ("DRAFT 1/2", gold "SLINGSHOT"; `.hud-draft-short`). On the board a
+slingshot target has a gold ring, doubled when only the slingshot puts it in reach (`TargetInfo.slingshotOnly`). The
+hover tooltip and the tap card say "Draft: less wear", "Slingshot: the lane change is free" or "Slingshot: only in reach
+thanks to the draft". Playing one toasts "Slingshot!" with its own sound (the `slingshot` feel event, local car only,
+from `Car.slingshots` going up) and the feed says "Car N slingshots past Car M." (the engine log solo; online the
+session reads it from the counter in the server state). The data comes from `RaceSession.hudSnapshot()` (`drafting`,
+`draftTurns`).
 
 The grid setup is the `setup` action (compound, pressures, wing; free, once, before the car's
 first move; it does not end the turn; `setup_locked` after that). Positions saved with two wing angles load as

@@ -57,6 +57,8 @@ export interface HudHover {
   drafted?: boolean;
   /** A pull-out pass of the drafted car: the lane-change surcharge was waived. */
   slingshot?: boolean;
+  /** A slingshot that would be out of reach with the surcharge: the draft opens this move. */
+  slingshotOnly?: boolean;
   /** The active car's tire and fuel (percent) before the move, to show what is left after it. */
   tireBefore: number;
   fuelBefore: number;
@@ -113,7 +115,7 @@ const TEMPLATE = `
     <div class="hud-meter"><span data-testid="hud-fuel"></span>
       <div class="hud-bar"><i data-testid="hud-fuel-bar"></i></div></div>
     <div class="hud-stint" data-testid="hud-stint"></div>
-    <div class="hud-draft" data-testid="hud-draft" hidden></div>
+    <div class="hud-draft" data-testid="hud-draft" hidden><span class="hud-draft-long" data-testid="hud-draft-long"></span><span class="hud-draft-short" data-testid="hud-draft-short"></span></div>
     <div class="hud-advice" data-testid="hud-advice" hidden></div>
     <div class="hud-warning" data-testid="hud-warning" hidden></div>
     <div class="hud-meter"><span>Moves</span><span data-testid="hud-budget"></span>
@@ -220,7 +222,11 @@ function renderTooltip(tip: HTMLElement, h: HudHover) {
     if (h.drafted || h.slingshot) {
       const note = document.createElement("div");
       note.className = "hud-tooltip-draft";
-      note.textContent = h.slingshot ? "Slingshot: the lane change is free" : "Draft: less wear";
+      note.textContent = h.slingshotOnly
+        ? "Slingshot: only in reach thanks to the draft"
+        : h.slingshot
+          ? "Slingshot: the lane change is free"
+          : "Draft: less wear";
       nodes.push(note);
     }
     const empties = [tire.empty && h.tireBefore > 0 ? "tire" : null, fuel.empty && h.fuelBefore > 0 ? "fuel" : null].filter(Boolean);
@@ -266,8 +272,10 @@ export function renderFps(root: Element, on: boolean, text: string) {
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-/** A short banner in the middle of the race screen ("Lap 2 / 5", "Final lap"). */
-export function showToast(root: Element, text: string, kind: "lap" | "final" = "lap", ms = 2500) {
+export type ToastKind = "lap" | "final" | "slingshot";
+
+/** A short banner in the middle of the race screen ("Lap 2 / 5", "Final lap", "Slingshot!"). */
+export function showToast(root: Element, text: string, kind: ToastKind = "lap", ms = 2500) {
   const toast = q(root, "hud-toast");
   toast.textContent = text;
   toast.className = `hud-toast is-${kind}`;
@@ -377,9 +385,12 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     q(root, "hud-budget").textContent = `${me.remaining} / ${me.budget}`;
     q(root, "hud-stint").textContent = formatStint(me.stint);
     const draft = q(root, "hud-draft");
+    const ready = me.draftTurns >= DRAFT_SLINGSHOT_TURNS;
     draft.hidden = !me.drafting;
-    draft.textContent = me.draftTurns >= DRAFT_SLINGSHOT_TURNS ? "Drafting - slingshot ready" : `Drafting ${me.draftTurns}/${DRAFT_SLINGSHOT_TURNS}`;
-    draft.classList.toggle("is-ready", me.drafting && me.draftTurns >= DRAFT_SLINGSHOT_TURNS);
+    // the long line on the card, the short chip in the phone's top bar (style.css picks one)
+    q(draft, "hud-draft-long").textContent = ready ? "Drafting - slingshot ready" : `Drafting ${me.draftTurns}/${DRAFT_SLINGSHOT_TURNS}`;
+    q(draft, "hud-draft-short").textContent = ready ? "SLINGSHOT" : `DRAFT ${me.draftTurns}/${DRAFT_SLINGSHOT_TURNS}`;
+    draft.classList.toggle("is-ready", me.drafting && ready);
     const advice = q(root, "hud-advice");
     const label = ADVICE_LABEL[me.advice];
     advice.hidden = !label;

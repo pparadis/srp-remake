@@ -28,6 +28,8 @@ export interface TargetInfo {
   drafted?: true;
   // Set only on a slingshot: a pull-out pass of the drafted car whose lane-change surcharge was waived.
   slingshot?: true;
+  // Set only on a slingshot that would be out of reach with the surcharge: the draft is what opens this move.
+  slingshotOnly?: true;
 }
 
 interface MovementOptions {
@@ -363,7 +365,8 @@ export function computeValidTargets(
       isPitTrigger: (cell.tags ?? []).includes("PIT_BOX"),
       ...(route && route.laneChanges >= 2 ? { laneChanges: route.laneChanges } : {}),
       ...(drafted ? { drafted: true as const } : {}),
-      ...(slingshot ? { slingshot: true as const } : {})
+      ...(slingshot ? { slingshot: true as const } : {}),
+      ...(slingshot && moveSpend + 1 > maxSteps ? { slingshotOnly: true as const } : {})
     });
   }
 

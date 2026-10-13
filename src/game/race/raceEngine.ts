@@ -142,7 +142,18 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
 
 // True when the car stands in a draft: another car 1 to DRAFT_RANGE cells ahead in its own lane.
 export function isDrafting(ctx: RaceContext, state: RaceState, car: Car): boolean {
-  return draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId)) !== null;
+  return draftedCar(ctx, state, car) !== null;
+}
+
+// The car this one drafts behind, or null.
+export function draftedCar(ctx: RaceContext, state: RaceState, car: Car): Car | null {
+  const ahead = draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId));
+  return ahead ? (state.cars.find((c) => c.cellId === ahead.cellId) ?? null) : null;
+}
+
+// The race feed line for a slingshot (the engine log solo, the session online from the `slingshots` counter).
+export function slingshotLine(carId: number, passedCarId: number | null): string {
+  return passedCarId === null ? `Car ${carId} slingshots out of the draft.` : `Car ${carId} slingshots past Car ${passedCarId}.`;
 }
 
 export function isValidSetup(setup: CarSetup): boolean {
@@ -212,10 +223,16 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
     }
     if (action.type === "move") {
       if (check.isPitStop) return { ok: false, reason: "use_pit_action" };
+      // Read before the move: the car the slingshot passes is the one drafted from the start cell.
+      const passed = check.info.slingshot ? draftedCar(ctx, state, car) : null;
       applyMove(car, fromCell, targetCell, check.info, check.moveSpend, ctx.trackIndex.pitLineFwd);
       car.setupLocked = true;
       moveSpend = check.moveSpend;
       log.push(`Car ${car.carId} moved to ${targetCell.id}.`);
+      if (check.info.slingshot) {
+        car.slingshots = (car.slingshots ?? 0) + 1;
+        log.push(slingshotLine(car.carId, passed?.carId ?? null));
+      }
     } else {
       if (!check.isPitStop) return { ok: false, reason: "not_pit_box" };
       if (!isValidSetup(action.setup)) return { ok: false, reason: "invalid_setup" };
