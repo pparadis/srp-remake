@@ -16,7 +16,9 @@ import { PERSONALITIES, personalityOf } from "../systems/botStyle";
 import {
   applyAction,
   computeTargets,
+  draftedCar,
   isDrafting,
+  slingshotLine,
   createRace,
   createRaceContext,
   decideBotAction,
@@ -352,7 +354,14 @@ export class RaceSession {
 
     this.selectedCellId = null;
     const wasFinished = this.finished;
+    const before = this.feelSeededOnline ? this.race : null;
     this.race = toEngineRace(raceState);
+    // the turn summary has no slingshot flag: a car's counter going up is one (the passed car is read before the move)
+    for (const car of before ? this.race.cars : []) {
+      const was = before!.cars.find((c) => c.carId === car.carId);
+      if (!was || (car.slingshots ?? 0) <= (was.slingshots ?? 0)) continue;
+      this.addLog(slingshotLine(car.carId, draftedCar(this.ctx, before!, was)?.carId ?? null));
+    }
     if (!this.feelSeededOnline) {
       // the first server state is where we join or rejoin: it seeds, it must not celebrate
       this.feelSeededOnline = true;
@@ -398,7 +407,8 @@ export class RaceSession {
         lapCount: car.lapCount ?? 0,
         cellId: car.cellId,
         tire: car.tire,
-        fuel: car.fuel
+        fuel: car.fuel,
+        slingshots: car.slingshots ?? 0
       }))
     });
     // a lap or a finish drowns the plain move click
@@ -452,6 +462,7 @@ export class RaceSession {
       ...(target.laneChanges ? { laneChanges: target.laneChanges } : {}),
       ...(target.drafted ? { drafted: true } : {}),
       ...(target.slingshot ? { slingshot: true } : {}),
+      ...(target.slingshotOnly ? { slingshotOnly: true } : {}),
       tireBefore: this.activeCar.tire,
       fuelBefore: this.activeCar.fuel
     };

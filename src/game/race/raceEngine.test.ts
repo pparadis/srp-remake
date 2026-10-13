@@ -690,5 +690,18 @@ describe("drafting turns and the slingshot", () => {
     expect(tire - car1.tire).toBe(info.tireCost);
     expect(fuel - car1.fuel).toBe(info.fuelCost);
     expect(car1.moveCycle.spent[0]).toBe(3);
+    // counted and logged, naming the car it passed
+    expect(car1.slingshots).toBe(1);
+    expect(result.ok && result.log).toContain("Car 1 slingshots past Car 2.");
+  });
+
+  it("a drafted move that is not a slingshot is neither counted nor logged as one", () => {
+    const state = draftRace();
+    const car1 = state.cars[0]!;
+    car1.draftTurns = 2;
+    const result = applyAction(ctx, state, { type: "move", targetCellId: "Z06_L1_00" });
+    expect(result.ok).toBe(true);
+    expect(car1.slingshots ?? 0).toBe(0);
+    expect(result.ok && result.log.some((line) => line.includes("slingshot"))).toBe(false);
   });
 });

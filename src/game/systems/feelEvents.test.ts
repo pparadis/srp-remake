@@ -20,6 +20,16 @@ describe("detectFeel", () => {
     expect(detectFeel(mem, view({ canControl: true }, { lapCount: 2, tire: 5 }))).toEqual([]);
   });
 
+  it("reports my slingshot when my counter goes up, not another car's, and not on the first view", () => {
+    const mem = createFeelMemory();
+    expect(detectFeel(mem, view({}, { slingshots: 2 }))).toEqual([]);
+    const other = view({}, { slingshots: 2 });
+    other.cars[1]!.slingshots = 1;
+    expect(detectFeel(mem, other)).toEqual([]);
+    expect(detectFeel(mem, view({}, { slingshots: 3 }))).toEqual([{ type: "slingshot" }]);
+    expect(detectFeel(mem, view({}, { slingshots: 3 }))).toEqual([]);
+  });
+
   it("reports a move when any car changes cell", () => {
     const mem = createFeelMemory();
     detectFeel(mem, view());

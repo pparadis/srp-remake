@@ -7,7 +7,8 @@ import {
   renderMute,
   renderResults,
   showToast,
-  type HudSnapshot
+  type HudSnapshot,
+  type ToastKind
 } from "./ui/hud";
 import { fpsText, startFpsMeter } from "./ui/fpsMeter";
 import { currentlyMuted, initSound, setMuted } from "./ui/sound";
@@ -1154,7 +1155,7 @@ window.addEventListener("srp:hud", (event) => {
 });
 
 window.addEventListener("srp:toast", (event) => {
-  const { text, kind } = (event as CustomEvent<{ text: string; kind: "lap" | "final" }>).detail;
+  const { text, kind } = (event as CustomEvent<{ text: string; kind: ToastKind }>).detail;
   showToast(hud, text, kind);
 });
 

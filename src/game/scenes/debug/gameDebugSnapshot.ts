@@ -106,7 +106,8 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
     ...(info.squeezePassed ? { squeezePassed: info.squeezePassed } : {}),
     ...(info.laneChanges ? { laneChanges: info.laneChanges } : {}),
     ...(info.drafted ? { drafted: true } : {}),
-    ...(info.slingshot ? { slingshot: true } : {})
+    ...(info.slingshot ? { slingshot: true } : {}),
+    ...(info.slingshotOnly ? { slingshotOnly: true } : {})
   }));
 
   return {

@@ -40,4 +40,6 @@ export interface Car {
   setupLocked?: boolean;
   // Consecutive turns this car has begun in a draft (see draftSystem): the slingshot needs DRAFT_SLINGSHOT_TURNS.
   draftTurns?: number;
+  // Slingshot moves this car has played (a counter, so a client can tell from two states that one just landed).
+  slingshots?: number;
 }

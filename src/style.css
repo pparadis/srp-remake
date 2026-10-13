@@ -479,6 +479,10 @@ body[data-screen="race"] #statusLine {
   font-weight: 600;
 }
 
+.hud-draft-short {
+  display: none;
+}
+
 .hud-tooltip-draft {
   color: #7fb4ff;
 }
@@ -492,11 +496,31 @@ body[data-screen="race"] #statusLine {
   color: #e6edf3;
 }
 
-/* The compact top bar is one line wide to the pixel: the wing shows in the budget there, not as a chip. */
+/* The compact top bar is one line wide to the pixel: the wing shows in the budget there, not as a chip, and the draft
+   is a short chip ("DRAFT 1/2", gold "SLINGSHOT") instead of the card's line. */
 @media (max-height: 500px) {
   .hud-wing,
-  .hud-draft {
+  .hud-draft-long {
     display: none;
+  }
+
+  .hud-draft-short {
+    display: inline;
+  }
+
+  .hud-draft:not([hidden]) {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #7fb4ff;
+    color: #0b0f14;
+    white-space: nowrap;
+  }
+
+  .hud-draft.is-ready {
+    background: #ffd166;
+    color: #0b0f14;
   }
 }
 
@@ -999,6 +1023,11 @@ body[data-screen="race"] #statusLine {
 #hud .hud-toast.is-final {
   border-color: #ffe066;
   color: #ffe066;
+}
+
+#hud .hud-toast.is-slingshot {
+  border-color: #ffd166;
+  color: #ffd166;
 }
 
 @keyframes hud-toast-in {
