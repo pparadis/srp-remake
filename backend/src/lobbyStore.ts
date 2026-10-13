@@ -143,7 +143,10 @@ export class LobbyError extends Error {
 }
 
 export class LobbyStore {
-  constructor(private readonly playerTokenTtlMs = Number.POSITIVE_INFINITY) {}
+  constructor(
+    private readonly playerTokenTtlMs = Number.POSITIVE_INFINITY,
+    private readonly maxLobbies = Number.POSITIVE_INFINITY
+  ) {}
 
   private lobbies = new Map<string, Lobby>();
 
@@ -153,6 +156,14 @@ export class LobbyStore {
 
   getLobby(lobbyId: string): Lobby | undefined {
     return this.lobbies.get(lobbyId);
+  }
+
+  allLobbies(): Lobby[] {
+    return [...this.lobbies.values()];
+  }
+
+  deleteLobby(lobbyId: string): void {
+    this.lobbies.delete(lobbyId);
   }
 
   private getLobbyOrThrow(lobbyId: string): Lobby {
@@ -218,6 +229,9 @@ export class LobbyStore {
     hostName: string,
     rawSettings?: Partial<LobbySettings>
   ): { lobby: Lobby; host: LobbyPlayer } {
+    if (this.lobbies.size >= this.maxLobbies) {
+      throw new LobbyError(503, "Server is full");
+    }
     const trimmedName = hostName.trim();
     if (trimmedName.length === 0) {
       throw new LobbyError(400, "Host name is required.");

@@ -278,6 +278,7 @@ function makeCommandId(): string {
 
 function toErrorText(error: unknown): string {
   if (error instanceof BackendApiError) {
+    if (error.status === 429) return "Too many requests, try again in a few seconds";
     const payload = error.payload as { error?: string };
     const reason = typeof payload?.error === "string" ? payload.error : "request_failed";
     return `HTTP ${error.status}: ${reason}`;

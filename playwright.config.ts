@@ -27,7 +27,14 @@ export default defineConfig({
       // host has 8 s to come back. A reused backend (reuseExistingServer, local only) would run with real
       // clocks and break e2e/afk.spec.ts; stop it or use another E2E_BACKEND_PORT.
       // BOT_SEED=0: neutral bots and the grid in car order, so the specs are deterministic.
-      env: { PORT: backendPort, BOT_SEED: "0", TURN_TIMER_TIME_SCALE: "0.1", HOST_GRACE_SECONDS: "8" },
+      // RATE_LIMIT_ENABLED=false: the specs open many lobbies from 127.0.0.1.
+      env: {
+        PORT: backendPort,
+        BOT_SEED: "0",
+        TURN_TIMER_TIME_SCALE: "0.1",
+        HOST_GRACE_SECONDS: "8",
+        RATE_LIMIT_ENABLED: "false"
+      },
       reuseExistingServer: !process.env.CI
     },
     {

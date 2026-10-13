@@ -1,9 +1,16 @@
 import Fastify from "fastify";
+import rateLimit from "@fastify/rate-limit";
 import websocket from "@fastify/websocket";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
-import { DEFAULT_HOST_GRACE_SECONDS, loadConfig, type BackendConfig } from "./config.js";
+import {
+  DEFAULT_HOST_GRACE_SECONDS,
+  DEFAULT_LOBBY_IDLE_SECONDS,
+  DEFAULT_MAX_LOBBIES,
+  loadConfig,
+  type BackendConfig
+} from "./config.js";
 import { LobbyError, LobbyStore, toPublicLobby } from "./lobbyStore.js";
 import { activeSeatIndex } from "../../src/game/race/raceEngine";
 import type { BotPolicy } from "../../src/game/systems/botSystem";
@@ -11,6 +18,14 @@ import { BOT_LEVEL_CHOICES, type Lobby, type LobbySettings, type TurnCommandResu
 
 const WS_OPEN = 1;
 const API_V1_PREFIX = "/api/v1";
+const REAP_INTERVAL_MS = 60_000;
+// A finished lobby only stays this long (after its last socket closes) for a late reload to see the results.
+const FINISHED_LINGER_MS = 10 * 60_000;
+
+// The player token travels in the URL of the lobby read and the WebSocket; keep it out of the request log.
+export function redactTokens(url: string): string {
+  return url.replace(/([?&]playerToken=)[^&#]*/g, "$1[redacted]");
+}
 
 type LobbySocket = {
   readyState: number;
@@ -67,29 +82,32 @@ function toSettingsPatch(
   return patch;
 }
 
+const PlayerNameSchema = z.string().trim().min(1).max(32);
+const PlayerTokenSchema = z.string().min(1).max(64);
+
 const CreateLobbySchema = z.object({
-  name: z.string().min(1),
+  name: PlayerNameSchema,
   settings: LobbySettingsPatchSchema.optional()
 });
 
 const JoinLobbySchema = z.object({
-  name: z.string().min(1).optional(),
-  playerToken: z.string().min(1).optional()
+  name: PlayerNameSchema.optional(),
+  playerToken: PlayerTokenSchema.optional()
 });
 
 const UpdateLobbySchema = z.object({
-  playerToken: z.string().min(1),
+  playerToken: PlayerTokenSchema,
   settings: LobbySettingsPatchSchema
 });
 
 const StartRaceSchema = z.object({
-  playerToken: z.string().min(1)
+  playerToken: PlayerTokenSchema
 });
 
 const ResetLobbySchema = StartRaceSchema;
 
 const ForceSkipSchema = z.object({
-  playerToken: z.string().min(1),
+  playerToken: PlayerTokenSchema,
   // The revision the host saw; refuses the skip if the stuck player moved in the meantime.
   revision: z.number().int().min(0).optional()
 });
@@ -103,15 +121,15 @@ const CarSetupSchema = z.object({
 
 const TurnActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("skip") }),
-  z.object({ type: z.literal("move"), targetCellId: z.string().min(1) }),
-  z.object({ type: z.literal("pit"), targetCellId: z.string().min(1), setup: CarSetupSchema }),
+  z.object({ type: z.literal("move"), targetCellId: z.string().min(1).max(32) }),
+  z.object({ type: z.literal("pit"), targetCellId: z.string().min(1).max(32), setup: CarSetupSchema }),
   // Grid setup: free, before the car's first move, and it does not end the turn.
   z.object({ type: z.literal("setup"), setup: CarSetupSchema })
 ]);
 
 const SubmitTurnSchema = z.object({
-  playerToken: z.string().min(1),
-  clientCommandId: z.string().min(1),
+  playerToken: PlayerTokenSchema,
+  clientCommandId: z.string().min(1).max(64),
   revision: z.number().int().min(0),
   action: TurnActionSchema
 });
@@ -122,20 +140,47 @@ const LobbyPathSchema = z.object({
 
 const WsQuerySchema = z.object({
   lobbyId: z.string().min(1),
-  playerToken: z.string().min(1)
+  playerToken: PlayerTokenSchema
 });
 
 const LobbyReadQuerySchema = z.object({
-  playerToken: z.string().min(1)
+  playerToken: PlayerTokenSchema
 });
 
 const seatOf = (lobby: Lobby) => (lobby.race ? activeSeatIndex(lobby.race.engine) : null);
 
 export async function createApp(config: BackendConfig, options: CreateAppOptions = {}) {
-  const app = Fastify({ logger: options.logger ?? true });
-  const lobbyStore = options.lobbyStore ?? new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000);
-  // Lives as long as the in-memory lobbies it dedupes for.
-  const dedupedResults = new Map<string, TurnCommandResult>();
+  // A hop count trusts that many proxies in front of us (Fastify's own number support is not in its types).
+  const trustProxyConfig = config.TRUST_PROXY ?? false;
+  const trustProxy =
+    typeof trustProxyConfig === "number"
+      ? (_address: string, hop: number) => hop < trustProxyConfig
+      : trustProxyConfig;
+  const app = Fastify({
+    logger:
+      (options.logger ?? true)
+        ? {
+            serializers: {
+              // The default one logs the raw url, player token included.
+              req: (request) => ({
+                method: request.method,
+                url: redactTokens(request.url),
+                host: request.host,
+                remoteAddress: request.ip
+              })
+            }
+          }
+        : false,
+    // 16 KiB is far above any honest request.
+    bodyLimit: 16 * 1024,
+    trustProxy
+  });
+  const lobbyStore =
+    options.lobbyStore ??
+    new LobbyStore(config.PLAYER_TOKEN_TTL_SECONDS * 1000, config.MAX_LOBBIES ?? DEFAULT_MAX_LOBBIES);
+  // lobby -> "player:clientCommandId" -> result. Dropped with the lobby when it is reaped.
+  const dedupedResults = new Map<string, Map<string, TurnCommandResult>>();
+  const lobbyIdleMs = (config.LOBBY_IDLE_SECONDS ?? DEFAULT_LOBBY_IDLE_SECONDS) * 1000;
   // lobby -> player -> open sockets. A player is connected while at least one socket is open,
   // so an old socket closing after a reconnect does not mark a live player as gone.
   const socketsByLobby = new Map<string, Map<string, Set<LobbySocket>>>();
@@ -422,11 +467,26 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       reply.code(400).send({ error: "invalid_request", issues: error.issues });
       return;
     }
+    // Fastify's own 4xx (body too large, bad JSON) and the rate limiter's 429.
+    const status = (error as { statusCode?: number }).statusCode;
+    if (status !== undefined && status >= 400 && status < 500) {
+      reply.code(status).send({ error: status === 429 ? "rate_limited" : "bad_request" });
+      return;
+    }
     app.log.error(error);
     reply.code(500).send({ error: "internal_error" });
   });
 
-  await app.register(websocket);
+  // Frames are only ever ignored (there is no inbound message handler), so a small cap is plenty.
+  await app.register(websocket, { options: { maxPayload: 1024 } });
+
+  // shortcut: in-memory counters, right for the one instance we run; several instances need a shared store (Redis).
+  const rateLimitEnabled = config.RATE_LIMIT_ENABLED ?? false;
+  if (rateLimitEnabled) {
+    await app.register(rateLimit, { global: false });
+  }
+  // Per IP and minute; sized above what several players behind one router do (see issue #69).
+  const limit = (max: number) => ({ rateLimit: { max, timeWindow: "1 minute" } });
 
   app.get("/health", async () => ({
     ok: true,
@@ -434,7 +494,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     sha: config.GIT_SHA ?? "unknown"
   }));
 
-  app.post(`${API_V1_PREFIX}/lobbies`, async (request, reply) => {
+  app.post(`${API_V1_PREFIX}/lobbies`, { config: limit(10) }, async (request, reply) => {
     const body = CreateLobbySchema.parse(request.body);
     const { lobby, host } = lobbyStore.createLobby(body.name, toSettingsPatch(body.settings));
     const publicLobby = toPublicLobby(lobby);
@@ -453,7 +513,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     });
   });
 
-  app.get(`${API_V1_PREFIX}/lobbies/:lobbyId`, async (request) => {
+  app.get(`${API_V1_PREFIX}/lobbies/:lobbyId`, { config: limit(240) }, async (request) => {
     const params = LobbyPathSchema.parse(request.params);
     const query = LobbyReadQuerySchema.parse(request.query);
     const lobby = lobbyStore.getLobby(params.lobbyId);
@@ -484,7 +544,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     };
   });
 
-  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/join`, async (request) => {
+  // Also how a player reconnects.
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/join`, { config: limit(30) }, async (request) => {
     const params = LobbyPathSchema.parse(request.params);
     const body = JoinLobbySchema.parse(request.body);
     const { lobby, player, isReconnect } = lobbyStore.joinLobby(
@@ -511,7 +572,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     };
   });
 
-  app.patch(`${API_V1_PREFIX}/lobbies/:lobbyId/settings`, async (request) => {
+  app.patch(`${API_V1_PREFIX}/lobbies/:lobbyId/settings`, { config: limit(240) }, async (request) => {
     const params = LobbyPathSchema.parse(request.params);
     const body = UpdateLobbySchema.parse(request.body);
     const lobby = lobbyStore.updateSettings(
@@ -530,7 +591,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return { lobby: publicLobby };
   });
 
-  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/start`, async (request) => {
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/start`, { config: limit(240) }, async (request) => {
     const params = LobbyPathSchema.parse(request.params);
     const body = StartRaceSchema.parse(request.body);
     const lobby = lobbyStore.startRace(params.lobbyId, body.playerToken);
@@ -549,7 +610,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return { lobby: toPublicLobby(lobby) };
   });
 
-  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/reset`, async (request) => {
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/reset`, { config: limit(240) }, async (request) => {
     const params = LobbyPathSchema.parse(request.params);
     const body = ResetLobbySchema.parse(request.body);
     const lobby = lobbyStore.resetLobby(params.lobbyId, body.playerToken);
@@ -564,7 +625,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   });
 
   // Host only: the host plays one autopilot turn for a stuck human seat.
-  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/force-skip`, async (request) => {
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/force-skip`, { config: limit(240) }, async (request) => {
     const params = LobbyPathSchema.parse(request.params);
     const body = ForceSkipSchema.parse(request.body);
     const lobby = lobbyStore.getLobby(params.lobbyId);
@@ -590,7 +651,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return { lobby: toPublicLobby(lobby) };
   });
 
-  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/turns`, async (request, reply) => {
+  app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/turns`, { config: limit(240) }, async (request, reply) => {
     const params = LobbyPathSchema.parse(request.params);
     const body = SubmitTurnSchema.parse(request.body);
     const lobby = lobbyStore.getLobby(params.lobbyId);
@@ -608,8 +669,10 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       throw new LobbyError(401, "Invalid player token for this lobby.");
     }
 
-    const dedupeKey = `dedupe:${params.lobbyId}:${player.playerId}:${body.clientCommandId}`;
-    const deduped = dedupedResults.get(dedupeKey);
+    const dedupeKey = `${player.playerId}:${body.clientCommandId}`;
+    const lobbyDeduped = dedupedResults.get(lobby.lobbyId) ?? new Map<string, TurnCommandResult>();
+    dedupedResults.set(lobby.lobbyId, lobbyDeduped);
+    const deduped = lobbyDeduped.get(dedupeKey);
     if (deduped) {
       logMultiplayer("turn.submit.deduped", {
         lobbyId: lobby.lobbyId,
@@ -632,7 +695,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         revision: lobby.revision,
         error: "lobby_not_in_race"
       };
-      dedupedResults.set(dedupeKey, result);
+      lobbyDeduped.set(dedupeKey, result);
       logMultiplayer("turn.submit.rejected", {
         lobbyId: lobby.lobbyId,
         playerId: player.playerId,
@@ -654,7 +717,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         revision: lobby.revision,
         error: "stale_revision"
       };
-      dedupedResults.set(dedupeKey, result);
+      lobbyDeduped.set(dedupeKey, result);
       logMultiplayer("turn.submit.rejected", {
         lobbyId: lobby.lobbyId,
         playerId: player.playerId,
@@ -680,7 +743,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         revision: lobby.revision,
         error: "not_active_player"
       };
-      dedupedResults.set(dedupeKey, result);
+      lobbyDeduped.set(dedupeKey, result);
       logMultiplayer("turn.submit.rejected", {
         lobbyId: lobby.lobbyId,
         playerId: player.playerId,
@@ -707,7 +770,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         error: "invalid_action",
         reason: applied.reason
       };
-      dedupedResults.set(dedupeKey, result);
+      lobbyDeduped.set(dedupeKey, result);
       logMultiplayer("turn.submit.rejected", {
         lobbyId: lobby.lobbyId,
         playerId: player.playerId,
@@ -731,7 +794,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       revision: updatedLobby.revision,
       applied: body.action
     };
-    dedupedResults.set(dedupeKey, result);
+    lobbyDeduped.set(dedupeKey, result);
     announceTurn(updatedLobby, result);
     logMultiplayer("turn.submit.applied", {
       lobbyId: lobby.lobbyId,
@@ -747,7 +810,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return result;
   });
 
-  app.get("/ws", { websocket: true }, (socket, request) => {
+  app.get("/ws", { websocket: true, config: limit(240) }, (socket, request) => {
     const ws = socket as LobbySocket;
     const wsConnId = `ws-${wsConnectionSeq++}`;
     const query = WsQuerySchema.safeParse(request.query);
@@ -833,9 +896,30 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     });
   });
 
+  // A lobby nobody is connected to is dead weight once it is idle (or finished a while ago). One with an
+  // open socket is never reaped.
+  function reapDeadLobbies() {
+    const now = Date.now();
+    for (const lobby of lobbyStore.allLobbies()) {
+      const { lobbyId } = lobby;
+      if (socketsByLobby.has(lobbyId)) continue;
+      const maxIdleMs = lobby.status === "FINISHED" ? Math.min(FINISHED_LINGER_MS, lobbyIdleMs) : lobbyIdleMs;
+      if (now - lobby.updatedAt <= maxIdleMs) continue;
+      clearTurnTimer(lobbyId);
+      cancelHostGrace(lobbyId);
+      dedupedResults.delete(lobbyId);
+      lobbyStore.deleteLobby(lobbyId);
+      logMultiplayer("lobby.reaped", { lobbyId, status: lobby.status, idleMs: now - lobby.updatedAt });
+    }
+  }
+
+  const reaper = setInterval(reapDeadLobbies, REAP_INTERVAL_MS);
+  reaper.unref();
+
   // preClose runs before the sockets are torn down, so closing them cannot start new timers.
   app.addHook("preClose", async () => {
     closing = true;
+    clearInterval(reaper);
     for (const lobbyId of [...turnTimers.keys()]) clearTurnTimer(lobbyId);
     for (const lobbyId of [...hostGraceTimers.keys()]) cancelHostGrace(lobbyId);
   });

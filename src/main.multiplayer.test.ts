@@ -249,6 +249,20 @@ describe("main multiplayer screens", () => {
     expect(byId("homeNotice").textContent).toContain("404");
   });
 
+  it("says to wait a few seconds when the server rate limits the join, and keeps the seat", async () => {
+    window.sessionStorage.setItem(
+      "srp:session:busy",
+      JSON.stringify({ lobbyId: "busy", playerToken: "kept-token" })
+    );
+    joinLobbyMock.mockRejectedValue(new MockBackendApiError(429, { error: "rate_limited" }));
+    window.history.replaceState({}, "", "/lobby/busy");
+    await import("./main");
+
+    await vi.waitFor(() => expect(document.body.dataset.screen).toBe("home"));
+    expect(byId("homeNotice").textContent).toContain("Too many requests, try again in a few seconds");
+    expect(window.sessionStorage.getItem("srp:session:busy")).toContain("kept-token");
+  });
+
   describe("survivability", () => {
     const banner = () => byId("connectionBanner");
 
