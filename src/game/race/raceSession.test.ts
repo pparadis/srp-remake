@@ -207,6 +207,21 @@ describe("RaceSession: solo", () => {
     ]);
   });
 
+  it("tells the board which cars moved, in the order they moved: the player first, then the bots in turn order", () => {
+    const session = solo({ botCars: 3 });
+    expect(session.drainMoves()).toEqual([]);
+    playMyTurn(session);
+    // car 1 is on pole and plays first; the bots follow in turn order
+    expect(session.drainMoves()).toEqual([1, 2, 3, 4]);
+    expect(session.drainMoves()).toEqual([]); // drained
+    // a setup is not a move
+    session.recomputeTargets();
+    const before = session.activeCar.cellId;
+    session.applyLocal({ type: "setup", setup: { ...session.activeCar.setup, wing: "low" } });
+    expect(session.activeCar.cellId).toBe(before);
+    expect(session.drainMoves()).toEqual([]);
+  });
+
   it("a slingshot: the target says the draft puts it in reach, and playing it toasts once and logs the pass", () => {
     const session = solo({ botCars: 1 });
     const [me, bot] = session.cars as [Car, Car];
@@ -370,6 +385,20 @@ describe("RaceSession: online", () => {
     serverMove(server);
     guest.applyServerState(lobbyOf(server.race), "guest");
     expect(hud(guest)).toMatchObject({ activeCarId: 1, canControl: false });
+  });
+
+  it("online, the cars that changed cell since the last state come in turn order from the car that was on turn", () => {
+    const { session: guest, server } = online("guest");
+    expect(guest.drainMoves()).toEqual([]); // the joining state is not a move
+    serverMove(server); // car 1
+    serverMove(server); // car 2
+    guest.applyServerState(lobbyOf(server.race), "guest");
+    expect(guest.drainMoves()).toEqual([1, 2]);
+    guest.applyServerState(lobbyOf(server.race), "guest"); // the same state again
+    expect(guest.drainMoves()).toEqual([]);
+    serverMove(server); // car 1 again
+    guest.applyServerState(lobbyOf(server.race), "guest");
+    expect(guest.drainMoves()).toEqual([1]);
   });
 
   it("logs another player's slingshot once from the server's counter, naming the car it passed", () => {

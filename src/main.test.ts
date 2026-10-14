@@ -126,7 +126,8 @@ describe("main (solo flow)", () => {
         raceLaps: 2,
         botLevel: "hard",
         seed: expect.any(Number),
-        hidpi: false
+        hidpi: false,
+        animate: false
       });
     });
 

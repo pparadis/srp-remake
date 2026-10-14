@@ -249,6 +249,7 @@ export class RaceSession {
       return false;
     }
     for (const line of result.log) this.addLog(line);
+    this.noteMoved(result.carId, result.fromCellId);
     return true;
   }
 
@@ -306,6 +307,7 @@ export class RaceSession {
       result.fromCellId
     );
     for (const line of result.log) this.addLog(line);
+    this.noteMoved(result.carId, result.fromCellId);
     return true;
   }
 
@@ -362,6 +364,7 @@ export class RaceSession {
       if (!was || (car.slingshots ?? 0) <= (was.slingshots ?? 0)) continue;
       this.addLog(slingshotLine(car.carId, draftedCar(this.ctx, before!, was)?.carId ?? null));
     }
+    if (before) this.noteServerMoves(before);
     if (!this.feelSeededOnline) {
       // the first server state is where we join or rejoin: it seeds, it must not celebrate
       this.feelSeededOnline = true;
@@ -372,6 +375,20 @@ export class RaceSession {
       this.addLog(`Race finished. Car ${this.winnerCarId} wins the ${this.raceLaps}-lap race.`);
     }
     return { respawned, applied: true };
+  }
+
+  // The cars whose cell differs from the last state, in turn order starting with the car that was on turn then: the
+  // order they moved in (a state can carry several turns).
+  private noteServerMoves(before: RaceState) {
+    const { order, index } = before.turn;
+    const rank = (carId: number) => {
+      const at = order.indexOf(carId);
+      return at < 0 ? order.length : (at - index + order.length) % order.length;
+    };
+    const moved = this.race.cars
+      .filter((car) => before.cars.find((c) => c.carId === car.carId)?.cellId !== car.cellId)
+      .sort((a, b) => rank(a.carId) - rank(b.carId));
+    for (const car of moved) if (!this.movedCars.includes(car.carId)) this.movedCars.push(car.carId);
   }
 
   // Remote and own turns alike arrive as events; the board itself redraws from race.state.
@@ -391,6 +408,24 @@ export class RaceSession {
     } else {
       this.addLog(`Car ${car.carId} moved to ${action.targetCellId ?? "?"}.`);
     }
+  }
+
+  // ---- moves, for the board to animate ------------------------------------------------------------------------------
+
+  // Cars that changed cell since the board last looked, in the order they moved (a car appears once).
+  private movedCars: number[] = [];
+
+  private noteMoved(carId: number, fromCellId: string | null) {
+    const car = this.cars.find((c) => c.carId === carId);
+    if (!car || car.cellId === fromCellId || this.movedCars.includes(carId)) return;
+    this.movedCars.push(carId);
+  }
+
+  /** The cars that moved since the last call, in the order they moved: the board glides them one after another. */
+  drainMoves(): number[] {
+    const moved = this.movedCars;
+    this.movedCars = [];
+    return moved;
   }
 
   // ---- feel ------------------------------------------------------------------------------------------------------

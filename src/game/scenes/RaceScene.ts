@@ -4,6 +4,7 @@ import type { TrackData, TrackCell } from "../types/track";
 import type { BotLevel, Car } from "../types/car";
 import { trackSchema } from "../../validation/trackSchema";
 import {
+  REG_ANIMATE,
   REG_BOT_CARS,
   REG_BOT_LEVEL,
   REG_HUMAN_CARS,
@@ -29,6 +30,8 @@ import { makeButton } from "./ui/makeButton";
 import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
 import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
 import { spriteRotation } from "./rendering/heading";
+import { GLIDE, glideCap, glideDuration } from "./rendering/glide";
+import { movePath } from "../systems/movePath";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
 import { registerSandboxInputHandlers } from "./input/registerSandboxInputHandlers";
 import { hudGutters, isCompactHud } from "../../ui/layout";
@@ -79,7 +82,6 @@ type CellMap = Map<string, TrackCell>;
 
 
 export class RaceScene extends Phaser.Scene {
-  private static readonly MOVE_TWEEN_MS = 280;
   private static readonly UI = {
     padding: 10,
     bottomButtonYPad: 10
@@ -115,6 +117,10 @@ export class RaceScene extends Phaser.Scene {
   private confetti: Confetti | null = null;
   // Set by the e2e hook: no celebration may run over a screenshot.
   private animationsFrozen = false;
+  // The cell each car token stands on, or glides to (the board draws from what the session already knows).
+  private tokenCell = new Map<number, string>();
+  // Gliding cars: stop() jumps the token to the end of its glide.
+  private glides = new Map<number, { stop: () => void }>();
   private get cars(): Car[] {
     return this.session.cars;
   }
@@ -324,6 +330,7 @@ export class RaceScene extends Phaser.Scene {
           this.confetti?.stop();
           this.confetti = null;
           this.animationsFrozen = true;
+          for (const carId of [...this.glides.keys()]) this.finishGlide(carId);
         },
         cellScreenPos: (cellId) => this.cellScreenPos(cellId),
         uiButtonPos: (name) => this.uiButtonScreenPos(name),
@@ -370,6 +377,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private clearCarVisuals() {
+    for (const carId of [...this.glides.keys()]) this.finishGlide(carId);
+    this.tokenCell.clear();
     for (const token of this.carTokens.values()) {
       token.destroy();
     }
@@ -432,6 +441,7 @@ export class RaceScene extends Phaser.Scene {
     token.setSize(coarse ? 40 : 28, coarse ? 30 : 18);
     token.setInteractive({ useHandCursor: true });
     this.carTokens.set(car.carId, token);
+    this.tokenCell.set(car.carId, car.cellId);
   }
 
   private initTurn() {
@@ -502,38 +512,126 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
-  // Online, the server moves the car: until it answers, the car we just dropped keeps the
-  // place and heading of its target cell instead of sliding back to the old one.
+  // Online, the server moves the car: until it answers, the car we just dropped (or tapped) keeps the place and heading
+  // of its target cell instead of sliding back to the old one; a tapped car glides there at once.
   private faceDroppedCell(action: RaceAction) {
     if (action.type === "skip" || action.type === "setup") return;
-    const cell = this.cellMap.get(action.targetCellId);
-    const token = this.carTokens.get(this.activeCar.carId);
-    if (!cell || !token) return;
-    (token.first as Phaser.GameObjects.Image).setRotation(spriteRotation(cell, this.cellMap));
+    this.glideTo(this.activeCar.carId, action.targetCellId);
   }
 
+  // Cars move at once in the e2e build (specs read where they are), under reduced motion, and in a frozen screenshot.
+  private instantMoves(): boolean {
+    if (this.animationsFrozen) return true;
+    if (import.meta.env.MODE === "test" && this.registry.get(REG_ANIMATE) !== true) return true;
+    return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  // Ends a glide now: the car stands on the cell it was gliding to.
+  private finishGlide(carId: number) {
+    this.glides.get(carId)?.stop();
+    this.glides.delete(carId);
+  }
+
+  /**
+   * Moves a car's token to a cell: along the lane it drove (movePath, round the cars standing where they stood when it
+   * moved), turning with the road, in `delayMs` after now. Returns how long the glide takes (0 when it is already there
+   * or the move is instant). The token's cell is recorded at once, so a second sync does not glide it again.
+   */
+  private glideTo(carId: number, toCellId: string, delayMs = 0, capMs: number = GLIDE.maxMs): number {
+    const token = this.carTokens.get(carId);
+    const cell = this.cellMap.get(toCellId);
+    if (!token || !cell) return 0;
+    this.finishGlide(carId);
+    const body = token.first as Phaser.GameObjects.Image;
+    const halo = this.activeHalos.get(carId);
+    const arrive = () => {
+      token.setPosition(cell.pos.x, cell.pos.y);
+      halo?.setPosition(cell.pos.x, cell.pos.y);
+      body.setRotation(spriteRotation(cell, this.cellMap));
+    };
+    const fromId = this.tokenCell.get(carId);
+    this.tokenCell.set(carId, toCellId);
+    if ((token.x === cell.pos.x && token.y === cell.pos.y) || this.instantMoves()) {
+      arrive();
+      return 0;
+    }
+
+    // From the cell the token stands on; a token moved by hand (a drag, the sandbox) goes straight from where it is.
+    const fromCell = fromId ? this.cellMap.get(fromId) : undefined;
+    const onCell = !!fromCell && token.x === fromCell.pos.x && token.y === fromCell.pos.y;
+    let ids: string[] = [];
+    if (onCell && fromId) {
+      const blocked = new Set<string>();
+      for (const [otherId, cellId] of this.tokenCell) if (otherId !== carId) blocked.add(cellId);
+      ids = movePath({ cellMap: this.cellMap }, fromId, toCellId, blocked);
+    }
+    const points =
+      ids.length >= 2
+        ? ids.map((id) => new Phaser.Math.Vector2(this.cellMap.get(id)!.pos.x, this.cellMap.get(id)!.pos.y))
+        : [new Phaser.Math.Vector2(token.x, token.y), new Phaser.Math.Vector2(cell.pos.x, cell.pos.y)];
+    const path = new Phaser.Curves.Path(points[0]!.x, points[0]!.y);
+    if (points.length === 2) path.lineTo(points[1]!.x, points[1]!.y);
+    else path.splineTo(points.slice(1));
+
+    const here = new Phaser.Math.Vector2();
+    const ahead = new Phaser.Math.Vector2();
+    const duration = glideDuration(Math.max(1, points.length - 1), capMs);
+    const tween = this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration,
+      delay: delayMs,
+      ease: "Sine.easeInOut",
+      onUpdate: (counter: Phaser.Tweens.Tween) => {
+        const t = counter.getValue() ?? 0;
+        path.getPoint(t, here);
+        token.setPosition(here.x, here.y);
+        halo?.setPosition(here.x, here.y);
+        // face along the road: the point a little further on (a little back at the very end)
+        const a = Math.min(t, 0.97);
+        path.getPoint(a, here);
+        path.getPoint(a + 0.03, ahead);
+        body.setRotation(Math.atan2(ahead.y - here.y, ahead.x - here.x) + Math.PI / 2);
+      },
+      onComplete: () => {
+        this.glides.delete(carId);
+        arrive();
+      }
+    });
+    this.glides.set(carId, {
+      stop: () => {
+        tween.stop();
+        arrive();
+      }
+    });
+    return duration;
+  }
+
+  // Puts every token where its car is: cars that moved glide there one after another, in the order they moved.
   private syncTokens() {
     const held = this.session.heldCarId();
+    const order = this.session.drainMoves();
+    const moving: Car[] = [];
     for (const car of this.cars) {
       const cell = this.cellMap.get(car.cellId);
-      if (!cell) continue;
       const token = this.carTokens.get(car.carId);
-      if (!token) continue;
-      if (car.carId === held) continue;
-      const body = token.first as Phaser.GameObjects.Image;
-      body.setRotation(spriteRotation(cell, this.cellMap));
-      const halo = this.activeHalos.get(car.carId);
-      if (token.x === cell.pos.x && token.y === cell.pos.y) continue;
-      // slide to the new cell (already there after a drag-drop, so only bots and remote turns animate)
-      this.tweens.killTweensOf([token, halo].filter(Boolean));
-      this.tweens.add({
-        targets: [token, halo].filter(Boolean),
-        x: cell.pos.x,
-        y: cell.pos.y,
-        duration: RaceScene.MOVE_TWEEN_MS,
-        ease: "Sine.easeInOut"
-      });
+      if (!cell || !token || car.carId === held) continue;
+      if (token.x === cell.pos.x && token.y === cell.pos.y) {
+        // already there (a drag-drop, a sandbox edit): nothing to animate
+        this.tokenCell.set(car.carId, car.cellId);
+        if (!this.glides.has(car.carId)) (token.first as Phaser.GameObjects.Image).setRotation(spriteRotation(cell, this.cellMap));
+      } else if (this.tokenCell.get(car.carId) !== car.cellId) {
+        moving.push(car);
+      }
     }
+    const rank = (carId: number) => {
+      const at = order.indexOf(carId);
+      return at < 0 ? order.length : at;
+    };
+    moving.sort((a, b) => rank(a.carId) - rank(b.carId));
+    const cap = glideCap(moving.length);
+    let delay = 0;
+    for (const car of moving) delay += this.glideTo(car.carId, car.cellId, delay, cap);
   }
 
   private processBotsUntilHuman() {
@@ -709,7 +807,8 @@ export class RaceScene extends Phaser.Scene {
       cellMap: this.cellMap,
       activeHalo: this.activeHalos.get(activeCar.carId) ?? null,
       onOpenPitModal: (pitCell, origin) => this.openPitModal(pitCell, origin),
-      onMove: (targetCellId) => this.applyLocalAction({ type: "move", targetCellId })
+      onMove: (targetCellId) => this.applyLocalAction({ type: "move", targetCellId }),
+      glideMove: true
     });
     this.drawTargets();
     this.emitHud();

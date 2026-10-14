@@ -93,6 +93,8 @@ const hudDrawerToggle = hud.querySelector<HTMLElement>('[data-testid="hud-drawer
 const sandbox = new URLSearchParams(window.location.search).has("sandbox");
 // `?hidpi`: sharp canvas on a high-density screen plus a probe line (src/game/hidpi.ts); read once, the router drops it
 const hidpi = new URLSearchParams(window.location.search).has("hidpi");
+// `?anim`: glide the cars in a test build too (the e2e build moves them at once; one spec turns this on)
+const animate = new URLSearchParams(window.location.search).has("anim");
 // `?fps` starts the frame-rate readout on; the P key (or the touch button) toggles it during a race (issue #79)
 let fpsOn = new URLSearchParams(window.location.search).has("fps");
 let stopFps: (() => void) | null = null;
@@ -508,7 +510,7 @@ async function ensureGameStarted() {
     const { startGame } = await import("./game");
     // The player may have left while the chunk loaded.
     if (document.body.dataset.screen !== "race" || game) return;
-    game = startGame(app, { ...getComposition(), hidpi });
+    game = startGame(app, { ...getComposition(), hidpi, animate });
     // `?hidpi` (src/game/hidpi.ts): a line with what the browser really draws, to compare on a phone
     if (hidpi) stopRenderProbe = startRenderProbe(el("renderProbe"), game);
     applyFps();

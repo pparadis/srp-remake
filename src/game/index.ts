@@ -6,6 +6,7 @@ import { keepGameSizeInSync } from "./gameSize";
 import { renderScale, setHidpi } from "./hidpi";
 import {
   REG_BOT_CARS,
+  REG_ANIMATE,
   REG_BOT_LEVEL,
   REG_HUMAN_CARS,
   REG_POSITION,
@@ -29,6 +30,8 @@ interface GameOptions {
   position?: string;
   // `?hidpi`: draw the canvas at the screen's pixel density (hidpi.ts); off by default while it is tried on iPhone
   hidpi?: boolean;
+  // `?anim`: glide the cars in a test build too (they move at once there, so the specs read where cars are)
+  animate?: boolean;
 }
 
 const isTestBuild = import.meta.env.MODE === "test";
@@ -69,5 +72,6 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   game.registry.set(REG_SEED, options.seed ?? 0);
   game.registry.set(REG_SANDBOX, options.sandbox ?? false);
   game.registry.set(REG_POSITION, options.position ?? null);
+  game.registry.set(REG_ANIMATE, options.animate ?? false);
   return game;
 }

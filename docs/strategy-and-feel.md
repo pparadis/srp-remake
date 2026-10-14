@@ -68,6 +68,24 @@ from `Car.slingshots` going up) and the feed says "Car N slingshots past Car M."
 session reads it from the counter in the server state). The data comes from `RaceSession.hudSnapshot()` (`drafting`,
 `draftTurns`).
 
+## Cars on the board move like cars (issue #85)
+
+The race state is already final when the board draws it (the bots play synchronously in solo, a server state can carry
+several turns), so the scene animates the difference:
+
+- `RaceSession.drainMoves()` lists the cars that changed cell since the last call, in the order they moved (solo: each
+  applied action; online: the cars whose cell differs from the previous state, in turn order starting with the car that
+  was on turn then).
+- `RaceScene.syncTokens()` glides those cars one after another (`glideTo`): along `movePath` (round the cars standing
+  where they stood when it moved), through a `Phaser.Curves.Path` with a counter tween, turning with the road. A glide
+  takes `glideDuration(steps)` (about 0.2 to 0.5 s) and a whole round is squeezed into about 1.5 s (`glide.ts`).
+- A drag-drop is its own motion: the token is already on the cell, so it does not glide. A tap (Move here) glides from
+  the car's own cell, online at once while the server answers.
+- Input is never held for a glide: the logical state is final, targets are computed from it, and a glide that is
+  interrupted by the next move ends on its cell first.
+- Off: the e2e build (specs read where cars are; `?anim` turns it on, `e2e/glide.spec.ts`), `prefers-reduced-motion`,
+  and a frozen screenshot (`freezeAnimations`).
+
 The grid setup is the `setup` action (compound, pressures, wing; free, once, before the car's
 first move; it does not end the turn; `setup_locked` after that). Positions saved with two wing angles load as
 Medium (`normalizeSetup` in `sandbox.ts`).
