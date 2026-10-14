@@ -255,8 +255,11 @@ body[data-screen="race"] #statusLine {
   display: none;
 }
 
-/* The version stays on in a race (bottom right on a desktop; on a phone, see the compact layout): a home-screen app
-   can run an older copy than the browser. */
+/* No version in a race: it sat over the board (on a phone, over the bottom kerb). It shows on the home and lobby
+   screens, which is where a home-screen app running an older copy than the browser is noticed. */
+body[data-screen="race"] .version {
+  display: none;
+}
 
 /* An uncaught error, on the page (src/ui/diagnostics.ts): a phone has no console. Over everything, selectable. */
 .crash-report {
@@ -1376,16 +1379,6 @@ body[data-screen="home"] #screen-home {
     left: auto;
     right: calc(6px + env(safe-area-inset-right));
     transform: none;
-  }
-
-  /* the corners are taken: the version goes under the track, centred above the canvas Skip button (bottom centre,
-     about 29 px tall, 10 px up); RaceScene.centerTrack() keeps room for it */
-  body[data-screen="race"] .version {
-    left: 50%;
-    right: auto;
-    bottom: calc(42px + env(safe-area-inset-bottom));
-    transform: translateX(-50%);
-    white-space: nowrap;
   }
 
   #hud .hud-drawer-toggle {
