@@ -106,6 +106,10 @@ Project guide for Codex and other automation.
   numbers must keep `npx tsx tools/botBench.ts --setups` passing the gate (`docs/bot-system.md`).
 - Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
   `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
+- Cars glide to their cells (#85): `RaceSession.drainMoves()` gives the cars that moved, in order, and
+  `RaceScene.syncTokens()`/`glideTo` animate them along `movePath` (`src/game/systems/movePath.ts`, visual only: never
+  feeds rules). Instant in the e2e build (`?anim` turns it on) and under `prefers-reduced-motion`; a spec that reads
+  token positions right after a turn relies on that. Details: `docs/strategy-and-feel.md`.
 - Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` through
   `RaceSession.drainFeel()` (`RaceScene.reactToRace()` plays them); the first snapshot must never fire. Sound is `src/ui/sound.ts` (WebAudio, muted in
   test builds); `M` or the HUD button mutes, stored in `localStorage["srp:muted"]`. Details: `docs/strategy-and-feel.md`.

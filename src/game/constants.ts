@@ -6,6 +6,7 @@ export const REG_BOT_LEVEL = "botLevel";
 export const REG_SEED = "seed";
 export const REG_SANDBOX = "sandbox";
 export const REG_POSITION = "position";
+export const REG_ANIMATE = "animate";
 export const PIT_LANE = 0;
 export const MAIN_LANES = [1, 2, 3] as const;
 export const INNER_MAIN_LANE = MAIN_LANES[0];

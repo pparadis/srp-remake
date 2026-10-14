@@ -105,6 +105,32 @@ describe("resolvePlayerDragDrop", () => {
     expect(car).toMatchObject({ cellId: "A", pitExitBoost: true, pitServiced: true });
   });
 
+  it("a tap hands the move over and leaves the token on its cell, for the board to glide", () => {
+    const car = makeCar({ cellId: "A" });
+    const toCell = makeCell("B", 2, 100, 200);
+    const token = makeToken(10, 20);
+    const onMove = vi.fn();
+
+    resolvePlayerDragDrop({
+      activeCar: car,
+      token,
+      origin: { x: 10, y: 20 },
+      nearestCell: toCell,
+      validation: makeOkValidation(3),
+      cellMap: new Map([
+        ["A", makeCell("A", 1, 10, 20)],
+        ["B", toCell]
+      ]),
+      activeHalo: null,
+      onOpenPitModal: vi.fn(),
+      onMove,
+      glideMove: true
+    });
+
+    expect(onMove).toHaveBeenCalledWith("B");
+    expect([token.x, token.y]).toEqual([10, 20]);
+  });
+
   it("opens the pit modal for a pit stop instead of moving", () => {
     const car = makeCar({ cellId: "A", pitServiced: false });
     const pitCell = makeCell("P1", PIT_LANE, 30, 40);
