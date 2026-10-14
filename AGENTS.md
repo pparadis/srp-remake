@@ -110,6 +110,10 @@ Project guide for Codex and other automation.
   `RaceScene.syncTokens()`/`glideTo` animate them along `movePath` (`src/game/systems/movePath.ts`, visual only: never
   feeds rules). Instant in the e2e build (`?anim` turns it on) and under `prefers-reduced-motion`; a spec that reads
   token positions right after a turn relies on that. Details: `docs/strategy-and-feel.md`.
+- Camera (#87): the fit (`centerTrack`) plus the player's zoom 1 to 3 and pan (`rendering/cameraView.ts`, pure and
+  tested); pinch, pan, wheel, double tap and the `Fit` button in `input/registerCameraGestures.ts`; the camera follows
+  the player's car after its move while zoomed. The camera's matrix is refreshed at once (`cam.preRender()`) so a tap
+  right after a pinch lands right. Details: `docs/strategy-and-feel.md`.
 - Move preview and trail (#86): `RaceSession.previewFor()` (the path of the picked or hovered target) and
   `lastMovePath()` (each car's last move) feed `RaceScene.drawPreview()`/`showTrail()`; both reuse `movePath`.
 - Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` through

@@ -32,6 +32,17 @@ import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRend
 import { spriteRotation } from "./rendering/heading";
 import { GLIDE, glideCap, glideDuration } from "./rendering/glide";
 import { roadPath } from "./rendering/roadPath";
+import {
+  centerOn,
+  FITTED,
+  panBy,
+  pinchTo,
+  viewOf,
+  wheelTo,
+  type Fit,
+  type UserView
+} from "./rendering/cameraView";
+import { registerCameraGestures } from "./input/registerCameraGestures";
 import { carColor } from "../systems/spawnSystem";
 import { movePath } from "../systems/movePath";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
@@ -72,6 +83,8 @@ declare global {
       freezeAnimations: () => void;
       /** The path being previewed (picked or hovered target), and the trails on the board: cells, as drawn. */
       overlays: () => { preview: MovePreview | null; trails: Array<{ carId: number; cells: string[]; alpha: number }> };
+      /** The camera: the player's zoom (1 = fitted), the camera's own zoom and whether the Fit button shows. */
+      view: () => { userZoom: number; zoom: number; fitVisible: boolean };
       status: () => {
         raceLaps: number;
         winnerCarId: number | null;
@@ -123,6 +136,11 @@ export class RaceScene extends Phaser.Scene {
   private animationsFrozen = false;
   // The cell each car token stands on, or glides to (the board draws from what the session already knows).
   private tokenCell = new Map<number, string>();
+  // The camera: what the fit leaves (set by centerTrack), and the player's zoom and pan on top of it.
+  private fit: Fit | null = null;
+  private userView: UserView = FITTED;
+  private viewTween: Phaser.Tweens.Tween | null = null;
+  private fitButton!: Phaser.GameObjects.Text;
   // The preview of the move the player is about to make, and the last move of each car (docs/strategy-and-feel.md).
   private gPreview!: Phaser.GameObjects.Graphics;
   private previewShown: MovePreview | null = null;
@@ -247,6 +265,7 @@ export class RaceScene extends Phaser.Scene {
     this.createPitModal();
     this.createSkipButton();
     this.createSetupButton();
+    this.createFitButton();
     this.createDebugButtons();
     this.emitHud();
     this.centerTrack(); // the HUD has its content now: fit the track to the space it really leaves
@@ -306,6 +325,31 @@ export class RaceScene extends Phaser.Scene {
       hoverMaxDist: RaceScene.HUD.hoverMaxDist,
       dragSnapDist: 18
     });
+    // Zoom and pan: pinch, a drag on the empty board, the wheel, a double tap to fit again (cameraView.ts).
+    registerCameraGestures({
+      scene: this,
+      enabled: () => !this.editing && !this.pitModal.isActive(),
+      onPan: (dx, dy) => {
+        this.viewTween?.stop();
+        if (this.fit) this.setUserView(panBy(this.fit, this.userView, dx, dy));
+      },
+      onPinch: (last, now) => {
+        this.viewTween?.stop();
+        if (this.fit) this.setUserView(pinchTo(this.fit, this.userView, last, now));
+      },
+      onWheel: (x, y, deltaY) => {
+        this.viewTween?.stop();
+        if (this.fit) this.setUserView(wheelTo(this.fit, this.userView, x, y, deltaY));
+      },
+      onDoubleTap: () => {
+        if (this.userView.zoom > 1) this.resetView();
+      }
+    });
+    // iOS Safari pinches the whole page with its own gesture events even under touch-action: none; the board owns them
+    const stopPageZoom = (event: Event) => event.preventDefault();
+    document.addEventListener("gesturestart", stopPageZoom);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => document.removeEventListener("gesturestart", stopPageZoom));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => document.removeEventListener("gesturestart", stopPageZoom));
     if (this.sandbox) {
       registerSandboxInputHandlers({
         scene: this,
@@ -332,6 +376,11 @@ export class RaceScene extends Phaser.Scene {
           winnerCarId: this.session.winnerCarId,
           canControl: this.canLocalControlActiveCar() && !this.raceFinished,
           activeOwnerId: this.activeCar.ownerId
+        }),
+        view: () => ({
+          userZoom: this.userView.zoom,
+          zoom: this.cameras.main.zoom,
+          fitVisible: this.fitButton?.visible ?? false
         }),
         overlays: () => ({
           preview: this.previewShown,
@@ -461,6 +510,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private initTurn() {
+    this.followedCell = this.session.localCar()?.cellId ?? null;
     this.addLog(`Car ${this.activeCar.carId} to play.`);
     this.updateActiveCarVisuals();
     this.processBotsUntilHuman();
@@ -495,6 +545,7 @@ export class RaceScene extends Phaser.Scene {
     this.updateSkipButtonState();
     this.emitHud();
     this.reactToRace();
+    this.maybeFollowMyCar();
     if (this.session.takeFinish()) {
       window.dispatchEvent(
         new CustomEvent("srp:race-finished", { detail: { winnerCarId: this.session.winnerCarId } })
@@ -909,7 +960,9 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private setUIFixed() {
-    const fixed = [this.gFrame, this.skipButton, this.setupButton].filter(Boolean);
+    const fixed = [this.gFrame, this.skipButton, this.setupButton, this.fitButton].filter(Boolean);
+    // zoomed in, a car can pass under the buttons: they stay on top of the board (the pit modal is above them, 100)
+    for (const button of [this.skipButton, this.setupButton, this.fitButton]) button?.setDepth(80);
     for (const obj of fixed) {
       if (
         typeof (obj as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor ===
@@ -926,7 +979,8 @@ export class RaceScene extends Phaser.Scene {
     if (this.debugButtons) this.debugButtons.setFixed();
   }
 
-  // Fit the track between the DOM HUD panels (columns on a desktop, a top bar on a phone) and above the bottom buttons.
+  // Fit the track between the DOM HUD panels (columns on a desktop, a top bar on a phone) and above the bottom buttons;
+  // the player's zoom and pan (pinch, drag on the empty board, wheel) sit on top of that fit (cameraView.ts).
   private centerTrack() {
     const xs = this.track.cells.map((c) => c.pos.x);
     const ys = this.track.cells.map((c) => c.pos.y);
@@ -954,10 +1008,103 @@ export class RaceScene extends Phaser.Scene {
       0.4 * s,
       s
     );
+    this.fit = {
+      zoom,
+      bx: (minX + maxX) / 2,
+      by: (minY + maxY) / 2,
+      bw: maxX - minX,
+      bh: maxY - minY,
+      w,
+      h,
+      gl,
+      gr,
+      top,
+      bottom,
+      scale: s
+    };
+    this.applyView();
+  }
+
+  // The camera for the fit and the player's view; also lays the fixed UI out again (it counter-scales by the zoom).
+  private applyView() {
+    if (!this.fit) return;
+    const view = viewOf(this.fit, this.userView);
+    this.userView = view.user;
     const cam = this.cameras.main;
-    cam.setZoom(zoom);
-    cam.centerOn((minX + maxX) / 2 - (gl - gr) / 2 / zoom, (minY + maxY) / 2 + (bottom - top) / 2 / zoom);
+    cam.setZoom(view.zoom);
+    cam.centerOn(view.cx, view.cy);
+    // The camera's matrix and world view are rebuilt before the next render; pointer.worldX and cellScreenPos read them
+    // now (a tap right after a pinch), so bring them up to date.
+    cam.preRender();
     this.layoutUI();
+    this.updateFitButton();
+  }
+
+  private setUserView(user: UserView) {
+    this.userView = user;
+    this.applyView();
+  }
+
+  // Back to the fitted track, easing there (instantly when motion is not wanted).
+  private resetView() {
+    this.viewTween?.stop();
+    this.viewTween = null;
+    if (this.instantMoves() || !this.fit) {
+      this.setUserView(FITTED);
+      return;
+    }
+    const from = { ...this.userView };
+    this.viewTween = this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 260,
+      ease: "Sine.easeInOut",
+      onUpdate: (counter: Phaser.Tweens.Tween) => {
+        const t = counter.getValue() ?? 1;
+        this.setUserView({ zoom: from.zoom + (1 - from.zoom) * t, px: from.px * (1 - t), py: from.py * (1 - t) });
+      },
+      onComplete: () => this.setUserView(FITTED)
+    });
+  }
+
+  // Solo has no "turn becomes yours" moment (the bots play inside the refresh): the player's car is on turn again after
+  // it has moved, so follow it when it is on turn and its cell is not the one it was last centred on.
+  private followedCell: string | null = null;
+  private maybeFollowMyCar() {
+    const car = this.session.localCar();
+    if (!car || this.raceFinished || !this.session.localCanControl() || car.cellId === this.followedCell) return;
+    this.followedCell = car.cellId;
+    this.followMyCar();
+  }
+
+  // When it is the player's turn again and they have zoomed in, bring their car to the middle of the free area.
+  private followMyCar() {
+    if (!this.fit || this.userView.zoom <= 1) return;
+    const car = this.session.localCar();
+    const cell = car ? this.cellMap.get(car.cellId) : undefined;
+    if (!cell) return;
+    this.viewTween?.stop();
+    const target = centerOn(this.fit, this.userView, cell.pos.x, cell.pos.y);
+    const from = { ...this.userView };
+    if (this.instantMoves()) {
+      this.setUserView(target);
+      return;
+    }
+    this.viewTween = this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 320,
+      ease: "Sine.easeInOut",
+      onUpdate: (counter: Phaser.Tweens.Tween) => {
+        const t = counter.getValue() ?? 1;
+        this.setUserView({ zoom: from.zoom, px: from.px + (target.px - from.px) * t, py: from.py + (target.py - from.py) * t });
+      }
+    });
+  }
+
+  // The Fit button only shows while the player has zoomed in.
+  private updateFitButton() {
+    this.fitButton?.setVisible(this.userView.zoom > 1.01 && !this.pitModal?.isActive());
   }
 
   private addLog(line: string) {
@@ -1000,6 +1147,9 @@ export class RaceScene extends Phaser.Scene {
     if (this.skipButton) {
       this.skipButton.setPosition(w / 2, h - ui.bottomButtonYPad * s);
     }
+    if (this.fitButton) {
+      this.fitButton.setPosition(w / 2 + 90 * s, h - ui.bottomButtonYPad * s);
+    }
     if (this.debugButtons) {
       this.debugButtons.layout(w, h, ui.padding * s, ui.bottomButtonYPad * s);
       // developer tools: no room for them on a phone, and their F / C / E companions need a keyboard anyway
@@ -1009,7 +1159,7 @@ export class RaceScene extends Phaser.Scene {
     // pixel per unit, `k` undoes the camera zoom on positions).
     const z = this.cameras.main.zoom;
     const k = 1 / z;
-    const texts = [this.skipButton, this.setupButton, ...(this.debugButtons?.getTexts() ?? [])].filter(Boolean);
+    const texts = [this.skipButton, this.setupButton, this.fitButton, ...(this.debugButtons?.getTexts() ?? [])].filter(Boolean);
     for (const t of texts) {
       if (t) t.setScale(k * s).setPosition(w / 2 + (t.x - w / 2) * k, h / 2 + (t.y - h / 2) * k);
     }
@@ -1048,6 +1198,19 @@ export class RaceScene extends Phaser.Scene {
       onClick: () => this.openGridSetup()
     });
     this.updateSkipButtonState();
+    this.layoutUI();
+    this.setUIFixed();
+  }
+
+  // Back to the fitted track: only shown once the player has zoomed in (double-tap on the board does the same).
+  private createFitButton() {
+    this.fitButton = makeButton(this, "Fit", {
+      fontSize: "14px",
+      originX: 0.5,
+      originY: 1,
+      onClick: () => this.resetView()
+    });
+    this.fitButton.setVisible(false);
     this.layoutUI();
     this.setUIFixed();
   }
@@ -1300,6 +1463,7 @@ export class RaceScene extends Phaser.Scene {
 
   // One plain snapshot for the DOM HUD (src/ui/hud.ts); sent after every change it shows.
   private emitHud() {
+    this.updateFitButton();
     const snapshot = this.session.hudSnapshot({
       hoverCell: this.hoverCell,
       showCarsAndMoves: this.showCarsAndMoves,
