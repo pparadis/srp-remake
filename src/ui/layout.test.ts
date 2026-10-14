@@ -64,10 +64,10 @@ describe("page height", () => {
 });
 
 describe("version on the race screen", () => {
-  // A home-screen app can run an older copy than the browser, so the race shows which build it is.
-  it("is not hidden in a race", () => {
-    const rule = /body\[data-screen="race"\] \.version \{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    expect(rule).toContain("bottom");
-    expect(styles).not.toMatch(/body\[data-screen="race"\] \.version[^{]*\{[^}]*display:\s*none/);
+  // The version label sat over the board (on a phone, over the bottom kerb): the race does not show it. The home and
+  // lobby screens do, which is where a home-screen app running an older copy is noticed.
+  it("is hidden in a race and not on the home and lobby screens", () => {
+    expect(styles).toMatch(/body\[data-screen="race"\] \.version \{[^}]*display:\s*none/);
+    expect(styles).not.toMatch(/body\[data-screen="(home|lobby)"\] \.version[^{]*\{[^}]*display:\s*none/);
   });
 });

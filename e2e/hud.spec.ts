@@ -63,7 +63,7 @@ for (const size of [
       const ys = pts.map((p) => p.y);
       return { l: Math.min(...xs), r: Math.max(...xs), t: Math.min(...ys), b: Math.max(...ys) };
     });
-    for (const id of ["hud-card", "hud-standings", "hud-feed", "version"]) {
+    for (const id of ["hud-card", "hud-standings", "hud-feed"]) {
       const box = (await tid(page, id).boundingBox())!;
       const apart =
         box.x + box.width <= track.l || box.x >= track.r || box.y + box.height <= track.t || box.y >= track.b;

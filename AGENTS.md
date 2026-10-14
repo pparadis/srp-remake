@@ -175,7 +175,7 @@ Project guide for Codex and other automation.
   wrong entry and it is the failing test), "Copy link" a `?sandbox&pos=` URL, "Load position" takes a "Copy debug"
   snapshot (same car count only). Phaser-free logic in `src/game/race/sandbox.ts`, panel in `src/ui/sandboxPanel.ts`,
   the e2e spec is `e2e/sandbox.spec.ts`. Plan and decisions: issue #38.
-- The build version is shown bottom right on the home and lobby screens, and in a race too (bottom right; on a phone centred under the track, above Skip), since a home-screen app can run an older copy than the browser (`src/ui/version.ts`): `web <sha> · <build day> ·
+- The build version is shown bottom right on the home and lobby screens, not in a race (it sat over the board, on a phone over the bottom kerb), since a home-screen app can run an older copy than the browser (`src/ui/version.ts`): `web <sha> · <build day> ·
 server <sha>`, amber when the server runs another commit (a deploy is pending); a click copies the full commits.
   The web side is `__GIT_SHA__` / `__BUILD_DATE__` (vite `define`), the server side is `/health`'s `sha`.
 - Frame-rate readout (issue #79): press `P` during a race (or add `?fps` to the URL; a small `FPS` button shows on touch

@@ -946,9 +946,9 @@ export class RaceScene extends Phaser.Scene {
     const gl = css.left * s;
     const gr = css.right * s;
     const top = css.top * s;
-    // Room for the Skip button (and, on a desktop, the debug buttons) under the track; on a phone also for the version
-    // line above Skip (style.css, compact layout).
-    const bottom = (isCompactHud() ? 46 : 50) * s;
+    // Room for the Skip button (and, on a desktop, the debug buttons) under the track: on a phone Skip is 29 px tall,
+    // 10 px up.
+    const bottom = (isCompactHud() ? 44 : 50) * s;
     const zoom = Phaser.Math.Clamp(
       Math.min((w - gl - gr) / (maxX - minX), (h - top - bottom) / (maxY - minY)),
       0.4 * s,
