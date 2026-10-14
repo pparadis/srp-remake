@@ -86,6 +86,22 @@ several turns), so the scene animates the difference:
 - Off: the e2e build (specs read where cars are; `?anim` turns it on, `e2e/glide.spec.ts`), `prefers-reduced-motion`,
   and a frozen screenshot (`freezeAnimations`).
 
+### Camera: zoom, pan, follow (issue #87)
+
+- The fit (`centerTrack`: the track between the HUD panels) is unchanged and stays the default. The player's view sits on
+  top of it (`src/game/scenes/rendering/cameraView.ts`, Phaser-free, tested): a zoom factor from 1 (fitted) to 3, capped
+  at 3x on a dense screen, and a pan in world units that may not take the free area's edges past the track's box plus a
+  margin (none at the fit: the fitted track does not move).
+- Input (`registerCameraGestures.ts`): two fingers pinch (the world point under them stays under them), one finger on the
+  empty board pans once it has moved past the tap slop (a press on a car or a button never pans, and a tap still selects a
+  target at any zoom), the wheel zooms about the pointer, a double tap on the empty board fits again, and so does the
+  `Fit` button (a canvas button next to Skip, shown only while zoomed in).
+- Follow: when the player's car is on turn again and has moved since it was last centred, the camera brings it to the
+  middle of the free area, as far as the pan limit allows (`RaceScene.maybeFollowMyCar`). Solo has no "your turn
+  begins" event (the bots play inside the refresh), hence the cell test. Only while zoomed in.
+- `window.__srp.view()` (test hook): the player's zoom, the camera's zoom and whether `Fit` shows.
+- The page itself must not zoom: `touch-action: none` on `#app`, and a `gesturestart` guard for iOS Safari.
+
 ### Preview and trail (issue #86)
 
 - **Preview:** the path of the move about to be made, drawn as a line along the road in the target lane's colour (gold

@@ -133,6 +133,116 @@ test("phone: the draft shows as a chip in the top bar without making it taller, 
   expect(errors).toEqual([]);
 });
 
+test("phone: pinch zooms the board, one finger on the empty board pans it, a double tap fits it again", async ({ page }) => {
+  const errors = collectErrors(page);
+  await quickRace(page, { bots: 2, laps: 2 });
+  const viewport = page.viewportSize()!;
+  const cdp = await page.context().newCDPSession(page);
+  const touch = async (type: "touchStart" | "touchMove" | "touchEnd", points: Array<{ x: number; y: number; id: number }>) => {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: points.map((p) => ({ x: p.x, y: p.y, id: p.id }))
+    });
+  };
+  const view = () => page.evaluate(() => window.__srp!.state() && window.__srp!.view());
+  // a track cell as a ruler: where it is on screen now
+  const cellAt = (id: string) => page.evaluate((cellId) => window.__srp!.cellScreenPos(cellId)!, id);
+  // somewhere on the board where no car stands, so a press there belongs to the board
+  const emptySpot = () =>
+    page.evaluate(
+      ({ w, h }) => {
+        const srp = window.__srp!;
+        const tokens = srp.state().cars.map((c) => srp.tokenScreenPos(c.carId)!);
+        for (let y = h * 0.45; y < h * 0.85; y += 12) {
+          for (let x = w * 0.3; x < w * 0.7; x += 12) {
+            if (tokens.every((t) => Math.hypot(t.x - x, t.y - y) > 60)) return { x, y };
+          }
+        }
+        return { x: w / 2, y: h / 2 };
+      },
+      { w: viewport.width, h: viewport.height }
+    );
+
+  expect(await view()).toMatchObject({ userZoom: 1, fitVisible: false });
+  const cx = viewport.width / 2;
+  const cy = viewport.height / 2;
+  const ruler = "Z10_L2_00";
+  const before = await cellAt(ruler);
+
+  // pinch: two fingers 60 px apart go to 240 px apart
+  await touch("touchStart", [{ x: cx - 30, y: cy, id: 1 }, { x: cx + 30, y: cy, id: 2 }]);
+  for (const half of [50, 70, 90, 110, 120]) {
+    await touch("touchMove", [{ x: cx - half, y: cy, id: 1 }, { x: cx + half, y: cy, id: 2 }]);
+  }
+  await touch("touchEnd", []);
+  await expect.poll(async () => (await view()).userZoom).toBeGreaterThan(2);
+  expect((await view()).fitVisible).toBe(true);
+  await expect.poll(async () => (await cellAt(ruler)).x).not.toBeCloseTo(before.x, 0);
+
+  // pan: one finger on the empty board moves the content with it
+  const spot = await emptySpot();
+  const panStart = await cellAt(ruler);
+  await touch("touchStart", [{ x: spot.x, y: spot.y, id: 1 }]);
+  for (const d of [8, 20, 40, 60, 80]) await touch("touchMove", [{ x: spot.x - d, y: spot.y, id: 1 }]);
+  await touch("touchEnd", []);
+  await expect.poll(async () => (await cellAt(ruler)).x).toBeLessThan(panStart.x - 40);
+
+  // double tap on the empty board: fitted again, and the Fit button is gone
+  const again = await emptySpot();
+  await page.touchscreen.tap(again.x, again.y);
+  await page.touchscreen.tap(again.x, again.y);
+  await expect.poll(async () => (await view()).userZoom).toBe(1);
+  expect((await view()).fitVisible).toBe(false);
+  await expect.poll(async () => (await cellAt(ruler)).x).toBeCloseTo(before.x, 0);
+  expect(errors).toEqual([]);
+});
+
+test("phone, zoomed in and panned away: the camera brings the car back to the middle on the player's next turn", async ({ page }) => {
+  const errors = collectErrors(page);
+  await quickRace(page, { bots: 2, laps: 2 });
+  const viewport = page.viewportSize()!;
+  const middle = { x: viewport.width / 2, y: viewport.height / 2 };
+  const car = await page.evaluate(() => {
+    const srp = window.__srp!;
+    return srp.tokenScreenPos(srp.state().activeCarId)!;
+  });
+  // zoom in about the car (the wheel: the same camera code as a pinch)
+  await page.mouse.move(car.x, car.y);
+  for (let i = 0; i < 3; i += 1) await page.mouse.wheel(0, -500);
+  await expect.poll(async () => (await page.evaluate(() => window.__srp!.view())).userZoom).toBeGreaterThan(1.5);
+  const zoomed = await page.evaluate(() => window.__srp!.view());
+
+  // pan the board so the car is well off to one side: a finger on empty grass above the track, dragged sideways
+  const tokenNow = () => page.evaluate(() => window.__srp!.tokenScreenPos(window.__srp!.state().activeCarId)!);
+  const cdp = await page.context().newCDPSession(page);
+  const finger = async (type: "touchStart" | "touchMove" | "touchEnd", x: number, y: number) =>
+    cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y, id: 1 }] });
+  const grass = { x: middle.x, y: 90 };
+  await finger("touchStart", grass.x, grass.y);
+  for (const d of [10, 30, 60, 100, 140]) await finger("touchMove", grass.x + d, grass.y);
+  await finger("touchEnd", grass.x, grass.y);
+  await expect.poll(async () => Math.abs((await tokenNow()).x - middle.x)).toBeGreaterThan(viewport.width * 0.15);
+
+  // play the nearest target by tap and Move here (still on screen)
+  const target = await page.evaluate(() => {
+    const srp = window.__srp!;
+    const near = srp.state().movement.validTargets.filter((t) => !t.isPitTrigger).sort((a, b) => a.distance - b.distance)[0]!;
+    return srp.cellScreenPos(near.cellId)!;
+  });
+  await page.touchscreen.tap(target.x, target.y);
+  await tid(page, "hud-select-confirm").tap();
+  await expect(tid(page, "hud-banner")).toHaveText("Your turn - drag your car", { timeout: 15_000 });
+
+  // the camera followed: still zoomed in, and the car is back in the middle across the board
+  const after = await page.evaluate(() => {
+    const srp = window.__srp!;
+    return { view: srp.view(), token: srp.tokenScreenPos(srp.state().activeCarId)! };
+  });
+  expect(after.view.userZoom).toBeCloseTo(zoomed.userZoom, 1);
+  expect(Math.abs(after.token.x - middle.x), JSON.stringify(after)).toBeLessThan(viewport.width * 0.08);
+  expect(errors).toEqual([]);
+});
+
 test("phone with the browser bars showing (a short screen): the whole track stays on screen", async ({ page }) => {
   // Safari's address bar and tab strip leave about 300 px of an 844 x 390 phone. The page is sized to the visible
   // height (100dvh, see style.css); 100vh is the screen without the bars and would cut the bottom off.
