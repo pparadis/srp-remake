@@ -86,6 +86,19 @@ several turns), so the scene animates the difference:
 - Off: the e2e build (specs read where cars are; `?anim` turns it on, `e2e/glide.spec.ts`), `prefers-reduced-motion`,
   and a frozen screenshot (`freezeAnimations`).
 
+### Preview and trail (issue #86)
+
+- **Preview:** the path of the move about to be made, drawn as a line along the road in the target lane's colour (gold
+  for a slingshot, amber for a squeeze, yellow for a pit stop) under a dark edge. The target is the picked one (a tap),
+  else the one under the pointer (hover, or the dragged car). `RaceSession.previewFor(hoverCellId)` gives it (path
+  round the other cars, straight through them for a squeeze); `RaceScene.drawPreview()` redraws on hover or target
+  change only, never per frame.
+- **Trail:** each car's last move as a thin line in its colour, drawn when it sets off, fading to a faint line that stays
+  until that car moves again. `RaceSession.lastMovePath(carId)` keeps it (solo: each applied action; online: the diff
+  of two server states, round the cars as they stood). Drawn faint and without a fade under `prefers-reduced-motion`,
+  and not at all in the e2e build (screenshots) unless `?anim`. The `C` key hides both with the targets.
+- `window.__srp.overlays()` (test hook) returns the preview and the trails as drawn.
+
 The grid setup is the `setup` action (compound, pressures, wing; free, once, before the car's
 first move; it does not end the turn; `setup_locked` after that). Positions saved with two wing angles load as
 Medium (`normalizeSetup` in `sandbox.ts`).

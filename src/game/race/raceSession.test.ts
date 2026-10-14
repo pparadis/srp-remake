@@ -222,6 +222,67 @@ describe("RaceSession: solo", () => {
     expect(session.drainMoves()).toEqual([]);
   });
 
+  it("previews the path of the picked target, else the hovered one, and nothing for a cell that is no target", () => {
+    const session = solo({ botCars: 2 });
+    session.recomputeTargets();
+    const start = session.activeCar.cellId;
+    const targets = [...session.validTargets.keys()];
+    const [a, b] = [targets[0]!, targets[targets.length - 1]!];
+    expect(a).not.toBe(b);
+
+    expect(session.previewFor(null)).toBeNull();
+    expect(session.previewFor("Z20_L3_00")).toBeNull(); // not one of its targets
+    const hovered = session.previewFor(a)!;
+    expect(hovered).toMatchObject({ cellId: a, kind: "move" });
+    expect(hovered.cells[0]).toBe(start);
+    expect(hovered.cells.at(-1)).toBe(a);
+
+    // a tapped target wins over what the pointer is on
+    expect(session.selectTarget(b)).toBe(true);
+    expect(session.previewFor(a)!.cellId).toBe(b);
+    session.clearSelection();
+    expect(session.previewFor(a)!.cellId).toBe(a);
+  });
+
+  it("previews a pit stop as a pit path, a slingshot as a slingshot, and nothing off turn or in edit mode", () => {
+    const session = solo({ botCars: 1 });
+    const [me, bot] = session.cars as [Car, Car];
+    Object.assign(me, { cellId: "Z05_L1_00", draftTurns: 2 });
+    Object.assign(bot, { cellId: "Z07_L1_00" });
+    session.recomputeTargets();
+    const sling = [...session.validTargets].find(([, t]) => t.slingshot)!;
+    expect(session.previewFor(sling[0])).toMatchObject({ cellId: sling[0], kind: "slingshot" });
+    // the walk goes round the car it passes, never through it
+    expect(session.previewFor(sling[0])!.cells).not.toContain("Z07_L1_00");
+
+    Object.assign(me, { cellId: "Z27_L1_00" });
+    Object.assign(bot, { cellId: "Z20_L3_00" });
+    session.recomputeTargets();
+    const pit = [...session.validTargets].find(([, t]) => t.isPitTrigger);
+    if (pit) expect(session.previewFor(pit[0])?.kind).toBe("pit");
+
+    session.setEditing(true);
+    expect(session.previewFor(sling[0])).toBeNull();
+  });
+
+  it("remembers each car's last path until it moves again: the player first, then the bots, round the cars in the way", () => {
+    const session = solo({ botCars: 2 });
+    expect(session.lastMovePath(1)).toEqual([]);
+    const before = new Map(session.cars.map((c) => [c.carId, c.cellId]));
+    playMyTurn(session);
+    for (const car of session.cars) {
+      const path = session.lastMovePath(car.carId);
+      expect(path[0], `car ${car.carId}`).toBe(before.get(car.carId));
+      expect(path.at(-1), `car ${car.carId}`).toBe(car.cellId);
+      expect(path.length, `car ${car.carId}`).toBeGreaterThanOrEqual(2);
+    }
+    // a setup is not a move: the trail stays
+    const mine = session.lastMovePath(1);
+    playMyTurn(session);
+    expect(session.lastMovePath(1)).not.toEqual(mine);
+    expect(session.lastMovePath(1)[0]).toBe(mine.at(-1));
+  });
+
   it("a slingshot: the target says the draft puts it in reach, and playing it toasts once and logs the pass", () => {
     const session = solo({ botCars: 1 });
     const [me, bot] = session.cars as [Car, Car];
@@ -399,6 +460,18 @@ describe("RaceSession: online", () => {
     serverMove(server); // car 1 again
     guest.applyServerState(lobbyOf(server.race), "guest");
     expect(guest.drainMoves()).toEqual([1]);
+  });
+
+  it("online, a car's last path comes from the diff of two server states, round the cars as they stood", () => {
+    const { session: guest, server } = online("guest");
+    const [c1] = server.race.cars as [Car, Car];
+    const from = c1.cellId;
+    serverMove(server); // car 1
+    guest.applyServerState(lobbyOf(server.race), "guest");
+    const path = guest.lastMovePath(1);
+    expect(path[0]).toBe(from);
+    expect(path.at(-1)).toBe(c1.cellId);
+    expect(guest.lastMovePath(2)).toEqual([]); // it has not moved
   });
 
   it("logs another player's slingshot once from the server's counter, naming the car it passed", () => {

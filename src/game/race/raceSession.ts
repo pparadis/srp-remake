@@ -10,6 +10,7 @@ import { pitAdvice, stintEstimate } from "../systems/strategy";
 import { createFeelMemory, detectFeel, type FeelEvent } from "../systems/feelEvents";
 import { computeMoveSpend, cycleBudget, getRemainingBudget } from "../systems/moveBudgetSystem";
 import { carColor } from "../systems/spawnSystem";
+import { movePath } from "../systems/movePath";
 import { hasFinishedRace, lapInProgress } from "../systems/lapProgress";
 import { sortCarsByProgress } from "../systems/orderingSystem";
 import { PERSONALITIES, personalityOf } from "../systems/botStyle";
@@ -73,6 +74,13 @@ export interface ServerStateResult {
 const BOT_LOG_LIMIT = 1000;
 const LOG_LIMIT = 30;
 /** Online: input stays locked this long after sending a turn, unless the server answers first. */
+/** The path of the move the player is about to make, with how the board should draw it. */
+export interface MovePreview {
+  cellId: string;
+  kind: "move" | "slingshot" | "squeeze" | "pit";
+  cells: string[];
+}
+
 export const SERVER_WAIT_MS = 5000;
 const HUD_LABELS = {
   noneTags: "none",
@@ -388,7 +396,17 @@ export class RaceSession {
     const moved = this.race.cars
       .filter((car) => before.cars.find((c) => c.carId === car.carId)?.cellId !== car.cellId)
       .sort((a, b) => rank(a.carId) - rank(b.carId));
-    for (const car of moved) if (!this.movedCars.includes(car.carId)) this.movedCars.push(car.carId);
+    // the cars stand where they stood until their own move comes up in the order
+    const standing = new Map(before.cars.map((car) => [car.carId, car.cellId]));
+    for (const car of moved) {
+      const from = standing.get(car.carId) ?? null;
+      standing.set(car.carId, car.cellId);
+      if (!this.movedCars.includes(car.carId)) this.movedCars.push(car.carId);
+      if (from) {
+        const blocked = new Set([...standing].filter(([id]) => id !== car.carId).map(([, cellId]) => cellId));
+        this.lastPaths.set(car.carId, movePath(this.ctx.trackIndex, from, car.cellId, blocked));
+      }
+    }
   }
 
   // Remote and own turns alike arrive as events; the board itself redraws from race.state.
@@ -415,10 +433,46 @@ export class RaceSession {
   // Cars that changed cell since the board last looked, in the order they moved (a car appears once).
   private movedCars: number[] = [];
 
+  // The cells each car drove through on its last move (movePath, round the cars standing there when it moved): the
+  // board's trail, and "what happened while I waited". A car keeps its trail until it moves again.
+  private lastPaths = new Map<number, string[]>();
+
   private noteMoved(carId: number, fromCellId: string | null) {
     const car = this.cars.find((c) => c.carId === carId);
-    if (!car || car.cellId === fromCellId || this.movedCars.includes(carId)) return;
-    this.movedCars.push(carId);
+    if (!car || car.cellId === fromCellId) return;
+    if (!this.movedCars.includes(carId)) this.movedCars.push(carId);
+    if (fromCellId) {
+      const blocked = new Set(this.cars.filter((c) => c.carId !== carId).map((c) => c.cellId));
+      this.lastPaths.set(carId, movePath(this.ctx.trackIndex, fromCellId, car.cellId, blocked));
+    }
+  }
+
+  /** The cells `carId` drove through on its last move, first cell included; empty before it has moved. */
+  lastMovePath(carId: number): string[] {
+    return this.lastPaths.get(carId) ?? [];
+  }
+
+  /**
+   * The path of the move the player is about to make, for the board to draw: the picked (tapped) target, else the one
+   * under the pointer (hovered or dragged over), when it is one of the car's targets. Null when there is none.
+   */
+  previewFor(hoverCellId: string | null): MovePreview | null {
+    if (this.editing || !this.localCanControl()) return null;
+    const cellId = this.selectedTarget()?.cellId ?? hoverCellId;
+    const info = cellId ? this.validTargets.get(cellId) : undefined;
+    if (!cellId || !info) return null;
+    // a squeeze passes through the cars: do not route it round them
+    const blocked = info.squeezePassed
+      ? new Set<string>()
+      : new Set(this.cars.filter((c) => c.carId !== this.activeCar.carId).map((c) => c.cellId));
+    const kind: MovePreview["kind"] = info.isPitTrigger
+      ? "pit"
+      : info.squeezePassed
+        ? "squeeze"
+        : info.slingshot
+          ? "slingshot"
+          : "move";
+    return { cellId, kind, cells: movePath(this.ctx.trackIndex, this.activeCar.cellId, cellId, blocked) };
   }
 
   /** The cars that moved since the last call, in the order they moved: the board glides them one after another. */

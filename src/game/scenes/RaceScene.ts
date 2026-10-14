@@ -20,7 +20,7 @@ import { play } from "../../ui/sound";
 import { Confetti } from "./ui/Confetti";
 import { carSprite } from "../systems/spawnSystem";
 import type { RaceAction } from "../race/raceEngine";
-import { RaceSession, SERVER_WAIT_MS } from "../race/raceSession";
+import { RaceSession, SERVER_WAIT_MS, type MovePreview } from "../race/raceSession";
 import { positionAsTest, type CarEdit } from "../race/sandbox";
 import type { SandboxCommand } from "../../ui/sandboxPanel";
 import { validateTrack } from "../../validation/trackValidation";
@@ -31,6 +31,8 @@ import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
 import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
 import { spriteRotation } from "./rendering/heading";
 import { GLIDE, glideCap, glideDuration } from "./rendering/glide";
+import { roadPath } from "./rendering/roadPath";
+import { carColor } from "../systems/spawnSystem";
 import { movePath } from "../systems/movePath";
 import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
 import { registerSandboxInputHandlers } from "./input/registerSandboxInputHandlers";
@@ -68,6 +70,8 @@ declare global {
       };
       /** Stops the looping halo pulse so screenshots are deterministic. */
       freezeAnimations: () => void;
+      /** The path being previewed (picked or hovered target), and the trails on the board: cells, as drawn. */
+      overlays: () => { preview: MovePreview | null; trails: Array<{ carId: number; cells: string[]; alpha: number }> };
       status: () => {
         raceLaps: number;
         winnerCarId: number | null;
@@ -119,6 +123,10 @@ export class RaceScene extends Phaser.Scene {
   private animationsFrozen = false;
   // The cell each car token stands on, or glides to (the board draws from what the session already knows).
   private tokenCell = new Map<number, string>();
+  // The preview of the move the player is about to make, and the last move of each car (docs/strategy-and-feel.md).
+  private gPreview!: Phaser.GameObjects.Graphics;
+  private previewShown: MovePreview | null = null;
+  private trails = new Map<number, Phaser.GameObjects.Graphics>();
   // Gliding cars: stop() jumps the token to the end of its glide.
   private glides = new Map<number, { stop: () => void }>();
   private get cars(): Car[] {
@@ -217,6 +225,8 @@ export class RaceScene extends Phaser.Scene {
     // was redrawn every frame and took Firefox down to 9 fps (issue #79).
     this.gTrack = this.add.graphics();
     this.gTargets = this.add.graphics();
+    // above the track, the trails and the target rings; under the cost labels and the cars
+    this.gPreview = this.add.graphics().setDepth(8);
     this.gFrame = this.add.graphics();
     this.drawTrack();
     this.drawFrame();
@@ -323,6 +333,10 @@ export class RaceScene extends Phaser.Scene {
           canControl: this.canLocalControlActiveCar() && !this.raceFinished,
           activeOwnerId: this.activeCar.ownerId
         }),
+        overlays: () => ({
+          preview: this.previewShown,
+          trails: [...this.trails].map(([carId, g]) => ({ carId, cells: this.session.lastMovePath(carId), alpha: g.alpha }))
+        }),
         freezeAnimations: () => {
           this.activeHaloTween?.stop();
           this.activeHaloTween = null;
@@ -379,6 +393,8 @@ export class RaceScene extends Phaser.Scene {
   private clearCarVisuals() {
     for (const carId of [...this.glides.keys()]) this.finishGlide(carId);
     this.tokenCell.clear();
+    for (const trail of this.trails.values()) trail.destroy();
+    this.trails.clear();
     for (const token of this.carTokens.values()) {
       token.destroy();
     }
@@ -551,8 +567,10 @@ export class RaceScene extends Phaser.Scene {
     };
     const fromId = this.tokenCell.get(carId);
     this.tokenCell.set(carId, toCellId);
-    if ((token.x === cell.pos.x && token.y === cell.pos.y) || this.instantMoves()) {
+    const there = token.x === cell.pos.x && token.y === cell.pos.y;
+    if (there || this.instantMoves()) {
       arrive();
+      if (!there) this.showTrail(carId); // an instant move (reduced motion) still leaves its trail
       return 0;
     }
 
@@ -567,11 +585,9 @@ export class RaceScene extends Phaser.Scene {
     }
     const points =
       ids.length >= 2
-        ? ids.map((id) => new Phaser.Math.Vector2(this.cellMap.get(id)!.pos.x, this.cellMap.get(id)!.pos.y))
-        : [new Phaser.Math.Vector2(token.x, token.y), new Phaser.Math.Vector2(cell.pos.x, cell.pos.y)];
-    const path = new Phaser.Curves.Path(points[0]!.x, points[0]!.y);
-    if (points.length === 2) path.lineTo(points[1]!.x, points[1]!.y);
-    else path.splineTo(points.slice(1));
+        ? ids.map((id) => this.cellMap.get(id)!.pos)
+        : [{ x: token.x, y: token.y }, { x: cell.pos.x, y: cell.pos.y }];
+    const path = roadPath(points);
 
     const here = new Phaser.Math.Vector2();
     const ahead = new Phaser.Math.Vector2();
@@ -582,6 +598,8 @@ export class RaceScene extends Phaser.Scene {
       duration,
       delay: delayMs,
       ease: "Sine.easeInOut",
+      // the trail shows when the car sets off, not while it waits for the cars before it
+      onStart: () => this.showTrail(carId),
       onUpdate: (counter: Phaser.Tweens.Tween) => {
         const t = counter.getValue() ?? 0;
         path.getPoint(t, here);
@@ -632,6 +650,8 @@ export class RaceScene extends Phaser.Scene {
     const cap = glideCap(moving.length);
     let delay = 0;
     for (const car of moving) delay += this.glideTo(car.carId, car.cellId, delay, cap);
+    // a car that moved but did not glide (a drop is its own motion; instant moves) still leaves its trail
+    for (const carId of order) if (!moving.some((car) => car.carId === carId)) this.showTrail(carId);
   }
 
   private processBotsUntilHuman() {
@@ -712,6 +732,7 @@ export class RaceScene extends Phaser.Scene {
   private drawTargets() {
     this.gTargets.clear();
     this.clearTargetCostLabels();
+    this.drawPreview();
     if (!this.showCarsAndMoves) return;
     for (const [cellId, info] of this.validTargets) {
       const cell = this.cellMap.get(cellId);
@@ -762,6 +783,53 @@ export class RaceScene extends Phaser.Scene {
       this.gTargets.lineStyle(3, 0xffffff, 1);
       this.gTargets.strokeCircle(selectedCell.pos.x, selectedCell.pos.y, 16);
     }
+  }
+
+  // The path of the move about to be made (the picked target, else the one under the pointer or the dragged car), as a
+  // line along the road in the lane's colour. Redrawn when the target or the hover changes, never per frame.
+  private drawPreview() {
+    this.gPreview.clear();
+    this.previewShown = null;
+    if (!this.showCarsAndMoves) return;
+    const preview = this.session.previewFor(this.hoverCell?.id ?? null);
+    if (!preview || preview.cells.length < 2) return;
+    const target = this.cellMap.get(preview.cellId);
+    if (!target) return;
+    this.previewShown = preview;
+    const color =
+      preview.kind === "pit" ? 0xffe066 : preview.kind === "slingshot" ? 0xffd166 : preview.kind === "squeeze" ? 0xffb020 : laneColor(target.laneIndex);
+    const path = roadPath(preview.cells.map((id) => this.cellMap.get(id)!.pos));
+    this.gPreview.lineStyle(7, 0x0b0f14, 0.35); // a dark edge, so it reads on the asphalt and on the kerbs
+    path.draw(this.gPreview, 64);
+    this.gPreview.lineStyle(4, color, 0.9);
+    path.draw(this.gPreview, 64);
+  }
+
+  // The last move of a car as a thin line in its colour: drawn when it sets off, then fading to a faint line that stays
+  // until the car moves again ("what happened while I was waiting"). Not in the e2e build (screenshots); under reduced
+  // motion it is drawn faint and does not fade.
+  private showTrail(carId: number) {
+    if (import.meta.env.MODE === "test" && this.registry.get(REG_ANIMATE) !== true) return;
+    const cells = this.session.lastMovePath(carId);
+    if (cells.length < 2) return;
+    let trail = this.trails.get(carId);
+    if (!trail) {
+      trail = this.add.graphics().setDepth(4);
+      this.trails.set(carId, trail);
+    }
+    this.tweens.killTweensOf(trail);
+    const index = Math.max(0, this.cars.findIndex((car) => car.carId === carId));
+    trail.clear();
+    trail.lineStyle(3, Phaser.Display.Color.HexStringToColor(carColor(index)).color, 1);
+    roadPath(cells.map((id) => this.cellMap.get(id)!.pos)).draw(trail, 64);
+    trail.setVisible(this.showCarsAndMoves);
+    const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || this.animationsFrozen) {
+      trail.setAlpha(0.35);
+      return;
+    }
+    trail.setAlpha(0.75);
+    this.tweens.add({ targets: trail, alpha: 0.22, duration: 4500, ease: "Quad.easeOut" });
   }
 
   /** A tap on the board (a press and release without a drag) picks the nearest target in reach, or drops the pick. */
@@ -1017,6 +1085,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private applyCarsAndMovesVisibility() {
+    for (const trail of this.trails.values()) trail.setVisible(this.showCarsAndMoves);
     applyCarsMovesVisibility({
       showCarsAndMoves: this.showCarsAndMoves,
       activeHaloTween: this.activeHaloTween,
@@ -1225,6 +1294,7 @@ export class RaceScene extends Phaser.Scene {
   private setHoverCell(cell: TrackCell | null) {
     if (cell?.id === this.hoverCell?.id) return;
     this.hoverCell = cell;
+    this.drawPreview();
     this.emitHud();
   }
 
