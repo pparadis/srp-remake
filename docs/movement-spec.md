@@ -33,6 +33,13 @@ Every lane change between main lanes costs +1 move point on top of the forward c
 - `TargetInfo.laneChanges` is set only when the route changes lane 2 or more times; the hover tooltip then says
   "(N lane changes)".
 
+**Known mismatch (#100):** a route that walks sideways cells AND contains a diagonal change skips the diagonal's
+surcharge (the endpoint test in `computeMoveSpend` needs forward gain at least the cells walked), so it costs one point
+under the rule. The example below is one real route, drawn straight; the rule says 5, the code charges 4. Once #100 is
+fixed the "code today" bar goes away.
+
+![One route, three prices: the rule, the code today and the fix](img/lane-change-pricing.svg)
+
 ## Costs
 
 - Each valid target includes computed tire and fuel costs based on:
