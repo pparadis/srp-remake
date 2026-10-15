@@ -200,7 +200,13 @@ describe("over simulated races", () => {
             const to = cell(id);
             if (info.squeezePassed || to.laneIndex === 0 || from.laneIndex === 0) continue;
             const changes = info.laneChanges ?? (to.laneIndex !== from.laneIndex ? 1 : 0);
-            expect(info.moveSpend ?? 0).toBeGreaterThanOrEqual(delta(from.id, id) + changes);
+            // forward cells + lane changes does not hold for a zig-zag with a sideways step (a cell walked that is no
+            // forward cell: origin/main already breaks it on seed 5), nor for a slingshot (it skips the +1 lane-change
+            // surcharge). What always holds: a move never costs fewer points than the cells it walks.
+            expect(info.moveSpend ?? 0).toBeGreaterThanOrEqual(info.distance);
+            if (!info.slingshot && info.laneChanges === undefined) {
+              expect(info.moveSpend ?? 0).toBeGreaterThanOrEqual(delta(from.id, id) + changes);
+            }
             expect(info.moveSpend ?? 0).toBeLessThanOrEqual(9);
             // a same-lane target beyond the nearest same-lane car is only ever a go-around
             if (to.laneIndex === from.laneIndex && sameLaneBlockers[0] != null && delta(from.id, id) > sameLaneBlockers[0]) {

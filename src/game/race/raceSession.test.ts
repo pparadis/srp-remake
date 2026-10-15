@@ -84,6 +84,69 @@ describe("RaceSession: drafting", () => {
     expect([...session.validTargets.values()].some((t) => t.slingshot)).toBe(true);
     expect(hud(session).cars.find((c) => c.carId === other.carId)).toMatchObject({ drafting: false });
   });
+
+  // The test that was missing (issue #98): nothing here puts a car anywhere. A player who ends each move tucked in
+  // behind a car whenever one is within reach gets the tow, the chip and the slingshot in a real race with real bots.
+  it("a player who tucks in behind a car gets the tow and the slingshot in a real solo race", () => {
+    const session = solo({ botCars: 3, raceLaps: 5 });
+    let tows = 0;
+    let readyTurns = 0;
+    let fedBack = false;
+    for (let turn = 0; turn < 60 && !session.finished; turn += 1) {
+      session.recomputeTargets();
+      const moves = [...session.validTargets].filter(([, t]) => !t.isPitTrigger);
+      // The player starts on pole with every bot behind, so there is no car to tuck in behind: the first move is a short
+      // one (4 cells), the bots pass and are then within one move. After that: a slingshot lane change when one is
+      // open, else a move that ends tucked in behind a car, else the furthest.
+      const byDistance = [...moves].sort((a, b) => b[1].distance - a[1].distance);
+      const tucked = moves.filter(([id]) => session.endsTucked(id)).sort((a, b) => b[1].distance - a[1].distance);
+      const short = [...moves].sort((a, b) => Math.abs(a[1].distance - 4) - Math.abs(b[1].distance - 4))[0];
+      const pick = turn === 0 ? short : (moves.find(([, t]) => t.slingshot) ?? tucked[0] ?? byDistance[0]);
+      if (!pick) break;
+      const me = session.localCar()!;
+      const card = hud(session).cars.find((c) => c.carId === me.carId)!;
+      if (card.drafting) tows += 1;
+      if (card.draftTurns >= 2) readyTurns += 1;
+      // the tow is on the board for every car that has one, and the player's is in the list
+      if (card.drafting) fedBack ||= session.draftLinks().some((l) => l.carId === me.carId);
+      expect(session.applyLocal({ type: "move", targetCellId: pick[0] })).toBe(true);
+      session.runBots();
+    }
+    expect(tows, "turns that began in the tow").toBeGreaterThanOrEqual(2);
+    expect(fedBack).toBe(true);
+    expect(readyTurns, "turns with the slingshot open").toBeGreaterThan(0);
+    expect(session.localCar()!.slingshots ?? 0).toBeGreaterThan(0);
+  });
+
+  it("draftLinks lists the cars in a tow: the cells to the car ahead while it is there, the range once it has gone", () => {
+    const session = solo({ botCars: 2 });
+    const [me, bot] = session.cars as [Car, Car];
+    Object.assign(me, { cellId: "Z05_L1_00", draftTurns: 1 });
+    Object.assign(bot, { cellId: "Z07_L1_00", draftTurns: 2 });
+    expect(session.draftLinks()).toEqual([
+      { carId: me.carId, gap: 2, ready: false },
+      // the bot's tow: nothing ahead of it within the range, so the run is the range
+      { carId: bot.carId, gap: 2, ready: true }
+    ]);
+    Object.assign(bot, { cellId: "Z12_L1_00" });
+    expect(session.draftLinks().find((l) => l.carId === me.carId)).toMatchObject({ gap: 2, ready: false });
+    Object.assign(me, { draftTurns: 0 });
+    expect(session.draftLinks().map((l) => l.carId)).toEqual([bot.carId]); // a car with no run has no tow
+  });
+
+  it("endsTucked says which cells keep or start the tow, in the car's own lane only", () => {
+    const session = solo({ botCars: 1 });
+    const [me, bot] = session.cars as [Car, Car];
+    Object.assign(me, { cellId: "Z05_L1_00" });
+    Object.assign(bot, { cellId: "Z09_L1_00" });
+    expect(session.endsTucked("Z07_L1_00")).toBe(true); // 2 behind
+    expect(session.endsTucked("Z08_L1_00")).toBe(true); // 1 behind
+    expect(session.endsTucked("Z06_L1_00")).toBe(false); // 3 behind
+    expect(session.endsTucked("Z08_L2_00")).toBe(false); // beside it, another lane
+    session.recomputeTargets();
+    const [id] = [...session.validTargets.keys()];
+    expect(session.selectTarget(id!)).toBe(true);
+  });
 });
 
 describe("RaceSession: solo", () => {
@@ -283,7 +346,7 @@ describe("RaceSession: solo", () => {
     expect(session.lastMovePath(1)[0]).toBe(mine.at(-1));
   });
 
-  it("a slingshot: the target says the draft puts it in reach, and playing it toasts once and logs the pass", () => {
+  it("a slingshot: the target says the tow puts it in reach, and playing it toasts once and logs it", () => {
     const session = solo({ botCars: 1 });
     const [me, bot] = session.cars as [Car, Car];
     Object.assign(me, { cellId: "Z05_L1_00", draftTurns: 2 });
@@ -298,7 +361,7 @@ describe("RaceSession: solo", () => {
 
     expect(session.applyLocal({ type: "move", targetCellId: only![0] })).toBe(true);
     expect(session.drainFeel().filter((e) => e.type === "slingshot")).toHaveLength(1);
-    expect(session.logLines).toContain("Car 1 slingshots past Car 2.");
+    expect(session.logLines).toContain("Car 1 slingshots.");
     expect(session.drainFeel().filter((e) => e.type === "slingshot")).toHaveLength(0);
   });
 
@@ -474,7 +537,7 @@ describe("RaceSession: online", () => {
     expect(guest.lastMovePath(2)).toEqual([]); // it has not moved
   });
 
-  it("logs another player's slingshot once from the server's counter, naming the car it passed", () => {
+  it("logs another player's slingshot once from the server's counter", () => {
     const { session: guest, server } = online("guest");
     const [c1, c2] = server.race.cars as [Car, Car];
     Object.assign(c1, { cellId: "Z05_L1_00", draftTurns: 2 });
@@ -484,7 +547,7 @@ describe("RaceSession: online", () => {
     expect(c1.slingshots).toBe(1);
     guest.applyServerState(lobbyOf(server.race), "guest");
     guest.applyServerState(lobbyOf(server.race), "guest"); // a repeated state is not a second slingshot
-    expect(guest.logLines.filter((line) => line === "Car 1 slingshots past Car 2.")).toHaveLength(1);
+    expect(guest.logLines.filter((line) => line === "Car 1 slingshots.")).toHaveLength(1);
     // the guest's own feel: someone else's slingshot is no toast
     expect(guest.drainFeel().some((e) => e.type === "slingshot")).toBe(false);
   });

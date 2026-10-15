@@ -142,23 +142,31 @@ nothing is served after the line.)
 - Movement targets are computed independently each turn.
 - Any change to rules should include a unit test in `src/game/systems/movementSystem.test.ts`.
 
-## Drafting (slipstream, issue #55)
+## Drafting (slipstream, issues #55 and #98)
 
-A car is **drafting** when it is in a main lane and another car (any owner) stands in the **same lane**, 1 to
+A car is **tucked in** when it is in a main lane and another car (any owner) stands in the **same lane**, 1 to
 `DRAFT_RANGE` (2) cells directly ahead by `forwardIndex` (wrapping at the start line). Adjacent lanes and the pit lane
 (entry and exit included) never count. `draftAhead` in `src/game/systems/draftSystem.ts` is the only definition.
 
-- **Wear:** a move that starts in a draft costs `DRAFT_FUEL_FACTOR` (0.8) of the fuel and `DRAFT_TIRE_FACTOR` (0.9) of
-  the tire, applied in `computeCosts` with the other factors and rounded once. On the plain setup (hard, Medium wing) the
-  tire discount rounds away on every move length; the fuel discount shows (1 point) on 4, 6, 8 and 9 cell moves.
-  `TargetInfo.drafted` marks the targets of such a move.
-- **Slingshot:** a car that has begun `DRAFT_SLINGSHOT_TURNS` (2) consecutive turns in a draft pays no +1 lane-change
-  surcharge on a route with a lane change that ends beyond the car it drafts (`TargetInfo.slingshot`). The pass rules
-  themselves (one blocker, go-round) and the squeeze surcharge are unchanged: only the price drops.
-  `TargetInfo.slingshotOnly` marks a slingshot that would be out of reach with the surcharge.
+**When it is judged: at the end of the car's move, not at the start of its turn.** Every car has moved about 8 cells
+between the end of one move and the start of the next turn, so a leader is never within 2 cells then (measured: 0 of
+498 turns in solo races; #98). A move that ENDS tucked in puts the car in the tow for its next move, whatever the leader
+does in between.
+
+- **`Car.draftTurns`:** moves in a row that ended tucked in. After each `move` in `applyAction`: `draftTurns + 1` when
+  the car ends it tucked in, else 0 (a move that ends elsewhere, a skip or a pit stop resets it). A grid `setup` is not a
+  move. It starts at 0. So: a move that ends tucked in (1), the next move is discounted; ending tucked in again (2)
+  opens the slingshot for the move after.
+- **Wear:** a move that starts with `draftTurns >= 1` costs `DRAFT_FUEL_FACTOR` (0.8) of the fuel and
+  `DRAFT_TIRE_FACTOR` (0.9) of the tire, applied in `computeCosts` with the other factors and rounded once. On the plain
+  setup (hard, Medium wing) the tire discount rounds away on every move length; the fuel discount shows (1 point) on 4,
+  6, 8 and 9 cell moves. `TargetInfo.drafted` marks the targets of such a move; the pit lane never gets it.
+- **Slingshot:** with `draftTurns >= DRAFT_SLINGSHOT_TURNS` (2) a route with a lane change pays no +1 lane-change
+  surcharge (`TargetInfo.slingshot`). The pass rules (one blocker, go-round) and the squeeze surcharge are unchanged:
+  only the price drops. `TargetInfo.slingshotOnly` marks a slingshot that would be out of reach with the surcharge.
 - **`Car.slingshots`:** the slingshot moves a car has played (the engine counts them in `applyAction`). It is a
   counter so a client can tell from two states that one just landed (the toast and the online feed line).
-- **`Car.draftTurns`:** after each turn played, `draftTurns + 1` if the car began that turn in a draft and moved, else
-  0 (a skip, a pit stop or a turn that began out of the draft resets it). A grid `setup` is not a turn. It starts at 0.
-  So: two turns begun in the draft, then the third may slingshot.
+- **Which moves keep the tow:** a target whose cell is 1-2 behind a car in its lane (`RaceSession.endsTucked`), the cars
+  where they stand now. The board marks them with a blue dashed ring and the tooltip says so.
 - No lobby setting: always on. The engine computes it (`computeTargets`, `applyAction`), so solo and the server agree.
+  The bots get it too: they end about 60% of their moves tucked in (the benchmark gate is in `docs/bot-system.md`).

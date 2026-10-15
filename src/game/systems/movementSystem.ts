@@ -11,7 +11,6 @@ import {
   SQUEEZE_SURCHARGE_PER_CAR,
   WING_EFFECTS
 } from "../constants";
-import { draftAhead } from "./draftSystem";
 import { computeMoveSpend } from "./moveBudgetSystem";
 
 export interface TargetInfo {
@@ -24,9 +23,9 @@ export interface TargetInfo {
   squeezePassed?: number;
   // Set only when the route changes lane 2 or more times (go around a blocker and rejoin, or a zig-zag).
   laneChanges?: number;
-  // Set only when the move starts in a draft: its tire and fuel cost carry the draft discount.
+  // Set only when the car ended its last move tucked in behind a car: its tire and fuel cost carry the draft discount.
   drafted?: true;
-  // Set only on a slingshot: a pull-out pass of the drafted car whose lane-change surcharge was waived.
+  // Set only on a slingshot: a lane change of a car that has been tucked in long enough, whose surcharge was waived.
   slingshot?: true;
   // Set only on a slingshot that would be out of reach with the surcharge: the draft is what opens this move.
   slingshotOnly?: true;
@@ -35,7 +34,9 @@ export interface TargetInfo {
 interface MovementOptions {
   allowPitExitSkip?: boolean;
   disallowPitBoxTargets?: boolean;
-  // The car has been in the draft long enough (DRAFT_SLINGSHOT_TURNS turns) to slingshot past the car it drafts.
+  // The car ended its last move tucked in behind a car (not where it stands now: the leader has moved on by then).
+  drafted?: boolean;
+  // ... and has done so for DRAFT_SLINGSHOT_TURNS moves in a row: a lane change skips the +1 surcharge.
   slingshotReady?: boolean;
 }
 
@@ -259,8 +260,8 @@ export function computeValidTargets(
     }
   }
 
-  // Drafting: the car starts this move in the slipstream of the nearest car ahead in its own lane (see draftSystem).
-  const drafted = !startIsPitLane ? draftAhead(trackIndex, startCellId, occupied) : null;
+  // Drafting: the car ended its last move tucked in behind a car (see draftSystem); never in the pit lane.
+  const drafted = options.drafted === true && !startIsPitLane;
 
   const blockerDeltasByLane = new Map<number, number[]>();
   if (!startIsPitLane) {
@@ -343,20 +344,15 @@ export function computeValidTargets(
     }
     const steps = route?.steps ?? d;
     let moveSpend = route?.price ?? computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, targetDelta);
-    // Slingshot: after enough turns in the draft, a pull-out pass of the drafted car (a route with a lane change that
-    // ends beyond it) skips the +1 lane-change surcharge. The walk itself is still paid.
+    // Slingshot: after enough moves in a row ended tucked in, a route with a lane change skips the +1 surcharge. The
+    // walk itself is still paid.
     const slingshot =
-      drafted !== null &&
-      options.slingshotReady === true &&
-      route !== undefined &&
-      route.laneChanges >= 1 &&
-      targetDelta > drafted.gap &&
-      moveSpend > steps;
+      drafted && options.slingshotReady === true && route !== undefined && route.laneChanges >= 1 && moveSpend > steps;
     if (slingshot) moveSpend -= 1;
     if (moveSpend > maxSteps) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
 
-    const { tireCost, fuelCost } = computeCosts(steps, cell.laneIndex, costs, drafted !== null);
+    const { tireCost, fuelCost } = computeCosts(steps, cell.laneIndex, costs, drafted);
     targets.set(cellId, {
       distance: steps,
       moveSpend,

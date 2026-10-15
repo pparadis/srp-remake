@@ -295,9 +295,22 @@ sweep. With the shipped numbers (Low: budget +1, tire x1.6, fuel x1.05; High: -1
 13 and 14 laps are noisy (the stop timing against the pit entry once a lap). The plan's first numbers (Low tire x1.4,
 High x0.7) passed the gate too, but Medium won a single length; x1.6 and x0.8 give it a clean 6-7 lap window.
 
-## Drafting (issue #55)
+## Drafting (issues #55 and #98)
 
 Bots see the draft through the targets' `tireCost`, `fuelCost` and `moveSpend` (the slingshot is just a cheaper
 pass); there is no separate "tuck in" term yet. `wearPerCell` and `bestSetup` do not price the discount, which is small.
-`tools/botBench.ts` prints **overtakes per race** (position swaps in the standings) to watch for trains: with
-`--laps 5,8,12 --seeds 4`, 29.1 without drafting and 27.4 with it, and the Hard < Normal < Easy < Autopilot ordering holds.
+`tools/botBench.ts` prints **overtakes per race** (position swaps in the standings) to watch for trains.
+
+Since #98 the tow is judged at the END of a move (see `docs/movement-spec.md`), so bots get it constantly without
+trying: they end about 60% of their moves 1-2 cells behind a car, and a conga line of bots runs with `draftTurns` in
+the teens. With `--laps 5,8,12 --seeds 4`:
+
+|                              | start-of-turn rule (it never fired) | end-of-move rule (#98) |
+| ---------------------------- | ----------------------------------- | ---------------------- |
+| Overtakes per race           | 27.4                                | 32.5                   |
+| Hard avg finish / win rate   | 1.48 / 52%                          | 1.50 / 50%             |
+| Normal avg finish / win rate | 1.60 / 44%                          | 1.58 / 46%             |
+| Easy / Autopilot avg finish  | 2.92 / 4.00                         | 2.92 / 4.00            |
+
+The Hard < Normal < Easy < Autopilot ordering holds, and `--setups` still passes the wing gate (no setup dominates; hard
+medium now wins a race length too).

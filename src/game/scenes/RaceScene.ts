@@ -31,7 +31,7 @@ import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
 import { TargetMarkers, type TargetMarker } from "./ui/TargetMarkers";
 import { badgeTexture, carBodyTexture } from "./rendering/bakedTextures";
 import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
-import { spriteRotation } from "./rendering/heading";
+import { headingOf, spriteRotation } from "./rendering/heading";
 import { GLIDE, glideCap, glideDuration } from "./rendering/glide";
 import { roadPath } from "./rendering/roadPath";
 import {
@@ -144,6 +144,7 @@ export class RaceScene extends Phaser.Scene {
   private fitButton!: Phaser.GameObjects.Text;
   // The preview of the move the player is about to make, and the last move of each car (docs/strategy-and-feel.md).
   private gPreview!: Phaser.GameObjects.Graphics;
+  private gTow!: Phaser.GameObjects.Graphics;
   private previewShown: MovePreview | null = null;
   private trails = new Map<number, Phaser.GameObjects.Graphics>();
   // Gliding cars: stop() jumps the token to the end of its glide.
@@ -246,6 +247,7 @@ export class RaceScene extends Phaser.Scene {
     this.targetMarkers = new TargetMarkers(this);
     // above the track, the trails and the target rings; under the cost labels and the cars
     this.gPreview = this.add.graphics().setDepth(8);
+    this.gTow = this.add.graphics().setDepth(3); // under the target rings, the preview and the cars
     this.gFrame = this.add.graphics();
     this.drawTrack();
     this.drawFrame();
@@ -565,6 +567,14 @@ export class RaceScene extends Phaser.Scene {
         window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text: "Slingshot!", kind: "slingshot" } }));
         play("slingshot");
         break;
+      case "draft":
+        window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text: "In the tow: less wear", kind: "draft" } }));
+        play("draft");
+        break;
+      case "slingshotReady":
+        window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text: "Slingshot ready", kind: "slingshot" } }));
+        play("ready");
+        break;
       case "finish":
         if (!this.animationsFrozen) this.confetti = new Confetti(this);
         play("finish");
@@ -660,6 +670,7 @@ export class RaceScene extends Phaser.Scene {
       onComplete: () => {
         this.glides.delete(carId);
         arrive();
+        this.drawTow(); // the tows were hidden while cars glided
       }
     });
     this.glides.set(carId, {
@@ -777,6 +788,7 @@ export class RaceScene extends Phaser.Scene {
 
   private drawTargets() {
     this.drawPreview();
+    this.drawTow();
     if (!this.showCarsAndMoves) return this.targetMarkers.clear();
     const markers: TargetMarker[] = [];
     for (const [cellId, info] of this.validTargets) {
@@ -795,6 +807,7 @@ export class RaceScene extends Phaser.Scene {
           squeeze: Boolean(info.squeezePassed),
           slingshot: Boolean(info.slingshot),
           slingshotOnly: Boolean(info.slingshotOnly),
+          tuck: !info.isPitTrigger && this.session.endsTucked(cellId),
           risk: info.isPitTrigger || least >= 20 ? "none" : least <= 0 ? "empty" : "low"
         },
         cost: String(this.session.moveSpendOf(info, cell.laneIndex))
@@ -804,6 +817,33 @@ export class RaceScene extends Phaser.Scene {
     const selected = this.session.selectedTarget();
     const selectedCell = selected && this.cellMap.get(selected.cellId);
     this.targetMarkers.show(markers, selectedCell ? selectedCell.pos : null);
+  }
+
+  // The tows: a few faint streaks from each car whose last move ended tucked in behind a car, along its lane for as far
+  // as the car ahead (or, when that car has moved on, the draft range): blue while it counts, gold when the slingshot
+  // is open. Every car's, not only the player's. Redrawn on a turn change; hidden while cars glide.
+  private drawTow() {
+    this.gTow.clear();
+    if (!this.showCarsAndMoves || this.glides.size > 0) return;
+    for (const link of this.session.draftLinks()) {
+      const car = this.cars.find((c) => c.carId === link.carId);
+      const start = car && this.cellMap.get(car.cellId);
+      if (!start) continue;
+      const points = [start.pos];
+      for (let cur = start, i = 0; i < link.gap; i += 1) {
+        const next = cur.next.map((id) => this.cellMap.get(id)).find((c) => c && c.laneIndex === cur.laneIndex);
+        if (!next) break;
+        points.push(next.pos);
+        cur = next;
+      }
+      if (points.length < 2) continue;
+      const heading = headingOf(start, this.cellMap);
+      this.gTow.lineStyle(2, link.ready ? 0xffd166 : 0x7fb4ff, 0.6);
+      for (const offset of [-4, 0, 4]) {
+        const line = points.map((p) => ({ x: p.x - heading.y * offset, y: p.y + heading.x * offset }));
+        roadPath(line).draw(this.gTow, 24);
+      }
+    }
   }
 
   // The path of the move about to be made (the picked target, else the one under the pointer or the dragged car), as a

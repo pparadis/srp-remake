@@ -1,7 +1,8 @@
 // The race as one player's page sees it, without Phaser: the solo turn loop (the human's action, then the bots
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
-import { MOVE_BUDGET, MOVE_RATES } from "../constants";
+import { DRAFT_RANGE, DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from "../constants";
+import { draftAhead } from "../systems/draftSystem";
 import type { BotLevel, Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
@@ -17,8 +18,6 @@ import { PERSONALITIES, personalityOf } from "../systems/botStyle";
 import {
   applyAction,
   computeTargets,
-  draftedCar,
-  isDrafting,
   slingshotLine,
   createRace,
   createRaceContext,
@@ -366,11 +365,11 @@ export class RaceSession {
     const wasFinished = this.finished;
     const before = this.feelSeededOnline ? this.race : null;
     this.race = toEngineRace(raceState);
-    // the turn summary has no slingshot flag: a car's counter going up is one (the passed car is read before the move)
+    // the turn summary has no slingshot flag: a car's counter going up is one
     for (const car of before ? this.race.cars : []) {
       const was = before!.cars.find((c) => c.carId === car.carId);
       if (!was || (car.slingshots ?? 0) <= (was.slingshots ?? 0)) continue;
-      this.addLog(slingshotLine(car.carId, draftedCar(this.ctx, before!, was)?.carId ?? null));
+      this.addLog(slingshotLine(car.carId));
     }
     if (before) this.noteServerMoves(before);
     if (!this.feelSeededOnline) {
@@ -447,6 +446,22 @@ export class RaceSession {
     }
   }
 
+  /**
+   * The cars in a tow, for the board to draw: every car whose last move ended tucked in behind a car. `gap` is the
+   * cells to the car ahead when it is still there (1 to DRAFT_RANGE), else DRAFT_RANGE: the leader has moved on and the
+   * tow shows as a short run ahead of the car. `ready` is the slingshot being open on its next move.
+   */
+  draftLinks(): Array<{ carId: number; gap: number; ready: boolean }> {
+    const occupied = this.cars.map((c) => c.cellId);
+    return this.cars
+      .filter((car) => (car.draftTurns ?? 0) >= 1 && car.state !== "DNF")
+      .map((car) => ({
+        carId: car.carId,
+        gap: draftAhead(this.ctx.trackIndex, car.cellId, occupied)?.gap ?? DRAFT_RANGE,
+        ready: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS
+      }));
+  }
+
   /** The cells `carId` drove through on its last move, first cell included; empty before it has moved. */
   lastMovePath(carId: number): string[] {
     return this.lastPaths.get(carId) ?? [];
@@ -497,7 +512,8 @@ export class RaceSession {
         cellId: car.cellId,
         tire: car.tire,
         fuel: car.fuel,
-        slingshots: car.slingshots ?? 0
+        slingshots: car.slingshots ?? 0,
+        draftTurns: car.draftTurns ?? 0
       }))
     });
     // a lap or a finish drowns the plain move click
@@ -537,6 +553,15 @@ export class RaceSession {
     return buildPlanContext(this.ctx.trackIndex, this.raceLaps);
   }
 
+  /**
+   * True when the active car would end its move on `cellId` tucked in behind a car (1 to DRAFT_RANGE cells ahead in that
+   * lane, the cars where they stand now): the move that keeps or starts the tow. The rule reads it after the move.
+   */
+  endsTucked(cellId: string): boolean {
+    const others = this.cars.filter((c) => c.carId !== this.activeCar.carId).map((c) => c.cellId);
+    return draftAhead(this.ctx.trackIndex, cellId, others) !== null;
+  }
+
   /** What the HUD shows for one target: the move and the tire and fuel it leaves (hover tooltip, tap card). */
   private targetHud(cell: TrackCell, target: TargetInfo, pos: { x: number; y: number } | null): HudHover | null {
     if (!pos) return null;
@@ -552,6 +577,7 @@ export class RaceSession {
       ...(target.drafted ? { drafted: true } : {}),
       ...(target.slingshot ? { slingshot: true } : {}),
       ...(target.slingshotOnly ? { slingshotOnly: true } : {}),
+      ...(this.endsTucked(cell.id) ? { tucksIn: true } : {}),
       tireBefore: this.activeCar.tire,
       fuelBefore: this.activeCar.fuel
     };
@@ -609,7 +635,8 @@ export class RaceSession {
       remaining: getRemainingBudget(car.moveCycle, cycleBudget(car.setup)),
       budget: cycleBudget(car.setup),
       pitServiced: car.pitServiced,
-      drafting: isDrafting(this.ctx, this.race, car),
+      // tucked in: the car ended its last move behind a car, so its next move is in the tow (the leader may be gone)
+      drafting: (car.draftTurns ?? 0) >= 1,
       draftTurns: car.draftTurns ?? 0,
       stint: stintEstimate(car, this.ctx.trackIndex.spineLen),
       advice: pitAdvice(car, this.cellMap.get(car.cellId)!, this.plan())

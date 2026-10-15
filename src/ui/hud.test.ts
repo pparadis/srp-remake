@@ -206,15 +206,32 @@ describe("hud", () => {
     renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 1 })] }));
     expect(draft().hidden).toBe(false);
     // the card's line, and the short chip of the phone's top bar (CSS shows one of the two)
-    expect(text(root, "hud-draft-long")).toBe("Drafting 1/2");
-    expect(text(root, "hud-draft-short")).toBe("DRAFT 1/2");
+    expect(text(root, "hud-draft-long")).toBe("In the tow 1/2");
+    expect(text(root, "hud-draft-short")).toBe("» DRAFT 1/2");
     expect(draft().classList.contains("is-ready")).toBe(false);
     renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 2 })] }));
-    expect(text(root, "hud-draft-long")).toBe("Drafting - slingshot ready");
-    expect(text(root, "hud-draft-short")).toBe("SLINGSHOT");
+    expect(text(root, "hud-draft-long")).toBe("In the tow - slingshot ready");
+    expect(text(root, "hud-draft-short")).toBe("» SLINGSHOT");
     expect(draft().classList.contains("is-ready")).toBe(true);
+    // a run longer than the slingshot needs still reads 2/2 once it is not ready (e.g. the sandbox's 9)
+    renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 5 })] }));
+    expect(text(root, "hud-draft-short")).toBe("» SLINGSHOT");
     renderHud(root, snap({ cars: [car(2, { drafting: false, draftTurns: 0 })] }));
     expect(draft().hidden).toBe(true);
+  });
+
+  it("pulses the draft chip when it appears and when its count goes up, not on a repeated snapshot", () => {
+    const draft = () => root.querySelector<HTMLElement>('[data-testid="hud-draft"]')!;
+    const pulses = () => draft().classList.contains("is-pulse");
+    renderHud(root, snap({ cars: [car(2, { drafting: false, draftTurns: 0 })] }));
+    expect(pulses()).toBe(false);
+    renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 1 })] }));
+    expect(pulses()).toBe(true);
+    draft().classList.remove("is-pulse"); // the animation ended
+    renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 1 })] }));
+    expect(pulses()).toBe(false);
+    renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 2 })] }));
+    expect(pulses()).toBe(true);
   });
 
   it("tooltip says when a move is drafted, and when it is a slingshot", () => {
@@ -227,6 +244,10 @@ describe("hud", () => {
     expect(text(root, "hud-tooltip")).toContain("Slingshot: the lane change is free");
     renderHud(root, snap({ hover: { ...hover, drafted: true, slingshot: true, slingshotOnly: true } }));
     expect(text(root, "hud-tooltip")).toContain("Slingshot: only in reach thanks to the draft");
+    // a move that ends 1-2 cells behind a car keeps the tow for the next one
+    renderHud(root, snap({ hover: { ...hover, tucksIn: true } }));
+    expect(text(root, "hud-tooltip")).toContain("Ends in the tow: less wear next move");
+    expect(text(root, "hud-tooltip")).not.toContain("Draft:");
   });
 
   it("tooltip names the lane changes of a route that changes lane 2 or more times", () => {

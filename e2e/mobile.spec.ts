@@ -115,7 +115,7 @@ test("phone: the draft shows as a chip in the top bar without making it taller, 
     await page.setViewportSize(size);
     const label = JSON.stringify(size);
     await expect(tid(page, "hud-draft"), label).toBeVisible();
-    await expect(tid(page, "hud-draft-short"), label).toHaveText("SLINGSHOT");
+    await expect(tid(page, "hud-draft-short"), label).toHaveText("» SLINGSHOT");
     await expect(tid(page, "hud-draft-long"), label).toBeHidden();
     await expect.poll(async () => (await tid(page, "hud-card").boundingBox())!.height, label).toBe(plain[i]);
     const chip = (await tid(page, "hud-draft").boundingBox())!;
@@ -126,6 +126,22 @@ test("phone: the draft shows as a chip in the top bar without making it taller, 
   const targets = await page.evaluate(() => window.__srp!.state().movement.validTargets);
   expect(targets.some((t) => t.slingshot)).toBe(true);
   expect(targets.some((t) => t.slingshotOnly)).toBe(true);
+
+  // one move in the tow: the blue count, no slingshot yet (the leader is nowhere near: the tow is the last move's)
+  const once = {
+    ...position,
+    cars: position.cars.map((car) => ({ ...car, ...(car.carId === 1 ? { draftTurns: 1, cellId: "Z05_L1_00" } : {}), ...(car.carId === 2 ? { cellId: "Z18_L1_00" } : {}) }))
+  };
+  await page.goto(`/?sandbox&seed=0&pos=${encodeURIComponent(btoa(JSON.stringify(once)))}`);
+  await tid(page, "home-quick").click();
+  await setLobbySettings(page, { bots: 2, laps: 3 });
+  await startRace(page);
+  await expect(tid(page, "hud-draft-short")).toHaveText("» DRAFT 1/2");
+  await expect(tid(page, "hud-draft")).not.toHaveClass(/is-ready/);
+  const once2 = await page.evaluate(() => window.__srp!.state().movement.validTargets.filter((t) => !t.isPitTrigger));
+  expect(once2.length).toBeGreaterThan(0);
+  expect(once2.every((t) => t.drafted === true)).toBe(true);
+  expect(once2.some((t) => t.slingshot)).toBe(false);
   expect(errors).toEqual([]);
 });
 

@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import { targetLayers, type TargetRing } from "../rendering/bakedTextures";
 import { TargetMarkers, type TargetMarker } from "./TargetMarkers";
 
-const plain: TargetRing = { color: 0x3aa0ff, squeeze: false, slingshot: false, slingshotOnly: false, risk: "none" };
+const plain: TargetRing = {
+  color: 0x3aa0ff,
+  squeeze: false,
+  slingshot: false,
+  slingshotOnly: false,
+  tuck: false,
+  risk: "none"
+};
 
 // Just enough of a scene: counts what is made, records what is changed.
 function fakeScene() {
@@ -67,6 +74,15 @@ describe("targetLayers", () => {
       [14, 4, 0xff4d4d]
     ]);
     expect(layers[1]!.dashes).toBe(10);
+  });
+
+  it("a move that ends tucked in behind a car gets a thin dashed blue ring under the slingshot's gold one", () => {
+    const layers = targetLayers({ ...plain, tuck: true, slingshot: true });
+    expect(layers.map((l) => [l.radius, l.color, l.dashes ?? 0])).toEqual([
+      [10, 0x3aa0ff, 0],
+      [13, 0x7fb4ff, 8],
+      [13, 0xffd166, 0]
+    ]);
   });
 
   it("a low resource gives the thin risk ring", () => {
