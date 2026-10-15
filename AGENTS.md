@@ -83,6 +83,11 @@ Project guide for Codex and other automation.
   race scene never started on an iPhone 17 (reverted in #59), so it stays opt-in until it works there; `?hidpi` also
   shows a probe line (`src/ui/diagnostics.ts`). Uncaught errors always show in the `crash-report` box (phones have no
   console).
+- What repeats is baked once, never drawn or rasterised per frame (#88): the track at `renderScale()` pixels per unit
+  (`drawTrack`: `generateTexture` replays `scaleCanvas`, shown at `1 / k`, so `?hidpi` is sharp), and the target rings,
+  car bodies, number badges and confetti swatches as canvas textures (`rendering/bakedTextures.ts`, at `renderScale()`
+  times 2 so a 3x pinch stays sharp). Target rings and costs are pooled (`ui/TargetMarkers.ts`); a new marker kind is a
+  layer in `targetLayers`, not a Graphics call.
 - The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
   `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceSession.hudSnapshot()` builds (`RaceScene.emitHud()`
   sends it). Add HUD data to the snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.

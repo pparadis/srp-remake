@@ -28,6 +28,8 @@ import { PIT_PANEL, PitModal } from "./ui/PitModal";
 import { DebugButtons } from "./ui/DebugButtons";
 import { makeButton } from "./ui/makeButton";
 import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
+import { TargetMarkers, type TargetMarker } from "./ui/TargetMarkers";
+import { badgeTexture, carBodyTexture } from "./rendering/bakedTextures";
 import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
 import { spriteRotation } from "./rendering/heading";
 import { GLIDE, glideCap, glideDuration } from "./rendering/glide";
@@ -115,7 +117,7 @@ export class RaceScene extends Phaser.Scene {
 
   private gTrack!: Phaser.GameObjects.Graphics;
   private trackImage?: Phaser.GameObjects.Image;
-  private gTargets!: Phaser.GameObjects.Graphics;
+  private targetMarkers!: TargetMarkers;
   private gFrame!: Phaser.GameObjects.Graphics;
   private hoverCell: TrackCell | null = null;
   private showForwardIndex = false;
@@ -123,7 +125,6 @@ export class RaceScene extends Phaser.Scene {
   private carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
   private activeHalos: Map<number, Phaser.GameObjects.Ellipse> = new Map();
   private activeHaloTween: Phaser.Tweens.Tween | null = null;
-  private targetCostLabels: Phaser.GameObjects.Text[] = [];
   private dragOrigin: { x: number; y: number } | null = null;
   private pendingPit: { cell: TrackCell; origin: { x: number; y: number } } | null = null;
   private pitModal!: PitModal;
@@ -242,7 +243,7 @@ export class RaceScene extends Phaser.Scene {
     // The grass is the CSS background of #app behind this transparent canvas (style.css): a 4000x3000 tileSprite
     // was redrawn every frame and took Firefox down to 9 fps (issue #79).
     this.gTrack = this.add.graphics();
-    this.gTargets = this.add.graphics();
+    this.targetMarkers = new TargetMarkers(this);
     // above the track, the trails and the target rings; under the cost labels and the cars
     this.gPreview = this.add.graphics().setDepth(8);
     this.gFrame = this.add.graphics();
@@ -488,18 +489,12 @@ export class RaceScene extends Phaser.Scene {
     this.activeHalos.set(car.carId, halo);
 
     // Kenney cars point up; the sprite alone is rotated so the badge stays upright.
-    const body = this.add.image(0, 0, spriteKey).setDisplaySize(15, 28);
+    // Both pictures are baked once (bakedTextures.ts): nothing is rescaled or rasterised per frame.
+    const body = this.add.image(0, 0, carBodyTexture(this, spriteKey, 15, 28)).setDisplaySize(15, 28);
     body.setRotation(spriteRotation(cell, this.cellMap));
-    const badge = this.add.circle(0, 0, 5.5, 0x0b0f14, 0.85);
-    const label = this.add.text(0, 0, String(car.carId), {
-      fontFamily: "monospace",
-      resolution: textResolution(),
-      fontSize: "9px",
-      color: "#ffffff"
-    });
-    label.setOrigin(0.5, 0.5);
+    const badge = this.add.image(0, 0, badgeTexture(this, car.carId)).setDisplaySize(12, 12);
 
-    const token = this.add.container(cell.pos.x, cell.pos.y, [body, badge, label]);
+    const token = this.add.container(cell.pos.x, cell.pos.y, [body, badge]);
     token.setDepth(50);
     // a finger needs a bigger target than the sprite; the drawing stays the same
     const coarse = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
@@ -781,59 +776,34 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private drawTargets() {
-    this.gTargets.clear();
-    this.clearTargetCostLabels();
     this.drawPreview();
-    if (!this.showCarsAndMoves) return;
+    if (!this.showCarsAndMoves) return this.targetMarkers.clear();
+    const markers: TargetMarker[] = [];
     for (const [cellId, info] of this.validTargets) {
       const cell = this.cellMap.get(cellId);
       if (!cell) continue;
-
-      const color = info.isPitTrigger ? 0xffe066 : laneColor(cell.laneIndex);
-      this.gTargets.fillStyle(color, 0.4);
-      this.gTargets.fillCircle(cell.pos.x, cell.pos.y, 10);
-      this.gTargets.lineStyle(2, color, 0.95);
-      this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 10);
-      if (info.squeezePassed) this.strokeDashedRing(cell.pos.x, cell.pos.y, 13, 0xffb020);
       // Slingshot: the draft makes this move cheaper (or puts it in reach at all): a gold ring, doubled when only the
       // slingshot puts it in reach. A squeeze target is never a slingshot (squeeze only exists without normal targets).
-      if (info.slingshot) {
-        this.gTargets.lineStyle(2, 0xffd166, 1);
-        this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 13);
-        if (info.slingshotOnly) this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 16);
-      }
       // Risk: the move leaves a resource under 20% (thin ring) or empty (thick ring).
       const left = this.session.resourcesAfter(info);
-      if (!info.isPitTrigger && Math.min(left.tire, left.fuel) < 20) {
-        this.gTargets.lineStyle(Math.min(left.tire, left.fuel) <= 0 ? 4 : 2, 0xff4d4d, 1);
-        this.gTargets.strokeCircle(cell.pos.x, cell.pos.y, 14);
-      }
-
-      const costLabel = this.add.text(
-        cell.pos.x,
-        cell.pos.y,
-        String(this.session.moveSpendOf(info, cell.laneIndex)),
-        {
-          fontFamily: "monospace",
-          resolution: textResolution(),
-          fontSize: "11px",
-          color: "#ffffff",
-          fontStyle: "bold",
-          stroke: "#0b0f14",
-          strokeThickness: 3
-        }
-      );
-      costLabel.setOrigin(0.5, 0.5);
-      costLabel.setDepth(46);
-      this.targetCostLabels.push(costLabel);
+      const least = Math.min(left.tire, left.fuel);
+      markers.push({
+        x: cell.pos.x,
+        y: cell.pos.y,
+        ring: {
+          color: info.isPitTrigger ? 0xffe066 : laneColor(cell.laneIndex),
+          squeeze: Boolean(info.squeezePassed),
+          slingshot: Boolean(info.slingshot),
+          slingshotOnly: Boolean(info.slingshotOnly),
+          risk: info.isPitTrigger || least >= 20 ? "none" : least <= 0 ? "empty" : "low"
+        },
+        cost: String(this.session.moveSpendOf(info, cell.laneIndex))
+      });
     }
     // tap to move: the picked target, waiting for Move here
     const selected = this.session.selectedTarget();
     const selectedCell = selected && this.cellMap.get(selected.cellId);
-    if (selectedCell) {
-      this.gTargets.lineStyle(3, 0xffffff, 1);
-      this.gTargets.strokeCircle(selectedCell.pos.x, selectedCell.pos.y, 16);
-    }
+    this.targetMarkers.show(markers, selectedCell ? selectedCell.pos : null);
   }
 
   // The path of the move about to be made (the picked target, else the one under the pointer or the dragged car), as a
@@ -931,25 +901,6 @@ export class RaceScene extends Phaser.Scene {
     });
     this.drawTargets();
     this.emitHud();
-  }
-
-  // Squeeze targets: dashed amber ring (Phaser graphics has no dash style, so draw arcs).
-  private strokeDashedRing(x: number, y: number, radius: number, color: number) {
-    this.gTargets.lineStyle(3, color, 1);
-    const dashes = 10;
-    for (let i = 0; i < dashes; i += 1) {
-      const a0 = (i / dashes) * Math.PI * 2;
-      this.gTargets.beginPath();
-      this.gTargets.arc(x, y, radius, a0, a0 + (Math.PI * 2) / dashes / 2);
-      this.gTargets.strokePath();
-    }
-  }
-
-  private clearTargetCostLabels() {
-    for (const label of this.targetCostLabels) {
-      label.destroy();
-    }
-    this.targetCostLabels = [];
   }
 
   private drawFrame() {
@@ -1255,8 +1206,7 @@ export class RaceScene extends Phaser.Scene {
       setActiveHaloTween: (tween) => {
         this.activeHaloTween = tween;
       },
-      gTargets: this.gTargets,
-      clearTargetCostLabels: () => this.clearTargetCostLabels(),
+      clearTargets: () => this.targetMarkers.clear(),
       carTokens: this.carTokens,
       activeHalos: this.activeHalos,
       setDraggable: (token, isDraggable) => this.input.setDraggable(token, isDraggable),
@@ -1383,14 +1333,18 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private drawTrack() {
+    // shortcut: no cap on the texture size; at 2x this track is 2176x1236, a canvas limit (iOS ~16M px) is far off
+    const k = renderScale();
     drawTrackGraphics({
       graphics: this.gTrack,
       track: this.track,
       cellMap: this.cellMap,
       showForwardIndex: this.showForwardIndex,
-      renderForwardIndexOverlay: () => this.renderForwardIndexOverlay()
+      renderForwardIndexOverlay: () => this.renderForwardIndexOverlay(),
+      scale: k
     });
     // Bake into a texture: a Graphics object is re-tessellated every frame, the static track is not worth that.
+    // At `renderScale()` texture pixels per unit and shown at 1 / k, so `?hidpi` is sharp (it was upscaled from 1x).
     const key = "track-baked";
     this.trackImage?.destroy();
     if (this.textures.exists(key)) this.textures.remove(key);
@@ -1398,9 +1352,9 @@ export class RaceScene extends Phaser.Scene {
     const ys = this.track.cells.map((c) => c.pos.y);
     const w = Math.ceil(Math.max(...xs) + 100);
     const h = Math.ceil(Math.max(...ys) + 100);
-    this.gTrack.generateTexture(key, w, h);
+    this.gTrack.generateTexture(key, Math.ceil(w * k), Math.ceil(h * k));
     this.gTrack.clear();
-    this.trackImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(-5);
+    this.trackImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(-5).setScale(1 / k);
   }
 
   private findNearestCell(x: number, y: number, maxDist: number): TrackCell | null {

@@ -4,8 +4,7 @@ interface ApplyCarsMovesVisibilityParams {
   showCarsAndMoves: boolean;
   activeHaloTween: Phaser.Tweens.Tween | null;
   setActiveHaloTween: (tween: Phaser.Tweens.Tween | null) => void;
-  gTargets: Phaser.GameObjects.Graphics;
-  clearTargetCostLabels: () => void;
+  clearTargets: () => void;
   carTokens: Map<number, Phaser.GameObjects.Container>;
   activeHalos: Map<number, Phaser.GameObjects.Ellipse>;
   setDraggable: (token: Phaser.GameObjects.Container, isDraggable: boolean) => void;
@@ -18,8 +17,7 @@ export function applyCarsMovesVisibility(params: ApplyCarsMovesVisibilityParams)
     showCarsAndMoves,
     activeHaloTween,
     setActiveHaloTween,
-    gTargets,
-    clearTargetCostLabels,
+    clearTargets,
     carTokens,
     activeHalos,
     setDraggable,
@@ -32,8 +30,7 @@ export function applyCarsMovesVisibility(params: ApplyCarsMovesVisibilityParams)
       activeHaloTween.stop();
       setActiveHaloTween(null);
     }
-    gTargets.clear();
-    clearTargetCostLabels();
+    clearTargets();
     for (const token of carTokens.values()) {
       token.setVisible(false);
       setDraggable(token, false);

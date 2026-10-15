@@ -17,9 +17,8 @@ function makeHalo(setVisible: ReturnType<typeof vi.fn>): Phaser.GameObjects.Elli
 describe("applyCarsMovesVisibility", () => {
   it("hides cars and move markers when toggle is off", () => {
     const stop = vi.fn();
-    const clear = vi.fn();
+    const clearTargets = vi.fn();
     const setActiveHaloTween = vi.fn();
-    const clearTargetCostLabels = vi.fn();
     const setDraggable = vi.fn();
     const updateActiveCarVisuals = vi.fn();
     const drawTargets = vi.fn();
@@ -36,8 +35,7 @@ describe("applyCarsMovesVisibility", () => {
       showCarsAndMoves: false,
       activeHaloTween: { stop } as unknown as Phaser.Tweens.Tween,
       setActiveHaloTween,
-      gTargets: { clear } as unknown as Phaser.GameObjects.Graphics,
-      clearTargetCostLabels,
+      clearTargets,
       carTokens: new Map([
         [1, tokenA],
         [2, tokenB]
@@ -53,8 +51,7 @@ describe("applyCarsMovesVisibility", () => {
 
     expect(stop).toHaveBeenCalledTimes(1);
     expect(setActiveHaloTween).toHaveBeenCalledWith(null);
-    expect(clear).toHaveBeenCalledTimes(1);
-    expect(clearTargetCostLabels).toHaveBeenCalledTimes(1);
+    expect(clearTargets).toHaveBeenCalledTimes(1);
     expect(tokenAVisible).toHaveBeenCalledWith(false);
     expect(tokenBVisible).toHaveBeenCalledWith(false);
     expect(setDraggable).toHaveBeenNthCalledWith(1, tokenA, false);
@@ -66,7 +63,7 @@ describe("applyCarsMovesVisibility", () => {
   });
 
   it("shows cars and redraws targets when toggle is on", () => {
-    const clear = vi.fn();
+    const clearTargets = vi.fn();
     const tokenAVisible = vi.fn();
     const tokenBVisible = vi.fn();
     const tokenA = makeToken(tokenAVisible);
@@ -78,8 +75,7 @@ describe("applyCarsMovesVisibility", () => {
       showCarsAndMoves: true,
       activeHaloTween: null,
       setActiveHaloTween: vi.fn(),
-      gTargets: { clear } as unknown as Phaser.GameObjects.Graphics,
-      clearTargetCostLabels: vi.fn(),
+      clearTargets,
       carTokens: new Map([
         [1, tokenA],
         [2, tokenB]
@@ -94,6 +90,6 @@ describe("applyCarsMovesVisibility", () => {
     expect(tokenBVisible).toHaveBeenCalledWith(true);
     expect(updateActiveCarVisuals).toHaveBeenCalledTimes(1);
     expect(drawTargets).toHaveBeenCalledTimes(1);
-    expect(clear).not.toHaveBeenCalled();
+    expect(clearTargets).not.toHaveBeenCalled();
   });
 });

@@ -41,7 +41,7 @@
 - The start line crosses the pit lane: a lap crossed there counts, as in F1, so a stop only costs the lost turn and the
   slow one-step pit lane (about 40 cells; the pit advice and the bots plan for that). A pit-lane crossing can end the
   race like any other.
-- Confetti is drawn with Phaser graphics (`Confetti.ts`) and removes itself after about 3.5 s.
+- Confetti is a pool of Images of baked colour swatches (`Confetti.ts`) and removes itself after about 3.5 s.
   `__srp.freezeAnimations()` also stops it, for screenshots.
 - Sound (`src/ui/sound.ts`) is a WebAudio synth without asset files. It stays silent until the first click
   or key press (autoplay policy), while muted, and in test builds. The "Sound: on/off" button in the HUD and
