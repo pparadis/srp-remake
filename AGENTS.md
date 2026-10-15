@@ -219,6 +219,10 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
      `FakeWebSocket`): routing, lobby screens, mute, turn timer, host skip, disconnects;
   4. backend contract (`backend/test/*`, Fastify `inject`): the API, WebSocket sync, rules, AFK, bots;
   5. e2e (Playwright): whole journeys across pages or sockets, real pointer input, pixels and layout.
+- A rule with an effect the player can see needs a reachability check, not only a test on a position you build:
+  `src/game/race/featureReach.test.ts` plays seeded bot-only races (nobody placing cars) and asserts how often each
+  rule comes up, in wide bands, and prints the numbers. A new such rule gets a line there. Drafting passed every
+  constructed-position test while it fired on 0 of 498 real turns (#98).
 - A new e2e test must justify that it needs a real browser (a journey across pages or sockets, real pointer input, or
   pixels); everything else goes in a unit, session, page-controller or contract test.
 - One spec: `GITHUB_ACTIONS=true GITHUB_REPOSITORY=pparadis/srp-remake E2E_PORT=5399 E2E_BACKEND_PORT=3311 npx playwright test e2e/track.spec.ts --workers=2`
