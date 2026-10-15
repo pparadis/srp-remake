@@ -281,11 +281,15 @@ interface DrawTrackParams {
   cellMap: CellMap;
   showForwardIndex: boolean;
   renderForwardIndexOverlay: () => void;
+  /** Canvas pixels per world unit when the graphics is baked with `generateTexture` (1 when it is drawn as is). */
+  scale?: number;
 }
 
 export function drawTrack(params: DrawTrackParams): void {
-  const { graphics: g, track, cellMap, showForwardIndex, renderForwardIndexOverlay } = params;
+  const { graphics: g, track, cellMap, showForwardIndex, renderForwardIndexOverlay, scale = 1 } = params;
   g.clear();
+  // generateTexture ignores the Graphics' own scale, but it replays this command
+  if (scale !== 1) g.scaleCanvas(scale, scale);
 
   const paths = Array.from({ length: track.lanes }, (_, lane) => buildLanePath(track, cellMap, lane));
   const pit = paths[PIT_LANE] ?? [];

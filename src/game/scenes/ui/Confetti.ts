@@ -1,7 +1,9 @@
 import Phaser from "phaser";
 import { renderScale } from "../../hidpi";
+import { swatchTexture } from "../rendering/bakedTextures";
 
 interface Piece {
+  img: Phaser.GameObjects.Image;
   x: number;
   y: number;
   vx: number;
@@ -9,15 +11,14 @@ interface Piece {
   spin: number;
   angle: number;
   size: number;
-  color: number;
 }
 
 const COLORS = [0xffe066, 0xff5a5a, 0x4cd964, 0x4da3ff, 0xffffff, 0xff9f43];
 
-/** One burst of confetti in screen space, drawn with a Graphics object and gone after `lifeMs`. */
+/** One burst of confetti in screen space, gone after `lifeMs`: one Image of a baked colour swatch per piece. */
 export class Confetti {
   private pieces: Piece[] = [];
-  private g: Phaser.GameObjects.Graphics;
+  private layer: Phaser.GameObjects.Container;
   private age = 0;
   private done = false;
   private readonly onUpdate = (_time: number, delta: number) => this.step(delta);
@@ -32,17 +33,19 @@ export class Confetti {
     const k = 1 / zoom;
     const px = renderScale(); // canvas pixels per CSS pixel: the pieces keep their size on screen
     // Fixed objects are zoomed with the camera; undo that so the burst covers the screen.
-    this.g = scene.add.graphics().setScrollFactor(0).setDepth(90).setScale(k).setPosition((width / 2) * (1 - k), (height / 2) * (1 - k));
+    this.layer = scene.add.container((width / 2) * (1 - k), (height / 2) * (1 - k)).setScrollFactor(0).setDepth(90).setScale(k);
     for (let i = 0; i < count; i += 1) {
+      const img = scene.add.image(0, 0, swatchTexture(scene, COLORS[i % COLORS.length]!));
+      this.layer.add(img);
       this.pieces.push({
+        img,
         x: Math.random() * width,
         y: -20 * px - Math.random() * height * 0.4,
         vx: (Math.random() - 0.5) * 120 * px,
         vy: (120 + Math.random() * 220) * px,
         spin: (Math.random() - 0.5) * 8,
         angle: Math.random() * Math.PI,
-        size: (5 + Math.random() * 5) * px,
-        color: COLORS[i % COLORS.length]!
+        size: (5 + Math.random() * 5) * px
       });
     }
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.onUpdate);
@@ -54,15 +57,12 @@ export class Confetti {
     const dt = Math.min(delta, 50) / 1000;
     this.age += delta;
     if (this.age >= this.lifeMs) return this.stop();
-    this.g.clear();
-    this.g.setAlpha(Math.min(1, (this.lifeMs - this.age) / 600));
+    this.layer.setAlpha(Math.min(1, (this.lifeMs - this.age) / 600));
     for (const p of this.pieces) {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.angle += p.spin * dt;
-      this.g.fillStyle(p.color, 1);
-      const w = p.size * (0.4 + Math.abs(Math.cos(p.angle)));
-      this.g.fillRect(p.x - w / 2, p.y - p.size / 2, w, p.size);
+      p.img.setPosition(p.x, p.y).setDisplaySize(p.size * (0.4 + Math.abs(Math.cos(p.angle))), p.size);
     }
   }
 
@@ -71,6 +71,6 @@ export class Confetti {
     if (this.done) return;
     this.done = true;
     this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.onUpdate);
-    this.g.destroy();
+    this.layer.destroy();
   }
 }
