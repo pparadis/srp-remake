@@ -1,11 +1,16 @@
 // Turns successive race snapshots into the moments worth a toast or a sound. Phaser-free.
 import { resourceLevel } from "../../ui/hud";
+import { DRAFT_SLINGSHOT_TURNS } from "../constants";
 
 export type FeelEvent =
   | { type: "move" }
   | { type: "lap"; lap: number; laps: number; final: boolean }
   | { type: "low"; resource: "tire" | "fuel" }
   | { type: "slingshot" }
+  /** The local car's move ended tucked in behind a car: its next move is in the tow. */
+  | { type: "draft" }
+  /** ... twice in a row: a lane change on its next move is free. */
+  | { type: "slingshotReady" }
   | { type: "turn" }
   | { type: "finish" };
 
@@ -15,7 +20,15 @@ export interface FeelView {
   raceLaps: number;
   finished: boolean;
   canControl: boolean;
-  cars: Array<{ carId: number; lapCount: number; cellId: string; tire: number; fuel: number; slingshots?: number }>;
+  cars: Array<{
+    carId: number;
+    lapCount: number;
+    cellId: string;
+    tire: number;
+    fuel: number;
+    slingshots?: number;
+    draftTurns?: number;
+  }>;
 }
 
 interface FeelMemory {
@@ -23,6 +36,7 @@ interface FeelMemory {
   cells: Map<number, string>;
   laps: number;
   slingshots: number;
+  draftTurns: number;
   // 0 fine, 1 below 20%, 2 empty
   low: { tire: number; fuel: number };
   canControl: boolean;
@@ -34,6 +48,7 @@ export const createFeelMemory = (): FeelMemory => ({
   cells: new Map(),
   laps: 0,
   slingshots: 0,
+  draftTurns: 0,
   low: { tire: 0, fuel: 0 },
   canControl: false,
   finished: false
@@ -51,6 +66,7 @@ export function detectFeel(mem: FeelMemory, view: FeelView): FeelEvent[] {
   const low = { tire: lowLevel(mine?.tire ?? 100), fuel: lowLevel(mine?.fuel ?? 100) };
   const laps = mine?.lapCount ?? 0;
   const slingshots = mine?.slingshots ?? 0;
+  const draftTurns = mine?.draftTurns ?? 0;
 
   if (mem.seeded) {
     if (view.cars.some((car) => mem.cells.get(car.carId) !== car.cellId)) events.push({ type: "move" });
@@ -60,6 +76,11 @@ export function detectFeel(mem: FeelMemory, view: FeelView): FeelEvent[] {
       events.push({ type: "lap", lap: laps + 1, laps: view.raceLaps, final: laps + 1 === view.raceLaps });
     }
     if (mine && slingshots > mem.slingshots) events.push({ type: "slingshot" });
+    // once per stint in the tow: entering it, and the run reaching what opens the slingshot
+    if (mine && draftTurns >= 1 && mem.draftTurns < 1) events.push({ type: "draft" });
+    if (mine && draftTurns >= DRAFT_SLINGSHOT_TURNS && mem.draftTurns < DRAFT_SLINGSHOT_TURNS) {
+      events.push({ type: "slingshotReady" });
+    }
     for (const resource of ["tire", "fuel"] as const) {
       if (low[resource] > mem.low[resource]) events.push({ type: "low", resource });
     }
@@ -71,6 +92,7 @@ export function detectFeel(mem: FeelMemory, view: FeelView): FeelEvent[] {
   mem.cells = new Map(view.cars.map((car) => [car.carId, car.cellId]));
   mem.laps = laps;
   mem.slingshots = slingshots;
+  mem.draftTurns = draftTurns;
   mem.low = low;
   mem.canControl = view.canControl;
   mem.finished = view.finished;

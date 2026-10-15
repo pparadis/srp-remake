@@ -612,12 +612,13 @@ describe("drafting turns and the slingshot", () => {
       { isBot: false, ownerId: "P2" },
       { isBot: false, ownerId: "P3" }
     ]);
-  // Car 1 in lane 1 at Z05, car 2 two cells ahead of it in the same lane; car 3 out of the way. Car 1 plays first.
+  // Car 1 in lane 1 at Z05, car 2 three cells ahead of it in the same lane (a move to Z06 or Z07 ends tucked in behind
+  // it); car 3 out of the way. Car 1 plays first.
   const draftRace = (): RaceState => {
     const state = humans();
     const [c1, c2, c3] = state.cars as [Car, Car, Car];
     Object.assign(c1, { cellId: "Z05_L1_00", lapCount: 0 });
-    Object.assign(c2, { cellId: "Z07_L1_00", lapCount: 0 });
+    Object.assign(c2, { cellId: "Z08_L1_00", lapCount: 0 });
     Object.assign(c3, { cellId: "Z20_L3_00", lapCount: 0 });
     return state;
   };
@@ -634,38 +635,64 @@ describe("drafting turns and the slingshot", () => {
     return firstTarget(state);
   };
 
-  it("counts the turns that begin in a draft, and the slingshot opens on the third", () => {
+  it("a move that ends 1-2 cells behind a car is in its tow for the next move, whatever the leader does", () => {
     const state = draftRace();
     const car1 = state.cars[0]!;
-    expect(computeTargets(ctx, state, car1).get("Z08_L2_00")).toMatchObject({ moveSpend: 4 });
+    // nothing to tow behind yet: the plain price of the longest same-lane move
+    const plain = [...computeTargets(ctx, state, car1).values()].find((t) => t.distance === 9)!;
+    expect(plain.drafted).toBeUndefined();
 
-    // turn 1 begins in the draft (car 2 is 2 cells ahead): the counter goes to 1
+    // the move ends 2 cells behind car 2: the run is 1
     expect(applyAction(ctx, state, { type: "move", targetCellId: "Z06_L1_00" }).ok).toBe(true);
     expect(car1.draftTurns).toBe(1);
 
-    backToCar1(state, "Z08_L1_00"); // still 2 ahead of car 1 at Z06
-    expect(computeTargets(ctx, state, car1).get("Z09_L2_00")?.slingshot).toBeUndefined();
-    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z07_L1_00" }).ok).toBe(true);
+    // car 2 has run away (that is what a leader does between two turns): the tow is still there
+    backToCar1(state, "Z20_L1_00");
+    const targets = [...computeTargets(ctx, state, car1).values()].filter((t) => !t.isPitTrigger);
+    expect(targets.length).toBeGreaterThan(0);
+    for (const t of targets) expect(t.drafted).toBe(true);
+    const towed = targets.find((t) => t.distance === 9)!;
+    expect(towed.fuelCost).toBeLessThan(plain.fuelCost);
+  });
+
+  it("two moves in a row that end tucked in open the slingshot: a lane change without its surcharge", () => {
+    const state = draftRace();
+    const car1 = state.cars[0]!;
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z06_L1_00" }).ok).toBe(true); // 2 behind car 2
+    expect(car1.draftTurns).toBe(1);
+
+    backToCar1(state, "Z09_L1_00");
+    expect(computeTargets(ctx, state, car1).get("Z09_L2_00")?.slingshot).toBeUndefined(); // not ready yet
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z07_L1_00" }).ok).toBe(true); // 2 behind again
     expect(car1.draftTurns).toBe(2);
 
-    backToCar1(state, "Z09_L1_00"); // again 2 ahead of car 1 at Z07
+    backToCar1(state, "Z20_L1_00"); // the leader is gone
     const offered = [...computeTargets(ctx, state, car1).values()];
     const slingshots = offered.filter((t) => t.slingshot);
     expect(slingshots.length).toBeGreaterThan(0);
-    // the pull-out passes car 2: a lane change that cost its cells plus 1 now costs the cells
+    // a lane change that cost its cells plus 1 now costs the cells
     for (const t of slingshots) expect(t).toMatchObject({ drafted: true, moveSpend: t.distance });
-    // a lane change that does not get past car 2 still pays the surcharge
-    expect(computeTargets(ctx, state, car1).get("Z08_L2_00")?.slingshot).toBeUndefined();
+    // a same-lane move has no surcharge to waive
+    expect(computeTargets(ctx, state, car1).get("Z08_L1_00")?.slingshot).toBeUndefined();
   });
 
-  it("resets when a turn begins out of the draft, and on a skip", () => {
+  it("a move that ends out of the tow breaks the run", () => {
     const state = draftRace();
     const car1 = state.cars[0]!;
     expect(applyAction(ctx, state, { type: "move", targetCellId: "Z06_L1_00" }).ok).toBe(true);
     expect(car1.draftTurns).toBe(1);
 
-    backToCar1(state, "Z20_L1_00"); // car 2 far ahead: no draft at the start of this turn
-    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z07_L1_00" }).ok).toBe(true);
+    backToCar1(state, "Z20_L1_00");
+    // Z12 is nowhere near a car in its lane: it ends untucked
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z12_L1_00" }).ok).toBe(true);
+    expect(car1.draftTurns).toBe(0);
+  });
+
+  it("a car ends tucked in behind a car that was already there, in its own lane only", () => {
+    const state = draftRace();
+    const car1 = state.cars[0]!;
+    // Z06_L2 is beside nothing and two cells ahead of car 2's lane neighbour: a different lane does not tow
+    expect(applyAction(ctx, state, { type: "move", targetCellId: "Z06_L2_00" }).ok).toBe(true);
     expect(car1.draftTurns).toBe(0);
   });
 
@@ -690,9 +717,9 @@ describe("drafting turns and the slingshot", () => {
     expect(tire - car1.tire).toBe(info.tireCost);
     expect(fuel - car1.fuel).toBe(info.fuelCost);
     expect(car1.moveCycle.spent[0]).toBe(3);
-    // counted and logged, naming the car it passed
+    // counted and logged
     expect(car1.slingshots).toBe(1);
-    expect(result.ok && result.log).toContain("Car 1 slingshots past Car 2.");
+    expect(result.ok && result.log).toContain("Car 1 slingshots.");
   });
 
   it("a drafted move that is not a slingshot is neither counted nor logged as one", () => {

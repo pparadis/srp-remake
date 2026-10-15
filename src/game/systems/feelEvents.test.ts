@@ -30,6 +30,24 @@ describe("detectFeel", () => {
     expect(detectFeel(mem, view({}, { slingshots: 3 }))).toEqual([]);
   });
 
+  it("reports the tow once per stint: entering it, then the slingshot opening; never on the first view", () => {
+    const mem = createFeelMemory();
+    expect(detectFeel(mem, view({}, { draftTurns: 2 }))).toEqual([]); // joining mid-stint is silent
+    const fresh = createFeelMemory();
+    detectFeel(fresh, view({}, { draftTurns: 0 }));
+    expect(detectFeel(fresh, view({}, { draftTurns: 1 }))).toEqual([{ type: "draft" }]);
+    expect(detectFeel(fresh, view({}, { draftTurns: 1 }))).toEqual([]);
+    expect(detectFeel(fresh, view({}, { draftTurns: 2 }))).toEqual([{ type: "slingshotReady" }]);
+    expect(detectFeel(fresh, view({}, { draftTurns: 3 }))).toEqual([]); // still ready: nothing new
+    // out of the tow and back in: a new stint
+    expect(detectFeel(fresh, view({}, { draftTurns: 0 }))).toEqual([]);
+    expect(detectFeel(fresh, view({}, { draftTurns: 1 }))).toEqual([{ type: "draft" }]);
+    // another car's tow is not mine
+    const other = view({}, { draftTurns: 1 });
+    other.cars[1]!.draftTurns = 2;
+    expect(detectFeel(fresh, other)).toEqual([]);
+  });
+
   it("reports a move when any car changes cell", () => {
     const mem = createFeelMemory();
     detectFeel(mem, view());

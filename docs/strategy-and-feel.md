@@ -59,14 +59,26 @@ Three levels per car, `CarSetup.wing`: `low`, `medium`, `high` (`WING_EFFECTS` i
 
 The soft compound adds +1 to the cycle budget (`SOFT_PACE_BONUS`) and wears faster; the cycle budget is 40 on the
 plain setup, so 39 to 42. Move cost per move is rounded to whole points as before, so the wing shows over a stint
-rather than on one move. **Drafting** (see `docs/movement-spec.md`, issue #83): the car card shows "Drafting 1/2" and then "Drafting - slingshot ready";
-the compact phone bar shows a short chip instead ("DRAFT 1/2", gold "SLINGSHOT"; `.hud-draft-short`). On the board a
-slingshot target has a gold ring, doubled when only the slingshot puts it in reach (`TargetInfo.slingshotOnly`). The
-hover tooltip and the tap card say "Draft: less wear", "Slingshot: the lane change is free" or "Slingshot: only in reach
-thanks to the draft". Playing one toasts "Slingshot!" with its own sound (the `slingshot` feel event, local car only,
-from `Car.slingshots` going up) and the feed says "Car N slingshots past Car M." (the engine log solo; online the
-session reads it from the counter in the server state). The data comes from `RaceSession.hudSnapshot()` (`drafting`,
-`draftTurns`).
+rather than on one move. **Drafting** (see `docs/movement-spec.md`, issues #83, #93 and #98): a car is in the tow when its last move ended 1-2
+cells behind a car in its lane. The car card shows "In the tow 1/2" and then "In the tow - slingshot ready"; the compact
+phone bar shows a short chip instead ("» DRAFT 1/2", gold "» SLINGSHOT"; `.hud-draft-short`, 11px so the bar stays one
+line), which pulses once when it appears and when the count goes up (none under `prefers-reduced-motion`).
+
+On the board:
+
+- **Tows:** a few faint streaks from each car in a tow (every car's, not only yours) along its lane for as far as the car
+  ahead, or the draft range when that car has moved on: blue while counting, gold when the slingshot is open
+  (`RaceSession.draftLinks()`, `RaceScene.drawTow()`; redrawn on a turn change and hidden while cars glide).
+- **Targets:** a move that ends 1-2 behind a car in its lane has a blue dashed ring (`RaceSession.endsTucked`, the
+  `tuck` layer in `bakedTextures.ts`); a slingshot target has a gold ring, doubled when only the slingshot puts it in
+  reach (`TargetInfo.slingshotOnly`).
+- **Tooltip and tap card:** "Draft: less wear", "Ends in the tow: less wear next move", "Slingshot: the lane change is
+  free" or "Slingshot: only in reach thanks to the draft".
+
+Moments (`feelEvents.ts`, the local car only, never on the first snapshot): "In the tow: less wear" (a blue toast and a
+soft sound) when a move ends tucked in, "Slingshot ready" when the run reaches 2, and "Slingshot!" when one is played
+(`Car.slingshots` going up). The feed says "Car N slingshots." (the engine log solo; online the session reads it from
+the counter in the server state). The data comes from `RaceSession.hudSnapshot()` (`drafting`, `draftTurns`).
 
 ## Cars on the board move like cars (issue #85)
 

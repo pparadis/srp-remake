@@ -132,6 +132,9 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
     {
       allowPitExitSkip: car.pitExitBoost,
       disallowPitBoxTargets: car.pitServiced,
+      // `draftTurns` counts the moves in a row that ENDED tucked in behind a car (set in applyAction): the car that
+      // did so is in its tow for this move, whatever the leader has done since.
+      drafted: (car.draftTurns ?? 0) >= 1,
       slingshotReady: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS
     },
     costs
@@ -140,20 +143,15 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
   return computeSqueezeTargets(ctx.trackIndex, car.cellId, occupied, maxSteps, costs);
 }
 
-// True when the car stands in a draft: another car 1 to DRAFT_RANGE cells ahead in its own lane.
+// True when the car stands tucked in right now: another car 1 to DRAFT_RANGE cells ahead in its own lane. The rule
+// reads it at the end of a move (applyAction): at the start of a turn every car has moved away from where it was.
 export function isDrafting(ctx: RaceContext, state: RaceState, car: Car): boolean {
-  return draftedCar(ctx, state, car) !== null;
-}
-
-// The car this one drafts behind, or null.
-export function draftedCar(ctx: RaceContext, state: RaceState, car: Car): Car | null {
-  const ahead = draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId));
-  return ahead ? (state.cars.find((c) => c.cellId === ahead.cellId) ?? null) : null;
+  return draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId)) !== null;
 }
 
 // The race feed line for a slingshot (the engine log solo, the session online from the `slingshots` counter).
-export function slingshotLine(carId: number, passedCarId: number | null): string {
-  return passedCarId === null ? `Car ${carId} slingshots out of the draft.` : `Car ${carId} slingshots past Car ${passedCarId}.`;
+export function slingshotLine(carId: number): string {
+  return `Car ${carId} slingshots.`;
 }
 
 export function isValidSetup(setup: CarSetup): boolean {
@@ -196,8 +194,6 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   const fromCellId = car.cellId;
   const log: string[] = [];
   let moveSpend = 0;
-  // Read before the car moves: the draft counts the turns that BEGIN in it.
-  const startedInDraft = isDrafting(ctx, state, car);
 
   if (action.type === "setup") {
     if (car.setupLocked) return { ok: false, reason: "setup_locked" };
@@ -223,15 +219,13 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
     }
     if (action.type === "move") {
       if (check.isPitStop) return { ok: false, reason: "use_pit_action" };
-      // Read before the move: the car the slingshot passes is the one drafted from the start cell.
-      const passed = check.info.slingshot ? draftedCar(ctx, state, car) : null;
       applyMove(car, fromCell, targetCell, check.info, check.moveSpend, ctx.trackIndex.pitLineFwd);
       car.setupLocked = true;
       moveSpend = check.moveSpend;
       log.push(`Car ${car.carId} moved to ${targetCell.id}.`);
       if (check.info.slingshot) {
         car.slingshots = (car.slingshots ?? 0) + 1;
-        log.push(slingshotLine(car.carId, passed?.carId ?? null));
+        log.push(slingshotLine(car.carId));
       }
     } else {
       if (!check.isPitStop) return { ok: false, reason: "not_pit_box" };
@@ -246,8 +240,9 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
     }
   }
 
-  // A setup returned above (it is not a turn). Here the turn was played: a skip or a pit stop breaks the run too.
-  car.draftTurns = startedInDraft && action.type === "move" ? (car.draftTurns ?? 0) + 1 : 0;
+  // A setup returned above (it is not a turn). Here the turn was played: a move that ends tucked in behind a car adds
+  // to the run (it carries to the car's next move); a move that ends elsewhere, a skip or a pit stop breaks it.
+  car.draftTurns = action.type === "move" && isDrafting(ctx, state, car) ? (car.draftTurns ?? 0) + 1 : 0;
 
   const winner = findWinner(state);
   if (winner) {

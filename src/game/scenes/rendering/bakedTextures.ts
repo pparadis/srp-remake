@@ -50,6 +50,8 @@ export interface TargetRing {
   /** slingshot: a gold ring, doubled when only the slingshot puts the target in reach */
   slingshot: boolean;
   slingshotOnly: boolean;
+  /** tuck: the move ends 1-2 cells behind a car in its lane, so the car is in the tow for its next move: a blue dashed ring */
+  tuck: boolean;
   /** risk: the move leaves a resource under 20% (thin ring) or empty (thick ring) */
   risk: "none" | "low" | "empty";
 }
@@ -58,6 +60,8 @@ export interface TargetRing {
 export function targetLayers(t: TargetRing): RingLayer[] {
   const layers: RingLayer[] = [{ radius: 10, width: 2, color: t.color, alpha: 0.95, fillAlpha: 0.4 }];
   if (t.squeeze) layers.push({ radius: 13, width: 3, color: 0xffb020, alpha: 1, dashes: 10 });
+  // (dashed like the squeeze ring but blue and thinner: a squeeze target never ends tucked in, it has no free lane)
+  if (t.tuck) layers.push({ radius: 13, width: 2, color: 0x7fb4ff, alpha: 1, dashes: 8 });
   if (t.slingshot) {
     layers.push({ radius: 13, width: 2, color: 0xffd166, alpha: 1 });
     if (t.slingshotOnly) layers.push({ radius: 16, width: 2, color: 0xffd166, alpha: 1 });

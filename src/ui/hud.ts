@@ -32,7 +32,8 @@ export interface HudCar {
   budget: number;
   /** A pit stop is done (and not repeatable until the car is back on the main lanes). */
   pitServiced: boolean;
-  /** In another car's slipstream right now, and the consecutive turns begun there (the slingshot needs 2). */
+  /** In the tow: the car's last move ended tucked in behind a car, so its next move wears less. `draftTurns` is how
+   * many moves in a row did (the slingshot needs 2). */
   drafting: boolean;
   draftTurns: number;
   /** Racing left on the current tire and fuel at this car's setup (see strategy.ts). */
@@ -53,12 +54,14 @@ export interface HudHover {
   squeezePassed?: number;
   /** Set when the route changes lane 2 or more times (every lane change costs a move point). */
   laneChanges?: number;
-  /** The move starts in a draft: its tire and fuel cost carry the discount. */
+  /** The car is in the tow for this move: its tire and fuel cost carry the discount. */
   drafted?: boolean;
-  /** A pull-out pass of the drafted car: the lane-change surcharge was waived. */
+  /** A lane change of a car tucked in twice in a row: the surcharge was waived. */
   slingshot?: boolean;
-  /** A slingshot that would be out of reach with the surcharge: the draft opens this move. */
+  /** A slingshot that would be out of reach with the surcharge: the tow opens this move. */
   slingshotOnly?: boolean;
+  /** The move ends 1-2 cells behind a car in its lane: the car is in the tow for its next move too. */
+  tucksIn?: boolean;
   /** The active car's tire and fuel (percent) before the move, to show what is left after it. */
   tireBefore: number;
   fuelBefore: number;
@@ -229,6 +232,12 @@ function renderTooltip(tip: HTMLElement, h: HudHover) {
           : "Draft: less wear";
       nodes.push(note);
     }
+    if (h.tucksIn) {
+      const note = document.createElement("div");
+      note.className = "hud-tooltip-draft";
+      note.textContent = "Ends in the tow: less wear next move";
+      nodes.push(note);
+    }
     const empties = [tire.empty && h.tireBefore > 0 ? "tire" : null, fuel.empty && h.fuelBefore > 0 ? "fuel" : null].filter(Boolean);
     if (empties.length > 0) {
       const warn = document.createElement("div");
@@ -272,7 +281,7 @@ export function renderFps(root: Element, on: boolean, text: string) {
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-export type ToastKind = "lap" | "final" | "slingshot";
+export type ToastKind = "lap" | "final" | "slingshot" | "draft";
 
 /** A short banner in the middle of the race screen ("Lap 2 / 5", "Final lap", "Slingshot!"). */
 export function showToast(root: Element, text: string, kind: ToastKind = "lap", ms = 2500) {
@@ -388,9 +397,18 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     const ready = me.draftTurns >= DRAFT_SLINGSHOT_TURNS;
     draft.hidden = !me.drafting;
     // the long line on the card, the short chip in the phone's top bar (style.css picks one)
-    q(draft, "hud-draft-long").textContent = ready ? "Drafting - slingshot ready" : `Drafting ${me.draftTurns}/${DRAFT_SLINGSHOT_TURNS}`;
-    q(draft, "hud-draft-short").textContent = ready ? "SLINGSHOT" : `DRAFT ${me.draftTurns}/${DRAFT_SLINGSHOT_TURNS}`;
+    const run = Math.min(me.draftTurns, DRAFT_SLINGSHOT_TURNS);
+    q(draft, "hud-draft-long").textContent = ready ? "In the tow - slingshot ready" : `In the tow ${run}/${DRAFT_SLINGSHOT_TURNS}`;
+    q(draft, "hud-draft-short").textContent = ready ? "» SLINGSHOT" : `» DRAFT ${run}/${DRAFT_SLINGSHOT_TURNS}`;
     draft.classList.toggle("is-ready", me.drafting && ready);
+    // a pulse when the chip appears or its count goes up (CSS: none under prefers-reduced-motion)
+    const towState = me.drafting ? String(run) : "";
+    if (towState !== "" && towState !== draft.dataset.state) {
+      draft.classList.remove("is-pulse");
+      void draft.offsetWidth; // restart the animation when it was still running
+      draft.classList.add("is-pulse");
+    }
+    draft.dataset.state = towState;
     const advice = q(root, "hud-advice");
     const label = ADVICE_LABEL[me.advice];
     advice.hidden = !label;
