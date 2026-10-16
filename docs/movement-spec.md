@@ -52,7 +52,9 @@ fixed the "code today" bar goes away.
 
 - You may only target a lane that is the same or adjacent to your start lane.
 - Pit lane (lane 0) is special and handled by pit rules below.
-- Lane changes must advance forward progress (no sideways moves with the same `forwardIndex`), except for `PIT_ENTRY`.
+- A lane-change target must advance forward progress (no sideways target with the same `forwardIndex`), except for
+  `PIT_ENTRY`. The route to a target may still walk sideways cells on the way (going round a car): each is a cell
+  walked and pays its lane change (see "Price of a lane change").
 
 ## Occupancy
 
