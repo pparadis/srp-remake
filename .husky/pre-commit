@@ -1,2 +1,9 @@
 #!/bin/sh
 npx lint-staged
+
+# A rule change must commit its pictures: regenerate the diagrams (docs/img) when engine code, the generator or a
+# track is staged. An unchanged diagram is not rendered again, so this is quick; CI still checks them (diagrams.test.ts).
+if git diff --cached --name-only | grep -v '\.test\.ts$' | grep -qE '^(src/game/.*\.ts|tools/diagrams/|public/tracks/.*\.json)'; then
+  npm run --silent gen:diagrams || { echo "gen:diagrams failed: the diagrams could not be regenerated"; exit 1; }
+  git add docs/img
+fi

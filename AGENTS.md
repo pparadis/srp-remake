@@ -17,9 +17,13 @@ Project guide for Codex and other automation.
 - Track generator in `tools/`; track validation in `src/validation/`.
 - Docs in `docs/`: rules and design the code relies on (`movement-spec.md`, `bot-system.md`, ...).
 - Rule diagrams in `docs/img/` are generated from the engine by `tools/diagrams/` (`npm run gen:diagrams`: SVG plus a
-  PNG). A scenario goes in, the numbers come from `movePath` and `computeValidTargets`; a test fails CI when a committed
-  SVG is stale, so after a rule change regenerate, look at the picture and commit it. New diagram: add it to
-  `allDiagrams` in `tools/diagrams/index.ts` and the committed-file map in `diagrams.test.ts`.
+  PNG, and `diagrams.lock.json`, which ties each PNG to the SVG it was rendered from). A scenario (`scenario.ts`) is a
+  race position built with the engine's own tools; the numbers come from `computeTargets` and `movePath`, and a wrong
+  example throws. They are kept current three ways: the pre-commit hook regenerates them when engine code, the generator
+  or a track is staged; `diagrams.test.ts` fails CI on a stale SVG, a PNG not rendered from its SVG, a file no diagram
+  makes, or a diagram no `docs/*.md` embeds. So after a rule change look at the changed picture before you commit it.
+  New significant rule: add its scenario to `allDiagrams` (`tools/diagrams/index.ts`) and embed `img/<name>.svg` next to
+  its paragraph in the docs. Plan: issue #105.
 - Plans are GitHub issues (label `plan`, plus `in-progress` once started; closed when shipped), not files in the repo.
   A PR for a plan says `Closes #N`; decisions and results go in issue comments.
 
