@@ -52,8 +52,9 @@ fixed the "code today" bar goes away.
 
 - You may only target a lane that is the same or adjacent to your start lane.
 - Pit lane (lane 0) is special and handled by pit rules below.
-- A lane-change target must advance forward progress (no sideways target with the same `forwardIndex`), except for
-  `PIT_ENTRY`. The route to a target may still walk sideways cells on the way (going round a car): each is a cell
+- A lane-change target must advance forward progress: no target with the same `forwardIndex`, and none in the start's
+  own zone (a car only moves forward, straight or diagonally; in the bend the inner lane's `forwardIndex` is one higher
+  in the same zone, which by index alone would make a pure sideways move a diagonal, #108), except for `PIT_ENTRY`. The route to a target may still walk sideways cells on the way (going round a car): each is a cell
   walked and pays its lane change (see "Price of a lane change").
 
 ## Occupancy
@@ -85,7 +86,7 @@ Only when an ACTIVE car has no normal target at all, `computeTargets` (raceEngin
 `computeSqueezeTargets` instead of an empty map. When any normal target exists, squeeze is never offered.
 
 - BFS over `next[]` up to `maxSteps` ignores occupancy for traversal, but the target cell must be free.
-- Main lanes only (never PIT_ENTRY, pit lane or PIT_BOX), at most 1 lane change, `targetDelta > 0` (no backwards or pure sideways).
+- Main lanes only (never PIT_ENTRY, pit lane or PIT_BOX), at most 1 lane change, `targetDelta > 0` and a later zone than the start (no backwards or pure sideways).
 - `passed` = occupied main-lane cells in the start lane or the target lane (a lane counts once) with `0 < delta < targetDelta`.
   A squeeze target must have `passed >= 1`.
 - `moveSpend = computeMoveSpend(...) + SQUEEZE_SURCHARGE_PER_CAR (2) * passed`, and must be `<= maxSteps`

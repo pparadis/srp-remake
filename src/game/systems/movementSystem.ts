@@ -337,7 +337,15 @@ export function computeValidTargets(
         if (!route) continue;
       }
     }
-    if (!startIsPitLane && cell.laneIndex !== startCell.laneIndex && targetDelta === 0 && !isPitEntryTarget) continue;
+    // A lane change must advance: no sideways target, by forwardIndex or by zone (the bend's lanes are numbered with an
+    // offset, so a same-zone cell on the inner lane can have the higher forwardIndex).
+    if (
+      !startIsPitLane &&
+      cell.laneIndex !== startCell.laneIndex &&
+      (targetDelta === 0 || cell.zoneIndex === startCell.zoneIndex) &&
+      !isPitEntryTarget
+    )
+      continue;
     if (!startIsPitLane && cell.laneIndex === PIT_LANE) {
       if (!isPitEntryTarget) continue;
       if (d !== 1) continue;
@@ -439,7 +447,7 @@ export function computeSqueezeTargets(
     if (d <= 0 || occupied.has(cellId)) continue;
     if (Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
     const targetDelta = delta(cell);
-    if (targetDelta === 0) continue;
+    if (targetDelta === 0 || cell.zoneIndex === startCell.zoneIndex) continue;
     const lanes = new Set([startCell.laneIndex, cell.laneIndex]);
     let passed = 0;
     for (const lane of lanes) passed += (occupiedDeltas.get(lane) ?? []).filter((x) => x > 0 && x < targetDelta).length;

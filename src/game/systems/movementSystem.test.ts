@@ -564,3 +564,39 @@ describe("drafting costs and the slingshot", () => {
     expect(t.slingshot).toBeUndefined();
   });
 });
+
+describe("no same-zone lane change (#108)", () => {
+  const index = buildTrackIndex(track as unknown as TrackData);
+  const costs = {
+    tireRate: 0.5,
+    fuelRate: 0.45,
+    setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" as const }
+  };
+  // In the bend the inner lane's forwardIndex is one higher in the same zone (Z12_L2 10, Z12_L1 11): by index a
+  // diagonal, on the board a pure sideways move.
+  const START = "Z12_L2_00";
+
+  it("the track still has the edge and the higher forwardIndex that used to make it a target", () => {
+    expect(index.cellMap.get(START)!.next).toContain("Z12_L1_00");
+    expect(index.cellMap.get("Z12_L1_00")!.forwardIndex).toBeGreaterThan(index.cellMap.get(START)!.forwardIndex);
+  });
+
+  it("never offers a cell in the start's zone on another lane", () => {
+    const t = computeValidTargets(index, START, new Set([START]), 9, {}, costs);
+    expect(t.has("Z12_L1_00")).toBe(false);
+    expect(t.has("Z12_L3_00")).toBe(false);
+    expect(t.has("Z13_L2_00")).toBe(true);
+    for (const id of t.keys()) {
+      const c = index.cellMap.get(id)!;
+      expect(c.laneIndex === 2 || c.zoneIndex !== 12).toBe(true);
+    }
+  });
+
+  it("a squeeze does not offer it either", () => {
+    const wall = new Set([START, "Z13_L1_00", "Z13_L2_00", "Z13_L3_00"]);
+    expect(computeValidTargets(index, START, wall, 9, {}, costs).size).toBe(0);
+    const t = computeSqueezeTargets(index, START, wall, 9, costs);
+    expect(t.size).toBeGreaterThan(0);
+    for (const id of t.keys()) expect(index.cellMap.get(id)!.zoneIndex).not.toBe(12);
+  });
+});
