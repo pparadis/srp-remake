@@ -1,6 +1,6 @@
 import type { TrackCell } from "../types/track";
 import type { CarSetup } from "../types/car";
-import type { TrackIndex } from "./trackIndex";
+import { lapAhead, type TrackIndex } from "./trackIndex";
 import {
   INNER_MAIN_LANE,
   MIDDLE_MAIN_LANE,
@@ -421,11 +421,12 @@ export function computeSqueezeTargets(
   }
 
   const delta = (c: TrackCell) => (c.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
-  const occupiedDeltas = new Map<number, number[]>();
+  // "Passed" compares cars in two lanes, so it reads the lap position, not forwardIndex (#114).
+  const occupiedAhead = new Map<number, number[]>();
   for (const id of occupied) {
     const c = cellMap.get(id);
     if (!c || id === startCellId || c.laneIndex === PIT_LANE) continue;
-    occupiedDeltas.set(c.laneIndex, [...(occupiedDeltas.get(c.laneIndex) ?? []), delta(c)]);
+    occupiedAhead.set(c.laneIndex, [...(occupiedAhead.get(c.laneIndex) ?? []), lapAhead(trackIndex, startCell, c)]);
   }
 
   const dist = new Map<string, number>([[startCellId, 0]]);
@@ -450,7 +451,8 @@ export function computeSqueezeTargets(
     if (targetDelta === 0 || cell.zoneIndex === startCell.zoneIndex) continue;
     const lanes = new Set([startCell.laneIndex, cell.laneIndex]);
     let passed = 0;
-    for (const lane of lanes) passed += (occupiedDeltas.get(lane) ?? []).filter((x) => x > 0 && x < targetDelta).length;
+    const targetAhead = lapAhead(trackIndex, startCell, cell);
+    for (const lane of lanes) passed += (occupiedAhead.get(lane) ?? []).filter((x) => x > 0 && x < targetAhead).length;
     if (passed < 1) continue;
     const moveSpend =
       computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, targetDelta) + SQUEEZE_SURCHARGE_PER_CAR * passed;

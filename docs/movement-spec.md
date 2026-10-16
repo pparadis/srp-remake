@@ -87,14 +87,17 @@ Only when an ACTIVE car has no normal target at all, `computeTargets` (raceEngin
 
 - BFS over `next[]` up to `maxSteps` ignores occupancy for traversal, but the target cell must be free.
 - Main lanes only (never PIT_ENTRY, pit lane or PIT_BOX), at most 1 lane change, `targetDelta > 0` and a later zone than the start (no backwards or pure sideways).
-- `passed` = occupied main-lane cells in the start lane or the target lane (a lane counts once) with `0 < delta < targetDelta`.
-  A squeeze target must have `passed >= 1`.
+- `passed` = occupied main-lane cells in the start lane or the target lane (a lane counts once) that stand ahead of the
+  start and behind the target by **lap position** (`lapAhead` in `trackIndex.ts`). A squeeze target must have
+  `passed >= 1`. Lap position, not `forwardIndex`: it compares cars in two lanes, and the outer lanes' `forwardIndex`
+  repeats on the bends, so a car one cell ahead could read as level (#113, #114).
 - `moveSpend = computeMoveSpend(...) + SQUEEZE_SURCHARGE_PER_CAR (2) * passed`, and must be `<= maxSteps`
   (remaining cycle budget / 9 cap). Tire and fuel costs stay the normal distance-based costs.
 - `TargetInfo.squeezePassed` is set only for squeeze targets. Skip is legal only when there are no targets at all.
 
-Example: car in lane 2 at forwardIndex 5, cars at 6 in lanes 1, 2 and 3. No normal target exists. Squeeze to
-lane 2 at 7: distance 2, passes 1 car, move 2 + 2 = 4. To lane 1 at 7: distance 3, passes 2 cars, move 3 + 4 = 7.
+Example: car on `Z06_L2_00`, cars on `Z07_L1_00`, `Z07_L2_00` and `Z07_L3_00`. No normal target exists. Squeeze to
+`Z08_L2_00`: distance 2, passes 1 car, move 2 + 2 = 4. To `Z08_L3_00`: distance 2, passes 2 cars, move 2 + 4 = 6. To
+`Z08_L1_00`: distance 3, passes 2 cars, move 3 + 4 = 7.
 
 The same on the inner lane, drawn from the engine (a car in your lane and one in the next): each free cell shows its price.
 
@@ -182,7 +185,8 @@ nothing is served after the line.)
 ## Drafting (slipstream, issues #55 and #98)
 
 A car is **tucked in** when it is in a main lane and another car (any owner) stands in the **same lane**, 1 to
-`DRAFT_RANGE` (2) cells directly ahead by `forwardIndex` (wrapping at the start line). Adjacent lanes and the pit lane
+`DRAFT_RANGE` (2) cells directly ahead, counted in cells along that lane (wrapping at the lane's own length: 28, 30 or
+32 cells), not by `forwardIndex`, which repeats on the outer lanes' bends (#113, #114). Adjacent lanes and the pit lane
 (entry and exit included) never count. `draftAhead` in `src/game/systems/draftSystem.ts` is the only definition.
 
 **When it is judged: at the end of the car's move, not at the start of its turn.** Every car has moved about 8 cells
