@@ -4,7 +4,9 @@ import lock from "../../docs/img/diagrams.lock.json";
 import { createRaceContext } from "../../src/game/race/raceEngine";
 import type { TrackData } from "../../src/game/types/track";
 import { BLOCKER_PANELS } from "./blockers";
+import { RUN_LANE_CHANGE, RUN_SAME_LANE, RUN_STAGES, runTargets, towGap } from "./drafting";
 import { allDiagrams } from "./index";
+import { LAP_PANELS, lapsOf } from "./laps";
 import { LANE_CHANGE_SCENARIO, laneChangePriceSvg, priceScenario } from "./laneChangePrice";
 import { hashText } from "./lock";
 import { PASS_AND_RETURN_SCENARIO } from "./passAndReturn";
@@ -98,6 +100,42 @@ describe("pit diagrams show the Pit rules", () => {
     expect([...step!.keys()].filter((id) => id.includes("_L0_"))).toEqual(["Z01_L0_00"]);
     expect([...boxes!.keys()].sort()).toEqual(["Z02_L0_00", "Z03_L0_00"]);
     expect([...exit!.keys()]).toEqual(["Z07_L1_00"]);
+  });
+});
+
+describe("laps diagram shows the Laps rules", () => {
+  const laps = LAP_PANELS.map((p) => lapsOf(ctx, p));
+  it("the line spans every lane: a main-lane crossing and the pit lane's PIT_LINE each credit one lap", () => {
+    expect(laps[0]).toEqual([0, 1]); // lane 1
+    expect(laps[1]).toEqual([0, 1]); // lane 2, whose zones wrap later
+    expect(laps[3]).toEqual([0, 1]); // PIT_LINE
+  });
+  it("a car dealt behind the line begins at -1 and its first crossing only reaches 0", () => {
+    expect(laps[2]).toEqual([-1, 0]);
+  });
+  it("a whole stop credits one lap: the entry does not, the line does, the box does not; the exit never does", () => {
+    expect(laps[4]).toEqual([0, 0, 1, 1]);
+    expect(laps[5]).toEqual([1, 1]);
+  });
+});
+
+describe("drafting diagram shows the Drafting rules", () => {
+  it("tucked in is 1-2 cells behind a car in the same lane, not further, not ahead, not in the next lane", () => {
+    expect(towGap(ctx, "Z07_L2_00")).toBe(1);
+    expect(towGap(ctx, "Z06_L2_00")).toBe(2);
+    expect(towGap(ctx, "Z05_L2_00")).toBeNull();
+    expect(towGap(ctx, "Z09_L2_00")).toBeNull();
+    for (const id of ["Z07_L1_00", "Z07_L3_00", "Z06_L1_00", "Z06_L3_00"]) expect(towGap(ctx, id)).toBeNull();
+  });
+  it("run 1 wears less; run 2 also waives the lane-change surcharge", () => {
+    const [r0, r1, r2] = RUN_STAGES.map((s) => runTargets(ctx, s.run));
+    expect(r0!.get(RUN_SAME_LANE)!.drafted).toBeUndefined();
+    expect(r1!.get(RUN_SAME_LANE)).toMatchObject({ drafted: true });
+    expect(r1!.get(RUN_SAME_LANE)!.fuelCost).toBeLessThan(r0!.get(RUN_SAME_LANE)!.fuelCost);
+    expect(r1!.get(RUN_LANE_CHANGE)!.slingshot).toBeUndefined();
+    expect(r1!.get(RUN_LANE_CHANGE)!.moveSpend).toBe(r0!.get(RUN_LANE_CHANGE)!.moveSpend);
+    expect(r2!.get(RUN_LANE_CHANGE)).toMatchObject({ slingshot: true });
+    expect(r2!.get(RUN_LANE_CHANGE)!.moveSpend).toBe(r2!.get(RUN_LANE_CHANGE)!.distance);
   });
 });
 

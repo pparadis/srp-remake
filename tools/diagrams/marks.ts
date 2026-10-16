@@ -35,6 +35,20 @@ export function drawTarget(cellPos: Map<string, Point>, target: string): string 
   );
 }
 
+/** A cell where a car would be tucked in, with its gap to the car ahead; or, when it would not, a cross. */
+export function drawTuck(p: Point, gap: number | null): string {
+  const cover = circle(p.x, p.y, 21, `fill="${COLORS.bg}"`) + "\n";
+  if (gap === null) {
+    return cover + circle(p.x, p.y, 21, `fill="${COLORS.bg}" stroke="${COLORS.bad}" stroke-width="1.5" stroke-dasharray="3 3"`) + "\n" + text(p.x, p.y + 6, "×", { size: 18, bold: true, anchor: "middle", color: COLORS.bad });
+  }
+  return (
+    cover +
+    circle(p.x, p.y, 21, `fill="${COLORS.diagonal}" fill-opacity="0.2" stroke="${COLORS.diagonal}" stroke-width="2" stroke-dasharray="5 4"`) +
+    "\n" +
+    text(p.x, p.y + 5, gap, { size: 15, bold: true, anchor: "middle", color: COLORS.diagonal })
+  );
+}
+
 /** A free cell the engine offers, with the move points it costs; or, when it does not, a cross. */
 export function drawOffer(p: Point, info: TargetInfo | undefined): string {
   // an opaque disc first: it hides the cell's forwardIndex underneath
