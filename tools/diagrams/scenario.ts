@@ -1,7 +1,7 @@
 // A scenario is a race position: the cars where the picture puts them, built with the engine's own tools
 // (createRace, the sandbox's placeCar / editCar), and read with the same entry point the game and the server use
 // (computeTargets). So squeeze, pit and draft options come from the engine, and a wrong example throws.
-import { createRace, computeTargets, createRaceContext, type RaceContext, type RaceState } from "../../src/game/race/raceEngine";
+import { applyAction, createRace, computeTargets, createRaceContext, type RaceContext, type RaceState } from "../../src/game/race/raceEngine";
 import { editCar, placeCar, setActiveCar, type CarEdit } from "../../src/game/race/sandbox";
 import type { TargetInfo } from "../../src/game/systems/movementSystem";
 import type { Car } from "../../src/game/types/car";
@@ -49,6 +49,19 @@ export function positionOf(ctx: RaceContext, s: Pick<Scenario, "start" | "cars" 
   }
   if (!setActiveCar(state, 1)) throw new Error("car 1 is not in the play order");
   return { ctx, state, car: state.cars.find((c) => c.carId === 1)! };
+}
+
+/**
+ * Plays the moves with the engine's own applyAction (a pit box by the pit action, as the game does) and returns the
+ * completed laps car 1 has after each. Throws when the engine refuses one (a wrong example).
+ */
+export function playMoves(p: Position, targets: string[]): number[] {
+  return targets.map((id) => {
+    const isBox = (p.ctx.cellMap.get(id)!.tags ?? []).includes("PIT_BOX");
+    const r = applyAction(p.ctx, p.state, isBox ? { type: "pit", targetCellId: id, setup: p.car.setup } : { type: "move", targetCellId: id });
+    if (!r.ok) throw new Error(`${id} was refused: ${r.reason}`);
+    return p.car.lapCount ?? 0;
+  });
 }
 
 /** What the engine offers car 1 in this position. */

@@ -155,6 +155,11 @@ completed laps (see AGENTS.md "Lap Counting").
   therefore credits exactly the lap an on-track car gets over the same stretch, and a stop only costs the lost
   turn and the one-step pit lane.
 - A pit-lane crossing can finish the race: the car that completes `raceLaps` first wins, whichever lane it crossed in.
+
+Where a lap is counted, drawn from the engine (each panel plays its moves with `applyAction`):
+
+![Laps: the start line in a main lane, in lane 2, behind the line at the start, in the pit lane, a whole stop, and the pit exit](img/laps.svg)
+
 - Ranking and gaps: pit cells carry their own `forwardIndex` scale, so they are ranked by the lane-1 cell of the same
   zone (`trackFwd`): the entry (zone 28) stands beside lane-1 `forwardIndex` 27, `PIT_LINE` beside 0, the boxes beside
   1 and 2. A car at the pit entry has not crossed yet and ranks behind one just past the line; once it lands on
@@ -202,3 +207,7 @@ does in between.
   where they stand now. The board marks them with a blue dashed ring and the tooltip says so.
 - No lobby setting: always on. The engine computes it (`computeTargets`, `applyAction`), so solo and the server agree.
   The bots get it too: they end about 60% of their moves tucked in (the benchmark gate is in `docs/bot-system.md`).
+
+Where you are tucked in, and what a run of 0, 1 and 2 moves ended tucked in buys on the next move, drawn from the engine:
+
+![Drafting: the cells where a car is tucked in behind the one ahead, and the tow discount and the slingshot](img/drafting.svg)

@@ -2,7 +2,9 @@
 // must be embedded in a doc (diagrams.test.ts).
 import type { TrackData } from "../../src/game/types/track";
 import { blockersSvg } from "./blockers";
+import { draftingSvg } from "./drafting";
 import { laneChangePriceSvg } from "./laneChangePrice";
+import { lapsSvg } from "./laps";
 import { passAndReturnSvg } from "./passAndReturn";
 import { pitEntrySvg, pitLaneSvg } from "./pitLane";
 import { contextOf } from "./scenario";
@@ -17,6 +19,8 @@ export function allDiagrams(track: TrackData): Map<string, string> {
     ["squeeze.svg", squeezeSvg(ctx)],
     ["pit-exit-squeeze.svg", pitExitSqueezeSvg(ctx)],
     ["pit-entry.svg", pitEntrySvg(ctx)],
-    ["pit-lane.svg", pitLaneSvg(ctx)]
+    ["pit-lane.svg", pitLaneSvg(ctx)],
+    ["laps.svg", lapsSvg(ctx)],
+    ["drafting.svg", draftingSvg(ctx)]
   ]);
 }
