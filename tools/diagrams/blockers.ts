@@ -31,7 +31,7 @@ export const BLOCKER_PANELS: BlockerPanel[] = [
 ];
 
 const PANEL_H = 280;
-const TOP = 110;
+const TOP = 128;
 
 /** What the engine offers car 1 in a panel's position, for every free cell ahead of it. */
 export function offersOf(ctx: RaceContext, s: BlockerPanel["scenario"]) {
@@ -43,6 +43,7 @@ export function blockersSvg(ctx: RaceContext): string {
   body.push(text(40, 44, "Cars in the way: what the engine offers", { size: 22, bold: true, color: COLORS.text }));
   body.push(text(40, 70, "Each free cell ahead of you shows the move points it costs, or a cross when it is not offered."));
   body.push(text(40, 88, "Zones left to right, lanes top to bottom; the number in a plain dot is its forwardIndex."));
+  body.push(text(40, 106, "A cell in your own zone is never offered: a car only moves forward, straight or diagonally."));
   BLOCKER_PANELS.forEach((pn, i) => {
     const y = TOP + i * PANEL_H;
     const s = pn.scenario;
