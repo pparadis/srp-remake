@@ -14,10 +14,14 @@ import { COLORS, document, panel, text } from "./svg";
 // The car ahead, and where every other cell would stand in relation to it.
 export const LEADER = "Z08_L2_00";
 export const TOW_ZONES = zoneRange(5, 9);
+// The same on the outer lane's bend, where forwardIndex repeats (Z12_L3 and Z13_L3 are both 10): the gap is in cells
+// along the lane, so the car right behind the leader is still tucked in (#113).
+export const OUTER_LEADER = "Z13_L3_00";
+export const OUTER_ZONES = zoneRange(10, 14);
 
 /** The gap to the leader a car on `cellId` would have in the tow, or null when it would not be tucked in. */
-export function towGap(ctx: RaceContext, cellId: string): number | null {
-  return draftAhead(ctx.trackIndex, cellId, [LEADER, cellId])?.gap ?? null;
+export function towGap(ctx: RaceContext, cellId: string, leader = LEADER): number | null {
+  return draftAhead(ctx.trackIndex, cellId, [leader, cellId])?.gap ?? null;
 }
 
 // You on the inner lane: a 4-cell move in your lane, and a 3-cell move with a lane change.
@@ -50,6 +54,21 @@ export function draftingSvg(ctx: RaceContext): string {
   body.push(bend.svg);
   for (const [id, p] of bend.cellPos) if (id !== LEADER) body.push(drawTuck(p, towGap(ctx, id)));
   body.push(drawCars(bend.cellPos, [LEADER]));
+  y += h + 20;
+
+  // 1b. the same on the outer lane, where two neighbouring cells share a forwardIndex
+  body.push(panel(40, y, 760, h));
+  body.push(text(60, y + 28, "On the outer lane's bend: counted in cells, not by the number in the dot", { size: 14, bold: true, color: COLORS.text }));
+  body.push(text(60, y + 46, "Lane 3 has 32 cells, so two neighbours can share a forwardIndex (10 and 10). The gap is still 1.", { size: 11 }));
+  const outer = drawBend(ctx.trackIndex, OUTER_ZONES, { x: 190, y: y + 100, zoneStep: 104, laneStep: 62 }, lanes);
+  body.push(outer.svg);
+  for (const [id, p] of outer.cellPos) if (id !== OUTER_LEADER) body.push(drawTuck(p, towGap(ctx, id, OUTER_LEADER)));
+  body.push(drawCars(outer.cellPos, [OUTER_LEADER]));
+  // the dots show the gap, so the repeated forwardIndex is written under the lane-3 cells
+  for (const [id, p] of outer.cellPos) {
+    const c = ctx.cellMap.get(id)!;
+    if (c.laneIndex === 3) body.push(text(p.x, p.y + 36, `fwd ${c.forwardIndex}`, { size: 10, anchor: "middle" }));
+  }
   y += h + 20;
 
   // 2. what the run buys

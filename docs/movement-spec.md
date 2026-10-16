@@ -214,4 +214,4 @@ does in between.
 
 Where you are tucked in, and what a run of 0, 1 and 2 moves ended tucked in buys on the next move, drawn from the engine:
 
-![Drafting: the cells where a car is tucked in behind the one ahead, and the tow discount and the slingshot](img/drafting.svg)
+![Drafting: the cells where a car is tucked in behind the one ahead, the same on the outer lane's bend, and the tow discount and the slingshot](img/drafting.svg)

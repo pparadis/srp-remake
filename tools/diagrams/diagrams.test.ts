@@ -4,7 +4,7 @@ import lock from "../../docs/img/diagrams.lock.json";
 import { createRaceContext } from "../../src/game/race/raceEngine";
 import type { TrackData } from "../../src/game/types/track";
 import { BLOCKER_PANELS } from "./blockers";
-import { RUN_LANE_CHANGE, RUN_SAME_LANE, RUN_STAGES, runTargets, towGap } from "./drafting";
+import { OUTER_LEADER, RUN_LANE_CHANGE, RUN_SAME_LANE, RUN_STAGES, runTargets, towGap } from "./drafting";
 import { allDiagrams } from "./index";
 import { LAP_PANELS, lapsOf } from "./laps";
 import { LANE_CHANGE_SCENARIO, laneChangePriceSvg, priceScenario } from "./laneChangePrice";
@@ -126,6 +126,14 @@ describe("drafting diagram shows the Drafting rules", () => {
     expect(towGap(ctx, "Z05_L2_00")).toBeNull();
     expect(towGap(ctx, "Z09_L2_00")).toBeNull();
     for (const id of ["Z07_L1_00", "Z07_L3_00", "Z06_L1_00", "Z06_L3_00"]) expect(towGap(ctx, id)).toBeNull();
+  });
+  it("counts cells along the lane: on lane 3 two cells with the same forwardIndex are still bumper to bumper (#113)", () => {
+    const fwd = (id: string) => ctx.cellMap.get(id)!.forwardIndex;
+    expect(fwd("Z12_L3_00")).toBe(fwd(OUTER_LEADER));
+    expect(towGap(ctx, "Z12_L3_00", OUTER_LEADER)).toBe(1);
+    expect(towGap(ctx, "Z11_L3_00", OUTER_LEADER)).toBe(2);
+    expect(towGap(ctx, "Z10_L3_00", OUTER_LEADER)).toBeNull();
+    for (const id of ["Z12_L2_00", "Z12_L1_00", "Z14_L3_00"]) expect(towGap(ctx, id, OUTER_LEADER)).toBeNull();
   });
   it("run 1 wears less; run 2 also waives the lane-change surcharge", () => {
     const [r0, r1, r2] = RUN_STAGES.map((s) => runTargets(ctx, s.run));
