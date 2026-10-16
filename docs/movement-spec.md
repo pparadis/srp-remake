@@ -96,6 +96,10 @@ Only when an ACTIVE car has no normal target at all, `computeTargets` (raceEngin
 Example: car in lane 2 at forwardIndex 5, cars at 6 in lanes 1, 2 and 3. No normal target exists. Squeeze to
 lane 2 at 7: distance 2, passes 1 car, move 2 + 2 = 4. To lane 1 at 7: distance 3, passes 2 cars, move 3 + 4 = 7.
 
+The same on the inner lane, drawn from the engine (a car in your lane and one in the next): each free cell shows its price.
+
+![Squeeze: a car in your lane and one in the next just ahead; the prices of the cells beyond, and what two of them are made of](img/squeeze.svg)
+
 ### Pit exit squeeze
 
 A car starting on the cell tagged `PIT_EXIT` (only that cell; cars blocked inside the pit lane keep queueing single
@@ -109,6 +113,8 @@ file) with no normal target (the exit connection is occupied) also gets squeeze 
 Example: car on `Z06_L0_00`, another on `Z07_L1_00`. No normal target. `Z08_L1_00`: distance 2, passes 1, move 4.
 `Z09_L1_00`: distance 3, passes 1, move 5. With `Z08_L1_00` also taken only `Z09_L1_00` remains: passes 2, move 7.
 
+![Pit exit squeeze: one car on the exit's lane-1 cell, then two cars in a row](img/pit-exit-squeeze.svg)
+
 ## Pit Rules
 
 - You may only enter pit via a `PIT_ENTRY` cell, and only from lane 1.
@@ -117,6 +123,14 @@ Example: car on `Z06_L0_00`, another on `Z07_L1_00`. No normal target. `Z08_L1_0
   - If you are adjacent to a `PIT_BOX`, you may target **any** `PIT_BOX` ahead (future‑proof for longer pit lanes).
 - `PIT_BOX` targets can be disallowed by options (and are disallowed after a pit stop has been serviced).
 - A special “pit exit skip” can add an extra target when applicable.
+
+Entry, drawn from the engine: only from lane 1, only one zone before the entry cell.
+
+![Pit entry: from lane 1 yes; from lane 2 and from two zones away, no](img/pit-entry.svg)
+
+In the pit lane, drawn from the engine: one step, the jump to a box from next to a box, and the exit onto lane 1.
+
+![Pit lane: one step; any box ahead from next to a box; the exit onto lane 1](img/pit-lane.svg)
 
 ## Options
 

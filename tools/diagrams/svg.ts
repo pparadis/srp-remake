@@ -5,7 +5,7 @@ export const COLORS = {
   panelStroke: "#2a3642",
   text: "#e6edf3",
   muted: "#8fa3b5",
-  lane: { 1: "#5aa9ff", 2: "#5fd38a", 3: "#f2c14e" } as Record<number, string>,
+  lane: { 0: "#9aa7b3", 1: "#5aa9ff", 2: "#5fd38a", 3: "#f2c14e" } as Record<number, string>,
   sideways: "#ff9f43",
   forward: "#e6edf3",
   diagonal: "#5aa9ff",

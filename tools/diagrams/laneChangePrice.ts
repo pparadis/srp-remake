@@ -3,7 +3,7 @@
 // from the route's steps, so a disagreement shows as two different bars and an agreement as one.
 import type { RaceContext } from "../../src/game/race/raceEngine";
 import { movePath } from "../../src/game/systems/movePath";
-import { drawBend } from "./bend";
+import { drawBend, zoneRange } from "./bend";
 import { priceBar, SEGMENT_COLORS, type Segment } from "./priceBar";
 import { drawRoute, drawStepList, stepsOf, type Step } from "./route";
 import { positionOf, targetOf, type Scenario } from "./scenario";
@@ -73,7 +73,7 @@ export function laneChangePriceSvg(ctx: RaceContext, s: Scenario = LANE_CHANGE_S
   body.push(text(40, 70, `${copy.intro} (zones ${s.zones[0]}-${s.zones[1]}), drawn straight: zones left to right, lanes top to bottom.`));
   body.push(text(40, 88, "The number in a dot is the cell's forwardIndex: it does not go up when a step only changes lane."));
   body.push(panel(40, 108, 700, 420));
-  const bend = drawBend(ctx.trackIndex, s.zones, { x: 160, y: 193, zoneStep: 104, laneStep: 105 });
+  const bend = drawBend(ctx.trackIndex, zoneRange(...s.zones), { x: 160, y: 193, zoneStep: 104, laneStep: 105 });
   body.push(bend.svg);
   body.push(drawCars(bend.cellPos, s.cars));
   body.push(drawYou(bend.cellPos, s.start));
