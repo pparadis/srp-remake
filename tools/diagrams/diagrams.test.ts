@@ -3,14 +3,17 @@ import track from "../../public/tracks/oval16_3lanes.json";
 import lock from "../../docs/img/diagrams.lock.json";
 import { createRaceContext } from "../../src/game/race/raceEngine";
 import type { TrackData } from "../../src/game/types/track";
-import { BLOCKER_PANELS, offersOf } from "./blockers";
+import { BLOCKER_PANELS } from "./blockers";
 import { allDiagrams } from "./index";
 import { LANE_CHANGE_SCENARIO, laneChangePriceSvg, priceScenario } from "./laneChangePrice";
 import { hashText } from "./lock";
 import { PASS_AND_RETURN_SCENARIO } from "./passAndReturn";
-import { positionOf, targetOf } from "./scenario";
+import { PIT_ENTRY_PANELS, PIT_LANE_PANELS } from "./pitLane";
+import { offeredFrom, positionOf, targetOf } from "./scenario";
+import { PIT_EXIT_CASES, SQUEEZE_SPEC, squeezeParts } from "./squeeze";
+import type { StripSpec } from "./strip";
 
-type Offers = ReturnType<typeof offersOf>;
+type Offers = ReturnType<typeof offeredFrom>;
 
 const base = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 const byName = <T>(files: Record<string, T>) => new Map(Object.entries(files).map(([path, v]) => [base(path), v]));
@@ -44,7 +47,7 @@ describe("diagrams are kept current", () => {
 });
 
 describe("blockers diagram shows the Occupancy rules", () => {
-  const [twoCars, oneCar, wall] = BLOCKER_PANELS.map((p) => offersOf(ctx, p.scenario)) as [Offers, Offers, Offers];
+  const [twoCars, oneCar, wall] = BLOCKER_PANELS.map((p) => offeredFrom(positionOf(ctx, p))) as [Offers, Offers, Offers];
   it("a lane change may pass one car in its lane, not the second", () => {
     expect(twoCars.has("Z15_L3_00")).toBe(true); // past the first, in front of the second
     expect(twoCars.has("Z17_L3_00")).toBe(false); // past the second
@@ -55,6 +58,46 @@ describe("blockers diagram shows the Occupancy rules", () => {
   it("a full row stops everything behind it", () => {
     expect(wall.has("Z13_L2_00")).toBe(true);
     for (const zone of [15, 16, 17]) for (const lane of [1, 2, 3]) expect(wall.has(`Z${zone}_L${lane}_00`)).toBe(false);
+  });
+});
+
+describe("squeeze diagrams show the Squeeze rules", () => {
+  it("boxed in: only squeeze targets, +2 per car passed, the lane change on top", () => {
+    const offered = offeredFrom(positionOf(ctx, SQUEEZE_SPEC));
+    expect(offered.size).toBeGreaterThan(0);
+    for (const t of offered.values()) expect(t.squeezePassed).toBeGreaterThanOrEqual(1);
+    expect(offered.get("Z07_L1_00")).toMatchObject({ distance: 2, moveSpend: 4, squeezePassed: 1 });
+    expect(offered.get("Z07_L2_00")).toMatchObject({ distance: 2, moveSpend: 7, squeezePassed: 2 });
+    expect(squeezeParts(offered.get("Z07_L2_00")!)).toEqual({ cells: 2, laneChange: 1, passed: 2, cars: 4 });
+  });
+  it("pit exit: along lane 1, at most 3 cells, +2 per car, no lane-change charge", () => {
+    const [one, two] = PIT_EXIT_CASES.map((c) => offeredFrom(positionOf(ctx, c.spec))) as [Offers, Offers];
+    expect(one.get("Z08_L1_00")).toMatchObject({ distance: 2, moveSpend: 4, squeezePassed: 1 });
+    expect(one.get("Z09_L1_00")).toMatchObject({ distance: 3, moveSpend: 5, squeezePassed: 1 });
+    expect(one.has("Z10_L1_00")).toBe(false);
+    expect(two.get("Z09_L1_00")).toMatchObject({ distance: 3, moveSpend: 7, squeezePassed: 2 });
+    expect(squeezeParts(two.get("Z09_L1_00")!).laneChange).toBe(0);
+  });
+  it("rejects a squeeze price that is less than its parts", () => {
+    expect(() => squeezeParts({ distance: 3, moveSpend: 4, tireCost: 0, fuelCost: 0, isPitTrigger: false, squeezePassed: 2 })).toThrow();
+    expect(() => squeezeParts({ distance: 3, tireCost: 0, fuelCost: 0, isPitTrigger: false })).toThrow("not a squeeze");
+  });
+});
+
+describe("pit diagrams show the Pit rules", () => {
+  const offers = (panels: StripSpec[]) => panels.map((p) => offeredFrom(positionOf(ctx, p)));
+  it("entry: only from lane 1, only at distance 1", () => {
+    const [fromLane1, fromLane2, fromFar] = offers(PIT_ENTRY_PANELS);
+    expect(fromLane1!.has("Z28_L0_00")).toBe(true);
+    expect(fromLane2!.has("Z28_L0_00")).toBe(false);
+    expect(fromFar!.has("Z28_L0_00")).toBe(false);
+    for (const o of [fromLane1!, fromLane2!, fromFar!]) expect(o.has("Z01_L0_00")).toBe(false);
+  });
+  it("in the pit lane: one step, any box ahead from next to a box, the exit onto lane 1", () => {
+    const [step, boxes, exit] = offers(PIT_LANE_PANELS);
+    expect([...step!.keys()].filter((id) => id.includes("_L0_"))).toEqual(["Z01_L0_00"]);
+    expect([...boxes!.keys()].sort()).toEqual(["Z02_L0_00", "Z03_L0_00"]);
+    expect([...exit!.keys()]).toEqual(["Z07_L1_00"]);
   });
 });
 

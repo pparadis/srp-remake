@@ -1,5 +1,5 @@
-// The straightened bend: zones left to right, main lanes top to bottom (lane 3 on top, lane 1 at the bottom, as the
-// board is read), with the cell's forwardIndex in each dot.
+// The straightened bend: zones left to right, lanes top to bottom (the highest lane on top, as the board is read), with
+// the cell's forwardIndex in each dot. Lanes 1-3 are the main lanes; lane 0 is the pit lane.
 import type { TrackCell } from "../../src/game/types/track";
 import type { TrackIndex } from "../../src/game/systems/trackIndex";
 import { circle, COLORS, text } from "./svg";
@@ -10,7 +10,6 @@ export interface Point {
 }
 export interface Bend {
   cellPos: Map<string, Point>;
-  lanes: number[];
   svg: string;
 }
 
@@ -21,28 +20,37 @@ export interface BendBox {
   laneStep: number;
 }
 
-const LANES = [1, 2, 3];
+const LANE_NAMES: Record<number, string> = { 0: "pit lane", 1: "lane 1 (inner)", 2: "lane 2", 3: "lane 3 (outer)" };
 
-/** Cells of `zones` (inclusive) on the main lanes, placed inside the box. */
-export function drawBend(trackIndex: TrackIndex, zones: [number, number], box: BendBox): Bend {
+/** The zones from `first` to `last` inclusive. */
+export function zoneRange(first: number, last: number): number[] {
+  return Array.from({ length: last - first + 1 }, (_, i) => first + i);
+}
+
+/**
+ * The cells of `zones` (in this order, so a stretch across the start line works: 27, 28, 1, 2) on `lanes` (top to
+ * bottom), placed inside the box. A lane with no cell in a zone (the pit lane has none beyond its length) gets no dot.
+ */
+export function drawBend(trackIndex: TrackIndex, zones: number[], box: BendBox, lanes: number[] = [3, 2, 1]): Bend {
   const cells = new Map<string, TrackCell>();
   for (const c of trackIndex.track.cells) {
-    if (!LANES.includes(c.laneIndex) || c.zoneIndex < zones[0] || c.zoneIndex > zones[1]) continue;
+    if (!lanes.includes(c.laneIndex) || !zones.includes(c.zoneIndex)) continue;
     const key = `${c.zoneIndex}:${c.laneIndex}`;
     if (!cells.has(key)) cells.set(key, c);
   }
   const cellPos = new Map<string, Point>();
   const parts: string[] = [];
-  const laneY = (lane: number) => box.y + (3 - lane) * box.laneStep;
-  const zoneX = (zone: number) => box.x + (zone - zones[0]) * box.zoneStep;
-  for (const lane of LANES) {
+  const laneY = (lane: number) => box.y + lanes.indexOf(lane) * box.laneStep;
+  const zoneX = (zone: number) => box.x + zones.indexOf(zone) * box.zoneStep;
+  // drawn in lane order, whatever the rows' order
+  const byLane = [...lanes].sort((a, b) => a - b);
+  for (const lane of byLane) {
     const color = COLORS.lane[lane]!;
-    const pts = [];
-    for (let z = zones[0]; z <= zones[1]; z += 1) pts.push(`${zoneX(z).toFixed(1)},${laneY(lane).toFixed(1)}`);
-    parts.push(`<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>`);
+    const pts = zones.filter((z) => cells.has(`${z}:${lane}`)).map((z) => `${zoneX(z).toFixed(1)},${laneY(lane).toFixed(1)}`);
+    if (pts.length > 1) parts.push(`<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>`);
   }
-  for (let z = zones[0]; z <= zones[1]; z += 1) {
-    for (const lane of LANES) {
+  for (const z of zones) {
+    for (const lane of byLane) {
       const c = cells.get(`${z}:${lane}`);
       if (!c) continue;
       const p = { x: zoneX(z), y: laneY(lane) };
@@ -51,7 +59,6 @@ export function drawBend(trackIndex: TrackIndex, zones: [number, number], box: B
       parts.push(text(p.x, p.y + 4, c.forwardIndex, { anchor: "middle" }));
     }
   }
-  const names: Record<number, string> = { 1: "lane 1 (inner)", 2: "lane 2", 3: "lane 3 (outer)" };
-  for (const lane of LANES) parts.push(text(box.x - 106, laneY(lane) - 30, names[lane]!, { size: 11, color: COLORS.lane[lane]! }));
-  return { cellPos, lanes: LANES, svg: parts.join("\n") };
+  for (const lane of byLane) parts.push(text(box.x - 106, laneY(lane) - 30, LANE_NAMES[lane]!, { size: 11, color: COLORS.lane[lane]! }));
+  return { cellPos, svg: parts.join("\n") };
 }
