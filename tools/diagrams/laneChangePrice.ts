@@ -7,7 +7,8 @@ import { drawBend } from "./bend";
 import { priceBar, SEGMENT_COLORS, type Segment } from "./priceBar";
 import { drawRoute, drawStepList, stepsOf, type Step } from "./route";
 import { positionOf, targetOf, type Scenario } from "./scenario";
-import { circle, COLORS, document, panel, rect, text } from "./svg";
+import { drawCars, drawTarget, drawYou } from "./marks";
+import { COLORS, document, panel, text } from "./svg";
 
 // The oval's top-left bend: you on lane 1, a car ahead on lane 1 and one on lane 2, the target two lanes over.
 export const LANE_CHANGE_SCENARIO: Scenario = {
@@ -51,27 +52,32 @@ function segmentsOf(p: Pricing, price: number): Segment[] {
   ];
 }
 
-export function laneChangePriceSvg(ctx: RaceContext, s: Scenario = LANE_CHANGE_SCENARIO): string {
+/** The words around a route picture; the numbers in it always come from the engine. */
+export interface RouteCopy {
+  title: string;
+  /** the line under the title; a second line explains the number in a dot */
+  intro: string;
+}
+
+export const LANE_CHANGE_COPY: RouteCopy = {
+  title: "Lane-change price: what the rule says, and what the code charges",
+  intro: "One real route on the oval's bend"
+};
+
+/** One route drawn on a bend, step by step, with its price by the written rule and by the engine. */
+export function laneChangePriceSvg(ctx: RaceContext, s: Scenario = LANE_CHANGE_SCENARIO, copy: RouteCopy = LANE_CHANGE_COPY): string {
   const p = priceScenario(ctx, s);
   const H = Math.max(640, 580 + p.steps.length * 24 + 40);
   const body: string[] = [];
-  body.push(text(40, 44, "Lane-change price: what the rule says, and what the code charges", { size: 22, bold: true, color: COLORS.text }));
-  body.push(text(40, 70, `One real route on the oval's bend (zones ${s.zones[0]}-${s.zones[1]}), drawn straight: zones left to right, lanes top to bottom.`));
+  body.push(text(40, 44, copy.title, { size: 22, bold: true, color: COLORS.text }));
+  body.push(text(40, 70, `${copy.intro} (zones ${s.zones[0]}-${s.zones[1]}), drawn straight: zones left to right, lanes top to bottom.`));
   body.push(text(40, 88, "The number in a dot is the cell's forwardIndex: it does not go up when a step only changes lane."));
   body.push(panel(40, 108, 700, 420));
   const bend = drawBend(ctx.trackIndex, s.zones, { x: 160, y: 193, zoneStep: 104, laneStep: 105 });
   body.push(bend.svg);
-  for (const id of s.cars) {
-    const c = bend.cellPos.get(id)!;
-    body.push(rect(c.x - 20, c.y - 14, 40, 28, `rx="6" fill="${COLORS.car}" stroke="${COLORS.carStroke}"`));
-    body.push(text(c.x, c.y + 4, "car", { size: 11, anchor: "middle", color: COLORS.text }));
-  }
-  const you = bend.cellPos.get(s.start)!;
-  body.push(rect(you.x - 22, you.y - 15, 44, 30, `rx="7" fill="${COLORS.you}" stroke="#ffd0d2" stroke-width="2"`));
-  body.push(text(you.x, you.y + 4, "you", { size: 12, bold: true, anchor: "middle", color: "#fff" }));
-  const tgt = bend.cellPos.get(s.target)!;
-  body.push(circle(tgt.x, tgt.y, 27, `fill="none" stroke="${COLORS.target}" stroke-width="3" stroke-dasharray="5 4"`));
-  body.push(text(tgt.x, tgt.y + 46, "target", { size: 12, bold: true, anchor: "middle", color: COLORS.target }));
+  body.push(drawCars(bend.cellPos, s.cars));
+  body.push(drawYou(bend.cellPos, s.start));
+  body.push(drawTarget(bend.cellPos, s.target));
   body.push(drawRoute(p.steps, bend.cellPos));
 
   body.push(text(40, 562, `The route, step by step (${p.cellsWalked} cells walked, ${p.forward} of them forward, ${p.laneChanges} lane changes)`, { bold: true, color: COLORS.text }));
