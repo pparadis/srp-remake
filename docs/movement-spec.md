@@ -71,6 +71,14 @@ fixed the "code today" bar goes away.
   - Adjacent lanes do not block unless they are the chosen destination lane.
 - Occupied cells are not traversable during target search (except the start cell).
 
+Which cells the engine offers around other cars: the move points on a free cell, or a cross when it is not offered.
+
+![Cars in the way: a lane change passes one car in its lane, never the second; a lone car is open beyond it; a full row cannot be passed](img/blockers.svg)
+
+Pass and return, one real route: out through the adjacent lane, past the car, and back. Out and back is two lane changes, so the route costs two points more than its forward cells.
+
+![Pass and return: round a car through one adjacent lane, and back](img/pass-and-return.svg)
+
 ## Squeeze (boxed in)
 
 Only when an ACTIVE car has no normal target at all, `computeTargets` (raceEngine) returns squeeze targets from

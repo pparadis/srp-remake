@@ -3,9 +3,14 @@ import track from "../../public/tracks/oval16_3lanes.json";
 import lock from "../../docs/img/diagrams.lock.json";
 import { createRaceContext } from "../../src/game/race/raceEngine";
 import type { TrackData } from "../../src/game/types/track";
+import { BLOCKER_PANELS, offersOf } from "./blockers";
 import { allDiagrams } from "./index";
 import { LANE_CHANGE_SCENARIO, laneChangePriceSvg, priceScenario } from "./laneChangePrice";
 import { hashText } from "./lock";
+import { PASS_AND_RETURN_SCENARIO } from "./passAndReturn";
+import { positionOf, targetOf } from "./scenario";
+
+type Offers = ReturnType<typeof offersOf>;
 
 const base = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 const byName = <T>(files: Record<string, T>) => new Map(Object.entries(files).map(([path, v]) => [base(path), v]));
@@ -35,6 +40,37 @@ describe("diagrams are kept current", () => {
   });
   it.each([...generated.keys()])("%s is shown in a doc", (name) => {
     expect(docs.some((d) => d.includes(`img/${name}`)), `no docs/*.md embeds img/${name}`).toBe(true);
+  });
+});
+
+describe("blockers diagram shows the Occupancy rules", () => {
+  const [twoCars, oneCar, wall] = BLOCKER_PANELS.map((p) => offersOf(ctx, p.scenario)) as [Offers, Offers, Offers];
+  it("a lane change may pass one car in its lane, not the second", () => {
+    expect(twoCars.has("Z15_L3_00")).toBe(true); // past the first, in front of the second
+    expect(twoCars.has("Z17_L3_00")).toBe(false); // past the second
+  });
+  it("a lone car in the lane can be passed like the first of two", () => {
+    for (const id of ["Z15_L3_00", "Z16_L3_00", "Z17_L3_00"]) expect(oneCar.has(id)).toBe(true);
+  });
+  it("a full row stops everything behind it", () => {
+    expect(wall.has("Z13_L2_00")).toBe(true);
+    for (const zone of [15, 16, 17]) for (const lane of [1, 2, 3]) expect(wall.has(`Z${zone}_L${lane}_00`)).toBe(false);
+  });
+});
+
+describe("pass-and-return scenario", () => {
+  const p = priceScenario(ctx, PASS_AND_RETURN_SCENARIO);
+  const info = targetOf(positionOf(ctx, PASS_AND_RETURN_SCENARIO), PASS_AND_RETURN_SCENARIO);
+  it("lands in the start lane beyond the car, round it through one adjacent lane", () => {
+    const lanes = new Set(p.path.map((id) => ctx.cellMap.get(id)!.laneIndex));
+    expect(lanes).toEqual(new Set([1, 2]));
+    expect(p.path).not.toContain(PASS_AND_RETURN_SCENARIO.cars[0]);
+    expect(ctx.cellMap.get(PASS_AND_RETURN_SCENARIO.target)!.laneIndex).toBe(1);
+  });
+  it("pays for out and back: two lane changes, and the rule and the engine agree", () => {
+    expect(info.laneChanges).toBe(2);
+    expect(p.rule).toBe(p.code);
+    expect(p.code).toBe(p.forward + 2);
   });
 });
 
