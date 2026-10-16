@@ -11,8 +11,16 @@ describe("draftAhead", () => {
   it("drafts a car 1 or 2 cells ahead in the same lane, reporting the gap", () => {
     expect(at("Z05_L1_00", "Z06_L1_00")).toEqual({ cellId: "Z06_L1_00", gap: 1 });
     expect(at("Z05_L2_00", "Z07_L2_00")).toEqual({ cellId: "Z07_L2_00", gap: 2 });
-    // forwardIndex decides, not the zone: on a bend the outer lanes share one (Z06_L3 and Z07_L3 are both 5)
-    expect(at("Z05_L3_00", "Z07_L3_00")).toEqual({ cellId: "Z07_L3_00", gap: 1 });
+    expect(at("Z05_L3_00", "Z07_L3_00")).toEqual({ cellId: "Z07_L3_00", gap: 2 });
+  });
+
+  it("counts cells along the lane, not forwardIndex, which repeats on the outer lanes (#113)", () => {
+    // Z12_L3 and Z13_L3 both have forwardIndex 10: adjacent cells, so bumper to bumper, as on lane 2
+    expect(at("Z12_L3_00", "Z13_L3_00")).toEqual({ cellId: "Z13_L3_00", gap: 1 });
+    expect(at("Z12_L2_00", "Z13_L2_00")).toEqual({ cellId: "Z13_L2_00", gap: 1 });
+    expect(at("Z11_L3_00", "Z13_L3_00")).toEqual({ cellId: "Z13_L3_00", gap: 2 });
+    // and each lane wraps at its own length (lane 3 has 32 cells)
+    expect(at("Z32_L3_00", "Z01_L3_00")).toEqual({ cellId: "Z01_L3_00", gap: 1 });
   });
 
   it("does not draft a car 3 or more cells ahead", () => {

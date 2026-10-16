@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import realTrack from "../../../public/tracks/oval16_3lanes.json";
 import type { TrackCell, TrackData } from "../types/track";
-import { buildTrackIndex } from "./trackIndex";
+import { buildTrackIndex, cellsAlongLane, lapAhead } from "./trackIndex";
 
 function makeCell(
   id: string,
@@ -86,5 +87,44 @@ describe("buildTrackIndex", () => {
 
     const index = buildTrackIndex(track);
     expect(index.pitBoxMaxZone).toBeNull();
+  });
+});
+
+describe("lap position and cells along the lane (#114)", () => {
+  const index = buildTrackIndex(realTrack as unknown as TrackData);
+  const cell = (id: string) => index.cellMap.get(id)!;
+  const lane = (l: number) =>
+    realTrack.cells.filter((c) => c.laneIndex === l).sort((a, b) => a.zoneIndex - b.zoneIndex);
+
+  it("reads 0 on the start line and never repeats within a lane", () => {
+    for (const l of [1, 2, 3]) {
+      const pos = lane(l).map((c) => index.lapPos.get(c.id)!);
+      expect(pos[0]).toBe(0);
+      for (let i = 1; i < pos.length; i += 1) expect(pos[i]!).toBeGreaterThan(pos[i - 1]!);
+      expect(pos[pos.length - 1]!).toBeLessThan(index.spineLen);
+    }
+  });
+
+  it("is level for side-by-side cells on the straights, and lane 1 is its forwardIndex", () => {
+    for (const c of lane(1)) expect(index.lapPos.get(c.id)).toBe(c.forwardIndex);
+    expect(index.lapPos.get("Z03_L3_00")).toBe(index.lapPos.get("Z03_L1_00"));
+    expect(lapAhead(index, cell("Z07_L1_00"), cell("Z07_L3_00"))).toBe(0);
+  });
+
+  it("puts a lane-3 car one cell ahead of a lane-2 start where forwardIndex says level (#113)", () => {
+    expect(cell("Z07_L3_00").forwardIndex).toBe(cell("Z06_L2_00").forwardIndex);
+    expect(lapAhead(index, cell("Z06_L2_00"), cell("Z07_L3_00"))).toBe(1);
+  });
+
+  it("wraps across the start line", () => {
+    expect(lapAhead(index, cell("Z28_L1_00"), cell("Z01_L1_00"))).toBe(1);
+    expect(lapAhead(index, cell("Z01_L1_00"), cell("Z28_L1_00"))).toBe(27);
+  });
+
+  it("counts cells along a lane at that lane's own length", () => {
+    expect(index.laneLength.get(3)).toBe(32);
+    expect(cellsAlongLane(index, cell("Z12_L3_00"), cell("Z13_L3_00"))).toBe(1);
+    expect(cellsAlongLane(index, cell("Z32_L3_00"), cell("Z01_L3_00"))).toBe(1);
+    expect(cellsAlongLane(index, cell("Z30_L2_00"), cell("Z01_L2_00"))).toBe(1);
   });
 });

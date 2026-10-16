@@ -399,6 +399,15 @@ describe("computeSqueezeTargets (boxed in)", () => {
     expect(t.get("Z08_L2_00")).toMatchObject({ moveSpend: 3 + 2, squeezePassed: 1 });
   });
 
+  it("counts the cars passed in another lane by lap position, not forwardIndex (#113)", () => {
+    // Z07_L3 has forwardIndex 5, like the start Z06_L2: by forwardIndex it was level, so never passed
+    const occ = new Set(["Z06_L2_00", "Z07_L1_00", "Z07_L2_00", "Z07_L3_00"]);
+    const t = computeSqueezeTargets(index, "Z06_L2_00", occ, 9, costs);
+    expect(t.get("Z08_L3_00")).toMatchObject({ squeezePassed: 2 });
+    expect(t.get("Z09_L3_00")).toMatchObject({ squeezePassed: 2 });
+    expect(t.get("Z08_L2_00")).toMatchObject({ squeezePassed: 1 });
+  });
+
   it("is limited by the remaining budget", () => {
     expect(squeeze(BOXED, 4).has("Z07_L2_00")).toBe(true);
     expect(squeeze(BOXED, 4).has("Z07_L1_00")).toBe(false);
