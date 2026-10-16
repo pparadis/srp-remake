@@ -26,6 +26,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"],
-  "exclude": ["e2e"]
+  "include": ["src", "tools/diagrams"],
+  "exclude": ["e2e", "tools/diagrams/gen.ts"]
 }

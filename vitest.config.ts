@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   define: { __GIT_SHA__: JSON.stringify("0123456789abcdef0123456789abcdef01234567"), __BUILD_DATE__: JSON.stringify("2026-01-02") },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "tools/diagrams/**/*.test.ts"],
     environment: "jsdom",
     // CSS is not processed in tests, except when a test reads the stylesheet's text (`style.css?raw`)
     css: { include: [/style\.css\?raw/] },

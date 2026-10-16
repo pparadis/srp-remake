@@ -20,6 +20,7 @@
     "test:coverage": "vitest run --coverage",
     "gen:track": "node tools/genOval16_3lanes.mjs",
     "gen:icons": "node tools/makeIcons.mjs",
+    "gen:diagrams": "tsx tools/diagrams/gen.ts",
     "backend:up": "podman-compose up --build api",
     "backend:down": "podman-compose down",
     "backend:logs": "podman-compose logs -f api",
