@@ -27,6 +27,12 @@ describe("bot levels benchmark", () => {
     expect(avg("easy")).toBeLessThan(avg("autopilot"));
   });
 
+  it("keeps that order on the frozen rules v1 too (#118)", () => {
+    const v1 = runBench(ctx, { lineup, laps: [5, 8, 12], seeds: [1, 2, 3, 4], rulesVersion: "v1" });
+    const order = lineup.map((p) => v1.stats.get(p)!.avgFinish);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  }, 30_000);
+
   it("pits in a 12-lap race (a stop keeps the lap) but not in a 7-lap one, never enters the pit on the final lap", () => {
     const stops = (laps: number) => {
       const state = createRace(ctx, Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `B${i}` })), laps);
