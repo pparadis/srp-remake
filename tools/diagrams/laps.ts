@@ -4,12 +4,11 @@
 import type { RaceContext } from "../../src/game/race/raceEngine";
 import { lapCountAtSpawn } from "../../src/game/systems/lapProgress";
 import { movePath } from "../../src/game/systems/movePath";
-import { drawBend } from "./bend";
 import { drawRoute, stepsOf } from "./route";
 import { drawYou } from "./marks";
 import { playMoves, positionOf } from "./scenario";
-import { stripHeight } from "./strip";
-import { COLORS, document, panel, text } from "./svg";
+import { bendPanel } from "./strip";
+import { COLORS, document, text } from "./svg";
 
 export interface LapPanel {
   title: string;
@@ -82,7 +81,6 @@ export const LAP_PANELS: LapPanel[] = [
 ];
 
 const GAP = 20;
-const height = (p: LapPanel) => stripHeight(p.lanes.length) + 16;
 
 /** The panel's laps: before the first move, then after each. */
 export function lapsOf(ctx: RaceContext, p: LapPanel): number[] {
@@ -91,19 +89,19 @@ export function lapsOf(ctx: RaceContext, p: LapPanel): number[] {
   return [pos.car.lapCount ?? 0, ...playMoves(pos, p.moves)];
 }
 
-function drawLapPanel(ctx: RaceContext, p: LapPanel, y: number): string {
+function drawLapPanel(ctx: RaceContext, p: LapPanel, y: number): { svg: string; height: number } {
   const laps = lapsOf(ctx, p);
-  const x = 40;
-  const parts = [panel(x, y, 760, height(p))];
-  parts.push(text(x + 20, y + 28, p.title, { size: 14, bold: true, color: COLORS.text }));
-  parts.push(text(x + 20, y + 46, p.note, { size: 11 }));
-  const step = 104;
-  const bend = drawBend(ctx.trackIndex, p.zones, { x: x + 150, y: y + 100, zoneStep: step, laneStep: 62 }, p.lanes);
-  parts.push(bend.svg);
-  // the start line: left of zone 1, across every lane (the pit lane too)
+  const { svg, bend, height } = bendPanel(ctx, p, 40, y, 760, 52);
+  const parts = [svg];
+  // the start line: just before zone 1, across every lane (the pit lane too)
   const z1 = [...bend.cellPos].find(([id]) => ctx.cellMap.get(id)!.zoneIndex === 1);
   if (z1) {
-    const lx = z1[1].x - step / 2;
+    const lane = ctx.cellMap.get(z1[0])!.laneIndex;
+    const before = [...bend.cellPos].find(([id]) => {
+      const c = ctx.cellMap.get(id)!;
+      return c.laneIndex === lane && p.zones.indexOf(c.zoneIndex) === p.zones.indexOf(1) - 1;
+    });
+    const lx = before ? (before[1].x + z1[1].x) / 2 : z1[1].x - 30;
     const ys = [...bend.cellPos.values()].map((c) => c.y);
     parts.push(`<line x1="${lx}" y1="${Math.min(...ys) - 30}" x2="${lx}" y2="${Math.max(...ys) + 30}" stroke="${COLORS.target}" stroke-width="3" stroke-dasharray="6 4"/>`);
     parts.push(text(lx, Math.min(...ys) - 36, "start line", { size: 11, bold: true, anchor: "middle", color: COLORS.target }));
@@ -117,7 +115,7 @@ function drawLapPanel(ctx: RaceContext, p: LapPanel, y: number): string {
     const gained = i > 0 && laps[i]! > laps[i - 1]!;
     parts.push(text(c.x, c.y + 38, `laps ${laps[i]}${gained ? " +1" : ""}`, { size: 11, bold: gained, anchor: "middle", color: gained ? COLORS.good : COLORS.muted }));
   });
-  return parts.join("\n");
+  return { svg: parts.join("\n"), height };
 }
 
 export function lapsSvg(ctx: RaceContext): string {
@@ -126,8 +124,9 @@ export function lapsSvg(ctx: RaceContext): string {
   body.push(text(40, 88, "The pit lane has its own forwardIndex scale: its dots do not compare with lane 1."));
   let y = 108;
   for (const p of LAP_PANELS) {
-    body.push(drawLapPanel(ctx, p, y));
-    y += height(p) + GAP;
+    const lap = drawLapPanel(ctx, p, y);
+    body.push(lap.svg);
+    y += lap.height + GAP;
   }
   return document(840, y, body);
 }

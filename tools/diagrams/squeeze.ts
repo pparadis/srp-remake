@@ -32,7 +32,6 @@ export const PIT_EXIT_CASES: { spec: StripSpec; bars: string[] }[] = [
       cars: ["Z07_L1_00"],
       zones: zoneRange(4, 10),
       lanes: [1, 0],
-      zoneStep: 90,
       mark: onLane1Ahead
     },
     bars: ["Z08_L1_00", "Z09_L1_00"]
@@ -45,7 +44,6 @@ export const PIT_EXIT_CASES: { spec: StripSpec; bars: string[] }[] = [
       cars: ["Z07_L1_00", "Z08_L1_00"],
       zones: zoneRange(4, 10),
       lanes: [1, 0],
-      zoneStep: 90,
       mark: onLane1Ahead
     },
     bars: ["Z09_L1_00"]

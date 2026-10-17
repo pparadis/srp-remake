@@ -35,7 +35,8 @@ extra cell it walks; a diagonal change pays it as a `+1` surcharge.
 - `TargetInfo.laneChanges` is set only when the route changes lane 2 or more times; the hover tooltip then says
   "(N lane changes)".
 
-One real route, drawn straight: two sideways changes paid by their cells, one diagonal change paid by its surcharge.
+One real route on the bend, drawn as on the board: two sideways changes paid by their cells (straight across), one
+diagonal change paid by its surcharge. Zone numbers differ per lane, so a sideways neighbour can carry another zone number.
 (Until #114 the price read `forwardIndex`, and this route cost one point under the rule, #100.)
 
 ![One route on the bend: its cells, its lane changes and its price](img/lane-change-pricing.svg)
