@@ -39,7 +39,8 @@ Project guide for Codex and other automation.
   `v1` (before #114, tag `rules-v1`) is frozen and kept for reference, not online: its code in `src/game/rules/v1/` is
   never edited, and `rulesGolden.test.ts` replays `src/game/rules/golden/v1.json` (made by `tools/rulesGolden.ts`).
   If that test fails, the change moved v1 (also through shared code): undo it or make it a new version. The rules
-  below are v2's.
+  below are v2's. Compare versions on the same races: `npx tsx tools/rulesCompare.ts [--rules v1,v2]` (the bots'
+  ordering, overtakes, race length, how often tows, slingshots, squeezes and lane changes come up, lane use).
 
 - Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `trackIndex.ts`), never by
   `forwardIndex`, which repeats on the outer lanes' bends (#114). Laps use `forwardIndex`.
