@@ -4,11 +4,11 @@ import type { RaceContext } from "../../src/game/race/raceEngine";
 import { DRAFT_RANGE, DRAFT_SLINGSHOT_TURNS } from "../../src/game/constants";
 import { draftAhead } from "../../src/game/systems/draftSystem";
 import type { TargetInfo } from "../../src/game/systems/movementSystem";
-import { drawBend, zoneRange } from "./bend";
+import { zoneRange } from "./bend";
 import { drawCars, drawTuck } from "./marks";
 import { priceBar, SEGMENT_COLORS } from "./priceBar";
 import { offeredFrom, positionOf } from "./scenario";
-import { stripHeight } from "./strip";
+import { bendPanel } from "./strip";
 import { COLORS, document, panel, text } from "./svg";
 
 // The car ahead, and where every other cell would stand in relation to it.
@@ -46,30 +46,35 @@ export function draftingSvg(ctx: RaceContext): string {
   // 1. where a car is tucked in
   let y = 108;
   const lanes = [3, 2, 1];
-  const h = stripHeight(lanes.length);
-  body.push(panel(40, y, 760, h));
-  body.push(text(60, y + 28, "Where you are tucked in", { size: 14, bold: true, color: COLORS.text }));
-  body.push(text(60, y + 46, "The number is the gap to the car ahead. Not in the next lane, not further back.", { size: 11 }));
-  const bend = drawBend(ctx.trackIndex, TOW_ZONES, { x: 190, y: y + 100, zoneStep: 104, laneStep: 62 }, lanes);
-  body.push(bend.svg);
+  const tow = bendPanel(ctx, {
+    title: "Where you are tucked in",
+    note: "The number is the gap to the car ahead. Not in the next lane, not further back.",
+    zones: TOW_ZONES,
+    lanes
+  }, 40, y, 760);
+  const bend = tow.bend;
+  body.push(tow.svg);
   for (const [id, p] of bend.cellPos) if (id !== LEADER) body.push(drawTuck(p, towGap(ctx, id)));
   body.push(drawCars(bend.cellPos, [LEADER]));
-  y += h + 20;
+  y += tow.height + 20;
 
   // 1b. the same on the outer lane, where two neighbouring cells share a forwardIndex
-  body.push(panel(40, y, 760, h));
-  body.push(text(60, y + 28, "On the outer lane's bend: counted in cells, not by the number in the dot", { size: 14, bold: true, color: COLORS.text }));
-  body.push(text(60, y + 46, "Lane 3 has 32 cells, so two neighbours can share a forwardIndex (10 and 10). The gap is still 1.", { size: 11 }));
-  const outer = drawBend(ctx.trackIndex, OUTER_ZONES, { x: 190, y: y + 100, zoneStep: 104, laneStep: 62 }, lanes);
-  body.push(outer.svg);
+  const bendPanelOuter = bendPanel(ctx, {
+    title: "On the outer lane's bend: counted in cells, not by the number in the dot",
+    note: "Lane 3 has 32 cells, so two neighbours can share a forwardIndex (10 and 10). The gap is still 1.",
+    zones: OUTER_ZONES,
+    lanes
+  }, 40, y, 760);
+  const outer = bendPanelOuter.bend;
+  body.push(bendPanelOuter.svg);
   for (const [id, p] of outer.cellPos) if (id !== OUTER_LEADER) body.push(drawTuck(p, towGap(ctx, id, OUTER_LEADER)));
   body.push(drawCars(outer.cellPos, [OUTER_LEADER]));
   // the dots show the gap, so the repeated forwardIndex is written under the lane-3 cells
   for (const [id, p] of outer.cellPos) {
     const c = ctx.cellMap.get(id)!;
-    if (c.laneIndex === 3) body.push(text(p.x, p.y + 36, `fwd ${c.forwardIndex}`, { size: 10, anchor: "middle" }));
+    if (c.laneIndex === 3) body.push(text(p.x, p.y - 26, `fwd ${c.forwardIndex}`, { size: 10, anchor: "middle" }));
   }
-  y += h + 20;
+  y += bendPanelOuter.height + 20;
 
   // 2. what the run buys
   const rowH = 86;

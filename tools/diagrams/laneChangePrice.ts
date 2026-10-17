@@ -67,21 +67,23 @@ export const LANE_CHANGE_COPY: RouteCopy = {
 /** One route drawn on a bend, step by step, with its price by the written rule and by the engine. */
 export function laneChangePriceSvg(ctx: RaceContext, s: Scenario = LANE_CHANGE_SCENARIO, copy: RouteCopy = LANE_CHANGE_COPY): string {
   const p = priceScenario(ctx, s);
-  const H = Math.max(640, 580 + p.steps.length * 24 + 40);
+  const bend = drawBend(ctx.trackIndex, zoneRange(...s.zones), { x: 60, y: 146, w: 660 });
+  const panelH = Math.max(300, bend.height + 84);
+  const listY = 108 + panelH + 34;
+  const H = Math.max(640, listY + 22 + p.steps.length * 24 + 40);
   const body: string[] = [];
   body.push(text(40, 44, copy.title, { size: 22, bold: true, color: COLORS.text }));
-  body.push(text(40, 70, `${copy.intro} (zones ${s.zones[0]}-${s.zones[1]}), drawn straight: zones left to right, lanes top to bottom.`));
+  body.push(text(40, 70, `${copy.intro} (zones ${s.zones[0]}-${s.zones[1]}), drawn as it is on the board, travel left to right.`));
   body.push(text(40, 88, "The number in a dot is the cell's forwardIndex; a step is priced by the lap position it gains (below)."));
-  body.push(panel(40, 108, 700, 420));
-  const bend = drawBend(ctx.trackIndex, zoneRange(...s.zones), { x: 160, y: 193, zoneStep: 104, laneStep: 105 });
+  body.push(panel(40, 108, 700, panelH));
   body.push(bend.svg);
   body.push(drawCars(bend.cellPos, s.cars));
   body.push(drawYou(bend.cellPos, s.start));
   body.push(drawTarget(bend.cellPos, s.target));
   body.push(drawRoute(p.steps, bend.cellPos));
 
-  body.push(text(40, 562, `The route, step by step (${p.cellsWalked} cells walked, ${p.forward} of them forward, ${p.laneChanges} lane changes)`, { bold: true, color: COLORS.text }));
-  body.push(drawStepList(p.steps, 40, 584));
+  body.push(text(40, listY, `The route, step by step (${p.cellsWalked} cells walked, ${p.forward} of them forward, ${p.laneChanges} lane changes)`, { bold: true, color: COLORS.text }));
+  body.push(drawStepList(p.steps, 40, listY + 22));
 
   body.push(panel(780, 100, 400, H - 140));
   body.push(text(800, 134, "What this route costs", { size: 16, bold: true, color: COLORS.text }));

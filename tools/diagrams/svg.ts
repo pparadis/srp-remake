@@ -52,7 +52,8 @@ export function panel(x: number, y: number, w: number, h: number): string {
   return rect(x, y, w, h, `rx="10" fill="${COLORS.panel}" stroke="${COLORS.panelStroke}"`);
 }
 
-export function document(width: number, height: number, body: string[]): string {
+export function document(width: number, h: number, body: string[]): string {
+  const height = Math.ceil(h); // panels sized to a drawing can end on a fraction
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">`,
     `<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="${COLORS.bg}"/><rect width="3" height="7" fill="${COLORS.diagonal}" opacity="0.5"/></pattern></defs>`,

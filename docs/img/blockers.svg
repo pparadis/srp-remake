@@ -1,278 +1,329 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 968" width="840" height="968">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 1345" width="840" height="1345">
 <defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#0b0f14"/><rect width="3" height="7" fill="#5aa9ff" opacity="0.5"/></pattern></defs>
-<rect x="0" y="0" width="840" height="968" fill="#0b0f14"/>
+<rect x="0" y="0" width="840" height="1345" fill="#0b0f14"/>
 <text x="40" y="44" fill="#e6edf3" font-size="22" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">Cars in the way: what the engine offers</text>
 <text x="40" y="70" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">Each free cell ahead of you shows the move points it costs, or a cross when it is not offered.</text>
-<text x="40" y="88" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">Zones left to right, lanes top to bottom; the number in a plain dot is its forwardIndex.</text>
+<text x="40" y="88" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">Drawn as on the board, travel left to right; the number in a plain dot is its forwardIndex.</text>
 <text x="40" y="106" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">A cell in your own zone is never offered: a car only moves forward, straight or diagonally.</text>
-<rect x="40" y="128" width="760" height="260" rx="10" fill="#111821" stroke="#2a3642"/>
+<rect x="40" y="128" width="760" height="385.4" rx="10" fill="#111821" stroke="#2a3642"/>
 <text x="60" y="156" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">A lane change passes one car in its lane, never the second</text>
 <text x="60" y="174" fill="#8fa3b5" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">Two cars in lane 3: merging past the first car is fine, the cell past the second is not.</text>
-<polyline points="190.0,352.0 294.0,352.0 398.0,352.0 502.0,352.0 606.0,352.0 710.0,352.0" fill="none" stroke="#5aa9ff" stroke-width="2" opacity="0.3"/>
-<polyline points="190.0,290.0 294.0,290.0 398.0,290.0 502.0,290.0 606.0,290.0 710.0,290.0" fill="none" stroke="#5fd38a" stroke-width="2" opacity="0.3"/>
-<polyline points="190.0,228.0 294.0,228.0 398.0,228.0 502.0,228.0 606.0,228.0 710.0,228.0" fill="none" stroke="#f2c14e" stroke-width="2" opacity="0.3"/>
-<circle cx="190" cy="352" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="190" y="356" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="190" cy="290" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="190" y="294" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="190" cy="228" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="190" y="232" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="294" cy="352" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="294" y="356" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="294" cy="290" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="294" y="294" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="294" cy="228" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="294" y="232" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="398" cy="352" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="398" y="356" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="398" cy="290" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="398" y="294" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="398" cy="228" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="398" y="232" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="502" cy="352" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="502" y="356" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<circle cx="502" cy="290" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="502" y="294" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="502" cy="228" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="502" y="232" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="606" cy="352" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="606" y="356" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
-<circle cx="606" cy="290" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="606" y="294" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<circle cx="606" cy="228" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="606" y="232" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="710" cy="352" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="710" y="356" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
-<circle cx="710" cy="290" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="710" y="294" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
-<circle cx="710" cy="228" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="710" y="232" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<text x="84" y="322" fill="#5aa9ff" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 (inner)</text>
-<text x="84" y="260" fill="#5fd38a" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 2</text>
-<text x="84" y="198" fill="#f2c14e" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 3 (outer)</text>
-<circle cx="190" cy="352" r="21" fill="#0b0f14"/>
-<circle cx="190" cy="352" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="190" y="358" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="294" cy="352" r="21" fill="#0b0f14"/>
-<circle cx="294" cy="352" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="294" y="357" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
-<circle cx="294" cy="290" r="21" fill="#0b0f14"/>
-<circle cx="294" cy="290" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="294" y="295" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
-<circle cx="398" cy="352" r="21" fill="#0b0f14"/>
-<circle cx="398" cy="352" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="398" y="357" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
-<circle cx="398" cy="290" r="21" fill="#0b0f14"/>
-<circle cx="398" cy="290" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="398" y="295" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2</text>
-<circle cx="502" cy="352" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="352" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="502" y="357" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
-<circle cx="502" cy="290" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="290" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="502" y="295" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
-<circle cx="502" cy="228" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="228" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="502" y="233" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
-<circle cx="606" cy="352" r="21" fill="#0b0f14"/>
-<circle cx="606" cy="352" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="606" y="357" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">6</text>
-<circle cx="606" cy="290" r="21" fill="#0b0f14"/>
-<circle cx="606" cy="290" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="606" y="295" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
-<circle cx="710" cy="352" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="352" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="710" y="357" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">7</text>
-<circle cx="710" cy="290" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="290" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="710" y="295" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
-<circle cx="710" cy="228" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="228" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="710" y="234" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<rect x="378" y="214" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
-<text x="398" y="232" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
-<rect x="586" y="214" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
-<text x="606" y="232" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
-<rect x="168" y="275" width="44" height="30" rx="7" fill="#e5484d" stroke="#ffd0d2" stroke-width="2"/>
-<text x="190" y="294" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">you</text>
-<rect x="40" y="408" width="760" height="260" rx="10" fill="#111821" stroke="#2a3642"/>
-<text x="60" y="436" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">With only one car in the lane, the lane is open beyond it</text>
-<text x="60" y="454" fill="#8fa3b5" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">A lone car can be passed like the first of two.</text>
-<polyline points="190.0,632.0 294.0,632.0 398.0,632.0 502.0,632.0 606.0,632.0 710.0,632.0" fill="none" stroke="#5aa9ff" stroke-width="2" opacity="0.3"/>
-<polyline points="190.0,570.0 294.0,570.0 398.0,570.0 502.0,570.0 606.0,570.0 710.0,570.0" fill="none" stroke="#5fd38a" stroke-width="2" opacity="0.3"/>
-<polyline points="190.0,508.0 294.0,508.0 398.0,508.0 502.0,508.0 606.0,508.0 710.0,508.0" fill="none" stroke="#f2c14e" stroke-width="2" opacity="0.3"/>
-<circle cx="190" cy="632" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="190" y="636" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="190" cy="570" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="190" y="574" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="190" cy="508" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="190" y="512" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="294" cy="632" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="294" y="636" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="294" cy="570" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="294" y="574" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="294" cy="508" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="294" y="512" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="398" cy="632" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="398" y="636" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="398" cy="570" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="398" y="574" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="398" cy="508" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="398" y="512" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="502" cy="632" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="502" y="636" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<circle cx="502" cy="570" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="502" y="574" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="502" cy="508" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="502" y="512" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="606" cy="632" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="606" y="636" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
-<circle cx="606" cy="570" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="606" y="574" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<circle cx="606" cy="508" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="606" y="512" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="710" cy="632" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="710" y="636" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
-<circle cx="710" cy="570" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="710" y="574" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
-<circle cx="710" cy="508" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="710" y="512" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<text x="84" y="602" fill="#5aa9ff" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 (inner)</text>
-<text x="84" y="540" fill="#5fd38a" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 2</text>
-<text x="84" y="478" fill="#f2c14e" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 3 (outer)</text>
-<circle cx="190" cy="632" r="21" fill="#0b0f14"/>
-<circle cx="190" cy="632" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="190" y="638" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="294" cy="632" r="21" fill="#0b0f14"/>
-<circle cx="294" cy="632" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="294" y="637" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
-<circle cx="294" cy="570" r="21" fill="#0b0f14"/>
-<circle cx="294" cy="570" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="294" y="575" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
-<circle cx="398" cy="632" r="21" fill="#0b0f14"/>
-<circle cx="398" cy="632" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="398" y="637" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
-<circle cx="398" cy="570" r="21" fill="#0b0f14"/>
-<circle cx="398" cy="570" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="398" y="575" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2</text>
-<circle cx="502" cy="632" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="632" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="502" y="637" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
-<circle cx="502" cy="570" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="570" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="502" y="575" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
-<circle cx="502" cy="508" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="508" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="502" y="513" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
-<circle cx="606" cy="632" r="21" fill="#0b0f14"/>
-<circle cx="606" cy="632" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="606" y="637" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">6</text>
-<circle cx="606" cy="570" r="21" fill="#0b0f14"/>
-<circle cx="606" cy="570" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="606" y="575" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
-<circle cx="606" cy="508" r="21" fill="#0b0f14"/>
-<circle cx="606" cy="508" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="606" y="513" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
-<circle cx="710" cy="632" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="632" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="710" y="637" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">7</text>
-<circle cx="710" cy="570" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="570" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="710" y="575" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
-<circle cx="710" cy="508" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="508" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="710" y="513" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
-<rect x="378" y="494" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
-<text x="398" y="512" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
-<rect x="168" y="555" width="44" height="30" rx="7" fill="#e5484d" stroke="#ffd0d2" stroke-width="2"/>
-<text x="190" y="574" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">you</text>
-<rect x="40" y="688" width="760" height="260" rx="10" fill="#111821" stroke="#2a3642"/>
-<text x="60" y="716" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">A full row cannot be passed: occupied cells are never driven through</text>
-<text x="60" y="734" fill="#8fa3b5" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">With no free way round, nothing beyond the row is offered, in any lane.</text>
-<polyline points="190.0,912.0 294.0,912.0 398.0,912.0 502.0,912.0 606.0,912.0 710.0,912.0" fill="none" stroke="#5aa9ff" stroke-width="2" opacity="0.3"/>
-<polyline points="190.0,850.0 294.0,850.0 398.0,850.0 502.0,850.0 606.0,850.0 710.0,850.0" fill="none" stroke="#5fd38a" stroke-width="2" opacity="0.3"/>
-<polyline points="190.0,788.0 294.0,788.0 398.0,788.0 502.0,788.0 606.0,788.0 710.0,788.0" fill="none" stroke="#f2c14e" stroke-width="2" opacity="0.3"/>
-<circle cx="190" cy="912" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="190" y="916" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="190" cy="850" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="190" y="854" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="190" cy="788" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="190" y="792" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="294" cy="912" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="294" y="916" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="294" cy="850" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="294" y="854" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="294" cy="788" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="294" y="792" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
-<circle cx="398" cy="912" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="398" y="916" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="398" cy="850" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="398" y="854" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="398" cy="788" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="398" y="792" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
-<circle cx="502" cy="912" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="502" y="916" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<circle cx="502" cy="850" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="502" y="854" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="502" cy="788" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="502" y="792" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
-<circle cx="606" cy="912" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="606" y="916" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
-<circle cx="606" cy="850" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="606" y="854" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<circle cx="606" cy="788" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="606" y="792" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
-<circle cx="710" cy="912" r="21" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
-<text x="710" y="916" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
-<circle cx="710" cy="850" r="21" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
-<text x="710" y="854" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
-<circle cx="710" cy="788" r="21" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
-<text x="710" y="792" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
-<text x="84" y="882" fill="#5aa9ff" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 (inner)</text>
-<text x="84" y="820" fill="#5fd38a" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 2</text>
-<text x="84" y="758" fill="#f2c14e" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 3 (outer)</text>
-<circle cx="190" cy="912" r="21" fill="#0b0f14"/>
-<circle cx="190" cy="912" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="190" y="918" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="294" cy="912" r="21" fill="#0b0f14"/>
-<circle cx="294" cy="912" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="294" y="917" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
-<circle cx="294" cy="850" r="21" fill="#0b0f14"/>
-<circle cx="294" cy="850" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="294" y="855" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
-<circle cx="502" cy="912" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="912" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="502" y="918" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="502" cy="850" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="850" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="502" y="856" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="502" cy="788" r="21" fill="#0b0f14"/>
-<circle cx="502" cy="788" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="502" y="794" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="606" cy="912" r="21" fill="#0b0f14"/>
-<circle cx="606" cy="912" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="606" y="918" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="606" cy="850" r="21" fill="#0b0f14"/>
-<circle cx="606" cy="850" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="606" y="856" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="606" cy="788" r="21" fill="#0b0f14"/>
-<circle cx="606" cy="788" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="606" y="794" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="710" cy="912" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="912" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="710" y="918" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="710" cy="850" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="850" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="710" y="856" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<circle cx="710" cy="788" r="21" fill="#0b0f14"/>
-<circle cx="710" cy="788" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
-<text x="710" y="794" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
-<rect x="378" y="898" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
-<text x="398" y="916" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
-<rect x="378" y="836" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
-<text x="398" y="854" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
-<rect x="378" y="774" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
-<text x="398" y="792" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
-<rect x="168" y="835" width="44" height="30" rx="7" fill="#e5484d" stroke="#ffd0d2" stroke-width="2"/>
-<text x="190" y="854" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">you</text>
+<polyline points="155.9,351.3 245.6,309.6 343.8,318.4 440.8,353.8 537.8,389.2 634.9,424.6 731.9,460.0" fill="none" stroke="#5aa9ff" stroke-width="2" opacity="0.3"/>
+<polyline points="158.8,301.7 256.7,269.7 356.9,282.6 453.9,318.0 550.9,353.4 647.9,388.8 744.9,424.2" fill="none" stroke="#5fd38a" stroke-width="2" opacity="0.3"/>
+<polyline points="82.0,317.6 165.7,255.1 267.4,231.3 370.0,246.8 467.0,282.2 564.0,317.6 661.0,353.0 758.0,388.4" fill="none" stroke="#f2c14e" stroke-width="2" opacity="0.3"/>
+<circle cx="155.9" cy="351.3" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="155.9" y="355.3" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="245.6" cy="309.6" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="245.6" y="313.6" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="343.8" cy="318.4" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="343.8" y="322.4" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="440.8" cy="353.8" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="440.8" y="357.8" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="537.8" cy="389.2" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="537.8" y="393.2" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="634.9" cy="424.6" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="634.9" y="428.6" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="731.9" cy="460" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="731.9" y="464" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<circle cx="158.8" cy="301.7" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="158.8" y="305.7" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="256.7" cy="269.7" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="256.7" y="273.7" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="356.9" cy="282.6" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="356.9" y="286.6" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="453.9" cy="318" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="453.9" y="322" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="550.9" cy="353.4" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="550.9" y="357.4" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="647.9" cy="388.8" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="647.9" y="392.8" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="744.9" cy="424.2" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="744.9" y="428.2" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<circle cx="82" cy="317.6" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="82" y="321.6" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="165.7" cy="255.1" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="165.7" y="259.1" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="267.4" cy="231.3" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="267.4" y="235.3" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="370" cy="246.8" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="370" y="250.8" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="467" cy="282.2" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="467" y="286.2" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="564" cy="317.6" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="564" y="321.6" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="661" cy="353" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="661" y="357" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="758" cy="388.4" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="758" y="392.4" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<text x="60" y="206" fill="#f2c14e" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 3 (outer)</text>
+<text x="180" y="206" fill="#5fd38a" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 2</text>
+<text x="244" y="206" fill="#5aa9ff" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 (inner)</text>
+<circle cx="245.6" cy="309.6" r="21" fill="#0b0f14"/>
+<circle cx="245.6" cy="309.6" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="245.6" y="315.6" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="343.8" cy="318.4" r="21" fill="#0b0f14"/>
+<circle cx="343.8" cy="318.4" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="343.8" y="323.4" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
+<circle cx="440.8" cy="353.8" r="21" fill="#0b0f14"/>
+<circle cx="440.8" cy="353.8" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="440.8" y="358.8" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
+<circle cx="537.8" cy="389.2" r="21" fill="#0b0f14"/>
+<circle cx="537.8" cy="389.2" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="537.8" y="394.2" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
+<circle cx="634.9" cy="424.6" r="21" fill="#0b0f14"/>
+<circle cx="634.9" cy="424.6" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="634.9" y="429.6" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">6</text>
+<circle cx="731.9" cy="460" r="21" fill="#0b0f14"/>
+<circle cx="731.9" cy="460" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="731.9" y="465" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">7</text>
+<circle cx="256.7" cy="269.7" r="21" fill="#0b0f14"/>
+<circle cx="256.7" cy="269.7" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="256.7" y="274.7" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
+<circle cx="356.9" cy="282.6" r="21" fill="#0b0f14"/>
+<circle cx="356.9" cy="282.6" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="356.9" y="287.6" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2</text>
+<circle cx="453.9" cy="318" r="21" fill="#0b0f14"/>
+<circle cx="453.9" cy="318" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="453.9" y="323" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
+<circle cx="550.9" cy="353.4" r="21" fill="#0b0f14"/>
+<circle cx="550.9" cy="353.4" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="550.9" y="358.4" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
+<circle cx="647.9" cy="388.8" r="21" fill="#0b0f14"/>
+<circle cx="647.9" cy="388.8" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="647.9" y="393.8" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
+<circle cx="370" cy="246.8" r="21" fill="#0b0f14"/>
+<circle cx="370" cy="246.8" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="370" y="251.8" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
+<circle cx="564" cy="317.6" r="21" fill="#0b0f14"/>
+<circle cx="564" cy="317.6" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="564" y="323.6" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="744.9" cy="424.2" r="21" fill="#0b0f14"/>
+<circle cx="744.9" cy="424.2" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="744.9" y="429.2" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">6</text>
+<circle cx="661" cy="353" r="21" fill="#0b0f14"/>
+<circle cx="661" cy="353" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="661" y="359" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="758" cy="388.4" r="21" fill="#0b0f14"/>
+<circle cx="758" cy="388.4" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="758" y="394.4" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<rect x="247.4" y="217.3" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
+<text x="267.4" y="235.3" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
+<rect x="447" y="268.2" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
+<text x="467" y="286.2" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
+<rect x="136.8" y="286.7" width="44" height="30" rx="7" fill="#e5484d" stroke="#ffd0d2" stroke-width="2"/>
+<text x="158.8" y="305.7" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">you</text>
+<rect x="40" y="533.4" width="760" height="385.4" rx="10" fill="#111821" stroke="#2a3642"/>
+<text x="60" y="561.4" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">With only one car in the lane, the lane is open beyond it</text>
+<text x="60" y="579.4" fill="#8fa3b5" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">A lone car can be passed like the first of two.</text>
+<polyline points="155.9,756.7 245.6,715.0 343.8,723.8 440.8,759.2 537.8,794.6 634.9,830.0 731.9,865.4" fill="none" stroke="#5aa9ff" stroke-width="2" opacity="0.3"/>
+<polyline points="158.8,707.0 256.7,675.1 356.9,688.0 453.9,723.4 550.9,758.8 647.9,794.2 744.9,829.6" fill="none" stroke="#5fd38a" stroke-width="2" opacity="0.3"/>
+<polyline points="82.0,722.9 165.7,660.5 267.4,636.7 370.0,652.1 467.0,687.5 564.0,722.9 661.0,758.3 758.0,793.7" fill="none" stroke="#f2c14e" stroke-width="2" opacity="0.3"/>
+<circle cx="155.9" cy="756.7" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="155.9" y="760.7" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="245.6" cy="715" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="245.6" y="719" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="343.8" cy="723.8" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="343.8" y="727.8" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="440.8" cy="759.2" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="440.8" y="763.2" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="537.8" cy="794.6" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="537.8" y="798.6" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="634.9" cy="830" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="634.9" y="834" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="731.9" cy="865.4" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="731.9" y="869.4" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<circle cx="158.8" cy="707" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="158.8" y="711" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="256.7" cy="675.1" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="256.7" y="679.1" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="356.9" cy="688" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="356.9" y="692" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="453.9" cy="723.4" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="453.9" y="727.4" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="550.9" cy="758.8" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="550.9" y="762.8" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="647.9" cy="794.2" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="647.9" y="798.2" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="744.9" cy="829.6" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="744.9" y="833.6" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<circle cx="82" cy="722.9" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="82" y="726.9" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="165.7" cy="660.5" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="165.7" y="664.5" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="267.4" cy="636.7" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="267.4" y="640.7" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="370" cy="652.1" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="370" y="656.1" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="467" cy="687.5" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="467" y="691.5" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="564" cy="722.9" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="564" y="726.9" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="661" cy="758.3" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="661" y="762.3" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="758" cy="793.7" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="758" y="797.7" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<text x="60" y="611.4" fill="#f2c14e" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 3 (outer)</text>
+<text x="180" y="611.4" fill="#5fd38a" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 2</text>
+<text x="244" y="611.4" fill="#5aa9ff" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 (inner)</text>
+<circle cx="245.6" cy="715" r="21" fill="#0b0f14"/>
+<circle cx="245.6" cy="715" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="245.6" y="721" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="343.8" cy="723.8" r="21" fill="#0b0f14"/>
+<circle cx="343.8" cy="723.8" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="343.8" y="728.8" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
+<circle cx="440.8" cy="759.2" r="21" fill="#0b0f14"/>
+<circle cx="440.8" cy="759.2" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="440.8" y="764.2" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
+<circle cx="537.8" cy="794.6" r="21" fill="#0b0f14"/>
+<circle cx="537.8" cy="794.6" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="537.8" y="799.6" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
+<circle cx="634.9" cy="830" r="21" fill="#0b0f14"/>
+<circle cx="634.9" cy="830" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="634.9" y="835" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">6</text>
+<circle cx="731.9" cy="865.4" r="21" fill="#0b0f14"/>
+<circle cx="731.9" cy="865.4" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="731.9" y="870.4" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">7</text>
+<circle cx="256.7" cy="675.1" r="21" fill="#0b0f14"/>
+<circle cx="256.7" cy="675.1" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="256.7" y="680.1" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
+<circle cx="356.9" cy="688" r="21" fill="#0b0f14"/>
+<circle cx="356.9" cy="688" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="356.9" y="693" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2</text>
+<circle cx="453.9" cy="723.4" r="21" fill="#0b0f14"/>
+<circle cx="453.9" cy="723.4" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="453.9" y="728.4" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
+<circle cx="550.9" cy="758.8" r="21" fill="#0b0f14"/>
+<circle cx="550.9" cy="758.8" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="550.9" y="763.8" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
+<circle cx="647.9" cy="794.2" r="21" fill="#0b0f14"/>
+<circle cx="647.9" cy="794.2" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="647.9" y="799.2" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
+<circle cx="370" cy="652.1" r="21" fill="#0b0f14"/>
+<circle cx="370" cy="652.1" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="370" y="657.1" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
+<circle cx="467" cy="687.5" r="21" fill="#0b0f14"/>
+<circle cx="467" cy="687.5" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="467" y="692.5" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
+<circle cx="564" cy="722.9" r="21" fill="#0b0f14"/>
+<circle cx="564" cy="722.9" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="564" y="727.9" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">5</text>
+<circle cx="744.9" cy="829.6" r="21" fill="#0b0f14"/>
+<circle cx="744.9" cy="829.6" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="744.9" y="834.6" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">6</text>
+<circle cx="661" cy="758.3" r="21" fill="#0b0f14"/>
+<circle cx="661" cy="758.3" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="661" y="763.3" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">6</text>
+<circle cx="758" cy="793.7" r="21" fill="#0b0f14"/>
+<circle cx="758" cy="793.7" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="758" y="798.7" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">7</text>
+<rect x="247.4" y="622.7" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
+<text x="267.4" y="640.7" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
+<rect x="136.8" y="692" width="44" height="30" rx="7" fill="#e5484d" stroke="#ffd0d2" stroke-width="2"/>
+<text x="158.8" y="711" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">you</text>
+<rect x="40" y="938.7" width="760" height="385.4" rx="10" fill="#111821" stroke="#2a3642"/>
+<text x="60" y="966.7" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">A full row cannot be passed: occupied cells are never driven through</text>
+<text x="60" y="984.7" fill="#8fa3b5" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">With no free way round, nothing beyond the row is offered, in any lane.</text>
+<polyline points="155.9,1162.0 245.6,1120.3 343.8,1129.1 440.8,1164.5 537.8,1199.9 634.9,1235.3 731.9,1270.7" fill="none" stroke="#5aa9ff" stroke-width="2" opacity="0.3"/>
+<polyline points="158.8,1112.4 256.7,1080.4 356.9,1093.3 453.9,1128.7 550.9,1164.1 647.9,1199.5 744.9,1234.9" fill="none" stroke="#5fd38a" stroke-width="2" opacity="0.3"/>
+<polyline points="82.0,1128.3 165.7,1065.8 267.4,1042.0 370.0,1057.5 467.0,1092.9 564.0,1128.3 661.0,1163.7 758.0,1199.1" fill="none" stroke="#f2c14e" stroke-width="2" opacity="0.3"/>
+<circle cx="155.9" cy="1162" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="155.9" y="1166" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="245.6" cy="1120.3" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="245.6" y="1124.3" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="343.8" cy="1129.1" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="343.8" y="1133.1" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="440.8" cy="1164.5" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="440.8" y="1168.5" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="537.8" cy="1199.9" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="537.8" y="1203.9" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="634.9" cy="1235.3" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="634.9" y="1239.3" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="731.9" cy="1270.7" r="17.3" fill="#0b0f14" stroke="#5aa9ff" stroke-width="1.5"/>
+<text x="731.9" y="1274.7" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<circle cx="158.8" cy="1112.4" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="158.8" y="1116.4" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="256.7" cy="1080.4" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="256.7" y="1084.4" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="356.9" cy="1093.3" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="356.9" y="1097.3" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="453.9" cy="1128.7" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="453.9" y="1132.7" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="550.9" cy="1164.1" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="550.9" y="1168.1" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="647.9" cy="1199.5" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="647.9" y="1203.5" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="744.9" cy="1234.9" r="17.3" fill="#0b0f14" stroke="#5fd38a" stroke-width="1.5"/>
+<text x="744.9" y="1238.9" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<circle cx="82" cy="1128.3" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="82" y="1132.3" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="165.7" cy="1065.8" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="165.7" y="1069.8" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">10</text>
+<circle cx="267.4" cy="1042" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="267.4" y="1046" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">11</text>
+<circle cx="370" cy="1057.5" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="370" y="1061.5" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+<circle cx="467" cy="1092.9" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="467" y="1096.9" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">13</text>
+<circle cx="564" cy="1128.3" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="564" y="1132.3" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">14</text>
+<circle cx="661" cy="1163.7" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="661" y="1167.7" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">15</text>
+<circle cx="758" cy="1199.1" r="17.3" fill="#0b0f14" stroke="#f2c14e" stroke-width="1.5"/>
+<text x="758" y="1203.1" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">16</text>
+<text x="60" y="1016.7" fill="#f2c14e" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 3 (outer)</text>
+<text x="180" y="1016.7" fill="#5fd38a" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 2</text>
+<text x="244" y="1016.7" fill="#5aa9ff" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 (inner)</text>
+<circle cx="245.6" cy="1120.3" r="21" fill="#0b0f14"/>
+<circle cx="245.6" cy="1120.3" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="245.6" y="1126.3" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="343.8" cy="1129.1" r="21" fill="#0b0f14"/>
+<circle cx="343.8" cy="1129.1" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="343.8" y="1134.1" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text>
+<circle cx="537.8" cy="1199.9" r="21" fill="#0b0f14"/>
+<circle cx="537.8" cy="1199.9" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="537.8" y="1205.9" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="634.9" cy="1235.3" r="21" fill="#0b0f14"/>
+<circle cx="634.9" cy="1235.3" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="634.9" y="1241.3" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="731.9" cy="1270.7" r="21" fill="#0b0f14"/>
+<circle cx="731.9" cy="1270.7" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="731.9" y="1276.7" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="256.7" cy="1080.4" r="21" fill="#0b0f14"/>
+<circle cx="256.7" cy="1080.4" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
+<text x="256.7" y="1085.4" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
+<circle cx="453.9" cy="1128.7" r="21" fill="#0b0f14"/>
+<circle cx="453.9" cy="1128.7" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="453.9" y="1134.7" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="550.9" cy="1164.1" r="21" fill="#0b0f14"/>
+<circle cx="550.9" cy="1164.1" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="550.9" y="1170.1" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="647.9" cy="1199.5" r="21" fill="#0b0f14"/>
+<circle cx="647.9" cy="1199.5" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="647.9" y="1205.5" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="370" cy="1057.5" r="21" fill="#0b0f14"/>
+<circle cx="370" cy="1057.5" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="370" y="1063.5" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="467" cy="1092.9" r="21" fill="#0b0f14"/>
+<circle cx="467" cy="1092.9" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="467" y="1098.9" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="564" cy="1128.3" r="21" fill="#0b0f14"/>
+<circle cx="564" cy="1128.3" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="564" y="1134.3" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="744.9" cy="1234.9" r="21" fill="#0b0f14"/>
+<circle cx="744.9" cy="1234.9" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="744.9" y="1240.9" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="661" cy="1163.7" r="21" fill="#0b0f14"/>
+<circle cx="661" cy="1163.7" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="661" y="1169.7" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<circle cx="758" cy="1199.1" r="21" fill="#0b0f14"/>
+<circle cx="758" cy="1199.1" r="21" fill="#0b0f14" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="758" y="1205.1" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">×</text>
+<rect x="420.8" y="1150.5" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
+<text x="440.8" y="1168.5" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
+<rect x="336.9" y="1079.3" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
+<text x="356.9" y="1097.3" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
+<rect x="247.4" y="1028" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
+<text x="267.4" y="1046" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
+<rect x="136.8" y="1097.4" width="44" height="30" rx="7" fill="#e5484d" stroke="#ffd0d2" stroke-width="2"/>
+<text x="158.8" y="1116.4" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">you</text>
 </svg>

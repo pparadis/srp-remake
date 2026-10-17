@@ -48,7 +48,6 @@ export const PIT_LANE_PANELS: StripSpec[] = [
     cars: [],
     zones: [28, 1, 2, 3, 4, 5],
     lanes: [1, 0],
-    zoneStep: 90,
     mark: pitAhead
   },
   {
@@ -58,7 +57,6 @@ export const PIT_LANE_PANELS: StripSpec[] = [
     cars: [],
     zones: [28, 1, 2, 3, 4, 5],
     lanes: [1, 0],
-    zoneStep: 90,
     mark: pitAhead
   },
   {
@@ -68,7 +66,6 @@ export const PIT_LANE_PANELS: StripSpec[] = [
     cars: [],
     zones: [4, 5, 6, 7, 8, 9],
     lanes: [1, 0],
-    zoneStep: 90,
     mark: (c) => c.zoneIndex > 6
   }
 ];

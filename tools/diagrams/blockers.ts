@@ -38,7 +38,7 @@ export function blockersSvg(ctx: RaceContext): string {
   const body: string[] = [];
   body.push(text(40, 44, "Cars in the way: what the engine offers", { size: 22, bold: true, color: COLORS.text }));
   body.push(text(40, 70, "Each free cell ahead of you shows the move points it costs, or a cross when it is not offered."));
-  body.push(text(40, 88, "Zones left to right, lanes top to bottom; the number in a plain dot is its forwardIndex."));
+  body.push(text(40, 88, "Drawn as on the board, travel left to right; the number in a plain dot is its forwardIndex."));
   body.push(text(40, 106, "A cell in your own zone is never offered: a car only moves forward, straight or diagonally."));
   let y = TOP;
   for (const pn of BLOCKER_PANELS) {

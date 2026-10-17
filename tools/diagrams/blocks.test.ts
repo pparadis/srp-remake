@@ -26,10 +26,14 @@ describe("svg", () => {
 });
 
 describe("drawBend", () => {
-  it("puts zones left to right and lane 3 on top, with the forwardIndex in each dot", () => {
-    const bend = drawBend(trackIndex, [1, 2], { x: 100, y: 50, zoneStep: 100, laneStep: 40 });
-    expect(bend.cellPos.get("A1")).toEqual({ x: 100, y: 130 });
-    expect(bend.cellPos.get("B3")).toEqual({ x: 200, y: 50 });
+  it("draws the cells where they are, travel left to right and lane 3 on top, with the forwardIndex in each dot", () => {
+    const bend = drawBend(trackIndex, [1, 2], { x: 100, y: 50, w: 400 });
+    const a1 = bend.cellPos.get("A1")!;
+    const b1 = bend.cellPos.get("B1")!;
+    const a3 = bend.cellPos.get("A3")!;
+    expect(b1.x).toBeGreaterThan(a1.x); // zone 1 then zone 2
+    expect(a3.y).toBeLessThan(a1.y); // lane 3 above lane 1
+    expect(a3.x).toBeCloseTo(a1.x); // side by side on the board, side by side in the picture
     expect(bend.svg).toContain(">1</text>");
   });
 });
@@ -41,7 +45,7 @@ describe("stepsOf", () => {
     expect(stepsOf(["A1", "B2"], trackIndex)[0]!.kind).toBe("diagonal");
   });
   it("draws one numbered arrow per step", () => {
-    const bend = drawBend(trackIndex, [1, 2], { x: 100, y: 50, zoneStep: 100, laneStep: 40 });
+    const bend = drawBend(trackIndex, [1, 2], { x: 100, y: 50, w: 400 });
     const svg = drawRoute(stepsOf(["A1", "A2", "B2"], trackIndex), bend.cellPos);
     expect(svg.match(/<polygon/g)).toHaveLength(2);
   });
