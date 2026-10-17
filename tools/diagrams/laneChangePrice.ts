@@ -35,8 +35,8 @@ export interface Pricing {
 export function priceScenario(ctx: RaceContext, s: Scenario): Pricing {
   const info = targetOf(positionOf(ctx, s), s);
   const path = movePath(ctx.trackIndex, s.start, s.target, new Set(s.cars));
-  const steps = stepsOf(path, ctx.cellMap);
-  const forward = steps.filter((x) => x.kind !== "sideways" && x.to.forwardIndex > x.from.forwardIndex).length;
+  const steps = stepsOf(path, ctx.trackIndex);
+  const forward = steps.filter((x) => x.kind !== "sideways").length;
   const sideways = steps.filter((x) => x.kind === "sideways").length;
   const laneChanges = steps.filter((x) => x.kind !== "forward").length;
   if (steps.length !== info.distance) throw new Error(`route walks ${steps.length} cells, the engine ${info.distance}`);
@@ -71,7 +71,7 @@ export function laneChangePriceSvg(ctx: RaceContext, s: Scenario = LANE_CHANGE_S
   const body: string[] = [];
   body.push(text(40, 44, copy.title, { size: 22, bold: true, color: COLORS.text }));
   body.push(text(40, 70, `${copy.intro} (zones ${s.zones[0]}-${s.zones[1]}), drawn straight: zones left to right, lanes top to bottom.`));
-  body.push(text(40, 88, "The number in a dot is the cell's forwardIndex: it does not go up when a step only changes lane."));
+  body.push(text(40, 88, "The number in a dot is the cell's forwardIndex; a step is priced by the lap position it gains (below)."));
   body.push(panel(40, 108, 700, 420));
   const bend = drawBend(ctx.trackIndex, zoneRange(...s.zones), { x: 160, y: 193, zoneStep: 104, laneStep: 105 });
   body.push(bend.svg);

@@ -48,7 +48,7 @@
 <text x="606" y="275" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">6</text>
 <circle cx="606" cy="208" r="21" fill="#0b0f14"/>
 <circle cx="606" cy="208" r="21" fill="#5fd38a" fill-opacity="0.2" stroke="#5fd38a" stroke-width="2"/>
-<text x="606" y="213" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">8</text>
+<text x="606" y="213" fill="#5fd38a" font-size="15" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">9</text>
 <rect x="274" y="256" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>
 <text x="294" y="274" fill="#e6edf3" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">car</text>
 <rect x="274" y="194" width="40" height="28" rx="6" fill="#59636e" stroke="#a9b6c3"/>

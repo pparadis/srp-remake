@@ -638,8 +638,8 @@ describe("drafting turns and the slingshot", () => {
   it("a move that ends 1-2 cells behind a car is in its tow for the next move, whatever the leader does", () => {
     const state = draftRace();
     const car1 = state.cars[0]!;
-    // nothing to tow behind yet: the plain price of the longest same-lane move
-    const plain = [...computeTargets(ctx, state, car1).values()].find((t) => t.distance === 9)!;
+    // nothing to tow behind yet: the plain price of the longest move
+    const plain = [...computeTargets(ctx, state, car1).values()].reduce((a, b) => (b.distance > a.distance ? b : a));
     expect(plain.drafted).toBeUndefined();
 
     // the move ends 2 cells behind car 2: the run is 1
@@ -651,7 +651,7 @@ describe("drafting turns and the slingshot", () => {
     const targets = [...computeTargets(ctx, state, car1).values()].filter((t) => !t.isPitTrigger);
     expect(targets.length).toBeGreaterThan(0);
     for (const t of targets) expect(t.drafted).toBe(true);
-    const towed = targets.find((t) => t.distance === 9)!;
+    const towed = targets.find((t) => t.distance === plain.distance)!;
     expect(towed.fuelCost).toBeLessThan(plain.fuelCost);
   });
 

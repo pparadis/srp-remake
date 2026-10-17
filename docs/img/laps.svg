@@ -138,9 +138,9 @@
 <text x="84" y="928" fill="#5aa9ff" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 (inner)</text>
 <line x1="346" y1="928" x2="346" y2="1050" stroke="#ffe066" stroke-width="3" stroke-dasharray="6 4"/>
 <text x="346" y="922" fill="#ffe066" font-size="11" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">start line</text>
-<line x1="210.6" y1="970.3" x2="271.7" y2="1006.7" stroke="#ff9f43" stroke-width="4" stroke-dasharray="8 6"/>
-<polygon points="276.8,1009.8 268.9,1011.3 274.4,1002.0" fill="#ff9f43"/>
-<circle cx="255.1" cy="996.8" r="10" fill="#0b0f14" stroke="#ff9f43" stroke-width="2"/><text x="255.1" y="1000.8" fill="#ff9f43" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
+<line x1="210.6" y1="970.3" x2="271.7" y2="1006.7" stroke="#e6edf3" stroke-width="4"/>
+<polygon points="276.8,1009.8 268.9,1011.3 274.4,1002.0" fill="#e6edf3"/>
+<circle cx="255.1" cy="996.8" r="10" fill="#0b0f14" stroke="#e6edf3" stroke-width="2"/><text x="255.1" y="1000.8" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
 <line x1="318.0" y1="1020.0" x2="372.0" y2="1020.0" stroke="#e6edf3" stroke-width="4"/>
 <polygon points="378.0,1020.0 372.0,1025.4 372.0,1014.6" fill="#e6edf3"/>
 <circle cx="361.2" cy="1020" r="10" fill="#0b0f14" stroke="#e6edf3" stroke-width="2"/><text x="361.2" y="1024" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2</text>
@@ -172,9 +172,9 @@
 <text x="502" y="1196" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">7</text>
 <text x="84" y="1224" fill="#9aa7b3" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">pit lane</text>
 <text x="84" y="1162" fill="#5aa9ff" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 (inner)</text>
-<line x1="314.6" y1="1241.7" x2="375.7" y2="1205.3" stroke="#ff9f43" stroke-width="4" stroke-dasharray="8 6"/>
-<polygon points="380.8,1202.2 378.4,1210.0 372.9,1200.7" fill="#ff9f43"/>
-<circle cx="359.1" cy="1215.2" r="10" fill="#0b0f14" stroke="#ff9f43" stroke-width="2"/><text x="359.1" y="1219.2" fill="#ff9f43" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
+<line x1="314.6" y1="1241.7" x2="375.7" y2="1205.3" stroke="#e6edf3" stroke-width="4"/>
+<polygon points="380.8,1202.2 378.4,1210.0 372.9,1200.7" fill="#e6edf3"/>
+<circle cx="359.1" cy="1215.2" r="10" fill="#0b0f14" stroke="#e6edf3" stroke-width="2"/><text x="359.1" y="1219.2" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text>
 <rect x="272" y="1239" width="44" height="30" rx="7" fill="#e5484d" stroke="#ffd0d2" stroke-width="2"/>
 <text x="294" y="1258" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">you</text>
 <text x="294" y="1292" fill="#8fa3b5" font-size="11" font-weight="400" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">laps 1</text>

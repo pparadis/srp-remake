@@ -110,7 +110,7 @@ function drawLapPanel(ctx: RaceContext, p: LapPanel, y: number): string {
   }
   const path = [p.start];
   for (const id of p.moves) path.push(...movePath(ctx.trackIndex, path.at(-1)!, id).slice(1));
-  parts.push(drawRoute(stepsOf(path, ctx.cellMap), bend.cellPos));
+  parts.push(drawRoute(stepsOf(path, ctx.trackIndex), bend.cellPos));
   parts.push(drawYou(bend.cellPos, p.start));
   [p.start, ...p.moves].forEach((id, i) => {
     const c = bend.cellPos.get(id)!;

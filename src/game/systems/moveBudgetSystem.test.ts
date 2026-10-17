@@ -33,12 +33,8 @@ describe("moveBudgetSystem", () => {
   });
 
   it("adds +1 spend when changing between main lanes", () => {
-    expect(computeMoveSpend(1, 1, 2, 1)).toBe(2);
-    expect(computeMoveSpend(4, 2, 3, 4)).toBe(5);
-  });
-
-  it("does not add surcharge when lane change already consumed extra path distance", () => {
-    expect(computeMoveSpend(2, 1, 2, 1)).toBe(2);
+    expect(computeMoveSpend(1, 1, 2)).toBe(2);
+    expect(computeMoveSpend(4, 2, 3)).toBe(5);
   });
 
   it("does not add lane-change surcharge for pit transitions", () => {

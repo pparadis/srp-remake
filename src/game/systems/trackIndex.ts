@@ -109,6 +109,12 @@ export function cellsAlongLane(trackIndex: TrackIndex, from: TrackCell, to: Trac
   return (((to.zoneIndex - from.zoneIndex) % len) + len) % len;
 }
 
+/**
+ * A lane change gaining at least this much lap position moves forward (diagonal, +1 move point); less is sideways. On
+ * the straights a change gains 0 or 1; through the bends the outer lanes' extra cells give anything in between (#114).
+ */
+export const DIAGONAL_MIN_GAIN = 0.5;
+
 /** How far `to` is ahead of `from` along the lap, any lanes: 0 = level, in [0, spineLen). */
 export function lapAhead(trackIndex: TrackIndex, from: TrackCell, to: TrackCell): number {
   const { lapPos, spineLen } = trackIndex;
