@@ -6,6 +6,7 @@ import { SETUP_CHOICES } from "../systems/botPlan";
 import { trackFwd } from "../systems/trackIndex";
 import type { CarSetup } from "../types/car";
 import { cycleBudget, getRemainingBudget } from "../systems/moveBudgetSystem";
+import type { RulesVersion } from "../rules/versions";
 import type { BotPolicy } from "../systems/botSystem";
 import { gridSlots, personalityFor, personalityOf, type PersonalityKey } from "../systems/botStyle";
 import {
@@ -93,7 +94,9 @@ export function playBenchRace(
   seed = 0,
   styles?: Array<PersonalityKey | undefined>,
   // Forces a car's setup after the grid setup the bots made (by slot), to sweep compounds and wings.
-  setups?: Array<CarSetup | undefined>
+  setups?: Array<CarSetup | undefined>,
+  // The movement rules the race is played on (src/game/rules/versions.ts); the default when omitted.
+  rulesVersion?: RulesVersion
 ): BenchRaceResult {
   const isScripted = (p: BenchPolicy) => p === "scripted" || p === "greedy";
   const state = createRace(
@@ -104,7 +107,8 @@ export function playBenchRace(
       style: styles?.[i]
     })),
     laps,
-    seed
+    seed,
+    rulesVersion
   );
   setups?.forEach((setup, slot) => {
     if (setup) state.cars[slot]!.setup = structuredClone(setup);
@@ -190,6 +194,8 @@ interface BenchOptions {
   seeds?: number[];
   // Forced personality per line-up entry (rotates with it), instead of the seed's.
   styles?: Array<PersonalityKey | undefined>;
+  // The movement rules to play on; the default when omitted.
+  rulesVersion?: RulesVersion;
 }
 
 // Groups finishers by any key into win rate / average finish.
@@ -210,13 +216,13 @@ export function statsBy(results: BenchRaceResult[], key: (f: BenchFinisher) => s
 }
 
 // Every rotation of the line-up on every lap count and seed.
-export function runBench(ctx: RaceContext, { lineup, laps, seeds = [0], styles }: BenchOptions) {
+export function runBench(ctx: RaceContext, { lineup, laps, seeds = [0], styles, rulesVersion }: BenchOptions) {
   const results: BenchRaceResult[] = [];
   for (const lapCount of laps) {
     for (const seed of seeds) {
       for (let rotation = 0; rotation < lineup.length; rotation += 1) {
         const at = (slot: number) => (slot + rotation) % lineup.length;
-        results.push(playBenchRace(ctx, lineup.map((_, slot) => lineup[at(slot)]!), lapCount, seed, styles && lineup.map((_, slot) => styles[at(slot)])));
+        results.push(playBenchRace(ctx, lineup.map((_, slot) => lineup[at(slot)]!), lapCount, seed, styles && lineup.map((_, slot) => styles[at(slot)]), undefined, rulesVersion));
       }
     }
   }
