@@ -102,19 +102,36 @@ describe("lane change past a car in the destination lane (position reported from
     const targets = targetsFrom(from, occupied);
     // the go-around passes car 4 in the middle lane...
     expect(targets.get("Z19_L1_00")?.laneChanges).toBe(2);
-    // ...so a plain lane change may pass it too: one lane change, forward cells + 1
-    for (const id of ["Z19_L2_00", "Z20_L2_00", "Z21_L2_00", "Z24_L2_00"]) {
+    // ...so a plain lane change may pass it too: one diagonal lane change, cells walked + 1
+    for (const id of ["Z19_L2_00", "Z20_L2_00", "Z21_L2_00", "Z23_L2_00"]) {
       const info = targets.get(id)!;
       expect(info, id).toBeDefined();
       expect(info.laneChanges).toBeUndefined();
-      expect(info.moveSpend).toBe(delta(from, id) + 1);
+      expect(info.moveSpend).toBe(info.distance + 1);
     }
+    // 9 cells and a diagonal change: 10 points, over the budget (forwardIndex priced it 9, #114)
+    expect(targets.has("Z24_L2_00")).toBe(false);
   });
 
   it("still cannot pass a second car in the middle lane", () => {
     const targets = targetsFrom(from, [...occupied, "Z21_L2_00"]);
     expect(targets.has("Z20_L2_00")).toBe(true); // between the two cars
     for (const id of ["Z22_L2_00", "Z23_L2_00", "Z24_L2_00"]) expect(targets.has(id), id).toBe(false);
+  });
+});
+
+describe("cars on the lane-3 bend, where forwardIndex repeats (#114)", () => {
+  it("counts the car directly ahead as a blocker, so a go-around passes one car, not two", () => {
+    // Z12_L3 and Z13_L3 share forwardIndex 10: by index the car ahead was level and ignored
+    const targets = targetsFrom("Z12_L3_00", ["Z13_L3_00", "Z15_L3_00"]);
+    expect(targets.get("Z14_L3_00")?.laneChanges).toBe(2); // round the first car, between the two
+    for (const id of ["Z16_L3_00", "Z17_L3_00", "Z18_L3_00"]) expect(targets.has(id), id).toBe(false);
+  });
+
+  it("charges the diagonal change into the bend, though the lane has more cells than forwardIndex steps", () => {
+    const info = targetsFrom("Z05_L1_00", ["Z08_L1_00"]).get("Z13_L2_00")!;
+    expect(info.laneChanges).toBeUndefined();
+    expect(info.moveSpend).toBe(info.distance + 1);
   });
 });
 
@@ -174,7 +191,7 @@ describe("pass and return through the engine", () => {
 
 // Simulated races (the cars play with the Normal bot): the rules hold at every position that comes up.
 describe("over simulated races", () => {
-  it("prices every target at least forward cells + lane changes and caps it at the budget", () => {
+  it("prices every target at the cells walked plus at most a point per lane change, and caps it at the budget", () => {
     let positions = 0;
     let goArounds = 0;
     for (const cars of [4, 8]) {
@@ -200,13 +217,10 @@ describe("over simulated races", () => {
             const to = cell(id);
             if (info.squeezePassed || to.laneIndex === 0 || from.laneIndex === 0) continue;
             const changes = info.laneChanges ?? (to.laneIndex !== from.laneIndex ? 1 : 0);
-            // forward cells + lane changes does not hold for a zig-zag with a sideways step (a cell walked that is no
-            // forward cell: origin/main already breaks it on seed 5), nor for a slingshot (it skips the +1 lane-change
-            // surcharge). What always holds: a move never costs fewer points than the cells it walks.
+            // A move never costs fewer points than the cells it walks; each diagonal lane change adds one (a sideways
+            // one is paid by the cell it walks, a slingshot skips the +1).
             expect(info.moveSpend ?? 0).toBeGreaterThanOrEqual(info.distance);
-            if (!info.slingshot && info.laneChanges === undefined) {
-              expect(info.moveSpend ?? 0).toBeGreaterThanOrEqual(delta(from.id, id) + changes);
-            }
+            expect(info.moveSpend ?? 0).toBeLessThanOrEqual(info.distance + changes);
             expect(info.moveSpend ?? 0).toBeLessThanOrEqual(9);
             // a same-lane target beyond the nearest same-lane car is only ever a go-around
             if (to.laneIndex === from.laneIndex && sameLaneBlockers[0] != null && delta(from.id, id) > sameLaneBlockers[0]) {

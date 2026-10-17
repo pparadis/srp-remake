@@ -36,13 +36,13 @@ describe("drawBend", () => {
 
 describe("stepsOf", () => {
   it("tells sideways, forward and diagonal steps apart", () => {
-    const steps = stepsOf(["A1", "A2", "B2", "B1"], trackIndex.cellMap);
+    const steps = stepsOf(["A1", "A2", "B2", "B1"], trackIndex);
     expect(steps.map((s) => s.kind)).toEqual(["sideways", "forward", "sideways"]);
-    expect(stepsOf(["A1", "B2"], trackIndex.cellMap)[0]!.kind).toBe("diagonal");
+    expect(stepsOf(["A1", "B2"], trackIndex)[0]!.kind).toBe("diagonal");
   });
   it("draws one numbered arrow per step", () => {
     const bend = drawBend(trackIndex, [1, 2], { x: 100, y: 50, zoneStep: 100, laneStep: 40 });
-    const svg = drawRoute(stepsOf(["A1", "A2", "B2"], trackIndex.cellMap), bend.cellPos);
+    const svg = drawRoute(stepsOf(["A1", "A2", "B2"], trackIndex), bend.cellPos);
     expect(svg.match(/<polygon/g)).toHaveLength(2);
   });
 });

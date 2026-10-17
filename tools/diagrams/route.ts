@@ -1,4 +1,6 @@
 // A route over a bend: each step has a kind, and the same kinds drive the drawing, the legend and the price.
+import { PIT_LANE } from "../../src/game/constants";
+import { DIAGONAL_MIN_GAIN, lapAhead, type TrackIndex } from "../../src/game/systems/trackIndex";
 import type { TrackCell } from "../../src/game/types/track";
 import type { Point } from "./bend";
 import { badge, COLORS, text } from "./svg";
@@ -8,6 +10,8 @@ export interface Step {
   from: TrackCell;
   to: TrackCell;
   kind: StepKind;
+  /** lap position of `from` and `to` */
+  lap: [number, number];
 }
 
 const KIND_COLOR: Record<StepKind, string> = {
@@ -16,25 +20,32 @@ const KIND_COLOR: Record<StepKind, string> = {
   diagonal: COLORS.diagonal
 };
 
-export function stepsOf(path: string[], cellMap: Map<string, TrackCell>): Step[] {
+/** A lane change is diagonal when it gains DIAGONAL_MIN_GAIN of lap position, as the engine prices it (#114). */
+export function stepsOf(path: string[], trackIndex: TrackIndex): Step[] {
   const steps: Step[] = [];
   for (let i = 1; i < path.length; i += 1) {
-    const from = cellMap.get(path[i - 1]!)!;
-    const to = cellMap.get(path[i]!)!;
-    const laneChange = from.laneIndex !== to.laneIndex;
-    const gain = to.forwardIndex > from.forwardIndex;
-    steps.push({ from, to, kind: laneChange ? (gain ? "diagonal" : "sideways") : "forward" });
+    const from = trackIndex.cellMap.get(path[i - 1]!)!;
+    const to = trackIndex.cellMap.get(path[i]!)!;
+    // as the engine: into or out of the pit lane is no lane change (pit cells have their own scale)
+    const laneChange = from.laneIndex !== to.laneIndex && from.laneIndex !== PIT_LANE && to.laneIndex !== PIT_LANE;
+    const diagonal = lapAhead(trackIndex, from, to) >= DIAGONAL_MIN_GAIN;
+    steps.push({
+      from,
+      to,
+      kind: laneChange ? (diagonal ? "diagonal" : "sideways") : "forward",
+      lap: [trackIndex.lapPos.get(from.id) ?? from.forwardIndex, trackIndex.lapPos.get(to.id) ?? to.forwardIndex]
+    });
   }
   return steps;
 }
 
-/** The step's sentence: what it does to lane and forwardIndex, and how it is paid. */
+/** The step's sentence: what it does to lane and lap position, and how it is paid. */
 export function describe(step: Step): string {
   const lane = `lane ${step.from.laneIndex} to ${step.to.laneIndex}`;
-  const fwd = `forwardIndex ${step.from.forwardIndex} to ${step.to.forwardIndex}`;
-  if (step.kind === "sideways") return `${lane}, ${fwd}: sideways: its cell pays the lane change`;
-  if (step.kind === "diagonal") return `${lane}, ${fwd}: diagonal: needs the +1 surcharge`;
-  return `same lane, ${fwd}: a forward cell`;
+  const lap = `lap ${step.lap[0].toFixed(1)} to ${step.lap[1].toFixed(1)}`;
+  if (step.kind === "sideways") return `${lane}, ${lap}: sideways: its cell pays the lane change`;
+  if (step.kind === "diagonal") return `${lane}, ${lap}: diagonal: needs the +1 surcharge`;
+  return `same lane, ${lap}: a forward cell`;
 }
 
 export function drawRoute(steps: Step[], cellPos: Map<string, Point>): string {

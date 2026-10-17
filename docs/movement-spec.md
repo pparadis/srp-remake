@@ -8,7 +8,9 @@ and is shared by single-player and the multiplayer server.
 
 - Track movement uses the directed graph defined by each cell’s `next[]`.
 - Valid targets are computed with BFS from the car’s current cell.
-- `forwardIndex` is **not** used for movement; it is for ordering/progress only.
+- `forwardIndex` is **not** used for movement; it is for ordering/progress only. Movement compares cells by **lap
+  position** (`lapPos`/`lapAhead` in `trackIndex.ts`: the cell's `pos` projected onto the lane-1 line, not rounded), so
+  two cells of one lane never tie and side-by-side cells read level (#114).
 
 ## Step Budget
 
@@ -20,25 +22,23 @@ and is shared by single-player and the multiplayer server.
 
 ## Price of a lane change
 
-Every lane change between main lanes costs +1 move point on top of the forward cells. A sideways change (same
-`forwardIndex`) pays it as the extra cell it walks; a diagonal change pays it as the surcharge in `computeMoveSpend`.
+Every lane change between main lanes costs +1 move point on top of the forward cells. A sideways change pays it as the
+extra cell it walks; a diagonal change pays it as a `+1` surcharge.
 
-- A route with one lane change costs what it always did: `computeMoveSpend(distance, startLane, targetLane, forwardDelta)`
-  (surcharge `+1` when the lanes differ and the forward gain is at least the distance walked).
-- Every further diagonal change adds `+1`: `price = computeMoveSpend(...) + max(0, diagonals - (startLane != targetLane ? 1 : 0))`.
-  Out and back (same start and target lane) costs `+2`; a zig-zag of three changes ending in another lane costs `+3`.
+- A lane change is **diagonal** when it gains at least `DIAGONAL_MIN_GAIN` (0.5) of lap position, sideways otherwise.
+  On the straights a change gains 0 or 1; through the bends the outer lanes' extra cells give anything in between.
+- `price = cells walked + diagonal changes` (`searchRoutes`). One diagonal change costs `+1`, out and back `+2`, a
+  zig-zag of three `+3`. Moves into or out of the pit lane are no lane change.
 - The search is by price, not by steps: `searchRoutes` walks (cell, diagonal changes) states and keeps, per cell, the
   cheapest route (price, then fewest steps). Tire and fuel are charged on the cells walked on that route
   (`TargetInfo.distance`), not on the lane-change points. The 9-point cap applies to the price.
 - `TargetInfo.laneChanges` is set only when the route changes lane 2 or more times; the hover tooltip then says
   "(N lane changes)".
 
-**Known mismatch (#100):** a route that walks sideways cells AND contains a diagonal change skips the diagonal's
-surcharge (the endpoint test in `computeMoveSpend` needs forward gain at least the cells walked), so it costs one point
-under the rule. The example below is one real route, drawn straight; the rule says 5, the code charges 4. Once #100 is
-fixed the "code today" bar goes away.
+One real route, drawn straight: two sideways changes paid by their cells, one diagonal change paid by its surcharge.
+(Until #114 the price read `forwardIndex`, and this route cost one point under the rule, #100.)
 
-![One route, three prices: the rule, the code today and the fix](img/lane-change-pricing.svg)
+![One route on the bend: its cells, its lane changes and its price](img/lane-change-pricing.svg)
 
 ## Costs
 
@@ -52,15 +52,14 @@ fixed the "code today" bar goes away.
 
 - You may only target a lane that is the same or adjacent to your start lane.
 - Pit lane (lane 0) is special and handled by pit rules below.
-- A lane-change target must advance forward progress: no target with the same `forwardIndex`, and none in the start's
-  own zone (a car only moves forward, straight or diagonally; in the bend the inner lane's `forwardIndex` is one higher
-  in the same zone, which by index alone would make a pure sideways move a diagonal, #108), except for `PIT_ENTRY`. The route to a target may still walk sideways cells on the way (going round a car): each is a cell
+- A lane-change target must advance forward progress: it is at least `DIAGONAL_MIN_GAIN` ahead by lap position, and
+  never in the start's own zone (a car only moves forward, straight or diagonally, #108), except for `PIT_ENTRY`. The route to a target may still walk sideways cells on the way (going round a car): each is a cell
   walked and pays its lane change (see "Price of a lane change").
 
 ## Occupancy
 
 - A target cell is invalid if it is occupied.
-- Target-lane blocker policy:
+- Target-lane blocker policy (cars ordered by lap position, #114):
   - For same-lane movement, the nearest occupied cell ahead is the blocker.
   - For lane changes, you may pass one blocker in the destination lane (merge in front of it, or into a gap).
   - Lane-change targets are blocked by the second blocker ahead in the destination lane. With only one car in that lane
@@ -86,18 +85,19 @@ Only when an ACTIVE car has no normal target at all, `computeTargets` (raceEngin
 `computeSqueezeTargets` instead of an empty map. When any normal target exists, squeeze is never offered.
 
 - BFS over `next[]` up to `maxSteps` ignores occupancy for traversal, but the target cell must be free.
-- Main lanes only (never PIT_ENTRY, pit lane or PIT_BOX), at most 1 lane change, `targetDelta > 0` and a later zone than the start (no backwards or pure sideways).
+- Main lanes only (never PIT_ENTRY, pit lane or PIT_BOX), at most 1 lane change, at least `DIAGONAL_MIN_GAIN` ahead by lap position and a later zone than the start (no backwards or pure sideways).
 - `passed` = occupied main-lane cells in the start lane or the target lane (a lane counts once) that stand ahead of the
   start and behind the target by **lap position** (`lapAhead` in `trackIndex.ts`). A squeeze target must have
   `passed >= 1`. Lap position, not `forwardIndex`: it compares cars in two lanes, and the outer lanes' `forwardIndex`
   repeats on the bends, so a car one cell ahead could read as level (#113, #114).
-- `moveSpend = computeMoveSpend(...) + SQUEEZE_SURCHARGE_PER_CAR (2) * passed`, and must be `<= maxSteps`
+- `moveSpend = cells walked + diagonal changes (priced as a route) + SQUEEZE_SURCHARGE_PER_CAR (2) * passed`, and must be `<= maxSteps`
   (remaining cycle budget / 9 cap). Tire and fuel costs stay the normal distance-based costs.
 - `TargetInfo.squeezePassed` is set only for squeeze targets. Skip is legal only when there are no targets at all.
 
 Example: car on `Z06_L2_00`, cars on `Z07_L1_00`, `Z07_L2_00` and `Z07_L3_00`. No normal target exists. Squeeze to
-`Z08_L2_00`: distance 2, passes 1 car, move 2 + 2 = 4. To `Z08_L3_00`: distance 2, passes 2 cars, move 2 + 4 = 6. To
-`Z08_L1_00`: distance 3, passes 2 cars, move 3 + 4 = 7.
+`Z08_L2_00`: distance 2, passes 1 car, move 2 + 2 = 4. To `Z08_L3_00`: distance 2, a diagonal change, passes 2 cars,
+move 2 + 1 + 4 = 7. To `Z08_L1_00`: distance 3 (its lane change is sideways, paid by the cell), passes 2 cars, move
+3 + 4 = 7.
 
 The same on the inner lane, drawn from the engine (a car in your lane and one in the next): each free cell shows its price.
 

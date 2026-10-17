@@ -3,7 +3,7 @@
 <rect x="0" y="0" width="1220" height="716" fill="#0b0f14"/>
 <text x="40" y="44" fill="#e6edf3" font-size="22" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">Lane-change price: what the rule says, and what the code charges</text>
 <text x="40" y="70" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">One real route on the oval's bend (zones 11-16), drawn straight: zones left to right, lanes top to bottom.</text>
-<text x="40" y="88" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">The number in a dot is the cell's forwardIndex: it does not go up when a step only changes lane.</text>
+<text x="40" y="88" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">The number in a dot is the cell's forwardIndex; a step is priced by the lap position it gains (below).</text>
 <rect x="40" y="108" width="700" height="420" rx="10" fill="#111821" stroke="#2a3642"/>
 <polyline points="160.0,403.0 264.0,403.0 368.0,403.0 472.0,403.0 576.0,403.0 680.0,403.0" fill="none" stroke="#5aa9ff" stroke-width="2" opacity="0.3"/>
 <polyline points="160.0,298.0 264.0,298.0 368.0,298.0 472.0,298.0 576.0,298.0 680.0,298.0" fill="none" stroke="#5fd38a" stroke-width="2" opacity="0.3"/>
@@ -68,13 +68,13 @@
 <polygon points="576.0,278.0 570.6,272.0 581.4,272.0" fill="#5aa9ff"/>
 <circle cx="576" cy="260.7" r="10" fill="#0b0f14" stroke="#5aa9ff" stroke-width="2"/><text x="576" y="264.7" fill="#5aa9ff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text>
 <text x="40" y="562" fill="#e6edf3" font-size="13" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">The route, step by step (4 cells walked, 2 of them forward, 3 lane changes)</text>
-<circle cx="52" cy="584" r="10" fill="#0b0f14" stroke="#ff9f43" stroke-width="2"/><text x="52" y="588" fill="#ff9f43" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text><text x="72" y="588" fill="#ff9f43" font-size="12" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 to 2, forwardIndex 11 to 11: sideways: its cell pays the lane change</text>
-<circle cx="52" cy="608" r="10" fill="#0b0f14" stroke="#ff9f43" stroke-width="2"/><text x="52" y="612" fill="#ff9f43" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2</text><text x="72" y="612" fill="#ff9f43" font-size="12" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 2 to 3, forwardIndex 11 to 11: sideways: its cell pays the lane change</text>
-<circle cx="52" cy="632" r="10" fill="#0b0f14" stroke="#e6edf3" stroke-width="2"/><text x="52" y="636" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text><text x="72" y="636" fill="#e6edf3" font-size="12" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">same lane, forwardIndex 11 to 12: a forward cell</text>
-<circle cx="52" cy="656" r="10" fill="#0b0f14" stroke="#5aa9ff" stroke-width="2"/><text x="52" y="660" fill="#5aa9ff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text><text x="72" y="660" fill="#5aa9ff" font-size="12" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 3 to 2, forwardIndex 12 to 13: diagonal: needs the +1 surcharge</text>
+<circle cx="52" cy="584" r="10" fill="#0b0f14" stroke="#ff9f43" stroke-width="2"/><text x="52" y="588" fill="#ff9f43" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">1</text><text x="72" y="588" fill="#ff9f43" font-size="12" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 1 to 2, lap 11.0 to 11.1: sideways: its cell pays the lane change</text>
+<circle cx="52" cy="608" r="10" fill="#0b0f14" stroke="#ff9f43" stroke-width="2"/><text x="52" y="612" fill="#ff9f43" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2</text><text x="72" y="612" fill="#ff9f43" font-size="12" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 2 to 3, lap 11.1 to 11.1: sideways: its cell pays the lane change</text>
+<circle cx="52" cy="632" r="10" fill="#0b0f14" stroke="#e6edf3" stroke-width="2"/><text x="52" y="636" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">3</text><text x="72" y="636" fill="#e6edf3" font-size="12" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">same lane, lap 11.1 to 12.0: a forward cell</text>
+<circle cx="52" cy="656" r="10" fill="#0b0f14" stroke="#5aa9ff" stroke-width="2"/><text x="52" y="660" fill="#5aa9ff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">4</text><text x="72" y="660" fill="#5aa9ff" font-size="12" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">lane 3 to 2, lap 12.0 to 13.0: diagonal: needs the +1 surcharge</text>
 <rect x="780" y="100" width="400" height="576" rx="10" fill="#111821" stroke="#2a3642"/>
 <text x="800" y="134" fill="#e6edf3" font-size="16" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">What this route costs</text>
-<text x="800" y="179" fill="#e6edf3" font-size="13" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">The rule (docs/movement-spec.md)</text>
+<text x="800" y="179" fill="#e6edf3" font-size="13" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">The rule and the code agree</text>
 <text x="800" y="196" fill="#8fa3b5" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">every lane change +1, on top of the forward cells</text>
 <rect x="800" y="205" width="110" height="36" rx="4" fill="#59636e" />
 <text x="855" y="228" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2 fwd</text>
@@ -83,15 +83,5 @@
 <rect x="1026" y="205" width="53.5" height="36" rx="4" fill="#5aa9ff" />
 <text x="1052.8" y="228" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">+1</text>
 <text x="1097.5" y="230" fill="#5fd38a" font-size="18" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">= 5</text>
-<text x="800" y="309" fill="#e6edf3" font-size="13" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">The code</text>
-<text x="800" y="326" fill="#8fa3b5" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">TargetInfo.moveSpend from computeValidTargets</text>
-<rect x="800" y="335" width="110" height="36" rx="4" fill="#59636e" />
-<text x="855" y="358" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2 fwd</text>
-<rect x="913" y="335" width="110" height="36" rx="4" fill="#ff9f43" />
-<text x="968" y="358" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">2 side</text>
-<rect x="1026" y="335" width="53.5" height="36" rx="4" fill="url(#hatch)" stroke="#5aa9ff" stroke-dasharray="4 3"/>
-<text x="1052.8" y="358" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">+0</text>
-<text x="1097.5" y="360" fill="#ff6b6b" font-size="18" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">= 4</text>
-<text x="800" y="420" fill="#ff9f43" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">The code charges 1 point under the rule.</text>
-<text x="800" y="646" fill="#ff9f43" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">2 forward cells cost 4 points here.</text>
+<text x="800" y="646" fill="#ff9f43" font-size="11" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">2 forward cells cost 5 points here.</text>
 </svg>

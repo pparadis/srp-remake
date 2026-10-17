@@ -33,11 +33,13 @@ Project guide for Codex and other automation.
 
 ## Key Rules (Current)
 
-- Movement is BFS on `next[]`. Forward progress ordering uses `forwardIndex`.
-- No sideways lane changes: a lane-change target must advance `forwardIndex` AND be in a later zone than the start
-  (except `PIT_ENTRY`); a route may still walk a same-zone edge on the way (#108).
-- Every lane change between main lanes costs +1 move spend; further diagonal changes in one route add +1 each (out and
-  back +2). The search is by price (`searchRoutes` in `movementSystem.ts`); see `docs/movement-spec.md`.
+- Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `trackIndex.ts`), never by
+  `forwardIndex`, which repeats on the outer lanes' bends (#114). Laps use `forwardIndex`.
+- No sideways lane changes: a lane-change target must be `DIAGONAL_MIN_GAIN` (0.5) ahead by lap position AND in a later
+  zone than the start (except `PIT_ENTRY`); a route may still walk a sideways edge on the way (#108).
+- Price = cells walked + diagonal lane changes (a change gaining 0.5 lap position or more; a sideways one is paid by
+  its cell): one change +1, out and back +2. The search is by price (`searchRoutes` in `movementSystem.ts`); see
+  `docs/movement-spec.md`.
 - Passing/merging uses target-lane blockers:
   - Same-lane moves cannot pass the nearest car ahead, except by going round it through ONE adjacent lane and rejoining
     (pass and return: at most one blocker passed, and at most one car in the lane it goes round through, as a merge).

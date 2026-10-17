@@ -1,6 +1,6 @@
 import type { TrackCell } from "../types/track";
 import type { CarSetup } from "../types/car";
-import { lapAhead, type TrackIndex } from "./trackIndex";
+import { DIAGONAL_MIN_GAIN, lapAhead, type TrackIndex } from "./trackIndex";
 import {
   INNER_MAIN_LANE,
   MIDDLE_MAIN_LANE,
@@ -98,21 +98,13 @@ interface Route {
   laneChanges: number;
 }
 
-// Every lane change costs +1 move point on top of the cells walked. A sideways change (same forwardIndex) is paid by the
-// extra cell it walks; a diagonal one by the surcharge in computeMoveSpend, which charges the first change of a route
-// that ends in another lane. Every further diagonal change (out and back, zig-zags) adds +1.
-function routePrice(steps: number, startLane: number, targetLane: number, targetDelta: number, diagonals: number): number {
-  const paidByEndpoints = startLane !== targetLane ? 1 : 0;
-  return computeMoveSpend(steps, startLane, targetLane, targetDelta) + Math.max(0, diagonals - paidByEndpoints);
-}
-
 // The track as integer arrays, built once per track: the route search runs for every bot decision and every lookahead.
 interface RouteGraph {
   ids: string[];
   index: Map<string, number>;
   next: number[][];
   lane: number[];
-  fwd: number[];
+  lap: number[];
   pitEntry: boolean[];
 }
 const routeGraphs = new WeakMap<TrackIndex, RouteGraph>();
@@ -126,7 +118,7 @@ function routeGraphOf(trackIndex: TrackIndex): RouteGraph {
     index,
     next: cells.map((c) => c.next.flatMap((id) => (index.has(id) ? [index.get(id)!] : []))),
     lane: cells.map((c) => c.laneIndex),
-    fwd: cells.map((c) => c.forwardIndex),
+    lap: cells.map((c) => trackIndex.lapPos.get(c.id) ?? c.forwardIndex),
     pitEntry: cells.map((c) => (c.tags ?? []).includes("PIT_ENTRY"))
   };
   routeGraphs.set(trackIndex, graph);
@@ -137,17 +129,22 @@ const MAX_DIAGONALS = 12; // state slots per cell: more diagonal changes than th
 
 // Breadth-first over (cell, diagonal lane changes): the fewest steps per state, then the cheapest state per cell.
 // Same traversal rules as the plain search (occupied cells block, pit entry only from lane 1, pit lane only from the
-// pit lane); `allow` narrows the cells a route may use. Results come in order of first discovery.
+// pit lane); `allow` narrows the cells a route may use (lane, lap position ahead of the start). Results come in order of
+// first discovery. Price: every lane change costs +1 move point on top of the cells walked. A sideways change (less
+// than DIAGONAL_MIN_GAIN of lap position) is paid by the extra cell it walks; each diagonal one adds +1 (one change +1,
+// out and back +2).
 function searchRoutes(
   trackIndex: TrackIndex,
   startCell: TrackCell,
   occupied: Set<string>,
   maxSteps: number,
-  allow?: (laneIndex: number, forwardIndex: number) => boolean
+  allow?: (laneIndex: number, ahead: number) => boolean
 ): Map<string, Route & { minSteps: number }> {
   const g = routeGraphOf(trackIndex);
   const { spineLen } = trackIndex;
   const start = g.index.get(startCell.id)!;
+  // lap position gained from cell a to cell b, as lapAhead does it
+  const gain = (a: number, b: number) => Math.round(((((g.lap[b]! - g.lap[a]!) % spineLen) + spineLen) % spineLen) * 10) / 10;
   const blocked = new Uint8Array(g.ids.length);
   for (const id of occupied) {
     const i = g.index.get(id);
@@ -172,12 +169,12 @@ function searchRoutes(
       for (const nxt of g.next[cur]!) {
         if (blocked[nxt]) continue;
         const lane = g.lane[nxt]!;
-        if (allow && !allow(lane, g.fwd[nxt]!)) continue;
+        if (allow && !allow(lane, gain(start, nxt))) continue;
         const isPitLane = lane === PIT_LANE;
         if (g.pitEntry[nxt] && curLane !== INNER_MAIN_LANE) continue;
         if (isPitLane && !g.pitEntry[nxt] && curLane !== PIT_LANE) continue;
         const changesLane = !isPitLane && curLane !== PIT_LANE && lane !== curLane;
-        const diagonal = changesLane && (g.fwd[nxt]! - g.fwd[cur]! + spineLen) % spineLen > 0;
+        const diagonal = changesLane && gain(cur, nxt) >= DIAGONAL_MIN_GAIN;
         const nextDiagonals = diagonals + (diagonal ? 1 : 0);
         // Even the cheapest price of this route (cells + surcharges beyond the first) is over budget: prune.
         if (step + 1 + (nextDiagonals > 1 ? nextDiagonals - 1 : 0) > maxSteps) continue;
@@ -186,8 +183,7 @@ function searchRoutes(
         seen[key] = 1;
         const nextChanges = laneChanges + (changesLane ? 1 : 0);
         nextFrontier.push(nxt, nextDiagonals, nextChanges);
-        const targetDelta = (g.fwd[nxt]! - startCell.forwardIndex + spineLen) % spineLen;
-        const p = routePrice(step + 1, startCell.laneIndex, lane, targetDelta, nextDiagonals);
+        const p = step + 1 + nextDiagonals;
         if (price[nxt] === 32767) {
           order.push(nxt);
           minSteps[nxt] = step + 1;
@@ -217,7 +213,7 @@ export function computeValidTargets(
   options: MovementOptions = {},
   costs: MovementCostContext
 ): Map<string, TargetInfo> {
-  const { track, cellMap, spineLen } = trackIndex;
+  const { track, cellMap } = trackIndex;
   const startCell = cellMap.get(startCellId);
   if (!startCell) return new Map();
   const startIsPitLane = startCell.laneIndex === PIT_LANE;
@@ -263,13 +259,14 @@ export function computeValidTargets(
   // Drafting: the car ended its last move tucked in behind a car (see draftSystem); never in the pit lane.
   const drafted = options.drafted === true && !startIsPitLane;
 
+  // The two nearest cars ahead in each lane, by lap position: unlike forwardIndex it never ties two cells of a lane (#114).
   const blockerDeltasByLane = new Map<number, number[]>();
   if (!startIsPitLane) {
     for (const occId of occupied) {
       if (occId === startCellId) continue;
       const occ = cellMap.get(occId);
       if (!occ || occ.laneIndex === PIT_LANE) continue;
-      const delta = (occ.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
+      const delta = lapAhead(trackIndex, startCell, occ);
       if (delta <= 0) continue;
       const deltas = blockerDeltasByLane.get(occ.laneIndex) ?? [];
       deltas.push(delta);
@@ -293,9 +290,7 @@ export function computeValidTargets(
         startCell,
         occupied,
         maxSteps,
-        (laneIndex, forwardIndex) =>
-          laneIndex === startCell.laneIndex ||
-          (laneIndex === lane && (limit == null || (forwardIndex - startCell.forwardIndex + spineLen) % spineLen < limit))
+        (laneIndex, ahead) => laneIndex === startCell.laneIndex || (laneIndex === lane && (limit == null || ahead < limit))
       );
       for (const [id, r] of found) {
         const known = goAround.get(id);
@@ -321,7 +316,7 @@ export function computeValidTargets(
     }
     if (!startIsPitLane && cell.laneIndex !== PIT_LANE && Math.abs(cell.laneIndex - startCell.laneIndex) > 1)
       continue;
-    const targetDelta = (cell.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
+    const targetDelta = lapAhead(trackIndex, startCell, cell);
     // Main-lane moves are priced by their cheapest route (lane changes included); the pit lane keeps the plain walk.
     let route: Route | undefined = !startIsPitLane && cell.laneIndex !== PIT_LANE ? routes.get(cellId) : undefined;
     if (!startIsPitLane && cell.laneIndex !== PIT_LANE) {
@@ -337,12 +332,11 @@ export function computeValidTargets(
         if (!route) continue;
       }
     }
-    // A lane change must advance: no sideways target, by forwardIndex or by zone (the bend's lanes are numbered with an
-    // offset, so a same-zone cell on the inner lane can have the higher forwardIndex).
+    // A lane change must advance: no sideways target, by lap position or by zone (the owner's rule, #108).
     if (
       !startIsPitLane &&
       cell.laneIndex !== startCell.laneIndex &&
-      (targetDelta === 0 || cell.zoneIndex === startCell.zoneIndex) &&
+      (targetDelta < DIAGONAL_MIN_GAIN || cell.zoneIndex === startCell.zoneIndex) &&
       !isPitEntryTarget
     )
       continue;
@@ -351,7 +345,7 @@ export function computeValidTargets(
       if (d !== 1) continue;
     }
     const steps = route?.steps ?? d;
-    let moveSpend = route?.price ?? computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, targetDelta);
+    let moveSpend = route?.price ?? computeMoveSpend(d, startCell.laneIndex, cell.laneIndex);
     // Slingshot: after enough moves in a row ended tucked in, a route with a lane change skips the +1 surcharge. The
     // walk itself is still paid.
     const slingshot =
@@ -384,7 +378,7 @@ export function computeValidTargets(
       if (exitCell) {
         const distance = Math.max(1, exitZone - startCell.zoneIndex);
         const { tireCost, fuelCost } = computeCosts(distance, exitCell.laneIndex, costs);
-        const moveSpend = computeMoveSpend(distance, startCell.laneIndex, exitCell.laneIndex, distance);
+        const moveSpend = computeMoveSpend(distance, startCell.laneIndex, exitCell.laneIndex);
         if (moveSpend <= maxSteps) {
           targets.set(exitCellId, {
             distance,
@@ -410,7 +404,7 @@ export function computeSqueezeTargets(
   maxSteps: number,
   costs: MovementCostContext
 ): Map<string, TargetInfo> {
-  const { cellMap, spineLen } = trackIndex;
+  const { cellMap } = trackIndex;
   const startCell = cellMap.get(startCellId);
   const targets = new Map<string, TargetInfo>();
   if (!startCell) return targets;
@@ -420,7 +414,6 @@ export function computeSqueezeTargets(
       : targets;
   }
 
-  const delta = (c: TrackCell) => (c.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
   // "Passed" compares cars in two lanes, so it reads the lap position, not forwardIndex (#114).
   const occupiedAhead = new Map<number, number[]>();
   for (const id of occupied) {
@@ -429,16 +422,25 @@ export function computeSqueezeTargets(
     occupiedAhead.set(c.laneIndex, [...(occupiedAhead.get(c.laneIndex) ?? []), lapAhead(trackIndex, startCell, c)]);
   }
 
+  // Fewest cells to each cell, and the fewest diagonal lane changes among those paths (priced like a route).
   const dist = new Map<string, number>([[startCellId, 0]]);
+  const diagonals = new Map<string, number>([[startCellId, 0]]);
   const queue = [startCellId];
   for (let i = 0; i < queue.length; i += 1) {
     const id = queue[i]!;
     const d = dist.get(id)!;
     if (d >= maxSteps) continue;
-    for (const nextId of cellMap.get(id)?.next ?? []) {
+    const from = cellMap.get(id)!;
+    for (const nextId of from.next) {
       const n = cellMap.get(nextId);
-      if (!n || n.laneIndex === PIT_LANE || dist.has(nextId)) continue;
+      if (!n || n.laneIndex === PIT_LANE) continue;
+      const diag =
+        diagonals.get(id)! + (n.laneIndex !== from.laneIndex && lapAhead(trackIndex, from, n) >= DIAGONAL_MIN_GAIN ? 1 : 0);
+      // a cell one layer further is still open to a cheaper parent of the same layer
+      if (dist.get(nextId) === d + 1 && diag < diagonals.get(nextId)!) diagonals.set(nextId, diag);
+      if (dist.has(nextId)) continue;
       dist.set(nextId, d + 1);
+      diagonals.set(nextId, diag);
       queue.push(nextId);
     }
   }
@@ -447,15 +449,13 @@ export function computeSqueezeTargets(
     const cell = cellMap.get(cellId)!;
     if (d <= 0 || occupied.has(cellId)) continue;
     if (Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
-    const targetDelta = delta(cell);
-    if (targetDelta === 0 || cell.zoneIndex === startCell.zoneIndex) continue;
+    const targetAhead = lapAhead(trackIndex, startCell, cell);
+    if (targetAhead < DIAGONAL_MIN_GAIN || cell.zoneIndex === startCell.zoneIndex) continue;
     const lanes = new Set([startCell.laneIndex, cell.laneIndex]);
     let passed = 0;
-    const targetAhead = lapAhead(trackIndex, startCell, cell);
     for (const lane of lanes) passed += (occupiedAhead.get(lane) ?? []).filter((x) => x > 0 && x < targetAhead).length;
     if (passed < 1) continue;
-    const moveSpend =
-      computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, targetDelta) + SQUEEZE_SURCHARGE_PER_CAR * passed;
+    const moveSpend = d + diagonals.get(cellId)! + SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
     targets.set(cellId, { distance: d, moveSpend, tireCost, fuelCost, isPitTrigger: false, squeezePassed: passed });
@@ -496,7 +496,7 @@ function computePitExitSqueezeTargets(
     const cell = cellMap.get(cellId)!;
     const passed = passedTo.get(cellId)!;
     if (d <= 0 || occupied.has(cellId) || passed < 1) continue;
-    const moveSpend = computeMoveSpend(d, startCell.laneIndex, cell.laneIndex, d) + SQUEEZE_SURCHARGE_PER_CAR * passed;
+    const moveSpend = computeMoveSpend(d, startCell.laneIndex, cell.laneIndex) + SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
     targets.set(cellId, { distance: d, moveSpend, tireCost, fuelCost, isPitTrigger: false, squeezePassed: passed });

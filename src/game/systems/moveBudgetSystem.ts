@@ -35,18 +35,9 @@ function isMainLane(laneIndex: number) {
   return laneIndex !== PIT_LANE;
 }
 
-export function computeMoveSpend(
-  distance: number,
-  startLaneIndex: number,
-  targetLaneIndex: number,
-  targetForwardDelta = distance
-) {
+/** A move without its route (pit moves, squeezes): the cells, +1 for a change between main lanes. */
+export function computeMoveSpend(distance: number, startLaneIndex: number, targetLaneIndex: number) {
   if (targetLaneIndex === PIT_LANE) return 1;
-  const laneChangeSurcharge = (
-    isMainLane(startLaneIndex) &&
-    isMainLane(targetLaneIndex) &&
-    startLaneIndex !== targetLaneIndex &&
-    targetForwardDelta >= distance
-  ) ? 1 : 0;
+  const laneChangeSurcharge = isMainLane(startLaneIndex) && startLaneIndex !== targetLaneIndex ? 1 : 0;
   return distance + laneChangeSurcharge;
 }
