@@ -33,6 +33,14 @@ Project guide for Codex and other automation.
 
 ## Key Rules (Current)
 
+- Rules versions (#118): a race plays one movement-rules version (`RaceState.rulesVersion`, set by `createRace`, default
+  `v2`). The registry is `src/game/rules/versions.ts`: what differs between versions (target search, squeeze, draft
+  test) goes through `rulesOf(state)`, never a direct import of `computeValidTargets` / `draftAhead` in engine code.
+  `v1` (before #114, tag `rules-v1`) is frozen and kept for reference, not online: its code in `src/game/rules/v1/` is
+  never edited, and `rulesGolden.test.ts` replays `src/game/rules/golden/v1.json` (made by `tools/rulesGolden.ts`).
+  If that test fails, the change moved v1 (also through shared code): undo it or make it a new version. The rules
+  below are v2's.
+
 - Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `trackIndex.ts`), never by
   `forwardIndex`, which repeats on the outer lanes' bends (#114). Laps use `forwardIndex`.
 - No sideways lane changes: a lane-change target must be `DIAGONAL_MIN_GAIN` (0.5) ahead by lap position AND in a later
