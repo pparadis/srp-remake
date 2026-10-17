@@ -13,8 +13,8 @@ import { decideHardBotAction } from "./botHard";
 import { applyMove, crossesStartLine } from "../systems/moveCommitSystem";
 import { cycleBudget, getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
 import { validateMoveAttempt } from "../systems/moveValidationSystem";
-import { computeSqueezeTargets, computeValidTargets, type TargetInfo } from "../systems/movementSystem";
-import { draftAhead } from "../systems/draftSystem";
+import type { TargetInfo } from "../systems/movementSystem";
+import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from "../rules/versions";
 import { advancePitPenalty, applyPitStop } from "../systems/pitSystem";
 import { spawnCars } from "../systems/spawnSystem";
 import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
@@ -43,6 +43,9 @@ export interface RaceState {
   // Per-race integer that decides every bot's personality (and Easy's dice); 0 = the neutral baseline.
   // Created at the boundary (server at race start, solo scene), never inside the engine.
   seed: number;
+  // The movement rules this race plays on (src/game/rules/versions.ts), set by createRace and never changed (#118).
+  // Absent in a state made before versions existed: it plays the default.
+  rulesVersion?: RulesVersion;
 }
 
 export type RaceAction =
@@ -80,7 +83,13 @@ export function createRaceContext(track: TrackData): RaceContext {
   return { track, trackIndex, cellMap: trackIndex.cellMap };
 }
 
-export function createRace(ctx: RaceContext, seats: RaceSeat[], raceLaps: number, seed = 0): RaceState {
+export function createRace(
+  ctx: RaceContext,
+  seats: RaceSeat[],
+  raceLaps: number,
+  seed = 0,
+  rulesVersion: RulesVersion = DEFAULT_RULES_VERSION
+): RaceState {
   const { cars } = spawnCars(ctx.track, {
     totalCars: seats.length,
     humanCount: seats.length,
@@ -102,7 +111,7 @@ export function createRace(ctx: RaceContext, seats: RaceSeat[], raceLaps: number
     if (!car.isBot || car.botLevel === "easy") continue;
     car.setup = bestSetup(raceLaps * plan.spineLen);
   }
-  return { cars, turn: { order: turnOrderOf(seed, cars.length), index: 0 }, raceLaps, winnerCarId: null, seed };
+  return { cars, turn: { order: turnOrderOf(seed, cars.length), index: 0 }, raceLaps, winnerCarId: null, seed, rulesVersion };
 }
 
 // Seat (carId - 1) of the car to play; the play order is the grid order, not the car order.
@@ -124,7 +133,8 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
   const maxSteps = Math.min(baseMaxSteps, Math.max(0, getRemainingBudget(car.moveCycle, cycleBudget(car.setup))));
   const tireRate = car.setup.compound === "soft" ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
   const costs = { tireRate, fuelRate: MOVE_RATES.fuel, setup: car.setup };
-  const normal = computeValidTargets(
+  const rules = rulesOf(state);
+  const normal = rules.computeValidTargets(
     ctx.trackIndex,
     car.cellId,
     occupied,
@@ -140,13 +150,13 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
     costs
   );
   if (normal.size > 0 || car.state !== "ACTIVE") return normal;
-  return computeSqueezeTargets(ctx.trackIndex, car.cellId, occupied, maxSteps, costs);
+  return rules.computeSqueezeTargets(ctx.trackIndex, car.cellId, occupied, maxSteps, costs);
 }
 
 // True when the car stands tucked in right now: another car 1 to DRAFT_RANGE cells ahead in its own lane. The rule
 // reads it at the end of a move (applyAction): at the start of a turn every car has moved away from where it was.
 export function isDrafting(ctx: RaceContext, state: RaceState, car: Car): boolean {
-  return draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId)) !== null;
+  return rulesOf(state).draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId)) !== null;
 }
 
 // The race feed line for a slingshot (the engine log solo, the session online from the `slingshots` counter).

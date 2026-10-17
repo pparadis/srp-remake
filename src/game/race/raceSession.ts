@@ -2,7 +2,7 @@
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
 import { DRAFT_RANGE, DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from "../constants";
-import { draftAhead } from "../systems/draftSystem";
+import { rulesOf } from "../rules/versions";
 import type { BotLevel, Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
@@ -457,7 +457,7 @@ export class RaceSession {
       .filter((car) => (car.draftTurns ?? 0) >= 1 && car.state !== "DNF")
       .map((car) => ({
         carId: car.carId,
-        gap: draftAhead(this.ctx.trackIndex, car.cellId, occupied)?.gap ?? DRAFT_RANGE,
+        gap: rulesOf(this.race).draftAhead(this.ctx.trackIndex, car.cellId, occupied)?.gap ?? DRAFT_RANGE,
         ready: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS
       }));
   }
@@ -559,7 +559,7 @@ export class RaceSession {
    */
   endsTucked(cellId: string): boolean {
     const others = this.cars.filter((c) => c.carId !== this.activeCar.carId).map((c) => c.cellId);
-    return draftAhead(this.ctx.trackIndex, cellId, others) !== null;
+    return rulesOf(this.race).draftAhead(this.ctx.trackIndex, cellId, others) !== null;
   }
 
   /** What the HUD shows for one target: the move and the tire and fuel it leaves (hover tooltip, tap card). */
