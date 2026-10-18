@@ -68,7 +68,7 @@ describe("createRace", () => {
   });
 
   it("rejects more seats than the track has spawn slots", () => {
-    const seats = Array.from({ length: 200 }, (_, i) => ({ isBot: true, ownerId: `BOT${i}` }));
+    const seats = Array.from({ length: 200 }, (_slot, i) => ({ isBot: true, ownerId: `BOT${i}` }));
     expect(() => createRace(ctx, seats, 3)).toThrow(/room for/);
   });
 });
@@ -211,7 +211,7 @@ describe("laps and winning", () => {
 });
 
 describe("laps from a staggered grid", () => {
-  const FOUR: RaceSeat[] = [
+  const four: RaceSeat[] = [
     { isBot: false, ownerId: "P1" },
     { isBot: false, ownerId: "P2" },
     { isBot: false, ownerId: "P3" },
@@ -229,11 +229,11 @@ describe("laps from a staggered grid", () => {
   };
 
   it("starts the front row at 0 laps done and the row behind the line at -1", () => {
-    expect(newRace(5, FOUR).cars.map((c) => c.lapCount)).toEqual([0, 0, 0, -1]);
+    expect(newRace(5, four).cars.map((c) => c.lapCount)).toEqual([0, 0, 0, -1]);
   });
 
   it("the first crossing of a rear-grid car only starts lap 1: no lap, no win, even in a 1-lap race", () => {
-    const state = newRace(1, FOUR);
+    const state = newRace(1, four);
     state.turn.index = 3;
     const car = getActiveCar(state);
     expect(car.carId).toBe(4);
@@ -244,7 +244,7 @@ describe("laps from a staggered grid", () => {
   });
 
   it("a 1-lap race is won by the first car to cross the line after starting on it", () => {
-    const state = newRace(1, FOUR);
+    const state = newRace(1, four);
     const [pole] = state.cars;
     pole!.cellId = [...ctx.cellMap.values()].find((c) => c.laneIndex === 1 && c.forwardIndex === 27)!.id;
     const result = applyAction(ctx, state, { type: "move", targetCellId: crossingTarget(state) });
@@ -328,7 +328,7 @@ describe("decideBotAction", () => {
 
     it("always proposes an action the engine accepts", () => {
       for (const level of ["easy", "normal", "hard"] as const) {
-        const state = createRace(ctx, Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: level })), 2);
+        const state = createRace(ctx, Array.from({ length: 4 }, (_slot, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: level })), 2);
         for (let i = 0; i < 40 && state.winnerCarId === null; i += 1) {
           expect(applyAction(ctx, state, decideBotAction(ctx, state).action).ok).toBe(true);
         }
@@ -399,7 +399,7 @@ describe("decideBotAction", () => {
   });
 
   it("plays a full bot-only race to a winner", () => {
-    const seats = Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}` }));
+    const seats = Array.from({ length: 4 }, (_slot, i) => ({ isBot: true, ownerId: `BOT${i + 1}` }));
     const state = createRace(ctx, seats, 1);
     for (let i = 0; i < 2000 && state.winnerCarId === null; i += 1) {
       const result = applyAction(ctx, state, decideBotAction(ctx, state).action);
@@ -410,7 +410,7 @@ describe("decideBotAction", () => {
 });
 
 describe("decideBotAction autopilot policy", () => {
-  const seats = Array.from({ length: 3 }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}` }));
+  const seats = Array.from({ length: 3 }, (_slot, i) => ({ isBot: true, ownerId: `BOT${i + 1}` }));
 
   it("never goes further than Normal, never pits, and is always accepted by the engine", () => {
     const state = createRace(ctx, seats, 2);

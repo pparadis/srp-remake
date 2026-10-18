@@ -35,7 +35,7 @@ describe("bot levels benchmark", () => {
 
   it("pits in a 12-lap race (a stop keeps the lap) but not in a 7-lap one, never enters the pit on the final lap", () => {
     const stops = (laps: number) => {
-      const state = createRace(ctx, Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `B${i}` })), laps);
+      const state = createRace(ctx, Array.from({ length: 4 }, (_slot, i) => ({ isBot: true, ownerId: `B${i}` })), laps);
       let pits = 0;
       for (let turn = 0; turn < laps * 400 && state.winnerCarId === null; turn += 1) {
         const decision = decideBotAction(ctx, state, "normal");
@@ -63,7 +63,7 @@ describe("bot levels benchmark", () => {
   // this is a guard against an order-of-magnitude regression, not a stopwatch: the bound is deliberately loose.
   it("keeps Hard's decision time within budget", () => {
     expect(result.stats.get("hard")!.meanDecisionMs).toBeLessThan(75);
-    const crowded = playBenchRace(ctx, Array.from({ length: 8 }, (_, i) => (i % 2 === 0 ? "hard" : "normal")), 3);
+    const crowded = playBenchRace(ctx, Array.from({ length: 8 }, (_slot, i) => (i % 2 === 0 ? "hard" : "normal")), 3);
     const { totalMs, count } = crowded.decisionMs.hard!;
     expect(totalMs / count).toBeLessThan(75);
   });

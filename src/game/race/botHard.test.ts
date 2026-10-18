@@ -20,7 +20,7 @@ const ctx = createRaceContext(track as unknown as TrackData);
 function blockedTrack(level: "normal" | "hard"): RaceState {
   const state = createRace(
     ctx,
-    Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}`, botLevel: level })),
+    Array.from({ length: 4 }, (_slot, i) => ({ isBot: true, ownerId: `BOT${i + 1}`, botLevel: level })),
     5
   );
   state.cars[0]!.cellId = "Z09_L1_00";
@@ -34,7 +34,7 @@ describe("hard bot lookahead", () => {
   it("overrides Normal's pick on some turns of a real race (the lookahead is not a no-op)", () => {
     const state = createRace(
       ctx,
-      Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}`, botLevel: "hard" as const })),
+      Array.from({ length: 4 }, (_slot, i) => ({ isBot: true, ownerId: `BOT${i + 1}`, botLevel: "hard" as const })),
       5,
       1
     );

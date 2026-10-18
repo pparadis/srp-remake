@@ -176,7 +176,9 @@ export interface HudCommand {
   type: "confirm-move" | "cancel-move";
 }
 
-const q = (root: Element, id: string) => root.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
+function q(root: Element, id: string): HTMLElement {
+  return root.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
+}
 
 /** ok / warn / crit, same 20% threshold the old canvas HUD used. */
 export function resourceLevel(percent: number): "ok" | "warn" | "crit" {

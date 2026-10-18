@@ -47,7 +47,7 @@ function play(carCounts: number[], seeds: number[], laps: number): Reach {
     for (const seed of seeds) {
       const state = createRace(
         ctx,
-        Array.from({ length: cars }, (_, i) => ({
+        Array.from({ length: cars }, (_slot, i) => ({
           isBot: true,
           ownerId: `B${i}`,
           botLevel: LEVELS[i % LEVELS.length]!
@@ -98,7 +98,7 @@ const pct = (n: number, of: number) => (of === 0 ? 0 : (100 * n) / of);
 
 describe("rules come up in play", () => {
   // 3 laps; 4 and 8 cars (a thin field and a crowded one); 10 seeds: more than the 4 that once hid a failure.
-  const seeds = Array.from({ length: 10 }, (_, i) => i + 1);
+  const seeds = Array.from({ length: 10 }, (_slot, i) => i + 1);
   const reach = play([4, 8], seeds, 3);
 
   it("prints what the bots did, so a drift inside the bands is visible", () => {

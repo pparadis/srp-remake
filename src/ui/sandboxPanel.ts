@@ -71,8 +71,9 @@ const TEMPLATE = `
 <div class="sandbox-hint">E: edit/play &middot; drag any car &middot; click a car to make it play</div>
 `;
 
-const send = (command: SandboxCommand) =>
+function send(command: SandboxCommand): void {
   window.dispatchEvent(new CustomEvent<SandboxCommand>("srp:sandbox-command", { detail: command }));
+}
 
 export function mountSandboxPanel(parent: Element): HTMLElement {
   const root = document.createElement("section");
@@ -87,7 +88,7 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
   const edit = (patch: CarEdit) => send({ type: "edit", carId: carId(), edit: patch });
   const num = (id: string, key: "lapCount" | "tire" | "fuel" | "budgetLeft" | "draftTurns") =>
     q<HTMLInputElement>(id).addEventListener("change", (e) => {
-      const value = Number.parseFloat((e.target as HTMLInputElement).value);
+      const value = (e.target as HTMLInputElement).valueAsNumber;
       if (Number.isFinite(value)) edit({ [key]: value });
     });
   num("sandbox-lap", "lapCount");
@@ -122,9 +123,9 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
 }
 
 // A field being typed in keeps its text: only the others follow the snapshot.
-const setValue = (input: HTMLInputElement | HTMLSelectElement, value: string) => {
+function setValue(input: HTMLInputElement | HTMLSelectElement, value: string): void {
   if (document.activeElement !== input) input.value = value;
-};
+}
 
 export function renderSandboxPanel(root: HTMLElement, s: SandboxSnapshot) {
   const q = <T extends HTMLElement>(id: string) => root.querySelector<T>(`[data-testid="${id}"]`)!;

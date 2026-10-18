@@ -13,10 +13,10 @@ const TEST_CONFIG: BackendConfig = {
   PLAYER_TOKEN_TTL_SECONDS: 86400
 };
 
-type WsEvent = {
+interface WsEvent {
   event: string;
   payload: unknown;
-};
+}
 
 async function createListeningTestApp() {
   const app = await createApp(TEST_CONFIG, {

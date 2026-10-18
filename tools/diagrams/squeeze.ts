@@ -22,7 +22,9 @@ export const SQUEEZE_SPEC: StripSpec = {
 export const SQUEEZE_BARS = ["Z07_L1_00", "Z07_L2_00"];
 
 // The exit of the pit lane blocked: the only way on is along lane 1, through the car(s) standing there.
-const onLane1Ahead = (c: { laneIndex: number; zoneIndex: number }) => c.laneIndex === 1 && c.zoneIndex > 6;
+function onLane1Ahead(c: { laneIndex: number; zoneIndex: number }): boolean {
+  return c.laneIndex === 1 && c.zoneIndex > 6;
+}
 export const PIT_EXIT_CASES: { spec: StripSpec; bars: string[] }[] = [
   {
     spec: {
@@ -75,7 +77,9 @@ function barsOf(offered: Map<string, TargetInfo>, ids: string[], x: number, y: n
     .join("\n");
 }
 
-const barsHeight = (n: number) => 20 + n * 66;
+function barsHeight(n: number): number {
+  return 20 + n * 66;
+}
 
 export function squeezeSvg(ctx: RaceContext): string {
   const body: string[] = [];

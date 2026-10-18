@@ -131,7 +131,7 @@ export function turnOrderOf(seed: number, n: number): number[] {
 // The race seed also shuffles the grid: `gridSlots(seed, n)[i]` is the starting slot (0 = pole) of
 // car i + 1. Seed 0 keeps car order = grid order. A seeded Fisher-Yates, pure.
 export function gridSlots(seed: number, n: number): number[] {
-  const slots = Array.from({ length: n }, (_, i) => i);
+  const slots = Array.from({ length: n }, (_item, i) => i);
   if (!seed) return slots;
   for (let i = n - 1; i > 0; i -= 1) {
     const j = mix(seed, 0x6721d, i) % (i + 1);

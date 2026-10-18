@@ -291,7 +291,7 @@ export function drawTrack(params: DrawTrackParams): void {
   // generateTexture ignores the Graphics' own scale, but it replays this command
   if (scale !== 1) g.scaleCanvas(scale, scale);
 
-  const paths = Array.from({ length: track.lanes }, (_, lane) => buildLanePath(track, cellMap, lane));
+  const paths = Array.from({ length: track.lanes }, (_path, lane) => buildLanePath(track, cellMap, lane));
   const pit = paths[PIT_LANE] ?? [];
   const connectors = pitConnectors(track, cellMap);
   const mainLane = paths[MIDDLE_MAIN_LANE] ?? [];

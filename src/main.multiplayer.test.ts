@@ -73,7 +73,7 @@ vi.mock("./net/backendApi", () => ({
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
   readyState = 1;
-  private listeners = new Map<string, Array<(event: unknown) => void>>();
+  private readonly listeners = new Map<string, Array<(event: unknown) => void>>();
 
   constructor(_url: string) {
     FakeWebSocket.instances.push(this);

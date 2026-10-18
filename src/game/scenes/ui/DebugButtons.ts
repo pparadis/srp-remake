@@ -8,7 +8,7 @@ interface DebugButtonsCallbacks {
 }
 
 export class DebugButtons {
-  private buttons: Phaser.GameObjects.Text[];
+  private readonly buttons: Phaser.GameObjects.Text[];
 
   constructor(scene: Phaser.Scene, callbacks: DebugButtonsCallbacks) {
     const make = (label: string, onClick: () => void) =>

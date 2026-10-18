@@ -21,7 +21,9 @@ export interface Golden {
 }
 
 /** Plain JSON, as the file stores it (no undefined fields). */
-export const plain = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
+export function plain<T>(x: T): T {
+  return JSON.parse(JSON.stringify(x)) as T;
+}
 
 export function carAfter(state: RaceState, carId: number) {
   const c = state.cars.find((x) => x.carId === carId)!;

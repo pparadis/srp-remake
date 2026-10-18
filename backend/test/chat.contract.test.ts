@@ -14,8 +14,14 @@ const TEST_CONFIG: BackendConfig = {
 };
 
 type App = Awaited<ReturnType<typeof createApp>>;
-type Seat = { playerId: string; token: string };
-type Event = { event: string; payload: any };
+interface Seat {
+  playerId: string;
+  token: string;
+}
+interface Event {
+  event: string;
+  payload: { messages: ChatMessage[]; lobby?: object };
+}
 
 async function startApp(
   t: test.TestContext,

@@ -24,9 +24,11 @@ const track = JSON.parse(
 const ctx = createRaceContext(track);
 const laps = arg("laps", "3,4,5,6").split(",").map(Number);
 const seedCount = Number(arg("seeds", "1"));
-const seeds = Array.from({ length: seedCount }, (_, i) => i + 1);
+const seeds = Array.from({ length: seedCount }, (_item, i) => i + 1);
 const started = performance.now();
-const seconds = () => ((performance.now() - started) / 1000).toFixed(1);
+function seconds(): string {
+  return ((performance.now() - started) / 1000).toFixed(1);
+}
 
 if (process.argv.includes("--strategist")) {
   const level = arg("level", "normal") as BenchPolicy;

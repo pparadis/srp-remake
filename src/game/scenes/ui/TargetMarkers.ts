@@ -15,8 +15,8 @@ export interface TargetMarker {
  * only when their number changes.
  */
 export class TargetMarkers {
-  private rings: Phaser.GameObjects.Image[] = [];
-  private costs: Phaser.GameObjects.Text[] = [];
+  private readonly rings: Phaser.GameObjects.Image[] = [];
+  private readonly costs: Phaser.GameObjects.Text[] = [];
   private selected: Phaser.GameObjects.Image | null = null;
 
   private readonly scene: Phaser.Scene;

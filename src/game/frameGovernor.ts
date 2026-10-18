@@ -41,7 +41,9 @@ export const TEST_FPS = 10;
 export const FRAME_RATES: FrameRates =
   import.meta.env.MODE === "test" ? { active: TEST_FPS, idle: TEST_FPS } : { active: 0, idle: 15 };
 
-const rate = (fps: number) => (fps > 0 ? 1000 / fps : 0);
+function rate(fps: number): number {
+  return fps > 0 ? 1000 / fps : 0;
+}
 
 export class FrameGovernor {
   private activeUntil = 0;

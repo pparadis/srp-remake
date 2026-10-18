@@ -47,7 +47,7 @@ describe("personality parameters on the Normal scorer", () => {
   });
 
   it("an inner-lane driver works its way in from the outer lane", () => {
-    const state = createRace(ctx, Array.from({ length: 3 }, (_, i) => ({ isBot: true, ownerId: `B${i}`, style: "defender" as const })), 5, 0);
+    const state = createRace(ctx, Array.from({ length: 3 }, (_item, i) => ({ isBot: true, ownerId: `B${i}`, style: "defender" as const })), 5, 0);
     // car 3 starts on lane 3; the others are parked
     state.cars[0]!.state = "DNF";
     state.cars[1]!.state = "DNF";
@@ -89,7 +89,7 @@ describe("Easy follows its style sloppily", () => {
       return JSON.stringify(decideBotAction(ctx, state).action);
     };
     expect(pick(11)).toBe(pick(11));
-    expect(new Set(Array.from({ length: 30 }, (_, i) => pick(i + 1))).size).toBeGreaterThan(2);
+    expect(new Set(Array.from({ length: 30 }, (_item, i) => pick(i + 1))).size).toBeGreaterThan(2);
   });
 });
 

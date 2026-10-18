@@ -49,7 +49,7 @@ describe("personalities do not dominate", () => {
 describe("the scripted strategist is no longer a guaranteed win", () => {
   // Human baseline of the user's report: always the inner lane, 9-8-8-8-7. It is car 1, but the seed
   // gives it a random grid slot (and play order), against 3 Normal bots with seeded personalities.
-  const seeds = Array.from({ length: 48 }, (_, i) => i + 1);
+  const seeds = Array.from({ length: 48 }, (_slot, i) => i + 1);
   const races = (laps: number) =>
     seeds.map((seed) => playBenchRace(ctx, ["scripted", "normal", "normal", "normal"], laps, seed).finishers.find((f) => f.slot === 0)!);
 
@@ -76,7 +76,7 @@ describe("seeded races", () => {
   const play = (seed: number) => {
     const state = createRace(
       ctx,
-      Array.from({ length: 4 }, (_, i) => ({ isBot: true, ownerId: `BOT${i + 1}`, botLevel: "normal" as const })),
+      Array.from({ length: 4 }, (_slot, i) => ({ isBot: true, ownerId: `BOT${i + 1}`, botLevel: "normal" as const })),
       4,
       seed
     );
@@ -100,7 +100,7 @@ describe("seeded races", () => {
     createRace(ctx, [1, 2, 3].map((i) => ({ isBot: true, ownerId: `BOT${i}` })), 1, seed).cars.map((c) => c.cellId).join();
 
   it("differs between seeds: personalities, grid and the race itself", () => {
-    const seeds = Array.from({ length: 12 }, (_, i) => i + 1);
+    const seeds = Array.from({ length: 12 }, (_slot, i) => i + 1);
     expect(new Set(seeds.map((seed) => play(seed).moves.join("|"))).size).toBeGreaterThan(4);
     expect(new Set(seeds.map(gridOf)).size).toBeGreaterThan(2);
     expect(new Set(seeds.map((seed) => personalityOf(seed, 1).key)).size).toBeGreaterThan(2);
@@ -109,7 +109,7 @@ describe("seeded races", () => {
 
   it("gives every car the lap count of the grid cell it really starts on", () => {
     for (let seed = 0; seed < 20; seed += 1) {
-      const state = createRace(ctx, Array.from({ length: 5 }, (_, i) => ({ isBot: false, ownerId: `P${i}` })), 3, seed);
+      const state = createRace(ctx, Array.from({ length: 5 }, (_slot, i) => ({ isBot: false, ownerId: `P${i}` })), 3, seed);
       for (const car of state.cars) {
         const fwd = ctx.cellMap.get(car.cellId)!.forwardIndex;
         expect(car.lapCount).toBe(fwd > 0 ? -1 : 0);

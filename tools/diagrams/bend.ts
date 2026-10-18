@@ -34,7 +34,7 @@ const SIDE_BY_SIDE = 24;
 
 /** The zones from `first` to `last` inclusive. */
 export function zoneRange(first: number, last: number): number[] {
-  return Array.from({ length: last - first + 1 }, (_, i) => first + i);
+  return Array.from({ length: last - first + 1 }, (_item, i) => first + i);
 }
 
 /**

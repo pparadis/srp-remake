@@ -12,8 +12,12 @@ export interface WebVersion {
 /** What the server said: its commit, "offline" when it could not be reached, null while waiting. */
 export type ServerVersion = { sha: string } | "offline" | null;
 
-const short = (sha: string) => (/^[0-9a-f]{8,}$/.test(sha) ? sha.slice(0, 7) : sha);
-const known = (sha: string) => sha !== "" && sha !== "unknown";
+function short(sha: string): string {
+  return /^[0-9a-f]{8,}$/.test(sha) ? sha.slice(0, 7) : sha;
+}
+function known(sha: string): boolean {
+  return sha !== "" && sha !== "unknown";
+}
 
 function serverLabel(server: ServerVersion, format: (sha: string) => string): string {
   if (server === null) return "…";
@@ -24,7 +28,9 @@ export function versionText(web: WebVersion, server: ServerVersion): string {
   return `web ${short(web.sha)}${prTag(web)} · ${web.date} · server ${serverLabel(server, short)}`;
 }
 
-const prTag = (web: WebVersion) => (web.pr ? ` · PR #${web.pr}` : "");
+function prTag(web: WebVersion): string {
+  return web.pr ? ` · PR #${web.pr}` : "";
+}
 
 /** Both commits known and different. */
 export function isStale(web: WebVersion, server: ServerVersion): boolean {

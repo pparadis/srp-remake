@@ -27,14 +27,14 @@ export function redactTokens(url: string): string {
   return url.replace(/([?&]playerToken=)[^&#]*/g, "$1[redacted]");
 }
 
-type LobbySocket = {
+interface LobbySocket {
   readyState: number;
   send(data: string): void;
   close(code?: number, reason?: string): void;
   on(event: "close", listener: () => void): void;
-};
+}
 
-type AppliedTurnEvent = {
+interface AppliedTurnEvent {
   ok: true;
   lobbyId: string;
   playerId: string;
@@ -44,17 +44,17 @@ type AppliedTurnEvent = {
   // "bot" = a bot seat, "timeout" = the turn timer expired, "force_skip" = the host skipped a stuck player.
   source?: "human" | "bot" | "timeout" | "force_skip";
   seatIndex?: number;
-};
+}
 
-type CreateAppOptions = {
+interface CreateAppOptions {
   logger?: boolean;
   // Where the request log goes (default stdout); lets a test read what is logged.
   logStream?: { write(line: string): void };
   // Lets tests set up lobby state directly (e.g. park a car in the pit lane).
   lobbyStore?: LobbyStore;
-};
+}
 
-const LobbySettingsPatchSchema = z.object({
+const lobbySettingsPatchSchema = z.object({
   trackId: z.string().min(1).optional(),
   totalCars: z.number().int().min(1).max(11).optional(),
   humanCars: z.number().int().min(0).max(11).optional(),
@@ -67,7 +67,7 @@ const LobbySettingsPatchSchema = z.object({
 });
 
 function toSettingsPatch(
-  settings: z.infer<typeof LobbySettingsPatchSchema> | undefined
+  settings: z.infer<typeof lobbySettingsPatchSchema> | undefined
 ): Partial<LobbySettings> | undefined {
   if (!settings) {
     return undefined;
@@ -84,78 +84,80 @@ function toSettingsPatch(
   return patch;
 }
 
-const PlayerNameSchema = z.string().trim().min(1).max(32);
-const PlayerTokenSchema = z.string().min(1).max(64);
+const playerNameSchema = z.string().trim().min(1).max(32);
+const playerTokenSchema = z.string().min(1).max(64);
 
-const CreateLobbySchema = z.object({
-  name: PlayerNameSchema,
-  settings: LobbySettingsPatchSchema.optional()
+const createLobbySchema = z.object({
+  name: playerNameSchema,
+  settings: lobbySettingsPatchSchema.optional()
 });
 
-const JoinLobbySchema = z.object({
-  name: PlayerNameSchema.optional(),
-  playerToken: PlayerTokenSchema.optional()
+const joinLobbySchema = z.object({
+  name: playerNameSchema.optional(),
+  playerToken: playerTokenSchema.optional()
 });
 
-const UpdateLobbySchema = z.object({
-  playerToken: PlayerTokenSchema,
-  settings: LobbySettingsPatchSchema
+const updateLobbySchema = z.object({
+  playerToken: playerTokenSchema,
+  settings: lobbySettingsPatchSchema
 });
 
-const StartRaceSchema = z.object({
-  playerToken: PlayerTokenSchema
+const startRaceSchema = z.object({
+  playerToken: playerTokenSchema
 });
 
-const ResetLobbySchema = StartRaceSchema;
+const resetLobbySchema = startRaceSchema;
 
-const ForceSkipSchema = z.object({
-  playerToken: PlayerTokenSchema,
+const forceSkipSchema = z.object({
+  playerToken: playerTokenSchema,
   // The revision the host saw; refuses the skip if the stuck player moved in the meantime.
   revision: z.number().int().min(0).optional()
 });
 
 // Shape only; the race engine enforces the PSI limits and every game rule.
-const CarSetupSchema = z.object({
+const carSetupSchema = z.object({
   compound: z.enum(["soft", "hard"]),
   psi: z.object({ fl: z.number(), fr: z.number(), rl: z.number(), rr: z.number() }),
   wing: z.enum(["low", "medium", "high"])
 });
 
-const TurnActionSchema = z.discriminatedUnion("type", [
+const turnActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("skip") }),
   z.object({ type: z.literal("move"), targetCellId: z.string().min(1).max(32) }),
-  z.object({ type: z.literal("pit"), targetCellId: z.string().min(1).max(32), setup: CarSetupSchema }),
+  z.object({ type: z.literal("pit"), targetCellId: z.string().min(1).max(32), setup: carSetupSchema }),
   // Grid setup: free, before the car's first move, and it does not end the turn.
-  z.object({ type: z.literal("setup"), setup: CarSetupSchema })
+  z.object({ type: z.literal("setup"), setup: carSetupSchema })
 ]);
 
-const SubmitTurnSchema = z.object({
-  playerToken: PlayerTokenSchema,
+const submitTurnSchema = z.object({
+  playerToken: playerTokenSchema,
   clientCommandId: z.string().min(1).max(64),
   revision: z.number().int().min(0),
-  action: TurnActionSchema
+  action: turnActionSchema
 });
 
-const ChatSchema = z.object({
-  playerToken: PlayerTokenSchema,
+const chatSchema = z.object({
+  playerToken: playerTokenSchema,
   // Generous: normalizeChatText applies the real limit (100 graphemes, 400 code units); this only bounds the work.
   text: z.string().max(2000)
 });
 
-const LobbyPathSchema = z.object({
+const lobbyPathSchema = z.object({
   lobbyId: z.string().min(1)
 });
 
-const WsQuerySchema = z.object({
+const wsQuerySchema = z.object({
   lobbyId: z.string().min(1),
-  playerToken: PlayerTokenSchema
+  playerToken: playerTokenSchema
 });
 
-const LobbyReadQuerySchema = z.object({
-  playerToken: PlayerTokenSchema
+const lobbyReadQuerySchema = z.object({
+  playerToken: playerTokenSchema
 });
 
-const seatOf = (lobby: Lobby) => (lobby.race ? activeSeatIndex(lobby.race.engine) : null);
+function seatOf(lobby: Lobby) {
+  return lobby.race ? activeSeatIndex(lobby.race.engine) : null;
+}
 
 export async function createApp(config: BackendConfig, options: CreateAppOptions = {}) {
   // A hop count trusts that many proxies in front of us (Fastify's own number support is not in its types).
@@ -504,7 +506,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   }));
 
   app.post(`${API_V1_PREFIX}/lobbies`, { config: limit(10) }, async (request, reply) => {
-    const body = CreateLobbySchema.parse(request.body);
+    const body = createLobbySchema.parse(request.body);
     const { lobby, host } = lobbyStore.createLobby(body.name, toSettingsPatch(body.settings));
     const publicLobby = toPublicLobby(lobby);
     logMultiplayer("lobby.create", {
@@ -523,8 +525,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   });
 
   app.get(`${API_V1_PREFIX}/lobbies/:lobbyId`, { config: limit(240) }, async (request) => {
-    const params = LobbyPathSchema.parse(request.params);
-    const query = LobbyReadQuerySchema.parse(request.query);
+    const params = lobbyPathSchema.parse(request.params);
+    const query = lobbyReadQuerySchema.parse(request.query);
     const lobby = lobbyStore.getLobby(params.lobbyId);
     if (!lobby) {
       throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
@@ -555,8 +557,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   // Also how a player reconnects.
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/join`, { config: limit(30) }, async (request) => {
-    const params = LobbyPathSchema.parse(request.params);
-    const body = JoinLobbySchema.parse(request.body);
+    const params = lobbyPathSchema.parse(request.params);
+    const body = joinLobbySchema.parse(request.body);
     const { lobby, player, isReconnect } = lobbyStore.joinLobby(
       params.lobbyId,
       body.name,
@@ -582,8 +584,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   });
 
   app.patch(`${API_V1_PREFIX}/lobbies/:lobbyId/settings`, { config: limit(240) }, async (request) => {
-    const params = LobbyPathSchema.parse(request.params);
-    const body = UpdateLobbySchema.parse(request.body);
+    const params = lobbyPathSchema.parse(request.params);
+    const body = updateLobbySchema.parse(request.body);
     const lobby = lobbyStore.updateSettings(
       params.lobbyId,
       body.playerToken,
@@ -601,8 +603,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   });
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/start`, { config: limit(240) }, async (request) => {
-    const params = LobbyPathSchema.parse(request.params);
-    const body = StartRaceSchema.parse(request.body);
+    const params = lobbyPathSchema.parse(request.params);
+    const body = startRaceSchema.parse(request.body);
     const lobby = lobbyStore.startRace(params.lobbyId, body.playerToken);
     armTurnTimer(lobby.lobbyId);
     const publicLobby = toPublicLobby(lobby);
@@ -620,8 +622,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   });
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/reset`, { config: limit(240) }, async (request) => {
-    const params = LobbyPathSchema.parse(request.params);
-    const body = ResetLobbySchema.parse(request.body);
+    const params = lobbyPathSchema.parse(request.params);
+    const body = resetLobbySchema.parse(request.body);
     const lobby = lobbyStore.resetLobby(params.lobbyId, body.playerToken);
     clearTurnTimer(lobby.lobbyId);
     const publicLobby = toPublicLobby(lobby);
@@ -635,8 +637,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   // Host only: the host plays one autopilot turn for a stuck human seat.
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/force-skip`, { config: limit(240) }, async (request) => {
-    const params = LobbyPathSchema.parse(request.params);
-    const body = ForceSkipSchema.parse(request.body);
+    const params = lobbyPathSchema.parse(request.params);
+    const body = forceSkipSchema.parse(request.body);
     const lobby = lobbyStore.getLobby(params.lobbyId);
     if (!lobby) {
       throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
@@ -661,16 +663,16 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   });
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/chat`, { config: limit(60) }, async (request, reply) => {
-    const params = LobbyPathSchema.parse(request.params);
-    const body = ChatSchema.parse(request.body);
+    const params = lobbyPathSchema.parse(request.params);
+    const body = chatSchema.parse(request.body);
     const message = lobbyStore.addChatMessage(params.lobbyId, body.playerToken, body.text);
     broadcast(params.lobbyId, "chat.message", message);
     return reply.code(201).send({ message });
   });
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/turns`, { config: limit(240) }, async (request, reply) => {
-    const params = LobbyPathSchema.parse(request.params);
-    const body = SubmitTurnSchema.parse(request.body);
+    const params = lobbyPathSchema.parse(request.params);
+    const body = submitTurnSchema.parse(request.body);
     const lobby = lobbyStore.getLobby(params.lobbyId);
     if (!lobby) {
       throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
@@ -830,7 +832,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   app.get("/ws", { websocket: true, config: limit(240) }, (socket, request) => {
     const ws = socket as LobbySocket;
     const wsConnId = `ws-${wsConnectionSeq++}`;
-    const query = WsQuerySchema.safeParse(request.query);
+    const query = wsQuerySchema.safeParse(request.query);
     if (!query.success) {
       logMultiplayer("ws.connect.rejected", {
         wsConnId,

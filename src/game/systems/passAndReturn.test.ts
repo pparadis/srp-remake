@@ -239,7 +239,7 @@ describe("over simulated races", () => {
       for (const seed of [1, 2, 3, 4]) {
         const state = createRace(
           ctx,
-          Array.from({ length: cars }, (_, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: "normal" as const })),
+          Array.from({ length: cars }, (_slot, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: "normal" as const })),
           3,
           seed
         );

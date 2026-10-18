@@ -177,8 +177,8 @@ export class RaceSession {
   // Local seats: humans first, then bots.
   private buildSeats(): RaceSeat[] {
     const seats: RaceSeat[] = [
-      ...Array.from({ length: this.humanCars }, (_, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
-      ...Array.from({ length: this.botCars }, (_, i) => ({
+      ...Array.from({ length: this.humanCars }, (_slot, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
+      ...Array.from({ length: this.botCars }, (_slot, i) => ({
         isBot: true,
         ownerId: `BOT${i + 1}`,
         botLevel: this.botLevel
@@ -428,7 +428,7 @@ export class RaceSession {
 
   // The cells each car drove through on its last move (movePath, round the cars standing there when it moved): the
   // board's trail, and "what happened while I waited". A car keeps its trail until it moves again.
-  private lastPaths = new Map<number, string[]>();
+  private readonly lastPaths = new Map<number, string[]>();
 
   private noteMoved(carId: number, fromCellId: string | null) {
     const car = this.cars.find((c) => c.carId === carId);

@@ -34,7 +34,9 @@ export interface ChatOptions {
   send(text: string): Promise<void>;
 }
 
-const mutedKey = (lobbyId: string) => `srp:chat-muted:${lobbyId}`;
+function mutedKey(lobbyId: string): string {
+  return `srp:chat-muted:${lobbyId}`;
+}
 
 function loadMuted(lobbyId: string): Set<string> {
   try {

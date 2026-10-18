@@ -8,7 +8,9 @@ import { join } from "node:path";
 import { chromium } from "@playwright/test";
 
 const args = process.argv.slice(2);
-const opt = (name, d) => (args.includes(name) ? Number(args.splice(args.indexOf(name), 2)[1]) : d);
+function opt(name, d) {
+  return args.includes(name) ? Number(args.splice(args.indexOf(name), 2)[1]) : d;
+}
 const runs = opt("--runs", 3);
 const idleS = opt("--idle", 10);
 const variants = args.length ? args : ["baseline:"];
@@ -98,7 +100,9 @@ async function measure(url) {
   }
 }
 
-const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+function median(a) {
+  return [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+}
 const results = [];
 for (const v of variants) {
   const [label, envStr = ""] = v.split(":");
@@ -130,7 +134,8 @@ for (const v of variants) {
   }
 }
 const base = results[0].median;
-for (const r of results)
+for (const r of results) {
   console.log(
     `${r.label.padEnd(18)} median ${r.median.toFixed(1)} s  (${((r.median / base) * 100).toFixed(0)}% of first)  runs: ${r.all}`
   );
+}

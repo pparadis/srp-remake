@@ -17,13 +17,13 @@ const COLORS = [0xffe066, 0xff5a5a, 0x4cd964, 0x4da3ff, 0xffffff, 0xff9f43];
 
 /** One burst of confetti in screen space, gone after `lifeMs`: one Image of a baked colour swatch per piece. */
 export class Confetti {
-  private pieces: Piece[] = [];
-  private layer: Phaser.GameObjects.Container;
+  private readonly pieces: Piece[] = [];
+  private readonly layer: Phaser.GameObjects.Container;
   private age = 0;
   private done = false;
   private readonly onUpdate = (_time: number, delta: number) => this.step(delta);
-  private scene: Phaser.Scene;
-  private lifeMs: number;
+  private readonly scene: Phaser.Scene;
+  private readonly lifeMs: number;
 
   constructor(scene: Phaser.Scene, lifeMs = 3500, count = 120) {
     this.scene = scene;

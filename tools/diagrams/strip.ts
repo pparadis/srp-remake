@@ -31,7 +31,9 @@ export interface Strip {
   offered: Map<string, TargetInfo>;
 }
 
-const ahead = (c: TrackCell, start: TrackCell) => c.laneIndex !== 0 && c.forwardIndex > start.forwardIndex;
+function ahead(c: TrackCell, start: TrackCell): boolean {
+  return c.laneIndex !== 0 && c.forwardIndex > start.forwardIndex;
+}
 
 /**
  * A titled panel with a stretch of the track drawn in it as it is on the board, sized to the drawing; `below` leaves

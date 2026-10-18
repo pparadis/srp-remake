@@ -382,15 +382,15 @@ describe("computeSqueezeTargets (boxed in)", () => {
     fuelRate: 0.45,
     setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" as const }
   };
-  const START = "Z05_L2_00";
+  const startCell = "Z05_L2_00";
   // Blocker ahead in the own lane plus both neighbouring-lane cells ahead.
-  const BOXED = new Set([START, "Z06_L2_00", "Z06_L1_00", "Z06_L3_00"]);
-  const normal = (occ: Set<string>, max = 9) => computeValidTargets(index, START, occ, max, {}, costs);
-  const squeeze = (occ: Set<string>, max = 9) => computeSqueezeTargets(index, START, occ, max, costs);
+  const boxed = new Set([startCell, "Z06_L2_00", "Z06_L1_00", "Z06_L3_00"]);
+  const normal = (occ: Set<string>, max = 9) => computeValidTargets(index, startCell, occ, max, {}, costs);
+  const squeeze = (occ: Set<string>, max = 9) => computeSqueezeTargets(index, startCell, occ, max, costs);
 
   it("has no normal targets but offers squeezes with the surcharge", () => {
-    expect(normal(BOXED).size).toBe(0);
-    const t = squeeze(BOXED);
+    expect(normal(boxed).size).toBe(0);
+    const t = squeeze(boxed);
     expect(t.size).toBeGreaterThan(0);
     // Same lane, 2 ahead: passes 1 car (2 + 2). Lane 1, 2 ahead: passes the own-lane and lane-1 blockers.
     expect(t.get("Z07_L2_00")).toMatchObject({ distance: 2, moveSpend: 4, squeezePassed: 1 });
@@ -409,23 +409,23 @@ describe("computeSqueezeTargets (boxed in)", () => {
   });
 
   it("is limited by the remaining budget", () => {
-    expect(squeeze(BOXED, 4).has("Z07_L2_00")).toBe(true);
-    expect(squeeze(BOXED, 4).has("Z07_L1_00")).toBe(false);
-    expect(squeeze(BOXED, 4).has("Z08_L2_00")).toBe(false);
-    expect(squeeze(BOXED, 3).size).toBe(0);
+    expect(squeeze(boxed, 4).has("Z07_L2_00")).toBe(true);
+    expect(squeeze(boxed, 4).has("Z07_L1_00")).toBe(false);
+    expect(squeeze(boxed, 4).has("Z08_L2_00")).toBe(false);
+    expect(squeeze(boxed, 3).size).toBe(0);
   });
 
   it("is not needed when a normal target exists (only partly blocked)", () => {
-    const partly = new Set([START, "Z06_L2_00", "Z06_L1_00"]);
+    const partly = new Set([startCell, "Z06_L2_00", "Z06_L1_00"]);
     expect(normal(partly).size).toBeGreaterThan(0);
   });
 
   it("never lands on a car, in the pit lane, backwards or sideways, and always passes a car", () => {
-    const t = squeeze(BOXED);
-    const start = index.cellMap.get(START)!;
+    const t = squeeze(boxed);
+    const start = index.cellMap.get(startCell)!;
     for (const [id, info] of t) {
       const cell = index.cellMap.get(id)!;
-      expect(BOXED.has(id)).toBe(false);
+      expect(boxed.has(id)).toBe(false);
       expect(cell.laneIndex).not.toBe(0);
       expect(Math.abs(cell.laneIndex - start.laneIndex)).toBeLessThanOrEqual(1);
       expect((cell.forwardIndex - start.forwardIndex + index.spineLen) % index.spineLen).toBeGreaterThan(0);
@@ -442,39 +442,39 @@ describe("computeSqueezeTargets (pit exit blocked)", () => {
     fuelRate: 0.45,
     setup: { compound: "soft" as const, psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" as const }
   };
-  const EXIT = "Z06_L0_00";
+  const exitCell = "Z06_L0_00";
   const normal = (from: string, occ: Set<string>, max = 9) => computeValidTargets(index, from, occ, max, {}, costs);
   const squeeze = (from: string, occ: Set<string>, max = 9) => computeSqueezeTargets(index, from, occ, max, costs);
 
   it("is boxed in with Z07_L1_00 taken and squeezes onto lane 1 with the surcharge", () => {
-    const occ = new Set([EXIT, "Z07_L1_00"]);
-    expect(normal(EXIT, occ).size).toBe(0);
-    const t = squeeze(EXIT, occ);
+    const occ = new Set([exitCell, "Z07_L1_00"]);
+    expect(normal(exitCell, occ).size).toBe(0);
+    const t = squeeze(exitCell, occ);
     expect([...t.keys()].sort()).toEqual(["Z08_L1_00", "Z09_L1_00"]);
     expect(t.get("Z08_L1_00")).toMatchObject({ distance: 2, moveSpend: 4, squeezePassed: 1, isPitTrigger: false });
     expect(t.get("Z09_L1_00")).toMatchObject({ distance: 3, moveSpend: 5, squeezePassed: 1 });
   });
 
   it("counts every car on the path and never lands on one", () => {
-    const occ = new Set([EXIT, "Z07_L1_00", "Z08_L1_00"]);
-    const t = squeeze(EXIT, occ);
+    const occ = new Set([exitCell, "Z07_L1_00", "Z08_L1_00"]);
+    const t = squeeze(exitCell, occ);
     expect([...t.keys()]).toEqual(["Z09_L1_00"]);
     expect(t.get("Z09_L1_00")).toMatchObject({ distance: 3, moveSpend: 7, squeezePassed: 2 });
-    expect(squeeze(EXIT, occ, 6).size).toBe(0);
+    expect(squeeze(exitCell, occ, 6).size).toBe(0);
   });
 
   it("never offers pit cells, other lanes or cells beyond 3 away", () => {
-    const t = squeeze(EXIT, new Set([EXIT, "Z07_L1_00", "Z09_L1_00"]));
+    const t = squeeze(exitCell, new Set([exitCell, "Z07_L1_00", "Z09_L1_00"]));
     expect([...t.keys()]).toEqual(["Z08_L1_00"]);
     for (const id of t.keys()) expect(index.cellMap.get(id)!.laneIndex).toBe(1);
   });
 
   it("offers nothing from other pit cells and nothing when the exit is free", () => {
-    expect(squeeze("Z05_L0_00", new Set(["Z05_L0_00", EXIT])).size).toBe(0);
+    expect(squeeze("Z05_L0_00", new Set(["Z05_L0_00", exitCell])).size).toBe(0);
     expect(squeeze("Z02_L0_00", new Set(["Z02_L0_00", "Z03_L0_00"])).size).toBe(0);
-    const free = new Set([EXIT]);
-    expect([...normal(EXIT, free).keys()]).toEqual(["Z07_L1_00"]);
-    expect(squeeze(EXIT, free).size).toBe(0);
+    const free = new Set([exitCell]);
+    expect([...normal(exitCell, free).keys()]).toEqual(["Z07_L1_00"]);
+    expect(squeeze(exitCell, free).size).toBe(0);
   });
 });
 
@@ -583,15 +583,15 @@ describe("no same-zone lane change (#108)", () => {
   };
   // In the bend the inner lane's forwardIndex is one higher in the same zone (Z12_L2 10, Z12_L1 11): by index a
   // diagonal, on the board a pure sideways move.
-  const START = "Z12_L2_00";
+  const startCell = "Z12_L2_00";
 
   it("the track still has the edge and the higher forwardIndex that used to make it a target", () => {
-    expect(index.cellMap.get(START)!.next).toContain("Z12_L1_00");
-    expect(index.cellMap.get("Z12_L1_00")!.forwardIndex).toBeGreaterThan(index.cellMap.get(START)!.forwardIndex);
+    expect(index.cellMap.get(startCell)!.next).toContain("Z12_L1_00");
+    expect(index.cellMap.get("Z12_L1_00")!.forwardIndex).toBeGreaterThan(index.cellMap.get(startCell)!.forwardIndex);
   });
 
   it("never offers a cell in the start's zone on another lane", () => {
-    const t = computeValidTargets(index, START, new Set([START]), 9, {}, costs);
+    const t = computeValidTargets(index, startCell, new Set([startCell]), 9, {}, costs);
     expect(t.has("Z12_L1_00")).toBe(false);
     expect(t.has("Z12_L3_00")).toBe(false);
     expect(t.has("Z13_L2_00")).toBe(true);
@@ -602,9 +602,9 @@ describe("no same-zone lane change (#108)", () => {
   });
 
   it("a squeeze does not offer it either", () => {
-    const wall = new Set([START, "Z13_L1_00", "Z13_L2_00", "Z13_L3_00"]);
-    expect(computeValidTargets(index, START, wall, 9, {}, costs).size).toBe(0);
-    const t = computeSqueezeTargets(index, START, wall, 9, costs);
+    const wall = new Set([startCell, "Z13_L1_00", "Z13_L2_00", "Z13_L3_00"]);
+    expect(computeValidTargets(index, startCell, wall, 9, {}, costs).size).toBe(0);
+    const t = computeSqueezeTargets(index, startCell, wall, 9, costs);
     expect(t.size).toBeGreaterThan(0);
     for (const id of t.keys()) expect(index.cellMap.get(id)!.zoneIndex).not.toBe(12);
   });

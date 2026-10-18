@@ -11,7 +11,9 @@ export function bakeFactor(): number {
   return renderScale() * OVERSAMPLE;
 }
 
-const css = (color: number) => `#${color.toString(16).padStart(6, "0")}`;
+function css(color: number): string {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
 
 function bake(
   scene: Phaser.Scene,

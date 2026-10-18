@@ -11,7 +11,10 @@ const CAR = { w: 15, h: 28 }; // as drawn in the race
 /** Seconds per lap: the outer lane is the longest way round, so it is the slowest. */
 const LAP_SECONDS = [9, 10.5, 12.5];
 
-type Point = { x: number; y: number };
+interface Point {
+  x: number;
+  y: number;
+}
 
 function svgEl(name: string, attrs: Record<string, string | number> = {}) {
   const el = document.createElementNS(SVG_NS, name);
@@ -19,10 +22,15 @@ function svgEl(name: string, attrs: Record<string, string | number> = {}) {
   return el;
 }
 
-const byForward = (a: TrackCell, b: TrackCell) => a.forwardIndex - b.forwardIndex;
-const points = (cells: TrackCell[]): Point[] => cells.map((c) => c.pos);
-const pathData = (pts: Point[], closed: boolean) =>
-  `M ${pts.map((p) => `${p.x} ${p.y}`).join(" L ")}${closed ? " Z" : ""}`;
+function byForward(a: TrackCell, b: TrackCell): number {
+  return a.forwardIndex - b.forwardIndex;
+}
+function points(cells: TrackCell[]): Point[] {
+  return cells.map((c) => c.pos);
+}
+function pathData(pts: Point[], closed: boolean): string {
+  return `M ${pts.map((p) => `${p.x} ${p.y}`).join(" L ")}${closed ? " Z" : ""}`;
+}
 
 /** The lane's cells in driving order. */
 export function laneCells(data: TrackData, laneIndex: number): TrackCell[] {
@@ -49,11 +57,11 @@ export function pitLapPoints(data: TrackData): Point[] | null {
 }
 
 /** Which way a car faces at `pts[i]` (degrees, 0 = to the right). */
-const headingAt = (pts: Point[], i: number) => {
+function headingAt(pts: Point[], i: number): number {
   const a = pts[i]!;
   const b = pts[(i + 1) % pts.length]!;
   return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
-};
+}
 
 function carImage(index: number) {
   // Kenney cars point up; the motion path turns the x axis along the way, so the sprite is turned a quarter.

@@ -43,7 +43,9 @@ export interface CameraView {
   user: UserView;
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
+}
 
 /** The camera for a fit and a user view; the user view is clamped (zoom range, and pan so the track stays in sight). */
 export function viewOf(fit: Fit, wanted: UserView): CameraView {

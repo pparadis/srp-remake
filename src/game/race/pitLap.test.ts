@@ -15,7 +15,7 @@ const SETUP: CarSetup = { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 2
 function race(laps = 5, cars = 2): RaceState {
   return createRace(
     ctx,
-    Array.from({ length: cars }, (_, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
+    Array.from({ length: cars }, (_slot, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
     laps
   );
 }
