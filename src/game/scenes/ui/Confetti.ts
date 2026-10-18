@@ -66,6 +66,11 @@ export class Confetti {
     }
   }
 
+  /** True while the burst is falling. */
+  get active() {
+    return !this.done;
+  }
+
   /** Removes the burst at once (also used by the e2e freeze hook). */
   stop() {
     if (this.done) return;

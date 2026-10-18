@@ -101,6 +101,15 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
 - The game uses Phaser's Canvas renderer on purpose (`type: Phaser.CANVAS` in `src/game/index.ts`): it is a turn-based
   board, and software WebGL cost about 14x the CPU (`npm run probe:cpu`). Do not add WebGL-only features (tint, FX,
   pipelines, shaders, masks, blend modes, particles). `e2e/smoke.spec.ts` asserts the canvas has a 2D context.
+- Idle frame rate (#82): the game starts with an fps limit and `FrameGovernor` (`src/game/frameGovernor.ts`, created by
+  `RaceScene`) moves Phaser's `_limitRate` between full speed and 15 fps (`FRAME_RATES`). Full speed on any pointer, key,
+  wheel or `srp:` event of the page (`watch`) and while `RaceScene.isAnimating()` says a glide, the camera tween, confetti
+  or the pit modal moves, then 600 ms after. The halo pulse and a trail's fade do not count (they look stepped at the
+  idle rate). A new animation that must be smooth goes through a tween, a timer-free thing the check can see; a new input
+  source that changes the board without a pointer or `srp:` event needs its event in `WAKE_EVENTS`. The e2e (`test`) build
+  keeps its fixed 10 fps cap (both rates 10), so `npm run probe:cpu` cannot show the adaptive rate: measure it with a
+  temporary build override and the `P` readout (idle about 13 fps, a drag 60). Measured: 11.4 s of CPU for a 15 s idle race
+  plus 3 turns uncapped, 3.8 s adaptive.
 - Never draw a large texture every frame: the grass is the CSS background of `#app` behind a transparent canvas
   (`transparent: true`, `style.css`), not a Phaser `tileSprite`. A 4000x3000 `tileSprite` was redrawn each frame and
   Firefox on a real display (X11) fell to 9 fps while Chromium was at 60 (#79; headless Firefox did not show it, so

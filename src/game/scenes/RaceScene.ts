@@ -1,4 +1,5 @@
 import { renderScale, textResolution } from "../hidpi";
+import { FrameGovernor, type FrameLimit } from "../frameGovernor";
 import Phaser from "phaser";
 import type { TrackData, TrackCell } from "../types/track";
 import type { BotLevel, Car } from "../types/car";
@@ -292,6 +293,17 @@ export class RaceScene extends Phaser.Scene {
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, removeWindowListeners);
     this.events.once(Phaser.Scenes.Events.DESTROY, removeWindowListeners);
+    // Idle frame rate (#82): full speed while a glide, the camera, confetti or the pit modal moves, or the player acts.
+    const governor = new FrameGovernor(this.game.loop as unknown as FrameLimit);
+    const stopWatching = governor.watch(window);
+    const onUpdate = () => governor.tick(this.isAnimating());
+    this.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
+    const stopGoverning = () => {
+      stopWatching();
+      this.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, stopGoverning);
+    this.events.once(Phaser.Scenes.Events.DESTROY, stopGoverning);
     window.addEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
     window.addEventListener("srp:hud-command", this.onHudCommand);
     window.addEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
@@ -887,6 +899,16 @@ export class RaceScene extends Phaser.Scene {
   // The last move of a car as a thin line in its colour: drawn when it sets off, then fading to a faint line that stays
   // until the car moves again ("what happened while I was waiting"). Not in the e2e build (screenshots); under reduced
   // motion it is drawn faint and does not fade.
+  /**
+   * Something on the canvas is moving that needs full frame rate. The active car's halo pulse and a trail's slow fade
+   * run all the time (or for seconds), so they do not count: they just look a little stepped at the idle rate.
+   */
+  private isAnimating(): boolean {
+    const ambient = new Set<unknown>([this.activeHaloTween, ...this.trails.values()]);
+    const moving = this.tweens.getTweens().some((tween) => tween !== this.activeHaloTween && !tween.targets.some((t) => ambient.has(t)));
+    return moving || this.confetti?.active === true || this.pitModal.isActive();
+  }
+
   private showTrail(carId: number) {
     if (import.meta.env.MODE === "test" && this.registry.get(REG_ANIMATE) !== true) return;
     const cells = this.session.lastMovePath(carId);
