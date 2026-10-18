@@ -90,6 +90,33 @@ describe("main (solo flow)", () => {
     expect(window.location.pathname).toBe("/solo");
   });
 
+  it("the quick race menu picks the movement rules, v2 first, and the game gets them (#118)", async () => {
+    startGame.mockImplementation(() => ({ destroy: vi.fn(), canvas: document.createElement("canvas") }));
+    await import("./main");
+    byId("homeQuickBtn").click();
+    const rules = byId<HTMLSelectElement>("lobbyRules");
+    expect(byId("lobbyRulesField").hidden).toBe(false);
+    expect(rules.value).toBe("v2");
+    expect([...rules.options].map((o) => o.value)).toEqual(["v2", "v1"]);
+    rules.value = "v1";
+    rules.dispatchEvent(new Event("change"));
+    expect(byId<HTMLSelectElement>("lobbyRules").value).toBe("v1"); // kept across the re-render
+    byId("lobbyStartBtn").click();
+    await vi.waitFor(() => expect(startGame).toHaveBeenCalledWith(byId("app"), expect.objectContaining({ rulesVersion: "v1" })));
+  });
+
+  it("?rules=v1 (the sandbox link) starts the menu on v1; an unknown value on the default", async () => {
+    window.history.replaceState({}, "", "/?rules=v1");
+    await import("./main");
+    byId("homeQuickBtn").click();
+    expect(byId<HTMLSelectElement>("lobbyRules").value).toBe("v1");
+    vi.resetModules();
+    window.history.replaceState({}, "", "/?rules=v9");
+    await import("./main");
+    byId("homeQuickBtn").click();
+    expect(byId<HTMLSelectElement>("lobbyRules").value).toBe("v2");
+  });
+
   it("quick race -> lobby -> start creates the game with the lobby settings", async () => {
     const destroy = vi.fn();
     const canvas = document.createElement("canvas");
@@ -126,6 +153,7 @@ describe("main (solo flow)", () => {
         raceLaps: 2,
         botLevel: "hard",
         seed: expect.any(Number),
+        rulesVersion: "v2",
         hidpi: false,
         animate: false
       });

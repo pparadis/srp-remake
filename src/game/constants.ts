@@ -4,6 +4,7 @@ export const REG_BOT_CARS = "botCars";
 export const REG_RACE_LAPS = "raceLaps";
 export const REG_BOT_LEVEL = "botLevel";
 export const REG_SEED = "seed";
+export const REG_RULES_VERSION = "rulesVersion";
 export const REG_SANDBOX = "sandbox";
 export const REG_POSITION = "position";
 export const REG_ANIMATE = "animate";

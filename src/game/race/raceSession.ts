@@ -2,7 +2,7 @@
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
 import { DRAFT_RANGE, DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from "../constants";
-import { rulesOf } from "../rules/versions";
+import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from "../rules/versions";
 import type { BotLevel, Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
@@ -49,6 +49,8 @@ export interface RaceSessionSetup {
   raceLaps: number;
   botLevel?: BotLevel;
   seed?: number;
+  /** The movement rules to play on (solo; an online race plays what the server plays). */
+  rulesVersion?: RulesVersion;
   /** `?sandbox`: starts in edit mode. */
   sandbox?: boolean;
 }
@@ -108,6 +110,7 @@ export class RaceSession {
   private botCars: number;
   private readonly botLevel: BotLevel;
   private readonly seed: number;
+  private readonly rulesVersion: RulesVersion;
   // Multiplayer: after sending a turn, wait for the server's race.state before accepting input.
   private awaitingServerUntil = 0;
   private backendLobbyId: string | null = null;
@@ -124,6 +127,7 @@ export class RaceSession {
     this.botCars = setup.botCars;
     this.botLevel = setup.botLevel ?? "normal";
     this.seed = setup.seed ?? 0;
+    this.rulesVersion = setup.rulesVersion ?? DEFAULT_RULES_VERSION;
     this.sandbox = setup.sandbox === true;
     this.editing = this.sandbox;
     this.startRace(setup.raceLaps);
@@ -171,7 +175,7 @@ export class RaceSession {
   }
 
   private startRace(raceLaps: number) {
-    this.race = createRace(this.ctx, this.buildSeats(), raceLaps, this.seed);
+    this.race = createRace(this.ctx, this.buildSeats(), raceLaps, this.seed, this.rulesVersion);
   }
 
   private respawnForComposition(totalCars: number, humanCars: number, botCars: number) {
@@ -734,7 +738,8 @@ export class RaceSession {
       moveBudget: MOVE_BUDGET,
       moveRates: MOVE_RATES,
       disallowPitBoxTargets: this.activeCar.pitServiced,
-      seed: this.race.seed
+      seed: this.race.seed,
+      rulesVersion: this.race.rulesVersion ?? DEFAULT_RULES_VERSION
     });
   }
 

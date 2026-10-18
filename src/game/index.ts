@@ -12,9 +12,11 @@ import {
   REG_POSITION,
   REG_RACE_LAPS,
   REG_SANDBOX,
+  REG_RULES_VERSION,
   REG_SEED,
   REG_TOTAL_CARS
 } from "./constants";
+import { DEFAULT_RULES_VERSION, type RulesVersion } from "./rules/versions";
 import type { BotLevel } from "./types/car";
 
 interface GameOptions {
@@ -25,6 +27,8 @@ interface GameOptions {
   botLevel?: BotLevel;
   // Race seed (bot personalities, grid); 0 = neutral baseline.
   seed?: number;
+  // Movement rules of a solo race (src/game/rules/versions.ts); the default when omitted. Online races play the default.
+  rulesVersion?: RulesVersion;
   // Solo dev tool (`?sandbox`): start in edit mode, optionally from a "Copy debug" snapshot (JSON text).
   sandbox?: boolean;
   position?: string;
@@ -70,6 +74,7 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   game.registry.set(REG_RACE_LAPS, options.raceLaps);
   game.registry.set(REG_BOT_LEVEL, options.botLevel ?? "normal");
   game.registry.set(REG_SEED, options.seed ?? 0);
+  game.registry.set(REG_RULES_VERSION, options.rulesVersion ?? DEFAULT_RULES_VERSION);
   game.registry.set(REG_SANDBOX, options.sandbox ?? false);
   game.registry.set(REG_POSITION, options.position ?? null);
   game.registry.set(REG_ANIMATE, options.animate ?? false);

@@ -149,6 +149,31 @@ describe("RaceSession: drafting", () => {
   });
 });
 
+describe("RaceSession: rules version (#118)", () => {
+  it("plays the default rules unless told otherwise, and the snapshot says which", () => {
+    expect(solo().race.rulesVersion).toBe("v2");
+    expect(solo().debugSnapshot().rulesVersion).toBe("v2");
+  });
+
+  it("a solo race on v1 plays v1, and the snapshot says so", () => {
+    const session = solo({ rulesVersion: "v1" });
+    expect(session.race.rulesVersion).toBe("v1");
+    expect(session.debugSnapshot().rulesVersion).toBe("v1");
+  });
+
+  it("the rules decide the tow: Z12_L3 right behind Z13_L3 is tucked in on v2, not on v1 (#113)", () => {
+    const tucked = (version: "v1" | "v2") => {
+      const session = solo({ botCars: 1, rulesVersion: version });
+      const [me, bot] = session.cars as [Car, Car];
+      Object.assign(me, { cellId: "Z05_L1_00" });
+      Object.assign(bot, { cellId: "Z13_L3_00" });
+      return session.endsTucked("Z12_L3_00");
+    };
+    expect(tucked("v2")).toBe(true);
+    expect(tucked("v1")).toBe(false);
+  });
+});
+
 describe("RaceSession: solo", () => {
   it("starts with the human on pole and the bots behind, on turn when the race opens", () => {
     const session = solo({ botCars: 3 });

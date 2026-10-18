@@ -20,6 +20,7 @@ import { renderHomeTrack, setHomeTrackRunning } from "./ui/homeTrack";
 import { mountVersion, renderVersion, type ServerVersion } from "./ui/version";
 import { showUncaughtErrors, startRenderProbe } from "./ui/diagnostics";
 import { MAX_SEED, normalizeSeed } from "./game/systems/botStyle";
+import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from "./game/rules/ids";
 import {
   BackendApiClient,
   BackendApiError,
@@ -69,6 +70,8 @@ const lobbyBots = el<HTMLSelectElement>("lobbyBots");
 const lobbyLaps = el<HTMLInputElement>("lobbyLaps");
 const lobbyBotLevel = el<HTMLSelectElement>("lobbyBotLevel");
 const lobbyBotLevelField = el("lobbyBotLevelField");
+const lobbyRules = el<HTMLSelectElement>("lobbyRules");
+const lobbyRulesField = el("lobbyRulesField");
 const lobbyTurnTimer = el<HTMLSelectElement>("lobbyTurnTimer");
 const lobbyTurnTimerField = el("lobbyTurnTimerField");
 const connectionBanner = el("connectionBanner");
@@ -132,6 +135,8 @@ const hudForceSkip = hud.querySelector<HTMLButtonElement>('[data-testid="hud-for
 // one. The seed is made here, at the boundary: the engine never rolls dice.
 const seedParam = new URLSearchParams(window.location.search).get("seed");
 const urlSeed = seedParam === null ? null : normalizeSeed(seedParam); // 0 is a valid, pinned seed
+// `?rules=v1` starts the menu's Rules on that version (the sandbox link carries it); the menu is how it is chosen.
+const rulesParam = new URLSearchParams(window.location.search).get("rules");
 function freshSeed(): number {
   return (crypto.getRandomValues(new Uint32Array(1))[0]! % MAX_SEED) + 1;
 }
@@ -153,8 +158,9 @@ let backendBusy = false;
 let mode: "solo" | "online" = "solo";
 let soloRaceRequested = false;
 let raceOver = false;
-const soloSettings: { botCars: number; raceLaps: number; botLevel: BotLevel; seed: number } = {
+const soloSettings: { botCars: number; raceLaps: number; botLevel: BotLevel; seed: number; rulesVersion: RulesVersion } = {
   seed: 0,
+  rulesVersion: isRulesVersion(rulesParam) ? rulesParam : DEFAULT_RULES_VERSION,
   botCars: 3,
   raceLaps: 5,
   botLevel: "normal"
@@ -394,6 +400,7 @@ function getComposition() {
     raceLaps: soloSettings.raceLaps,
     botLevel: soloSettings.botLevel,
     seed: soloSettings.seed,
+    rulesVersion: soloSettings.rulesVersion,
     ...(sandbox ? { sandbox, ...(sandboxPosition ? { position: sandboxPosition } : {}) } : {})
   };
 }
@@ -456,11 +463,15 @@ function renderLobby() {
   lobbyBots.value = String(settings?.botCars ?? soloSettings.botCars);
   lobbyLaps.value = String(settings?.raceLaps ?? soloSettings.raceLaps);
   lobbyBotLevel.value = settings?.botLevel ?? soloSettings.botLevel;
+  // Solo only: an online race plays the server's rules, and v1 is not offered there.
+  lobbyRulesField.hidden = online;
+  lobbyRules.value = soloSettings.rulesVersion;
   // The select stays in the DOM; with no bots there is nothing for it to set.
   lobbyBotLevelField.hidden = Number.parseInt(lobbyBots.value, 10) === 0;
   const editable = isHost && waiting && !backendBusy;
   lobbyHumans.disabled = lobbyBots.disabled = lobbyLaps.disabled = lobbyTurnTimer.disabled = lobbyBotLevel.disabled =
-    !editable;
+    lobbyRules.disabled =
+      !editable;
   lobbyStartBtn.disabled = backendBusy || !isHost || !waiting;
   lobbyStartBtn.hidden = online && !isHost;
   const canPlayAgain = online && lobby?.status === "FINISHED" && lobby.terminationReason === "race_finished";
@@ -983,6 +994,7 @@ async function changeSettings() {
     soloSettings.botCars = botCars;
     soloSettings.raceLaps = raceLaps;
     soloSettings.botLevel = botLevel;
+    if (isRulesVersion(lobbyRules.value)) soloSettings.rulesVersion = lobbyRules.value;
     renderLobby();
     return;
   }
@@ -1125,7 +1137,7 @@ homeName.addEventListener("change", () => {
   }
 });
 
-for (const input of [lobbyHumans, lobbyBots, lobbyLaps, lobbyTurnTimer, lobbyBotLevel]) {
+for (const input of [lobbyHumans, lobbyBots, lobbyLaps, lobbyTurnTimer, lobbyBotLevel, lobbyRules]) {
   input.addEventListener("change", () => void changeSettings());
 }
 hudForceSkip.addEventListener("click", () => void forceSkip());
