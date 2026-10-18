@@ -823,8 +823,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   // The tows: a few faint streaks from each car whose last move ended tucked in behind a car, along its lane for as far
-  // as the car ahead (or, when that car has moved on, the draft range): blue while it counts, gold when the slingshot
-  // is open. Every car's, not only the player's. Redrawn on a turn change; hidden while cars glide.
+  // as that car, while it is still there: blue while it counts, gold when the slingshot is open. Every car's, not only
+  // the player's. Redrawn on a turn change; hidden while cars glide.
   private drawTow() {
     this.gTow.clear();
     if (!this.showCarsAndMoves || this.glides.size > 0) return;

@@ -66,8 +66,9 @@ line), which pulses once when it appears and when the count goes up (none under 
 
 On the board:
 
-- **Tows:** a few faint streaks from each car in a tow (every car's, not only yours) along its lane for as far as the car
-  ahead, or the draft range when that car has moved on: blue while counting, gold when the slingshot is open
+- **Tows:** a few faint streaks from each car in a tow (every car's, not only yours) along its lane to the car ahead,
+  only while that car is still there (once it has moved on the streaks would lead to nothing; the card and the targets'
+  rings still say you are in the tow): blue while counting, gold when the slingshot is open
   (`RaceSession.draftLinks()`, `RaceScene.drawTow()`; redrawn on a turn change and hidden while cars glide).
 - **Targets:** a move that ends 1-2 behind a car in its lane has a blue dashed ring (`RaceSession.endsTucked`, the
   `tuck` layer in `bakedTextures.ts`); a slingshot target has a gold ring, doubled when only the slingshot puts it in
