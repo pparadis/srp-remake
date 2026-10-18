@@ -114,6 +114,9 @@ describe("hud", () => {
     expect(rows[0]!.textContent).toContain("1/2");
     expect(gapLabel(car(2, { progress: 4 }), car(1, { progress: 9 }), 28)).toBe("+5");
     expect(gapLabel(car(2, { progress: 4 }), car(1, { progress: 40 }), 28)).toBe("+1L");
+    // progress is a lap position in fractions of a cell (#114): the label is whole cells
+    expect(gapLabel(car(2, { progress: 4.1 }), car(1, { progress: 8.9 }), 28)).toBe("+5");
+    expect(gapLabel(car(2, { progress: 4.6 }), car(1, { progress: 4.9 }), 28)).toBe("+0");
     expect(gapLabel(car(2), undefined, 28)).toBe("-");
   });
 

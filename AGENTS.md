@@ -88,9 +88,10 @@ Project guide for Codex and other automation.
   sets it; the winner is the first car with `lapCount >= raceLaps`, so the rear row needs 1-3 cells more.
 - Display uses the lap in progress (`lapInProgress`, `hasStartedLap`, `hasFinishedRace` in `lapProgress.ts`): "Lap 1 / 5"
   for pole, "Lap 0 / 5" plus a hint behind the line, "Finished" after the last crossing. Never show a negative lap.
-- Standings rank by `lapCount`, then further along the lap (higher `forwardIndex`); the HUD gap is in cells from the line,
-  `+NL` only from a full lap. Pit cells have their own `forwardIndex` scale, so ranking and gaps use the lane-1 cell of
-  the same zone (`trackFwd` in `trackIndex.ts`): the pit entry counts as 27 (before the line), `PIT_LINE` as 0.
+- Standings rank by `lapCount`, then further along the lap by lap position (`rankPosition` in `trackIndex.ts`: unrounded,
+  so two cells of one lane never tie, #114); the HUD gap is that difference in whole cells from the line, `+NL` only
+  from a full lap. Pit cells have their own `forwardIndex` scale, so ranking and gaps use the lane-1 cell of the same
+  zone: the pit entry counts as 27 (before the line), `PIT_LINE` as 0. The bots keep `progressOf` (`forwardIndex`).
 
 ## Race HUD
 

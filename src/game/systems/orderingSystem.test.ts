@@ -264,3 +264,33 @@ describe("sortCarsByProgress with pit-lane cars on the real track", () => {
     expect(order(makeCar(1, "Z02_L0_00", 2), makeCar(2, "Z03_L1_00", 2))).toEqual([2, 1]);
   });
 });
+
+describe("sortCarsByProgress by lap position (#114)", () => {
+  const ctx = createRaceContext(track as unknown as TrackData);
+  const order = (...cars: Car[]) =>
+    sortCarsByProgress(cars, ctx.cellMap, { trackIndex: ctx.trackIndex }).map((c) => c.carId);
+
+  it("ranks neighbours of an outer lane, which share a forwardIndex", () => {
+    // Z12_L3 and Z13_L3 are both forwardIndex 10: by forwardIndex the car ids would decide
+    expect(order(makeCar(1, "Z12_L3_00"), makeCar(2, "Z13_L3_00"))).toEqual([2, 1]);
+    expect(order(makeCar(1, "Z13_L3_00"), makeCar(2, "Z12_L3_00"))).toEqual([1, 2]);
+  });
+
+  it("ranks cars of two lanes by where they are on the lap", () => {
+    // Z07_L3 (forwardIndex 5) is a cell ahead of Z06_L2 (also 5)
+    expect(order(makeCar(1, "Z06_L2_00"), makeCar(2, "Z07_L3_00"))).toEqual([2, 1]);
+    // side by side on a straight: level, the turn order or car id decides as before
+    expect(order(makeCar(1, "Z03_L3_00"), makeCar(2, "Z03_L1_00"))).toEqual([1, 2]);
+  });
+
+  it("still ranks the pit lane by the lane-1 cell beside it, and laps first", () => {
+    expect(order(makeCar(1, "Z28_L0_00", 1), makeCar(2, "Z01_L1_00", 2))).toEqual([2, 1]);
+    expect(order(makeCar(1, "Z01_L1_00", 2), makeCar(2, "Z01_L0_00", 2))).toEqual([1, 2]);
+    expect(order(makeCar(1, "Z02_L0_00", 2), makeCar(2, "Z03_L1_00", 2))).toEqual([2, 1]);
+    expect(order(makeCar(1, "Z02_L3_00", 3), makeCar(2, "Z30_L3_00", 2))).toEqual([1, 2]);
+  });
+
+  it("without the track index it still ranks by forwardIndex (callers that have none)", () => {
+    expect(sortCarsByProgress([makeCar(1, "Z12_L3_00"), makeCar(2, "Z13_L3_00")], ctx.cellMap).map((c) => c.carId)).toEqual([1, 2]);
+  });
+});

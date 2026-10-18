@@ -14,7 +14,7 @@ export interface HudCar {
   lap: number;
   /** Crossed the line after the last lap. */
   finished: boolean;
-  /** Cells covered from the start line (negative behind it): laps completed * spineLen + forwardIndex. */
+  /** Cells covered from the start line (negative behind it): laps completed * spineLen + lap position (a fraction on the outer lanes). */
   progress: number;
   /** forwardIndex of the cell the car stands on. */
   fwd: number;
@@ -296,7 +296,8 @@ export function showToast(root: Element, text: string, kind: ToastKind = "lap", 
 /** "+5" cells behind the car ahead, or "+1L" once a whole lap or more behind. */
 export function gapLabel(car: HudCar, ahead: HudCar | undefined, spineLen: number): string {
   if (!ahead) return "-";
-  const gap = Math.max(0, ahead.progress - car.progress);
+  // progress is a lap position in fractions of a cell (#114); the label is whole cells
+  const gap = Math.max(0, Math.round(ahead.progress - car.progress));
   return gap >= spineLen ? `+${Math.floor(gap / spineLen)}L` : `+${gap}`;
 }
 

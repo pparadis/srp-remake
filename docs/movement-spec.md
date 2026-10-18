@@ -164,8 +164,9 @@ Where a lap is counted, drawn from the engine (each panel plays its moves with `
 
 ![Laps: the start line in a main lane, in lane 2, behind the line at the start, in the pit lane, a whole stop, and the pit exit](img/laps.svg)
 
-- Ranking and gaps: pit cells carry their own `forwardIndex` scale, so they are ranked by the lane-1 cell of the same
-  zone (`trackFwd`): the entry (zone 28) stands beside lane-1 `forwardIndex` 27, `PIT_LINE` beside 0, the boxes beside
+- Ranking and gaps: cars on a main lane are ranked by lap position (`rankPosition`, not rounded: neighbours on an outer
+  lane share a `forwardIndex` but not a place, #114), and the gap is that difference in whole cells. Pit cells carry
+  their own `forwardIndex` scale, so they are ranked by the lane-1 cell of the same zone (`trackFwd`): the entry (zone 28) stands beside lane-1 `forwardIndex` 27, `PIT_LINE` beside 0, the boxes beside
   1 and 2. A car at the pit entry has not crossed yet and ranks behind one just past the line; once it lands on
   `PIT_LINE` it ranks like a car that crossed on track.
 
