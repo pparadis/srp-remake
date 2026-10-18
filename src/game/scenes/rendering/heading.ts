@@ -40,3 +40,12 @@ export function spriteRotation(cell: TrackCell, cellMap: CellMap): number {
   const h = headingOf(cell, cellMap);
   return Math.atan2(h.y, h.x) + Math.PI / 2;
 }
+
+/**
+ * A step from angle `current` toward `target` (radians), the short way round (wrapping at ±π), `t` of the gap: 0 stays,
+ * 1 arrives. For a car turning with the road while it is dragged and when it settles on a cell (#110).
+ */
+export function easeAngle(current: number, target: number, t: number): number {
+  const gap = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  return current + gap * t;
+}
