@@ -21,7 +21,8 @@ export default [
         ...globals.browser,
         // vite `define`s (vite.config.ts)
         __GIT_SHA__: "readonly",
-        __BUILD_DATE__: "readonly"
+        __BUILD_DATE__: "readonly",
+        __PREVIEW_PR__: "readonly"
       }
     },
     rules: {

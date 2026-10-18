@@ -8,7 +8,7 @@
     "prebuild": "npm run validate:track",
     "validate:track": "vitest run src/validation",
     "build": "tsc && vite build",
-    "postbuild": "node -e \"require('fs').copyFileSync('dist/index.html','dist/404.html')\"",
+    "postbuild": "node tools/make404.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",

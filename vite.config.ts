@@ -9,6 +9,8 @@ export default defineConfig({
   define: {
     // The day this build was made, shown next to the commit on the home screen.
     __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+    // The PR number of a preview build (#96), "" for production.
+    __PREVIEW_PR__: JSON.stringify(globalThis.process?.env?.VITE_PREVIEW_PR ?? ""),
     __GIT_SHA__: JSON.stringify(
       globalThis.process?.env?.GIT_SHA ??
         (() => {

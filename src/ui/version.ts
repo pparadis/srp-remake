@@ -5,6 +5,8 @@
 export interface WebVersion {
   sha: string;
   date: string;
+  /** The PR number when this is a PR preview build (#96). */
+  pr?: string;
 }
 
 /** What the server said: its commit, "offline" when it could not be reached, null while waiting. */
@@ -19,8 +21,10 @@ function serverLabel(server: ServerVersion, format: (sha: string) => string): st
 }
 
 export function versionText(web: WebVersion, server: ServerVersion): string {
-  return `web ${short(web.sha)} · ${web.date} · server ${serverLabel(server, short)}`;
+  return `web ${short(web.sha)}${prTag(web)} · ${web.date} · server ${serverLabel(server, short)}`;
 }
+
+const prTag = (web: WebVersion) => (web.pr ? ` · PR #${web.pr}` : "");
 
 /** Both commits known and different. */
 export function isStale(web: WebVersion, server: ServerVersion): boolean {
@@ -35,16 +39,18 @@ export function isStale(web: WebVersion, server: ServerVersion): boolean {
 
 /** Full commits, for pasting into a bug report. */
 export function versionReport(web: WebVersion, server: ServerVersion): string {
-  return `web ${web.sha} (${web.date}) · server ${serverLabel(server, (sha) => sha)}`;
+  return `web ${web.sha}${prTag(web)} (${web.date}) · server ${serverLabel(server, (sha) => sha)}`;
 }
 
 export function renderVersion(el: HTMLElement, web: WebVersion, server: ServerVersion) {
   const stale = isStale(web, server);
   el.textContent = versionText(web, server);
   el.classList.toggle("is-stale", stale);
-  el.title = stale
-    ? "The server runs another commit than this page (a deploy is pending). Click to copy."
-    : "Click to copy the version";
+  el.title = !stale
+    ? "Click to copy the version"
+    : web.pr
+      ? "A PR preview: the server runs production, so another commit is expected. Click to copy."
+      : "The server runs another commit than this page (a deploy is pending). Click to copy.";
 }
 
 /** Click copies the full version; the label says so for a moment. */

@@ -1,21 +1,21 @@
 name: Deploy Pages
 
+# Production goes to the root of the gh-pages branch; PR previews live in pr-preview/ on the same branch (#96, see
+# pr-preview.yml), so this deploy must keep that folder. The repo's Pages source is "Deploy from a branch: gh-pages".
 on:
   push:
     branches: ["main"]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,21 +36,13 @@ jobs:
           VITE_BACKEND_API_BASE_URL: https://srp-remake.onrender.com
         run: npm run build
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      # Pages would otherwise run Jekyll over the branch.
+      - name: No Jekyll
+        run: touch dist/.nojekyll
 
-      - name: Upload Artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to the gh-pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: ./dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          branch: gh-pages
+          folder: dist
+          clean-exclude: pr-preview/
