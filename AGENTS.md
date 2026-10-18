@@ -36,16 +36,20 @@ Project guide for Codex and other automation.
 - Rules versions (#118): a race plays one movement-rules version (`RaceState.rulesVersion`, set by `createRace`, default
   `v2`). The registry is `src/game/rules/versions.ts`: what differs between versions (target search, squeeze, draft
   test) goes through `rulesOf(state)`, never a direct import of `computeValidTargets` / `draftAhead` in engine code.
-  `v1` (before #114, tag `rules-v1`) is frozen and kept for reference, not online: its code in `src/game/rules/v1/` is
-  never edited, and `rulesGolden.test.ts` replays `src/game/rules/golden/v1.json` (made by `tools/rulesGolden.ts`).
-  If that test fails, the change moved v1 (also through shared code): undo it or make it a new version. The rules
-  below are v2's. Compare versions on the same races: `npx tsx tools/rulesCompare.ts [--rules v1,v2]` (the bots'
+  Both versions are **frozen**: `rulesGolden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
+  `tools/rulesGolden.ts`) and fails if a version's targets, prices or the car after the recorded move change, whether
+  through its own code or shared code (constants, track, pit, wear). `v1` (before #114, tag `rules-v1`) has its own copy
+  of the rule code in `src/game/rules/v1/` and is kept for reference, not online. `v2` (#114 and #102, tag `rules-v2`)
+  is the live code in `src/game/systems/` (`movementSystem.ts`, `draftSystem.ts`, `trackIndex.ts`): the rules below are
+  v2's. **To change the rules, make a v3**: copy v2's rule code to `src/game/rules/v2/` first (as v1's was), point v2 at
+  the copy, then change the live code, add `v3` to `src/game/rules/ids.ts` and `versions.ts` (a `draft` while it is
+  tried), and generate its golden file when you freeze it (`npx tsx tools/rulesGolden.ts src/game/rules/golden/v3.json
+v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCompare.ts [--rules v1,v2]` (the bots'
   ordering, overtakes, race length, how often tows, slingshots, squeezes and lane changes come up, lane use).
   In solo the version is chosen in the Quick race card (`lobbyRules`, hidden online: v1 is not offered there;
   `?rules=v1` only seeds that select, and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
   page loads it eagerly), the rules in `versions.ts` (lazy, with the game). "Copy debug" records `rulesVersion`, and a
   sandbox "Load position" from other rules is refused.
-
 - Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `trackIndex.ts`), never by
   `forwardIndex`, which repeats on the outer lanes' bends (#114). Laps use `forwardIndex`.
 - No sideways lane changes: a lane-change target must be `DIAGONAL_MIN_GAIN` (0.5) ahead by lap position AND in a later

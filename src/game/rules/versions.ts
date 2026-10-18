@@ -30,8 +30,8 @@ export const RULES: Record<RulesVersion, { status: "frozen" | "draft"; note: str
     }
   },
   v2: {
-    status: "draft",
-    note: "#114: the draft gap in cells along the lane, cross-lane comparisons and lane-change prices by lap position.",
+    status: "frozen",
+    note: "#114 and #102: the draft gap in cells along the lane, cross-lane comparisons and lane-change prices by lap position, no cap on cars passed (tag rules-v2). Its code is the live movement and draft systems: copy it to src/game/rules/v2/ before changing it for v3.",
     rules: { computeValidTargets, computeSqueezeTargets, draftAhead }
   }
 };

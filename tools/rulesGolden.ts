@@ -77,7 +77,13 @@ const HAND: { name: string; start: string; cars: string[]; move: string; edit?: 
   { name: "lane change off lane 3 on the bend", start: "Z11_L3_00", cars: [], move: "Z14_L2_00" },
   { name: "blocker in lane 3 on the bend", start: "Z10_L2_00", cars: ["Z13_L3_00"], move: "Z11_L2_00" },
   { name: "pass and return round a lane-2 car", start: "Z04_L2_00", cars: ["Z05_L2_00"], move: "Z07_L2_00" },
-  { name: "slingshot run 2 on lane 3", start: "Z09_L3_00", cars: [], move: "Z12_L2_00", edit: { draftTurns: 2 } }
+  { name: "slingshot run 2 on lane 3", start: "Z09_L3_00", cars: [], move: "Z12_L2_00", edit: { draftTurns: 2 } },
+  // v2 only (#102): a free route past several cars. On v1 these are refused by the caps, so a v1 file made from the
+  // list above has no such entries; the v2 file has them.
+  { name: "pack of four in the next lane, passed by the free lane (#102)", start: "Z16_L2_00", cars: ["Z18_L1_00", "Z19_L1_00", "Z20_L1_00", "Z21_L1_00"], move: "Z22_L1_00" },
+  { name: "round two cars of the start lane (#102)", start: "Z20_L1_00", cars: ["Z23_L1_00", "Z25_L1_00"], move: "Z26_L1_00" },
+  { name: "round two cars on the lane-3 bend (#102)", start: "Z12_L3_00", cars: ["Z13_L3_00", "Z15_L3_00"], move: "Z17_L3_00" },
+  { name: "a wall across every lane: nothing beyond it (#102)", start: "Z20_L1_00", cars: ["Z22_L1_00", "Z23_L2_00", "Z24_L3_00"], move: "Z21_L1_00" }
 ];
 
 function handSamples(ctx: RaceContext, version: RulesVersion): GoldenSample[] {
