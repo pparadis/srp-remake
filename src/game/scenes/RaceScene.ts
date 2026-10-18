@@ -872,7 +872,7 @@ export class RaceScene extends Phaser.Scene {
       const cell = this.cellMap.get(cellId);
       if (!cell) continue;
       // Slingshot: the draft makes this move cheaper (or puts it in reach at all): a gold ring, doubled when only the
-      // slingshot puts it in reach. A squeeze target is never a slingshot (squeeze only exists without normal targets).
+      // slingshot puts it in reach. A squeeze target is never a slingshot (squeeze only exists when no main-lane target does).
       // Risk: the move leaves a resource under 20% (thin ring) or empty (thick ring).
       const left = this.session.resourcesAfter(info);
       const least = Math.min(left.tire, left.fuel);
