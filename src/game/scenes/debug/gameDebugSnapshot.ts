@@ -1,4 +1,5 @@
 import { PIT_LANE } from "../../constants";
+import { DEFAULT_RULES_VERSION } from "../../rules/versions";
 import { cycleBudget, getRemainingBudget } from "../../systems/moveBudgetSystem";
 import type { TargetInfo } from "../../systems/movementSystem";
 import type { Car } from "../../types/car";
@@ -34,6 +35,8 @@ interface BuildGameDebugSnapshotParams {
   spineLane?: number;
   // Race seed: with it the bots' personalities and the grid can be reproduced (`?seed=N`).
   seed?: number;
+  // The movement rules the race plays on (src/game/rules/versions.ts): a position only reproduces under its own.
+  rulesVersion?: string;
 }
 
 export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
@@ -115,6 +118,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
     gitSha: buildInfo.gitSha,
     trackId: track.trackId,
     seed: params.seed ?? 0,
+    rulesVersion: params.rulesVersion ?? DEFAULT_RULES_VERSION,
     spineLane,
     spineLength: spineCells.length,
     startFinishIds,

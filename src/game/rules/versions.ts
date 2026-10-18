@@ -9,10 +9,9 @@ import { computeSqueezeTargets, computeValidTargets } from "../systems/movementS
 import { draftAhead } from "../systems/draftSystem";
 import * as v1Movement from "./v1/movementSystem";
 import * as v1Draft from "./v1/draftSystem";
+import { DEFAULT_RULES_VERSION, type RulesVersion } from "./ids";
 
-export const RULES_VERSIONS = ["v1", "v2"] as const;
-export type RulesVersion = (typeof RULES_VERSIONS)[number];
-export const DEFAULT_RULES_VERSION: RulesVersion = "v2";
+export { DEFAULT_RULES_VERSION, isRulesVersion, RULES_VERSIONS, type RulesVersion } from "./ids";
 
 export interface MovementRules {
   computeValidTargets: typeof computeValidTargets;
@@ -36,10 +35,6 @@ export const RULES: Record<RulesVersion, { status: "frozen" | "draft"; note: str
     rules: { computeValidTargets, computeSqueezeTargets, draftAhead }
   }
 };
-
-export function isRulesVersion(value: unknown): value is RulesVersion {
-  return typeof value === "string" && (RULES_VERSIONS as readonly string[]).includes(value);
-}
 
 /** The rules a race plays on. A state without a version (made before #118) plays the default. */
 export function rulesOf(state: { rulesVersion?: RulesVersion | undefined }): MovementRules {

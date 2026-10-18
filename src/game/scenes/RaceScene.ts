@@ -11,6 +11,7 @@ import {
   REG_POSITION,
   REG_RACE_LAPS,
   REG_SANDBOX,
+  REG_RULES_VERSION,
   REG_SEED,
   REG_TOTAL_CARS
 } from "../constants";
@@ -20,6 +21,7 @@ import { play } from "../../ui/sound";
 import { Confetti } from "./ui/Confetti";
 import { carSprite } from "../systems/spawnSystem";
 import type { RaceAction } from "../race/raceEngine";
+import { DEFAULT_RULES_VERSION, type RulesVersion } from "../rules/versions";
 import { RaceSession, SERVER_WAIT_MS, type MovePreview } from "../race/raceSession";
 import { positionAsTest, type CarEdit } from "../race/sandbox";
 import type { SandboxCommand } from "../../ui/sandboxPanel";
@@ -237,6 +239,7 @@ export class RaceScene extends Phaser.Scene {
       raceLaps: this.registry.get(REG_RACE_LAPS),
       botLevel: (this.registry.get(REG_BOT_LEVEL) as BotLevel | undefined) ?? "normal",
       seed: (this.registry.get(REG_SEED) as number | undefined) ?? 0,
+      rulesVersion: (this.registry.get(REG_RULES_VERSION) as RulesVersion | undefined) ?? DEFAULT_RULES_VERSION,
       sandbox: this.registry.get(REG_SANDBOX) === true
     });
     this.cellMap = this.session.cellMap;
@@ -1521,7 +1524,10 @@ export class RaceScene extends Phaser.Scene {
       case "copy-link": {
         const { cars, activeCarId } = this.session.debugSnapshot();
         const pos = encodeURIComponent(btoa(JSON.stringify({ activeCarId, cars })));
-        const url = `${window.location.origin}${import.meta.env.BASE_URL}?sandbox&seed=${this.session.race.seed}&pos=${pos}`;
+        // the position reproduces only under its own rules: the link carries them (the menu's Rules starts on it)
+        const version = this.session.race.rulesVersion ?? DEFAULT_RULES_VERSION;
+        const rules = version === DEFAULT_RULES_VERSION ? "" : `&rules=${version}`;
+        const url = `${window.location.origin}${import.meta.env.BASE_URL}?sandbox&seed=${this.session.race.seed}${rules}&pos=${pos}`;
         void this.copyText(url, "Copied the sandbox link (open it, then Quick race).");
         break;
       }

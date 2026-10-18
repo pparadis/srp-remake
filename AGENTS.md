@@ -41,6 +41,10 @@ Project guide for Codex and other automation.
   If that test fails, the change moved v1 (also through shared code): undo it or make it a new version. The rules
   below are v2's. Compare versions on the same races: `npx tsx tools/rulesCompare.ts [--rules v1,v2]` (the bots'
   ordering, overtakes, race length, how often tows, slingshots, squeezes and lane changes come up, lane use).
+  In solo the version is chosen in the Quick race card (`lobbyRules`, hidden online: v1 is not offered there;
+  `?rules=v1` only seeds that select, and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
+  page loads it eagerly), the rules in `versions.ts` (lazy, with the game). "Copy debug" records `rulesVersion`, and a
+  sandbox "Load position" from other rules is refused.
 
 - Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `trackIndex.ts`), never by
   `forwardIndex`, which repeats on the outer lanes' bends (#114). Laps use `forwardIndex`.

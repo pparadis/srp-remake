@@ -1,4 +1,5 @@
 import { MOVE_CYCLE, WING_LEVELS, type WingLevel } from "../constants";
+import { DEFAULT_RULES_VERSION } from "../rules/versions";
 import { createMoveCycle, cycleBudget, getRemainingBudget, type MoveCycle } from "../systems/moveBudgetSystem";
 import type { BotLevel, Car } from "../types/car";
 import { computeTargets, getActiveCar, type RaceContext, type RaceState } from "./raceEngine";
@@ -110,8 +111,12 @@ export function normalizeSetup(setup: Car["setup"]): Car["setup"] {
  * (different car count, unknown or shared cell), or null when applied.
  */
 export function restorePosition(ctx: RaceContext, state: RaceState, snapshot: unknown): string | null {
-  const snap = snapshot as { cars?: SnapshotCar[]; activeCarId?: number } | null;
+  const snap = snapshot as { cars?: SnapshotCar[]; activeCarId?: number; rulesVersion?: string } | null;
   if (!snap || !Array.isArray(snap.cars)) return "Not a debug snapshot (no cars).";
+  // A snapshot without a version is from before versions existed: it plays the default.
+  const snapRules = snap.rulesVersion ?? DEFAULT_RULES_VERSION;
+  const raceRules = state.rulesVersion ?? DEFAULT_RULES_VERSION;
+  if (snapRules !== raceRules) return `The snapshot is from rules ${snapRules}, this race plays ${raceRules}: pick them under Rules.`;
   if (snap.cars.length !== state.cars.length) {
     return `The snapshot has ${snap.cars.length} cars, this race has ${state.cars.length}.`;
   }

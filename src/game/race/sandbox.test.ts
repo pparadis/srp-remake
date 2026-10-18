@@ -101,6 +101,17 @@ describe("sandbox positions", () => {
     expect(getActiveCar(b).carId).toBe(2);
   });
 
+  it("refuses a snapshot from other rules, and takes one without a version as the default (#118)", () => {
+    const a = newRace(3);
+    const before = JSON.stringify(a);
+    expect(restorePosition(ctx, a, { ...snapshotOf(newRace(3)), rulesVersion: "v1" })).toMatch(/rules v1, this race plays v2/);
+    expect(JSON.stringify(a)).toBe(before);
+    expect(restorePosition(ctx, a, { ...snapshotOf(newRace(3)), rulesVersion: "v2" })).toBeNull();
+    const old = snapshotOf(newRace(3));
+    delete old.rulesVersion; // made before versions existed: it plays the default
+    expect(restorePosition(ctx, a, old)).toBeNull();
+  });
+
   it("refuses a snapshot that does not fit, changing nothing", () => {
     const a = newRace(3);
     const before = JSON.stringify(a);

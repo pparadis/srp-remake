@@ -376,6 +376,7 @@ describe("main multiplayer screens", () => {
       expect(byId<HTMLSelectElement>("lobbyBotLevel").value).toBe("normal");
       expect(byId("lobbyBotLevelField").hidden).toBe(true); // botCars is 0
       expect(document.querySelector('[data-testid="lobby-bot-level"]')).not.toBeNull();
+      expect(byId("lobbyRulesField").hidden).toBe(true); // an online race plays the server's rules, v1 is not offered (#118)
     });
 
     it("lets the host pick the bot level and sends it with the other settings", async () => {
