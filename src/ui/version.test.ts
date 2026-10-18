@@ -17,6 +17,19 @@ describe("version text", () => {
     expect(versionText({ sha: "unknown", date: "2026-10-07" }, null)).toContain("web unknown");
   });
 
+  it("names the PR on a preview build, and explains an amber label (#96)", () => {
+    const pr = { ...web, pr: "96" };
+    expect(versionText(pr, { sha: SHA })).toBe(
+      "web 0123456 · PR #96 · 2026-10-07 · server 0123456"
+    );
+    expect(versionReport(pr, { sha: SHA })).toContain(`web ${SHA} · PR #96 (2026-10-07)`);
+    const el = document.createElement("button");
+    renderVersion(el, pr, { sha: "f".repeat(40) });
+    expect(el.classList.contains("is-stale")).toBe(true);
+    expect(el.title).toContain("PR preview");
+    expect(el.textContent).not.toContain("PR #undefined");
+  });
+
   it("the report for a bug carries the full commits", () => {
     expect(versionReport(web, { sha: "f".repeat(40) })).toBe(
       `web ${SHA} (2026-10-07) · server ${"f".repeat(40)}`

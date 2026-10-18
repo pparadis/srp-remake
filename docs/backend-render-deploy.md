@@ -115,3 +115,17 @@ Expected:
 pointing at the Render service (`https://srp-remake.onrender.com`). The WebSocket URL is
 derived from it. Without this the deployed site falls back to `http://localhost:3001` and
 online lobbies cannot connect. Change the URL there if the service is renamed.
+
+### Hosting and PR previews (#96)
+
+Pages serves the `gh-pages` branch (Settings > Pages > Source: "Deploy from a branch", `gh-pages`, `/ (root)`).
+`deploy-pages.yml` pushes production to the branch root on every push to `main` and keeps `pr-preview/`;
+`pr-preview.yml` builds each same-repo PR with `VITE_BASE_PATH=/srp-remake/pr-preview/pr-N/`, publishes it to
+`pr-preview/pr-N/`, comments the link on the PR and removes the folder when the PR closes. Forks get no preview.
+
+- A preview plays solo as is. Online play uses the production backend (same origin, so CORS passes); backend changes
+  in a PR are not previewed.
+- The version label reads `web <sha> · PR #N` (from `VITE_PREVIEW_PR`); amber against the production server is expected.
+- A reload inside a preview stays in it: `tools/make404.mjs` (the `postbuild` step) puts a small script in the root
+  `404.html` that loads the preview's own `index.html` for a `/pr-preview/pr-N/...` path.
+- Previews are public, like the repo.

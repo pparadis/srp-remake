@@ -1209,7 +1209,7 @@ try {
 }
 setStatus(`ready (${backendApiBaseUrl})`);
 // Wake a sleeping server in the background; its answer says which commit it runs.
-const webVersion = { sha: __GIT_SHA__, date: __BUILD_DATE__ };
+const webVersion = { sha: __GIT_SHA__, date: __BUILD_DATE__, pr: __PREVIEW_PR__ };
 let serverVersion: ServerVersion = null;
 const versionEl = document.getElementById("version") as HTMLButtonElement;
 mountVersion(versionEl, webVersion, () => serverVersion);
