@@ -33,7 +33,7 @@ import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
 import { TargetMarkers, type TargetMarker } from "./ui/TargetMarkers";
 import { badgeTexture, carBodyTexture } from "./rendering/bakedTextures";
 import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
-import { headingOf, spriteRotation } from "./rendering/heading";
+import { easeAngle, headingOf, spriteRotation } from "./rendering/heading";
 import { GLIDE, glideCap, glideDuration } from "./rendering/glide";
 import { roadPath } from "./rendering/roadPath";
 import {
@@ -67,6 +67,8 @@ declare global {
       uiButtonPos: (name: "setup" | "wing-minus" | "wing-plus" | "confirm") => { x: number; y: number } | null;
       /** Where a car token is drawn right now (page coordinates), mid-tween included. */
       tokenScreenPos: (carId: number) => { x: number; y: number } | null;
+      /** The rotation of a car's body in radians (Phaser's: 0 = pointing up), mid-drag and mid-glide included. */
+      tokenRotation: (carId: number) => number | null;
       /** What Phaser's own hit test finds under the pointer: a drag needs the active car's token on top and draggable. */
       pointerProbe: () => {
         topCarId: number | null;
@@ -323,6 +325,7 @@ export class RaceScene extends Phaser.Scene {
       onMove: (targetCellId) => {
         this.applyLocalAction({ type: "move", targetCellId });
       },
+      onReturn: () => this.glideTo(this.activeCar.carId, this.activeCar.cellId),
       canControlActiveCar: () => this.canLocalControlActiveCar(),
       onUnauthorizedControlAttempt: () => {
         this.addLog("Not your turn/car.");
@@ -434,6 +437,10 @@ export class RaceScene extends Phaser.Scene {
         tokenScreenPos: (carId) => {
           const token = this.carTokens.get(carId);
           return token ? this.worldToScreen(token.x, token.y) : null;
+        },
+        tokenRotation: (carId) => {
+          const token = this.carTokens.get(carId);
+          return token ? (token.first as Phaser.GameObjects.Image).rotation : null;
         }
       };
     }
@@ -651,6 +658,11 @@ export class RaceScene extends Phaser.Scene {
     const here = new Phaser.Math.Vector2();
     const ahead = new Phaser.Math.Vector2();
     const duration = glideDuration(Math.max(1, points.length - 1), capMs);
+    // A token put down by hand (a dropped drag, a refused one going back) has no road under it: it turns from the way it
+    // faces to the cell's heading as it settles, instead of facing along the short straight line (#110).
+    const handMoved = ids.length < 2;
+    const startRotation = body.rotation;
+    const endRotation = spriteRotation(cell, this.cellMap);
     const tween = this.tweens.addCounter({
       from: 0,
       to: 1,
@@ -664,6 +676,10 @@ export class RaceScene extends Phaser.Scene {
         path.getPoint(t, here);
         token.setPosition(here.x, here.y);
         halo?.setPosition(here.x, here.y);
+        if (handMoved) {
+          body.setRotation(easeAngle(startRotation, endRotation, t));
+          return;
+        }
         // face along the road: the point a little further on (a little back at the very end)
         const a = Math.min(t, 0.97);
         path.getPoint(a, here);

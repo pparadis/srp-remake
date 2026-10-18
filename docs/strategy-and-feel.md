@@ -92,8 +92,13 @@ several turns), so the scene animates the difference:
 - `RaceScene.syncTokens()` glides those cars one after another (`glideTo`): along `movePath` (round the cars standing
   where they stood when it moved), through a `Phaser.Curves.Path` with a counter tween, turning with the road. A glide
   takes `glideDuration(steps)` (about 0.2 to 0.5 s) and a whole round is squeezed into about 1.5 s (`glide.ts`).
-- A drag-drop is its own motion: the token is already on the cell, so it does not glide. A tap (Move here) glides from
-  the car's own cell, online at once while the server answers.
+- **Dragging (#110):** the car turns with the road under the finger: each drag event eases its body a third of the way
+  to the heading of the nearest cell (`easeAngle`, the short way round; off the track it keeps its rotation; always the
+  direction of travel, never towards the finger). A valid drop is not snapped onto the cell: the move goes to the engine
+  and `glideTo` glides the token from where it was dropped, easing its rotation to the cell's heading (a token put down by
+  hand has no road under it, so no `movePath`). A refused drop (not an offered cell, not allowed) glides back to its own
+  cell the same way (`resolvePlayerDragDrop`'s `onReturn`). A pit drop still snaps and opens the modal. A tap (Move here)
+  glides from the car's own cell, online at once while the server answers.
 - Input is never held for a glide: the logical state is final, targets are computed from it, and a glide that is
   interrupted by the next move ends on its cell first.
 - Off: the e2e build (specs read where cars are; `?anim` turns it on, `e2e/glide.spec.ts`), `prefers-reduced-motion`,

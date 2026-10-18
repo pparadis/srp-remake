@@ -13,8 +13,10 @@ interface ResolvePlayerDragDropParams {
   activeHalo: Phaser.GameObjects.Ellipse | null;
   onOpenPitModal: (cell: TrackCell, origin: { x: number; y: number }) => void;
   onMove: (targetCellId: string) => void;
-  /** A tap, not a drop: the token is still on its own cell, and the board glides it there instead of snapping it. */
+  /** The board glides the token to the target instead of snapping it there: from its own cell (a tap) or from where it was dropped. */
   glideMove?: boolean;
+  /** A refused drop: the board glides the token back to its own cell. Without it the token is put back at once. */
+  onReturn?: () => void;
 }
 
 // Decides what a drop means. It never changes the car: a move is handed to
@@ -34,6 +36,10 @@ export function resolvePlayerDragDrop(params: ResolvePlayerDragDropParams): void
   }
 
   const currentCell = cellMap.get(activeCar.cellId);
+  if (currentCell && params.onReturn) {
+    params.onReturn();
+    return;
+  }
   if (currentCell) {
     token.setPosition(currentCell.pos.x, currentCell.pos.y);
     if (activeHalo) activeHalo.setPosition(currentCell.pos.x, currentCell.pos.y);

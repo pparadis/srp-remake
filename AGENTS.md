@@ -144,7 +144,8 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
 - Cars glide to their cells (#85): `RaceSession.drainMoves()` gives the cars that moved, in order, and
   `RaceScene.syncTokens()`/`glideTo` animate them along `movePath` (`src/game/systems/movePath.ts`, visual only: never
   feeds rules). Instant in the e2e build (`?anim` turns it on) and under `prefers-reduced-motion`; a spec that reads
-  token positions right after a turn relies on that. Details: `docs/strategy-and-feel.md`.
+  token positions right after a turn relies on that. A dragged car turns with the road under the finger (`easeAngle`,
+  #110), a dropped drag glides from the drop point and a refused one glides back. Details: `docs/strategy-and-feel.md`.
 - Camera (#87): the fit (`centerTrack`) plus the player's zoom 1 to 3 and pan (`rendering/cameraView.ts`, pure and
   tested); pinch, pan, wheel, double tap and the `Fit` button in `input/registerCameraGestures.ts`; the camera follows
   the player's car after its move while zoomed. The camera's matrix is refreshed at once (`cam.preRender()`) so a tap

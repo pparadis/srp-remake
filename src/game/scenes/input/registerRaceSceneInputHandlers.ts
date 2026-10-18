@@ -5,10 +5,14 @@ import type { Car } from "../../types/car";
 import type { TrackCell } from "../../types/track";
 import type { PitModal } from "../ui/PitModal";
 import { resolvePlayerDragDrop } from "../turns/resolvePlayerDragDrop";
+import { easeAngle, spriteRotation } from "../rendering/heading";
 import { onKeyDown } from "./onKeyDown";
 
 /** How far a pointer may travel between press and release and still count as a tap, in screen pixels. */
 const TAP_SLOP_PX = 10;
+
+/** The share of the gap a dragged car turns toward the road each drag event (#110): smooth through a bend. */
+const DRAG_TURN = 0.33;
 
 interface RegisterRaceSceneInputHandlersParams {
   scene: Phaser.Scene;
@@ -31,6 +35,8 @@ interface RegisterRaceSceneInputHandlersParams {
   toggleForwardIndexOverlay: () => void;
   openPitModal: (cell: TrackCell, origin: { x: number; y: number }) => void;
   onMove: (targetCellId: string) => void;
+  /** A drop that is not a move: the board glides the car back to its own cell (a jump when moves are instant). */
+  onReturn: () => void;
   canControlActiveCar?: () => boolean;
   onUnauthorizedControlAttempt?: () => void;
   // Sandbox edit mode: the sandbox handlers own dragging, the rules-checked drag below stands aside.
@@ -60,6 +66,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     toggleForwardIndexOverlay,
     openPitModal,
     onMove,
+    onReturn,
     canControlActiveCar,
     onUnauthorizedControlAttempt,
     isSuspended,
@@ -95,6 +102,11 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
       const activeCar = getActiveCar();
       const halo = activeHalos.get(activeCar.carId);
       if (halo) halo.setPosition(x, y);
+      // Turn with the road under the finger, the direction of travel whichever way it is dragged; off the track the car
+      // keeps its rotation.
+      const road = findNearestCell(x, y, hoverMaxDist);
+      const body = token.first as Phaser.GameObjects.Image;
+      if (road && body) body.setRotation(easeAngle(body.rotation, spriteRotation(road, cellMap), DRAG_TURN));
     }
   );
 
@@ -107,12 +119,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     if (canControlActiveCar && !canControlActiveCar()) {
       onUnauthorizedControlAttempt?.();
       const activeCar = getActiveCar();
-      const currentCell = cellMap.get(activeCar.cellId);
-      if (currentCell) {
-        token.setPosition(currentCell.pos.x, currentCell.pos.y);
-        const activeHalo = activeHalos.get(activeCar.carId);
-        if (activeHalo) activeHalo.setPosition(currentCell.pos.x, currentCell.pos.y);
-      }
+      if (cellMap.get(activeCar.cellId)) onReturn();
       setDragOrigin(null);
       return;
     }
@@ -136,7 +143,10 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
       cellMap,
       activeHalo: activeHalos.get(activeCar.carId) ?? null,
       onOpenPitModal: openPitModal,
-      onMove
+      onMove,
+      onReturn,
+      // the board glides the car from where it was dropped onto the cell (#110)
+      glideMove: true
     });
     setDragOrigin(null);
   });

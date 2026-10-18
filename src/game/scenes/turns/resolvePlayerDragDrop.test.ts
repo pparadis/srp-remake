@@ -131,6 +131,56 @@ describe("resolvePlayerDragDrop", () => {
     expect([token.x, token.y]).toEqual([10, 20]);
   });
 
+  it("a dropped drag leaves the token where it was dropped, for the board to glide onto the cell (#110)", () => {
+    const toCell = makeCell("B", 2, 100, 200);
+    const token = makeToken(96, 205); // dropped a little off the cell
+    const onMove = vi.fn();
+
+    resolvePlayerDragDrop({
+      activeCar: makeCar({ cellId: "A" }),
+      token,
+      origin: { x: 10, y: 20 },
+      nearestCell: toCell,
+      validation: makeOkValidation(3),
+      cellMap: new Map([
+        ["A", makeCell("A", 1, 10, 20)],
+        ["B", toCell]
+      ]),
+      activeHalo: null,
+      onOpenPitModal: vi.fn(),
+      onMove,
+      onReturn: vi.fn(),
+      glideMove: true
+    });
+
+    expect(onMove).toHaveBeenCalledOnce();
+    expect([token.x, token.y]).toEqual([96, 205]);
+  });
+
+  it("a refused drop hands the way back to the board and does not move the token itself (#110)", () => {
+    const token = makeToken(99, 99);
+    const halo = makeHalo(99, 99);
+    const onMove = vi.fn();
+    const onReturn = vi.fn();
+
+    resolvePlayerDragDrop({
+      activeCar: makeCar({ cellId: "A" }),
+      token,
+      origin: { x: 5, y: 6 },
+      nearestCell: null,
+      validation: { ok: false, reason: "invalid-target" },
+      cellMap: new Map([["A", makeCell("A", 1, 11, 22)]]),
+      activeHalo: halo,
+      onOpenPitModal: vi.fn(),
+      onMove,
+      onReturn
+    });
+
+    expect(onReturn).toHaveBeenCalledOnce();
+    expect(onMove).not.toHaveBeenCalled();
+    expect([token.x, token.y, halo.x, halo.y]).toEqual([99, 99, 99, 99]);
+  });
+
   it("opens the pit modal for a pit stop instead of moving", () => {
     const car = makeCar({ cellId: "A", pitServiced: false });
     const pitCell = makeCell("P1", PIT_LANE, 30, 40);

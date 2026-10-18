@@ -110,3 +110,72 @@ test("the path of the move under the pointer is previewed, and gone when the poi
   await expect.poll(async () => page.evaluate(() => window.__srp!.overlays().preview)).toBeNull();
   expect(errors).toEqual([]);
 });
+
+// A dragged car turns with the road under the finger, and a refused drop glides it home (#110). Real pointer input on a
+// real canvas: the rotation of the body and where the token is read through the hook.
+test("a dragged car turns with the road into a bend, and a refused drop sends it back to its cell", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("/?seed=0&anim");
+  await page.getByTestId("home-quick").click();
+  await setLobbySettings(page, { bots: 2, laps: 3 });
+  await startRace(page);
+  await waitForMyTurn(page);
+
+  const info = await page.evaluate(async () => {
+    const srp = window.__srp!;
+    const me = srp.state().cars.find((c) => c.carId === 1)!;
+    const track = (await (await fetch("/tracks/oval16_3lanes.json")).json()) as {
+      cells: { id: string; laneIndex: number; zoneIndex: number; pos: { x: number; y: number }; next: string[] }[];
+    };
+    const byId = new Map(track.cells.map((c) => [c.id, c]));
+    // the road's heading at a cell as the game draws it: previous -> next cell of the lane; sprites point up (+π/2)
+    const rotationAt = (id: string) => {
+      const cell = byId.get(id)!;
+      const next = cell.next.map((n) => byId.get(n)!).find((c) => c.laneIndex === cell.laneIndex)!;
+      const prev = track.cells.find((c) => c.laneIndex === cell.laneIndex && c.next.includes(id))!;
+      return Math.atan2(next.pos.y - prev.pos.y, next.pos.x - prev.pos.x) + Math.PI / 2;
+    };
+    // the finger follows the road: the cells of the car's own lane from its zone to the first bend (the heading has
+    // turned well away from the straight's there); across the infield there is no road to turn with
+    const lane = byId.get(me.cellId)!.laneIndex;
+    const bendId = `Z10_L${lane}_00`;
+    const walk: { x: number; y: number }[] = [];
+    for (let z = byId.get(me.cellId)!.zoneIndex + 1; z <= 10; z += 1) walk.push(srp.cellScreenPos(`Z${String(z).padStart(2, "0")}_L${lane}_00`)!);
+    return {
+      startCell: me.cellId,
+      startRotation: rotationAt(me.cellId),
+      bendRotation: rotationAt(bendId),
+      from: srp.tokenScreenPos(1)!,
+      walk
+    };
+  });
+  const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+  // the bend must differ from the straight, or the check proves nothing
+  expect(Math.abs(wrap(info.bendRotation - info.startRotation))).toBeGreaterThan(0.5);
+
+  await page.mouse.move(info.from.x, info.from.y);
+  await page.mouse.down();
+  for (const p of info.walk) await page.mouse.move(p.x, p.y, { steps: 4 });
+  // held over the bend: the body turns to the road there (the e2e build draws at 10 fps, so give the queued moves a moment)
+  await expect
+    .poll(async () => Math.abs(wrap((await page.evaluate(() => window.__srp!.tokenRotation(1)!)) - info.bendRotation)), {
+      message: `the road at the bend points at ${info.bendRotation}`,
+      timeout: 4000
+    })
+    // within 0.5 rad of the road (the start was 90° away): it eases a third of the gap per drag event, so it is not there yet
+    .toBeLessThan(0.5);
+
+  // dropped on a cell that is not offered (far across the infield): refused, back on its own cell and its own heading
+  await page.mouse.move(info.from.x, info.from.y - 150, { steps: 10 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => page.evaluate(() => window.__srp!.tokenScreenPos(1)!), { timeout: 3000 })
+    .toEqual(info.from);
+  await expect
+    .poll(async () => Math.abs(wrap((await page.evaluate(() => window.__srp!.tokenRotation(1)!)) - info.startRotation)), {
+      timeout: 3000
+    })
+    .toBeLessThan(0.05);
+  expect((await page.evaluate(() => window.__srp!.state().cars.find((c) => c.carId === 1)!.cellId))).toBe(info.startCell);
+  expect(errors).toEqual([]);
+});
