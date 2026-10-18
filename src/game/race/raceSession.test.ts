@@ -215,7 +215,8 @@ describe("RaceSession: solo", () => {
     expect(snap.cars).toHaveLength(3);
     const progress = snap.cars.map((c) => c.progress);
     expect([...progress].sort((a, b) => b - a)).toEqual(progress);
-    expect(snap.log.some((line) => /Car 2/.test(line))).toBe(true);
+    expect(snap.log.some((line) => /^Car 2 /.test(line.text))).toBe(true);
+    expect(snap.log.filter((line) => line.mine).every((line) => line.text.startsWith("You"))).toBe(true);
   });
 
   it("the standings rank neighbours of an outer lane by lap position, and the gap is in whole cells (#113)", () => {
@@ -236,7 +237,7 @@ describe("RaceSession: solo", () => {
     const cells = session.cars.map((c) => c.cellId);
     expect(session.applyLocal({ type: "move", targetCellId: "nowhere" })).toBe(false);
     expect(session.cars.map((c) => c.cellId)).toEqual(cells);
-    expect(session.logLines.at(-1)).toMatch(/^Action rejected/);
+    expect(session.logLines.at(-1)?.text).toMatch(/^Action rejected/);
   });
 
   it("estimates the stint from tire and fuel, and shows no pit chip early in a short race", () => {
@@ -402,7 +403,7 @@ describe("RaceSession: solo", () => {
 
     expect(session.applyLocal({ type: "move", targetCellId: only![0] })).toBe(true);
     expect(session.drainFeel().filter((e) => e.type === "slingshot")).toHaveLength(1);
-    expect(session.logLines).toContain("Car 1 slingshots.");
+    expect(session.logLines.filter((line) => /^You .*slingshot$/.test(line.text))).toHaveLength(1);
     expect(session.drainFeel().filter((e) => e.type === "slingshot")).toHaveLength(0);
   });
 
@@ -456,7 +457,7 @@ describe("RaceSession: solo", () => {
     const session = solo();
     for (let i = 0; i < 40; i += 1) session.addLog(`line ${i}`);
     expect(session.logLines).toHaveLength(30);
-    expect(session.logLines[0]).toBe("line 10");
+    expect(session.logLines[0]?.text).toBe("line 10");
   });
 });
 
@@ -588,7 +589,7 @@ describe("RaceSession: online", () => {
     expect(c1.slingshots).toBe(1);
     guest.applyServerState(lobbyOf(server.race), "guest");
     guest.applyServerState(lobbyOf(server.race), "guest"); // a repeated state is not a second slingshot
-    expect(guest.logLines.filter((line) => line === "Car 1 slingshots.")).toHaveLength(1);
+    expect(guest.logLines.filter((line) => /slingshot$/.test(line.text))).toHaveLength(1);
     // the guest's own feel: someone else's slingshot is no toast
     expect(guest.drainFeel().some((e) => e.type === "slingshot")).toBe(false);
   });
@@ -667,7 +668,10 @@ describe("RaceSession: online", () => {
     server.race.winnerCarId = 2;
     session.applyServerState(lobbyOf(server.race), "guest");
     session.applyServerState(lobbyOf(server.race), "guest");
-    expect(session.logLines.filter((l) => l.startsWith("Race finished"))).toEqual(["Race finished. Car 2 wins the 2-lap race."]);
+    expect(session.logLines.filter((l) => l.kind === "finish").map((l) => l.text)).toEqual([
+      "Guest finishes P1",
+      "Result: P2 Host"
+    ]);
     expect(session.takeFinish()).toBe(true);
     expect(hud(session)).toMatchObject({ finished: true, winnerCarId: 2, canControl: false });
   });
@@ -680,20 +684,24 @@ describe("RaceSession: online", () => {
     expect(session.applyServerState(waiting, "host")).toEqual({ respawned: false, applied: false });
   });
 
-  it("logs every applied turn, and who was auto-played", () => {
+  it("says who was auto-played; what the turn did comes from the state", () => {
     const { session } = online("host");
     session.applyTurnApplied("L1", "guest", { type: "move", targetCellId: "Z02_L1_00" }, "timeout");
     session.applyTurnApplied("L1", "host", { type: "pit", targetCellId: "Z03_L0_00" });
     session.applyTurnApplied("L1", "guest", { type: "skip" }, "force_skip");
-    session.applyTurnApplied("other", "host", { type: "skip" });
-    session.applyTurnApplied("L1", "nobody", { type: "skip" });
-    expect(session.logLines.slice(-5)).toEqual([
-      "Car 2 was auto-played (timeout).",
-      "Car 2 moved to Z02_L1_00.",
-      "Car 1 pit stop at Z03_L0_00.",
-      "Car 2 was auto-played (host skip).",
-      "Car 2 skipped (no moves)."
-    ]);
+    session.applyTurnApplied("other", "host", { type: "skip" }, "timeout");
+    session.applyTurnApplied("L1", "nobody", { type: "skip" }, "timeout");
+    expect(session.logLines.map((l) => l.text)).toEqual(["Guest was auto-played (timeout)", "Guest was auto-played (host skip)"]);
+  });
+
+  it("says a server move with the driver's name and distance (the same feedLines as solo): no cell id, no 'to play'", () => {
+    const { session: guest, server } = online("guest");
+    serverMove(server);
+    guest.applyServerState(lobbyOf(server.race), "guest");
+    expect(guest.logLines).toHaveLength(1);
+    expect(guest.logLines[0]).toMatchObject({ kind: "move", carId: 1 });
+    expect(guest.logLines[0]!.text).toMatch(/^Host \+\d+ cells/);
+    expect(hud(guest).log.map((l) => l.mine)).toEqual([false]); // the guest's car is 2
   });
 });
 
@@ -730,13 +738,13 @@ describe("RaceSession: sandbox", () => {
     expect(session.cars[0]!.cellId).toBe(free.id);
 
     session.loadPosition("{nope");
-    expect(session.logLines.at(-1)).toBe("Load refused: not JSON.");
+    expect(session.logLines.at(-1)?.text).toBe("Load refused: not JSON.");
     session.loadPosition(JSON.stringify(session.debugSnapshot()));
-    expect(session.logLines.at(-1)).toBe("Position loaded.");
+    expect(session.logLines.at(-1)?.text).toBe("Position loaded.");
 
     session.setEditing(false);
     expect(hud(session).sandbox).toBe("play");
-    expect(session.logLines.at(-1)).toBe("Sandbox: playing from here.");
+    expect(session.logLines.at(-1)?.text).toBe("Sandbox: playing from here.");
   });
 });
 

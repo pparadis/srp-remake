@@ -54,7 +54,7 @@ const snap = (over: Partial<HudSnapshot> = {}): HudSnapshot => ({
   cars: [car(1, { isBot: true }), car(2, { lap: 2 }), car(3, { isBot: true })],
   hover: null,
   debugText: null,
-  log: ["Car 1 to play."],
+  log: [{ text: "Car 1 +4 cells", kind: "move", mine: false }],
   ...over
 });
 
@@ -165,6 +165,22 @@ describe("hud", () => {
     expect(text(root, "hud-tooltip")).toBe("Move 5 - PIT stop: tire and fuel refilled");
     expect(text(root, "hud-debug")).toBe("cell: z1");
     expect(root.querySelectorAll('[data-testid="hud-feed-list"] li')).toHaveLength(1);
+  });
+
+  it("marks each feed line with its kind and your own car's lines, and opens the feed", () => {
+    renderHud(
+      root,
+      snap({
+        log: [
+          { text: "Car 1 passes Car 3 for P1", kind: "pass", mine: false },
+          { text: "You starts lap 2/5", kind: "lap", mine: true }
+        ]
+      })
+    );
+    const items = [...root.querySelectorAll('[data-testid="hud-feed-list"] li')];
+    expect(items.map((li) => li.className)).toEqual(["is-pass", "is-lap is-mine"]);
+    expect(items.map((li) => li.textContent)).toEqual(["Car 1 passes Car 3 for P1", "You starts lap 2/5"]);
+    expect((root.querySelector('[data-testid="hud-feed"]') as HTMLDetailsElement).open).toBe(true);
   });
 
   it("shows the stint estimate under the bars and hides the chips when nothing is due", () => {

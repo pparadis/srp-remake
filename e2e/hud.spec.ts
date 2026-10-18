@@ -52,7 +52,7 @@ for (const size of [
   test(`HUD stays clear of the track with 11 cars at ${size.width}x${size.height}`, async ({ page }) => {
     await page.setViewportSize(size);
     await quickRace(page, { bots: 10, laps: 1 });
-    await page.getByTestId("hud-feed").locator("summary").click(); // open drawer = largest HUD
+    await expect(page.getByTestId("hud-feed")).toHaveAttribute("open", ""); // the feed starts open = largest HUD
     await expect(tid(page, "hud-standing-row")).toHaveCount(11);
     await expect(tid(page, "status-line")).toBeHidden();
 

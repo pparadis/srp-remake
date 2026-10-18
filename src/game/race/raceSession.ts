@@ -15,11 +15,11 @@ import { carColor } from "../systems/spawnSystem";
 import { movePath } from "../systems/movePath";
 import { hasFinishedRace, lapInProgress } from "../systems/lapProgress";
 import { sortCarsByProgress } from "../systems/orderingSystem";
+import { carsMovedInOrder, feedLines, type FeedKind, type FeedLine } from "../systems/raceFeed";
 import { PERSONALITIES, personalityOf } from "../systems/botStyle";
 import {
   applyAction,
   computeTargets,
-  slingshotLine,
   createRace,
   createRaceContext,
   decideBotAction,
@@ -102,7 +102,7 @@ export class RaceSession {
   /** Tap to move: the target cell the local player picked and has not confirmed yet. */
   private selectedCellId: string | null = null;
   editing: boolean;
-  readonly logLines: string[] = [];
+  readonly logLines: FeedLine[] = [];
   readonly botDecisionLog: BotDecisionLogEntry[] = [];
   private botDecisionSeq = 1;
   private carNames = new Map<number, string>();
@@ -157,9 +157,21 @@ export class RaceSession {
     return this.backendLobbyId != null;
   }
 
-  addLog(line: string) {
-    this.logLines.push(line);
+  addLog(text: string, kind: FeedKind = "info") {
+    this.logLines.push({ text, kind });
     if (this.logLines.length > LOG_LIMIT) this.logLines.shift();
+  }
+
+  // What the cars did between two states, as the feed says it (the same lines solo and online, #92).
+  private addFeed(before: RaceState) {
+    for (const line of feedLines(this.ctx, before, this.race, (car) => this.nameOf(car))) {
+      this.logLines.push(line);
+      if (this.logLines.length > LOG_LIMIT) this.logLines.shift();
+    }
+  }
+
+  private nameOf(car: Car): string {
+    return this.carNames.get(car.carId) ?? (!this.online && !car.isBot ? "You" : `Car ${car.carId}`);
   }
 
   // Local seats: humans first, then bots.
@@ -255,12 +267,13 @@ export class RaceSession {
       this.awaitServer();
       return true;
     }
+    const before = structuredClone(this.race);
     const result = applyAction(this.ctx, this.race, action);
     if (!result.ok) {
       this.addLog(`Action rejected (${result.reason}).`);
       return false;
     }
-    for (const line of result.log) this.addLog(line);
+    this.addFeed(before);
     this.noteMoved(result.carId, result.fromCellId);
     return true;
   }
@@ -296,6 +309,7 @@ export class RaceSession {
     const car = this.activeCar;
     const turnIndex = this.race.turn.index;
     const decision = decideBotAction(this.ctx, this.race);
+    const before = structuredClone(this.race);
     const result = applyAction(this.ctx, this.race, decision.action);
     if (!result.ok) {
       this.addLog(`Bot action rejected (${result.reason}).`);
@@ -318,7 +332,7 @@ export class RaceSession {
       },
       result.fromCellId
     );
-    for (const line of result.log) this.addLog(line);
+    this.addFeed(before);
     this.noteMoved(result.carId, result.fromCellId);
     return true;
   }
@@ -367,42 +381,26 @@ export class RaceSession {
     if (!raceState || (lobby.status !== "IN_RACE" && lobby.status !== "FINISHED")) return { respawned, applied: false };
 
     this.selectedCellId = null;
-    const wasFinished = this.finished;
     const before = this.feelSeededOnline ? this.race : null;
     this.race = toEngineRace(raceState);
-    // the turn summary has no slingshot flag: a car's counter going up is one
-    for (const car of before ? this.race.cars : []) {
-      const was = before!.cars.find((c) => c.carId === car.carId);
-      if (!was || (car.slingshots ?? 0) <= (was.slingshots ?? 0)) continue;
-      this.addLog(slingshotLine(car.carId));
+    this.carNames = new Map(raceState.cars.map((car) => [car.carId, car.name]));
+    if (before) {
+      this.addFeed(before);
+      this.noteServerMoves(before);
     }
-    if (before) this.noteServerMoves(before);
     if (!this.feelSeededOnline) {
       // the first server state is where we join or rejoin: it seeds, it must not celebrate
       this.feelSeededOnline = true;
       this.feel = createFeelMemory();
     }
-    this.carNames = new Map(raceState.cars.map((car) => [car.carId, car.name]));
-    if (this.finished && !wasFinished) {
-      this.addLog(`Race finished. Car ${this.winnerCarId} wins the ${this.raceLaps}-lap race.`);
-    }
     return { respawned, applied: true };
   }
 
-  // The cars whose cell differs from the last state, in turn order starting with the car that was on turn then: the
-  // order they moved in (a state can carry several turns).
+  // The cars that moved since the last state, in the order they moved in (a state can carry several turns).
   private noteServerMoves(before: RaceState) {
-    const { order, index } = before.turn;
-    const rank = (carId: number) => {
-      const at = order.indexOf(carId);
-      return at < 0 ? order.length : (at - index + order.length) % order.length;
-    };
-    const moved = this.race.cars
-      .filter((car) => before.cars.find((c) => c.carId === car.carId)?.cellId !== car.cellId)
-      .sort((a, b) => rank(a.carId) - rank(b.carId));
     // the cars stand where they stood until their own move comes up in the order
     const standing = new Map(before.cars.map((car) => [car.carId, car.cellId]));
-    for (const car of moved) {
+    for (const car of carsMovedInOrder(before, this.race)) {
       const from = standing.get(car.carId) ?? null;
       standing.set(car.carId, car.cellId);
       if (!this.movedCars.includes(car.carId)) this.movedCars.push(car.carId);
@@ -414,21 +412,12 @@ export class RaceSession {
   }
 
   // Remote and own turns alike arrive as events; the board itself redraws from race.state.
-  applyTurnApplied(lobbyId: string, playerId: string, action: AppliedTurnSummary, source?: TurnSource) {
+  applyTurnApplied(lobbyId: string, playerId: string, _action: AppliedTurnSummary, source?: TurnSource) {
     if (this.backendLobbyId && lobbyId !== this.backendLobbyId) return;
     const car = this.cars.find((candidate) => candidate.ownerId === playerId);
-    if (!car) return;
-    if (source === "timeout" || source === "force_skip") {
-      this.addLog(`Car ${car.carId} was auto-played (${source === "timeout" ? "timeout" : "host skip"}).`);
-    }
-    if (action.type === "skip") {
-      this.addLog(`Car ${car.carId} skipped (no moves).`);
-    } else if (action.type === "pit") {
-      this.addLog(`Car ${car.carId} pit stop at ${action.targetCellId ?? "?"}.`);
-    } else if (action.type === "setup") {
-      this.addLog(`Car ${car.carId} set up on the grid.`);
-    } else {
-      this.addLog(`Car ${car.carId} moved to ${action.targetCellId ?? "?"}.`);
+    // what the turn did is said from the state diff (applyServerState); only the way it was played is not in the state
+    if (car && (source === "timeout" || source === "force_skip")) {
+      this.addLog(`${this.nameOf(car)} was auto-played (${source === "timeout" ? "timeout" : "host skip"})`);
     }
   }
 
@@ -618,10 +607,9 @@ export class RaceSession {
 
   private hudCar(car: Car): HudCar {
     const index = this.cars.indexOf(car);
-    const solo = !this.online;
     return {
       carId: car.carId,
-      name: this.carNames.get(car.carId) ?? (solo && !car.isBot ? "You" : `Car ${car.carId}`),
+      name: this.nameOf(car),
       color: carColor(index),
       isBot: car.isBot,
       // Bots only (a human's style is never shown); seed 0 is the neutral baseline, nothing to show.
@@ -686,7 +674,7 @@ export class RaceSession {
           : null,
       selection,
       debugText: view.showForwardIndex ? this.makeHudText(hoverCell) : null,
-      log: [...this.logLines]
+      log: this.logLines.map(({ text, kind, carId }) => ({ text, kind, mine: carId !== undefined && carId === mine?.carId }))
     };
   }
 

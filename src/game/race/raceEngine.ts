@@ -66,7 +66,7 @@ export type RejectReason =
   | "moves_available";
 
 export type ApplyResult =
-  | { ok: true; carId: number; fromCellId: string; moveSpend: number; log: string[] }
+  | { ok: true; carId: number; fromCellId: string; moveSpend: number }
   | { ok: false; reason: RejectReason };
 
 export interface BotTurnDecision {
@@ -159,11 +159,6 @@ export function isDrafting(ctx: RaceContext, state: RaceState, car: Car): boolea
   return rulesOf(state).draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId)) !== null;
 }
 
-// The race feed line for a slingshot (the engine log solo, the session online from the `slingshots` counter).
-export function slingshotLine(carId: number): string {
-  return `Car ${carId} slingshots.`;
-}
-
 export function isValidSetup(setup: CarSetup): boolean {
   const { psi } = SETUP_LIMITS;
   const psiOk = [setup.psi.fl, setup.psi.fr, setup.psi.rl, setup.psi.rr].every(
@@ -180,19 +175,17 @@ function findWinner(state: RaceState): Car | null {
 }
 
 // Cars serving a pit penalty lose their turn; stop at the first car that can play.
-function selectNextPlayable(state: RaceState, log: string[]) {
+function selectNextPlayable(state: RaceState) {
   const maxSkips = Math.max(1, state.cars.length);
   for (let i = 0; i < maxSkips; i += 1) {
     const car = getActiveCar(state);
     if (advancePitPenalty(car)) {
       recordMove(car.moveCycle, 0);
-      log.push(`Car ${car.carId} pit penalty (remaining ${car.pitTurnsRemaining}).`);
       advanceTurn(state.turn);
       continue;
     }
     break;
   }
-  log.push(`Car ${getActiveCar(state).carId} to play.`);
 }
 
 // Validates and applies one action for the active car. On rejection the state is untouched.
@@ -202,16 +195,14 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   const car = getActiveCar(state);
   const fromCell = ctx.cellMap.get(car.cellId) ?? null;
   const fromCellId = car.cellId;
-  const log: string[] = [];
   let moveSpend = 0;
 
   if (action.type === "setup") {
     if (car.setupLocked) return { ok: false, reason: "setup_locked" };
     if (!isValidSetup(action.setup)) return { ok: false, reason: "invalid_setup" };
     car.setup = structuredClone(action.setup);
-    log.push(`Car ${car.carId} set up ${car.setup.compound}, ${car.setup.wing} wing.`);
     // Not a turn: the same car still plays, and the race cannot end on it.
-    return { ok: true, carId: car.carId, fromCellId, moveSpend: 0, log };
+    return { ok: true, carId: car.carId, fromCellId, moveSpend: 0 };
   }
 
   if (action.type === "skip") {
@@ -220,7 +211,6 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
     }
     car.setupLocked = true;
     recordMove(car.moveCycle, 0);
-    log.push(`Car ${car.carId} skipped (no moves).`);
   } else {
     const targetCell = ctx.cellMap.get(action.targetCellId) ?? null;
     const check = validateMoveAttempt(car, fromCell, targetCell, computeTargets(ctx, state, car), true);
@@ -232,11 +222,7 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
       applyMove(car, fromCell, targetCell, check.info, check.moveSpend, ctx.trackIndex.pitLineFwd);
       car.setupLocked = true;
       moveSpend = check.moveSpend;
-      log.push(`Car ${car.carId} moved to ${targetCell.id}.`);
-      if (check.info.slingshot) {
-        car.slingshots = (car.slingshots ?? 0) + 1;
-        log.push(slingshotLine(car.carId));
-      }
+      if (check.info.slingshot) car.slingshots = (car.slingshots ?? 0) + 1;
     } else {
       if (!check.isPitStop) return { ok: false, reason: "not_pit_box" };
       if (!isValidSetup(action.setup)) return { ok: false, reason: "invalid_setup" };
@@ -246,7 +232,6 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
       car.setupLocked = true;
       recordMove(car.moveCycle, check.moveSpend);
       moveSpend = check.moveSpend;
-      log.push(`Car ${car.carId} pit stop at ${targetCell.id}.`);
     }
   }
 
@@ -257,13 +242,12 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   const winner = findWinner(state);
   if (winner) {
     state.winnerCarId = winner.carId;
-    log.push(`Race finished. Car ${winner.carId} wins the ${state.raceLaps}-lap race.`);
-    return { ok: true, carId: car.carId, fromCellId, moveSpend, log };
+    return { ok: true, carId: car.carId, fromCellId, moveSpend };
   }
 
   advanceTurn(state.turn);
-  selectNextPlayable(state, log);
-  return { ok: true, carId: car.carId, fromCellId, moveSpend, log };
+  selectNextPlayable(state);
+  return { ok: true, carId: car.carId, fromCellId, moveSpend };
 }
 
 // Picks the active car's action with a bot policy: by default the car's own botLevel ("normal"
