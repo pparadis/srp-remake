@@ -1,7 +1,7 @@
 import type { Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { buildLaneSequence } from "./laneSequence";
-import { lane1FwdByZoneOf, trackFwd } from "./trackIndex";
+import { lane1FwdByZoneOf, rankPosition, trackFwd, type TrackIndex } from "./trackIndex";
 
 interface CarSortKey {
   lapCount: number;
@@ -12,6 +12,8 @@ interface CarSortKey {
 interface SortCarsOptions {
   turnOrder?: number[];
   turnIndex?: number;
+  // With the track index, cars rank by lap position (no ties inside a lane, #114); without it by forwardIndex.
+  trackIndex?: TrackIndex;
 }
 
 export function getCellForwardIndex(cellId: string, cellMap: Map<string, TrackCell>): number {
@@ -23,9 +25,13 @@ export function getCellForwardIndex(cellId: string, cellMap: Map<string, TrackCe
 export function computeCarSortKey(
   car: Car,
   cellMap: Map<string, TrackCell>,
-  progressMap?: Map<string, number>
+  progressMap?: Map<string, number>,
+  trackIndex?: TrackIndex
 ): CarSortKey {
-  const progressIndex = progressMap?.get(car.cellId) ?? getCellForwardIndex(car.cellId, cellMap);
+  const cell = cellMap.get(car.cellId);
+  const progressIndex =
+    progressMap?.get(car.cellId) ??
+    (trackIndex && cell ? rankPosition(trackIndex, cell) : getCellForwardIndex(car.cellId, cellMap));
   const lapCount = car.lapCount ?? 0;
   return { lapCount, progressIndex, carId: car.carId };
 }
@@ -45,8 +51,8 @@ export function sortCarsByProgress(
     }
   }
   return [...cars].sort((a, b) => {
-    const aKey = computeCarSortKey(a, cellMap);
-    const bKey = computeCarSortKey(b, cellMap);
+    const aKey = computeCarSortKey(a, cellMap, undefined, options.trackIndex);
+    const bKey = computeCarSortKey(b, cellMap, undefined, options.trackIndex);
     if (aKey.lapCount !== bKey.lapCount) return bKey.lapCount - aKey.lapCount;
 
     // Same lap: further along the lap is ahead. Cars behind the line (lapCount -1) rank below the

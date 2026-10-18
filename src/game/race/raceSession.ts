@@ -6,7 +6,8 @@ import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from "../rules/vers
 import type { BotLevel, Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
 import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
-import { buildPlanContext, progressOf, type BotPlanContext } from "../systems/botPlan";
+import { buildPlanContext, type BotPlanContext } from "../systems/botPlan";
+import { rankPosition } from "../systems/trackIndex";
 import { pitAdvice, stintEstimate } from "../systems/strategy";
 import { createFeelMemory, detectFeel, type FeelEvent } from "../systems/feelEvents";
 import { computeMoveSpend, cycleBudget, getRemainingBudget } from "../systems/moveBudgetSystem";
@@ -626,7 +627,8 @@ export class RaceSession {
       ...(car.isBot && car.botLevel === "hard" ? { style: PERSONALITIES.adaptive.label } : car.isBot && this.race.seed ? { style: personalityOf(this.race.seed, car.carId).label } : {}),
       lap: lapInProgress(car.lapCount, this.raceLaps),
       finished: hasFinishedRace(car.lapCount, this.raceLaps),
-      progress: progressOf(car, this.cellMap.get(car.cellId)!, this.plan()),
+      // the display's own measure (lap position, as the standings): the bots keep progressOf, which they are tuned on
+      progress: (car.lapCount ?? 0) * this.ctx.trackIndex.spineLen + rankPosition(this.ctx.trackIndex, this.cellMap.get(car.cellId)!),
       fwd: this.cellMap.get(car.cellId)?.forwardIndex ?? -1,
       tire: car.tire,
       fuel: car.fuel,
@@ -653,7 +655,8 @@ export class RaceSession {
     const mine = this.localCar();
     const ordered = sortCarsByProgress(this.cars, this.cellMap, {
       turnOrder: this.race.turn.order,
-      turnIndex: this.race.turn.index
+      turnIndex: this.race.turn.index,
+      trackIndex: this.ctx.trackIndex
     });
     const { hoverCell } = view;
     const selected = this.selectedTarget();

@@ -215,6 +215,19 @@ describe("RaceSession: solo", () => {
     expect(snap.log.some((line) => /Car 2/.test(line))).toBe(true);
   });
 
+  it("the standings rank neighbours of an outer lane by lap position, and the gap is in whole cells (#113)", () => {
+    const session = solo({ botCars: 1 });
+    const [me, bot] = session.cars as [Car, Car];
+    // Z12_L3 and Z13_L3 share forwardIndex 10, and the car ids would have put car 1 ahead
+    Object.assign(me, { cellId: "Z12_L3_00" });
+    Object.assign(bot, { cellId: "Z13_L3_00" });
+    const snap = hud(session);
+    expect(snap.cars.map((c) => c.carId)).toEqual([2, 1]);
+    const [lead, chaser] = snap.cars as [(typeof snap.cars)[number], (typeof snap.cars)[number]];
+    expect(lead.progress).toBeGreaterThan(chaser.progress);
+    expect(Math.round(lead.progress - chaser.progress)).toBe(1);
+  });
+
   it("logs and keeps the state when the engine rejects an action", () => {
     const session = solo();
     const cells = session.cars.map((c) => c.cellId);

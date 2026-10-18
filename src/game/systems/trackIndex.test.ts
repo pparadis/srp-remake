@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import realTrack from "../../../public/tracks/oval16_3lanes.json";
 import type { TrackCell, TrackData } from "../types/track";
-import { buildTrackIndex, cellsAlongLane, lapAhead } from "./trackIndex";
+import { buildTrackIndex, cellsAlongLane, lapAhead, rankPosition } from "./trackIndex";
 
 function makeCell(
   id: string,
@@ -126,5 +126,13 @@ describe("lap position and cells along the lane (#114)", () => {
     expect(cellsAlongLane(index, cell("Z12_L3_00"), cell("Z13_L3_00"))).toBe(1);
     expect(cellsAlongLane(index, cell("Z32_L3_00"), cell("Z01_L3_00"))).toBe(1);
     expect(cellsAlongLane(index, cell("Z30_L2_00"), cell("Z01_L2_00"))).toBe(1);
+  });
+
+  it("ranks a main-lane cell by its lap position and a pit cell by the lane-1 cell beside it", () => {
+    expect(rankPosition(index, cell("Z12_L3_00"))).toBeLessThan(rankPosition(index, cell("Z13_L3_00"))); // forwardIndex: 10 and 10
+    expect(rankPosition(index, cell("Z05_L1_00"))).toBe(4); // lane 1 is its forwardIndex
+    expect(rankPosition(index, cell("Z28_L0_00"))).toBe(27);
+    expect(rankPosition(index, cell("Z01_L0_00"))).toBe(0);
+    expect(rankPosition(index, cell("Z02_L0_00"))).toBe(1);
   });
 });

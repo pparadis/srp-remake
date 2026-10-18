@@ -115,6 +115,16 @@ export function cellsAlongLane(trackIndex: TrackIndex, from: TrackCell, to: Trac
  */
 export const DIAGONAL_MIN_GAIN = 0.5;
 
+/**
+ * A cell's place along the lap for ranking and gaps: its lap position on a main lane (unrounded, so two cells of one
+ * lane never tie), and for a pit cell that of the lane-1 cell of the same zone (their own forwardIndex is another
+ * scale), as `trackFwd` does for forwardIndex (#114).
+ */
+export function rankPosition(trackIndex: TrackIndex, cell: TrackCell): number {
+  if (cell.laneIndex === PIT_LANE) return trackFwd(cell, trackIndex.lane1FwdByZone);
+  return trackIndex.lapPos.get(cell.id) ?? cell.forwardIndex;
+}
+
 /** How far `to` is ahead of `from` along the lap, any lanes: 0 = level, in [0, spineLen). */
 export function lapAhead(trackIndex: TrackIndex, from: TrackCell, to: TrackCell): number {
   const { lapPos, spineLen } = trackIndex;
