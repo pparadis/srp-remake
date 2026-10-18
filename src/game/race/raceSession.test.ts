@@ -107,9 +107,9 @@ describe("RaceSession: drafting", () => {
       const card = hud(session).cars.find((c) => c.carId === me.carId)!;
       if (card.drafting) tows += 1;
       if (card.draftTurns >= 2) readyTurns += 1;
-      // the tow is on the board for every car that has one, and the player's is in the list
-      if (card.drafting) fedBack ||= session.draftLinks().some((l) => l.carId === me.carId);
       expect(session.applyLocal({ type: "move", targetCellId: pick[0] })).toBe(true);
+      // right after a move that ended tucked in the leader is still there: the tow is on the board, in the list
+      fedBack ||= session.draftLinks().some((l) => l.carId === me.carId);
       session.runBots();
     }
     expect(tows, "turns that began in the tow").toBeGreaterThanOrEqual(2);
@@ -118,20 +118,23 @@ describe("RaceSession: drafting", () => {
     expect(session.localCar()!.slingshots ?? 0).toBeGreaterThan(0);
   });
 
-  it("draftLinks lists the cars in a tow: the cells to the car ahead while it is there, the range once it has gone", () => {
+  it("draftLinks lists the cars in a tow whose leader is still there, with the cells to it; none once it has gone", () => {
     const session = solo({ botCars: 2 });
-    const [me, bot] = session.cars as [Car, Car];
+    const [me, bot, other] = session.cars as [Car, Car, Car];
     Object.assign(me, { cellId: "Z05_L1_00", draftTurns: 1 });
-    Object.assign(bot, { cellId: "Z07_L1_00", draftTurns: 2 });
-    expect(session.draftLinks()).toEqual([
-      { carId: me.carId, gap: 2, ready: false },
-      // the bot's tow: nothing ahead of it within the range, so the run is the range
-      { carId: bot.carId, gap: 2, ready: true }
-    ]);
-    Object.assign(bot, { cellId: "Z12_L1_00" });
-    expect(session.draftLinks().find((l) => l.carId === me.carId)).toMatchObject({ gap: 2, ready: false });
+    Object.assign(bot, { cellId: "Z06_L1_00", draftTurns: 2 });
+    Object.assign(other, { cellId: "Z20_L1_00" });
+    // me is 1 behind the bot; the bot has nobody within the range ahead, so it has nothing to draw
+    expect(session.draftLinks()).toEqual([{ carId: me.carId, gap: 1, ready: false }]);
+    Object.assign(bot, { cellId: "Z07_L1_00" });
+    expect(session.draftLinks()).toEqual([{ carId: me.carId, gap: 2, ready: false }]);
+    Object.assign(bot, { cellId: "Z12_L1_00" }); // the leader has moved on: nothing leads anywhere
+    expect(session.draftLinks()).toEqual([]);
+    // the tow itself is still on the card for the next move
+    expect(hud(session).cars.find((c) => c.carId === me.carId)).toMatchObject({ drafting: true });
+    Object.assign(bot, { cellId: "Z07_L1_00" });
     Object.assign(me, { draftTurns: 0 });
-    expect(session.draftLinks().map((l) => l.carId)).toEqual([bot.carId]); // a car with no run has no tow
+    expect(session.draftLinks()).toEqual([]); // a car with no run has no tow
   });
 
   it("endsTucked says which cells keep or start the tow, in the car's own lane only", () => {

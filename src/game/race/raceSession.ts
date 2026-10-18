@@ -1,7 +1,7 @@
 // The race as one player's page sees it, without Phaser: the solo turn loop (the human's action, then the bots
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
-import { DRAFT_RANGE, DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from "../constants";
+import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from "../constants";
 import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from "../rules/versions";
 import type { BotLevel, Car } from "../types/car";
 import type { TrackCell, TrackData } from "../types/track";
@@ -452,19 +452,20 @@ export class RaceSession {
   }
 
   /**
-   * The cars in a tow, for the board to draw: every car whose last move ended tucked in behind a car. `gap` is the
-   * cells to the car ahead when it is still there (1 to DRAFT_RANGE), else DRAFT_RANGE: the leader has moved on and the
-   * tow shows as a short run ahead of the car. `ready` is the slingshot being open on its next move.
+   * The tows for the board to draw: every car in a tow (its last move ended tucked in behind a car) whose leader is
+   * still there. `gap` is the cells to that car (1 to DRAFT_RANGE). Once the leader has moved on there is nothing to
+   * draw (a band over empty road read as a glitch): the car is still in the tow for its next move, which the card and
+   * the targets' rings say. `ready` is the slingshot being open on its next move.
    */
   draftLinks(): Array<{ carId: number; gap: number; ready: boolean }> {
     const occupied = this.cars.map((c) => c.cellId);
-    return this.cars
-      .filter((car) => (car.draftTurns ?? 0) >= 1 && car.state !== "DNF")
-      .map((car) => ({
-        carId: car.carId,
-        gap: rulesOf(this.race).draftAhead(this.ctx.trackIndex, car.cellId, occupied)?.gap ?? DRAFT_RANGE,
-        ready: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS
-      }));
+    const links: Array<{ carId: number; gap: number; ready: boolean }> = [];
+    for (const car of this.cars) {
+      if ((car.draftTurns ?? 0) < 1 || car.state === "DNF") continue;
+      const ahead = rulesOf(this.race).draftAhead(this.ctx.trackIndex, car.cellId, occupied);
+      if (ahead) links.push({ carId: car.carId, gap: ahead.gap, ready: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS });
+    }
+    return links;
   }
 
   /** The cells `carId` drove through on its last move, first cell included; empty before it has moved. */
