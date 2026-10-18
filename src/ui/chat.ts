@@ -1,7 +1,7 @@
 // The online chat panel: one element, built once. main.ts owns the socket and the lobby, and moves this element to
 // the lobby card or the race HUD. Phaser-free; messages are shown with textContent only.
-import { CHAT_MAX_GRAPHEMES, chatLength, normalizeChatText } from "../game/chatText";
-import type { ChatMessage } from "../net/backendApi";
+import { CHAT_MAX_GRAPHEMES, chatLength, normalizeChatText } from '../game/chatText';
+import type { ChatMessage } from '../net/backendApi';
 
 /** Messages kept (and drawn): the server keeps 50 per lobby too. */
 const KEEP = 50;
@@ -20,12 +20,12 @@ const TEMPLATE = `
 export function isChatMessage(value: unknown): value is ChatMessage {
   const m = value as Partial<Record<keyof ChatMessage, unknown>> | null;
   return (
-    typeof m === "object" &&
+    typeof m === 'object' &&
     m !== null &&
-    typeof m.id === "number" &&
-    typeof m.playerId === "string" &&
-    typeof m.name === "string" &&
-    typeof m.text === "string"
+    typeof m.id === 'number' &&
+    typeof m.playerId === 'string' &&
+    typeof m.name === 'string' &&
+    typeof m.text === 'string'
   );
 }
 
@@ -42,7 +42,9 @@ function loadMuted(lobbyId: string): Set<string> {
   try {
     const raw = window.sessionStorage.getItem(mutedKey(lobbyId));
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []);
+    return new Set(
+      Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
+    );
   } catch {
     return new Set();
   }
@@ -57,18 +59,19 @@ function storeMuted(lobbyId: string, muted: Set<string>) {
 }
 
 export function createChat(options: ChatOptions) {
-  const element = document.createElement("section");
-  element.className = "chat";
-  element.dataset.testid = "chat";
+  const element = document.createElement('section');
+  element.className = 'chat';
+  element.dataset.testid = 'chat';
   element.innerHTML = TEMPLATE;
-  const q = <T extends HTMLElement>(id: string) => element.querySelector<T>(`[data-testid="${id}"]`)!;
-  const list = q("chat-list");
-  const mutedBar = q("chat-muted");
-  const form = q<HTMLFormElement>("chat-form");
-  const input = q<HTMLInputElement>("chat-input");
-  const count = q("chat-count");
-  const sendButton = q<HTMLButtonElement>("chat-send");
-  const errorLine = q("chat-error");
+  const q = <T extends HTMLElement>(id: string) =>
+    element.querySelector<T>(`[data-testid="${id}"]`)!;
+  const list = q('chat-list');
+  const mutedBar = q('chat-muted');
+  const form = q<HTMLFormElement>('chat-form');
+  const input = q<HTMLInputElement>('chat-input');
+  const count = q('chat-count');
+  const sendButton = q<HTMLButtonElement>('chat-send');
+  const errorLine = q('chat-error');
 
   let lobbyId: string | null = null;
   let selfId: string | null = null;
@@ -89,14 +92,14 @@ export function createChat(options: ChatOptions) {
 
   function setError(text: string | null) {
     errorLine.hidden = text === null;
-    errorLine.textContent = text ?? "";
+    errorLine.textContent = text ?? '';
   }
 
   function renderInput() {
     const length = chatLength(input.value);
     count.textContent = `${length}/${CHAT_MAX_GRAPHEMES}`;
     const normalized = normalizeChatText(input.value);
-    count.classList.toggle("is-over", !normalized.ok && normalized.reason === "too_long");
+    count.classList.toggle('is-over', !normalized.ok && normalized.reason === 'too_long');
     sendButton.disabled = sending || !normalized.ok;
   }
 
@@ -111,24 +114,24 @@ export function createChat(options: ChatOptions) {
     list.replaceChildren();
     for (const message of messages) {
       if (muted.has(message.playerId)) continue;
-      const row = document.createElement("li");
+      const row = document.createElement('li');
       row.dataset.author = message.playerId;
-      const name = document.createElement("span");
-      name.className = "chat-name";
+      const name = document.createElement('span');
+      name.className = 'chat-name';
       name.textContent = message.name;
-      const text = document.createElement("span");
-      text.className = "chat-text";
+      const text = document.createElement('span');
+      text.className = 'chat-text';
       text.textContent = message.text;
-      row.append(name, " ", text);
+      row.append(name, ' ', text);
       if (message.playerId !== selfId) {
-        const mute = document.createElement("button");
-        mute.type = "button";
-        mute.className = "chat-mute";
-        mute.dataset.testid = "chat-mute";
-        mute.textContent = "Mute";
+        const mute = document.createElement('button');
+        mute.type = 'button';
+        mute.className = 'chat-mute';
+        mute.dataset.testid = 'chat-mute';
+        mute.textContent = 'Mute';
         mute.title = `Mute ${message.name} on your screen`;
-        mute.setAttribute("aria-label", `Mute ${message.name}`);
-        mute.addEventListener("click", () => toggleMute(message.playerId));
+        mute.setAttribute('aria-label', `Mute ${message.name}`);
+        mute.addEventListener('click', () => toggleMute(message.playerId));
         row.append(mute);
       }
       list.append(row);
@@ -140,15 +143,15 @@ export function createChat(options: ChatOptions) {
     mutedBar.hidden = mutedNames.length === 0;
     mutedBar.replaceChildren();
     if (mutedNames.length > 0) {
-      mutedBar.append("Muted: ");
+      mutedBar.append('Muted: ');
       for (const id of mutedNames) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "chat-unmute";
-        button.dataset.testid = "chat-unmute";
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chat-unmute';
+        button.dataset.testid = 'chat-unmute';
         button.textContent = `${names.get(id)} ✕`;
-        button.setAttribute("aria-label", `Unmute ${names.get(id)}`);
-        button.addEventListener("click", () => toggleMute(id));
+        button.setAttribute('aria-label', `Unmute ${names.get(id)}`);
+        button.addEventListener('click', () => toggleMute(id));
         mutedBar.append(button);
       }
     }
@@ -158,14 +161,14 @@ export function createChat(options: ChatOptions) {
     names.set(message.playerId, message.name);
   }
 
-  input.addEventListener("input", () => {
+  input.addEventListener('input', () => {
     setError(null);
     renderInput();
   });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") input.blur();
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') input.blur();
   });
-  form.addEventListener("submit", async (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const normalized = normalizeChatText(input.value);
     if (!normalized.ok || sending) return;
@@ -173,10 +176,10 @@ export function createChat(options: ChatOptions) {
     renderInput();
     try {
       await options.send(normalized.text);
-      input.value = "";
+      input.value = '';
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Could not send");
+      setError(error instanceof Error ? error.message : 'Could not send');
     } finally {
       sending = false;
       renderInput();
@@ -205,7 +208,7 @@ export function createChat(options: ChatOptions) {
       names.clear();
       muted = new Set();
       setUnread(0);
-      input.value = "";
+      input.value = '';
       renderInput();
       render();
     },
@@ -222,7 +225,9 @@ export function createChat(options: ChatOptions) {
       if (messages.some((existing) => existing.id === message.id)) return;
       remember(message);
       messages = [...messages, message].slice(-KEEP);
-      if (!seen && message.playerId !== selfId && !muted.has(message.playerId)) setUnread(unread + 1);
+      if (!seen && message.playerId !== selfId && !muted.has(message.playerId)) {
+        setUnread(unread + 1);
+      }
       render();
     },
 

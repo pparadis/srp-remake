@@ -3,7 +3,7 @@
 // every other car answer with the Normal policy until it is this car's turn again, and scores the
 // position it finds itself in. No runtime import of raceEngine (it passes its functions in), so
 // the two modules do not form an import cycle.
-import { PIT_LANE } from "../constants";
+import { PIT_LANE } from '../constants';
 import {
   buildPlanContext,
   crawlCost,
@@ -12,18 +12,18 @@ import {
   PIT_LANE_CELLS,
   progressOf,
   type BotPlanContext
-} from "../systems/botPlan";
-import type { BotDecisionTrace } from "../systems/botSystem";
-import type { TargetInfo } from "../systems/movementSystem";
-import { getCurrentCarId } from "../systems/turnSystem";
-import type { Car } from "../types/car";
+} from '../systems/botPlan';
+import type { BotDecisionTrace } from '../systems/botSystem';
+import type { TargetInfo } from '../systems/movementSystem';
+import { getCurrentCarId } from '../systems/turnSystem';
+import type { Car } from '../types/car';
 import type {
   ApplyResult,
   BotTurnDecision,
   RaceAction,
   RaceContext,
   RaceState
-} from "./raceEngine";
+} from './raceEngine';
 
 export const HARD_CANDIDATES = 8;
 
@@ -42,23 +42,24 @@ interface HardDeps {
   decideNormal(ctx: RaceContext, state: RaceState): BotTurnDecision;
 }
 
-function actionFor(ctx: RaceContext, plan: BotPlanContext, car: Car, cellId: string, info: TargetInfo): RaceAction {
+function actionFor(
+  ctx: RaceContext,
+  plan: BotPlanContext,
+  car: Car,
+  cellId: string,
+  info: TargetInfo
+): RaceAction {
   // Same test as the bot system: a PIT_BOX target on an unserviced car is a stop.
   return info.isPitTrigger && !car.pitServiced
-    ? { type: "pit", targetCellId: cellId, setup: pitSetupFor(car, ctx.cellMap.get(cellId)!, plan) }
-    : { type: "move", targetCellId: cellId };
+    ? { type: 'pit', targetCellId: cellId, setup: pitSetupFor(car, ctx.cellMap.get(cellId)!, plan) }
+    : { type: 'move', targetCellId: cellId };
 }
 
 function carById(state: RaceState, carId: number): Car {
   return state.cars.find((c) => c.carId === carId)!;
 }
 
-function valueOf(
-  ctx: RaceContext,
-  sim: RaceState,
-  meId: number,
-  plan: BotPlanContext
-): number {
+function valueOf(ctx: RaceContext, sim: RaceState, meId: number, plan: BotPlanContext): number {
   const me = carById(sim, meId);
   const myCell = ctx.cellMap.get(me.cellId)!;
   const mine = progressOf(me, myCell, plan);
@@ -108,7 +109,7 @@ export function decideHardBotAction(
   deps: HardDeps
 ): BotTurnDecision {
   const trace = normal.trace;
-  if (!trace || trace.candidates.length <= 1 || normal.action.type === "skip") return normal;
+  if (!trace || trace.candidates.length <= 1 || normal.action.type === 'skip') return normal;
 
   const plan = buildPlanContext(ctx.trackIndex, state.raceLaps);
   const fromCell = ctx.cellMap.get(car.cellId);
@@ -116,14 +117,22 @@ export function decideHardBotAction(
     .sort((a, b) => b.score - a.score || a.cellId.localeCompare(b.cellId))
     .slice(0, HARD_CANDIDATES);
 
-  const evaluated: BotDecisionTrace["candidates"] = [];
+  const evaluated: BotDecisionTrace['candidates'] = [];
   let best: { cellId: string; value: number } | null = null;
   for (const candidate of top) {
-    const sim = simulateRound(ctx, state, car.carId, actionFor(ctx, plan, car, candidate.cellId, candidate.info), deps);
+    const sim = simulateRound(
+      ctx,
+      state,
+      car.carId,
+      actionFor(ctx, plan, car, candidate.cellId, candidate.info),
+      deps
+    );
     if (!sim) continue;
     // What the Normal score knows beyond progress (budget cycle, resource worth, pit plan) is
     // kept, scaled to cells; the simulation adds what only the next round can show.
-    const extra = candidate.score - forwardGain(fromCell, ctx.cellMap.get(candidate.cellId), candidate.info.distance, plan) * 10;
+    const extra =
+      candidate.score -
+      forwardGain(fromCell, ctx.cellMap.get(candidate.cellId), candidate.info.distance, plan) * 10;
     const value = valueOf(ctx, sim, car.carId, plan) + VALUE.normalExtra * extra;
     evaluated.push({ cellId: candidate.cellId, info: candidate.info, score: value });
     if (!best || value > best.value) best = { cellId: candidate.cellId, value };

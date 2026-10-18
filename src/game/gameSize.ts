@@ -25,7 +25,7 @@ export function keepGameSizeInSync(
   game: SizedGame,
   parent: Element,
   scale = 1,
-  destroyEvent = "destroy"
+  destroyEvent = 'destroy'
 ): void {
   const observer = new ResizeObserver(() => {
     const rect = parent.getBoundingClientRect();

@@ -1,24 +1,24 @@
-import { describe, expect, it } from "vitest";
-import { applyMove } from "./moveCommitSystem";
-import type { Car } from "../types/car";
-import type { TrackCell } from "../types/track";
-import { PIT_LANE } from "../constants";
+import { describe, expect, it } from 'vitest';
+import { applyMove } from './moveCommitSystem';
+import type { Car } from '../types/car';
+import type { TrackCell } from '../types/track';
+import { PIT_LANE } from '../constants';
 
 function makeCar(): Car {
   return {
     carId: 1,
-    ownerId: "P1",
+    ownerId: 'P1',
     isBot: false,
-    cellId: "A",
+    cellId: 'A',
     lapCount: 0,
     tire: 100,
     fuel: 100,
     setup: {
-      compound: "soft",
+      compound: 'soft',
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wing: "medium" as const
+      wing: 'medium' as const
     },
-    state: "ACTIVE",
+    state: 'ACTIVE',
     pitTurnsRemaining: 0,
     pitExitBoost: false,
     pitServiced: false,
@@ -29,7 +29,7 @@ function makeCar(): Car {
 function makeCell(
   id: string,
   forwardIndex: number,
-  tags: TrackCell["tags"] = [],
+  tags: TrackCell['tags'] = [],
   laneIndex = 1
 ): TrackCell {
   return {
@@ -43,104 +43,176 @@ function makeCell(
   };
 }
 
-describe("applyMove lap counting", () => {
-  it("increments lap when forwardIndex wraps", () => {
+describe('applyMove lap counting', () => {
+  it('increments lap when forwardIndex wraps', () => {
     const car = makeCar();
-    const fromCell = makeCell("Z12", 12);
-    const toCell = makeCell("Z02", 1);
-    applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    const fromCell = makeCell('Z12', 12);
+    const toCell = makeCell('Z02', 1);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.lapCount).toBe(1);
   });
 
-  it("the first crossing of a car that started behind the line takes it from -1 to 0", () => {
+  it('the first crossing of a car that started behind the line takes it from -1 to 0', () => {
     const car = makeCar();
     car.lapCount = -1;
-    applyMove(car, makeCell("Z28", 27), makeCell("Z01", 0), { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    applyMove(
+      car,
+      makeCell('Z28', 27),
+      makeCell('Z01', 0),
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.lapCount).toBe(0);
   });
 
-  it("does not increment lap without crossing", () => {
+  it('does not increment lap without crossing', () => {
     const car = makeCar();
-    const fromCell = makeCell("Z10", 10);
-    const toCell = makeCell("Z11", 11);
-    applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    const fromCell = makeCell('Z10', 10);
+    const toCell = makeCell('Z11', 11);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.lapCount).toBe(0);
   });
 
-  it("increments lap when crossing start/finish", () => {
+  it('increments lap when crossing start/finish', () => {
     const car = makeCar();
-    const fromCell = makeCell("Z12", 12);
-    const toCell = makeCell("Z01", 0, ["START_FINISH"]);
-    applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    const fromCell = makeCell('Z12', 12);
+    const toCell = makeCell('Z01', 0, ['START_FINISH']);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.lapCount).toBe(1);
   });
 
-  it("initializes lap count when crossing with undefined lapCount", () => {
+  it('initializes lap count when crossing with undefined lapCount', () => {
     const car = makeCar();
     delete car.lapCount;
-    const fromCell = makeCell("Z12", 12);
-    const toCell = makeCell("Z01", 0, ["START_FINISH"]);
-    applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    const fromCell = makeCell('Z12', 12);
+    const toCell = makeCell('Z01', 0, ['START_FINISH']);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.lapCount).toBe(1);
   });
 
-  it("does not increment lap when moving from pit lane", () => {
+  it('does not increment lap when moving from pit lane', () => {
     const car = makeCar();
-    const fromCell = makeCell("PIT_A", 12, [], PIT_LANE);
-    const toCell = makeCell("MAIN_A", 1, [], 1);
-    applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    const fromCell = makeCell('PIT_A', 12, [], PIT_LANE);
+    const toCell = makeCell('MAIN_A', 1, [], 1);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.lapCount).toBe(0);
   });
 
-  it("does not increment lap when moving into pit lane", () => {
+  it('does not increment lap when moving into pit lane', () => {
     const car = makeCar();
-    const fromCell = makeCell("MAIN_A", 12, [], 1);
-    const toCell = makeCell("PIT_A", 1, [], PIT_LANE);
-    applyMove(car, fromCell, toCell, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    const fromCell = makeCell('MAIN_A', 12, [], 1);
+    const toCell = makeCell('PIT_A', 1, [], PIT_LANE);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.lapCount).toBe(0);
   });
 
-  it("resets pitServiced only after returning to non-pit lane", () => {
+  it('resets pitServiced only after returning to non-pit lane', () => {
     const car = makeCar();
     car.pitServiced = true;
-    const pitFrom = makeCell("PIT_A", 1, [], PIT_LANE);
-    const pitTo = makeCell("PIT_B", 2, [], PIT_LANE);
-    applyMove(car, pitFrom, pitTo, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    const pitFrom = makeCell('PIT_A', 1, [], PIT_LANE);
+    const pitTo = makeCell('PIT_B', 2, [], PIT_LANE);
+    applyMove(
+      car,
+      pitFrom,
+      pitTo,
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.pitServiced).toBe(true);
 
-    const mainTo = makeCell("MAIN_A", 3, [], 1);
-    applyMove(car, pitTo, mainTo, { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 1);
+    const mainTo = makeCell('MAIN_A', 3, [], 1);
+    applyMove(
+      car,
+      pitTo,
+      mainTo,
+      { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      1
+    );
     expect(car.pitServiced).toBe(false);
   });
 
-  it("clamps tire and fuel to zero for high costs", () => {
+  it('clamps tire and fuel to zero for high costs', () => {
     const car = makeCar();
     car.tire = 2;
     car.fuel = 1;
-    const fromCell = makeCell("A", 5);
-    const toCell = makeCell("B", 6);
-    applyMove(car, fromCell, toCell, { distance: 1, tireCost: 10, fuelCost: 10, isPitTrigger: false }, 1);
+    const fromCell = makeCell('A', 5);
+    const toCell = makeCell('B', 6);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 1, tireCost: 10, fuelCost: 10, isPitTrigger: false },
+      1
+    );
     expect(car.tire).toBe(0);
     expect(car.fuel).toBe(0);
   });
 
-  it("clamps tire and fuel to 100 for negative costs", () => {
+  it('clamps tire and fuel to 100 for negative costs', () => {
     const car = makeCar();
     car.tire = 99;
     car.fuel = 98;
-    const fromCell = makeCell("A", 5);
-    const toCell = makeCell("B", 6);
-    applyMove(car, fromCell, toCell, { distance: 1, tireCost: -10, fuelCost: -10, isPitTrigger: false }, 1);
+    const fromCell = makeCell('A', 5);
+    const toCell = makeCell('B', 6);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 1, tireCost: -10, fuelCost: -10, isPitTrigger: false },
+      1
+    );
     expect(car.tire).toBe(100);
     expect(car.fuel).toBe(100);
   });
 
-  it("records move spend in cycle and clears pit exit boost", () => {
+  it('records move spend in cycle and clears pit exit boost', () => {
     const car = makeCar();
     car.pitExitBoost = true;
-    const fromCell = makeCell("A", 5);
-    const toCell = makeCell("B", 6);
-    applyMove(car, fromCell, toCell, { distance: 2, tireCost: 0, fuelCost: 0, isPitTrigger: false }, 3);
+    const fromCell = makeCell('A', 5);
+    const toCell = makeCell('B', 6);
+    applyMove(
+      car,
+      fromCell,
+      toCell,
+      { distance: 2, tireCost: 0, fuelCost: 0, isPitTrigger: false },
+      3
+    );
     expect(car.moveCycle.spent[0]).toBe(3);
     expect(car.moveCycle.index).toBe(1);
     expect(car.pitExitBoost).toBe(false);

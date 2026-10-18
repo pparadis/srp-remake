@@ -1,6 +1,6 @@
-import { MOVE_BUDGET, OUTER_MAIN_LANE, PIT_LANE } from "../constants";
-import type { BotLevel, Car } from "../types/car";
-import type { TrackCell } from "../types/track";
+import { MOVE_BUDGET, OUTER_MAIN_LANE, PIT_LANE } from '../constants';
+import type { BotLevel, Car } from '../types/car';
+import type { TrackCell } from '../types/track';
 import {
   cellsToFeeder,
   forwardGain,
@@ -9,11 +9,19 @@ import {
   stopIsDue,
   wearPerCell,
   type BotPlanContext
-} from "./botPlan";
-import { BLOCK_RANGE, EASY_IGNORE_STYLE, EASY_NOISE, HARD_ADAPT, LANE_SPAN, PERSONALITIES, QUEUE_RANGE } from "./botStyle";
-import type { TargetInfo } from "./movementSystem";
-import { computeMoveSpend, cycleBudget, getRemainingBudget } from "./moveBudgetSystem";
-import { shouldOpenPitModal } from "./pitSystem";
+} from './botPlan';
+import {
+  BLOCK_RANGE,
+  EASY_IGNORE_STYLE,
+  EASY_NOISE,
+  HARD_ADAPT,
+  LANE_SPAN,
+  PERSONALITIES,
+  QUEUE_RANGE
+} from './botStyle';
+import type { TargetInfo } from './movementSystem';
+import { computeMoveSpend, cycleBudget, getRemainingBudget } from './moveBudgetSystem';
+import { shouldOpenPitModal } from './pitSystem';
 
 export type { BotLevel };
 
@@ -23,9 +31,9 @@ interface BotPick {
 }
 
 type BotAction =
-  | { type: "skip" }
-  | { type: "pit"; target: TrackCell; info: TargetInfo }
-  | { type: "move"; target: TrackCell; info: TargetInfo; moveSpend: number };
+  | { type: 'skip' }
+  | { type: 'pit'; target: TrackCell; info: TargetInfo }
+  | { type: 'move'; target: TrackCell; info: TargetInfo; moveSpend: number };
 
 interface BotHeuristicOptions {
   lowResourceThreshold?: number;
@@ -101,7 +109,7 @@ export function evaluateBotTargets(
 
 // "autopilot" is what the server plays for an AFK player: deliberately mediocre, so engaged
 // players always do better. It never pits and never takes more than a median-distance move.
-export type BotPolicy = "autopilot" | BotLevel;
+export type BotPolicy = 'autopilot' | BotLevel;
 
 export function evaluateAutopilotTargets(
   targets: Map<string, TargetInfo>,
@@ -136,7 +144,8 @@ export function evaluateAutopilotTargets(
     }
   }
   return {
-    lowResources: car.tire <= DEFAULTS.lowResourceThreshold || car.fuel <= DEFAULTS.lowResourceThreshold,
+    lowResources:
+      car.tire <= DEFAULTS.lowResourceThreshold || car.fuel <= DEFAULTS.lowResourceThreshold,
     heuristics,
     candidates,
     selectedCellId
@@ -158,10 +167,10 @@ function seededUnit(car: Car, seed = 0, salt = 0): number {
     car.cellId,
     car.lapCount ?? 0,
     car.moveCycle.index,
-    car.moveCycle.spent.join(","),
+    car.moveCycle.spent.join(','),
     car.tire,
     car.fuel
-  ].join("|");
+  ].join('|');
   let h = 0x811c9dc5;
   for (let i = 0; i < key.length; i += 1) {
     h = Math.imul(h ^ key.charCodeAt(i), 0x01000193);
@@ -178,7 +187,9 @@ export function evaluateEasyTargets(
   cellMap?: Map<string, TrackCell>,
   plan?: BotPlanContext
 ): BotDecisionTrace {
-  const trace = evaluateBotTargets(targets, car, { lowResourceThreshold: EASY_LOW_RESOURCE_THRESHOLD });
+  const trace = evaluateBotTargets(targets, car, {
+    lowResourceThreshold: EASY_LOW_RESOURCE_THRESHOLD
+  });
   if (trace.candidates.length === 0) return trace;
   const seed = plan?.seed ?? 0;
   // Sloppy driver: follows its style only most of the time, and every score gets noise.
@@ -189,7 +200,9 @@ export function evaluateEasyTargets(
     if (follows) c.score += fieldScore(from, cellMap!.get(c.cellId), c.info, plan!, false);
     if (sloppy) c.score += (seededUnit(car, seed, i) - 0.5) * 2 * sloppy;
   });
-  const ranked = [...trace.candidates].sort((a, b) => b.score - a.score || a.cellId.localeCompare(b.cellId));
+  const ranked = [...trace.candidates].sort(
+    (a, b) => b.score - a.score || a.cellId.localeCompare(b.cellId)
+  );
   const top = ranked.slice(0, EASY_PICK_WEIGHTS.length);
   const weights = EASY_PICK_WEIGHTS.slice(0, top.length);
   let roll = seededUnit(car, seed, -2) * weights.reduce((sum, w) => sum + w, 0);
@@ -219,7 +232,9 @@ function fieldScore(
   const len = plan.spineLen;
   const gain = forwardGain(from, cell, info.distance, plan);
   let score = 0;
-  score += ((style.innerLane + extra.innerLane) * LANE_SPAN * (OUTER_MAIN_LANE - cell.laneIndex)) / (OUTER_MAIN_LANE - 1);
+  score +=
+    ((style.innerLane + extra.innerLane) * LANE_SPAN * (OUTER_MAIN_LANE - cell.laneIndex)) /
+    (OUTER_MAIN_LANE - 1);
   if (cell.laneIndex !== from.laneIndex) score += style.laneChange;
   const overtake = style.overtake + extra.overtake;
   const queue = style.queue + extra.queue;
@@ -261,7 +276,8 @@ export function evaluateNormalTargets(
   plan?: BotPlanContext
 ): BotDecisionTrace {
   const heuristics = { ...DEFAULTS };
-  const lowResources = car.tire <= heuristics.lowResourceThreshold || car.fuel <= heuristics.lowResourceThreshold;
+  const lowResources =
+    car.tire <= heuristics.lowResourceThreshold || car.fuel <= heuristics.lowResourceThreshold;
   const from = cellMap.get(car.cellId);
   const inPitLane = from?.laneIndex === PIT_LANE;
   const budget = getRemainingBudget(car.moveCycle, cycleBudget(car.setup));
@@ -269,7 +285,8 @@ export function evaluateNormalTargets(
   const finalLap = plan ? isFinalLap(car, plan) : false;
   const stopDue = plan && from && !inPitLane ? stopIsDue(car, from, plan) : false;
   const toFeeder = plan && from && !inPitLane ? cellsToFeeder(from, plan) : null;
-  const weights = plan && from && !inPitLane ? resourceWeights(car, from, plan) : { tire: 1, fuel: 1 };
+  const weights =
+    plan && from && !inPitLane ? resourceWeights(car, from, plan) : { tire: 1, fuel: 1 };
   const wear = wearPerCell(car.setup);
   const style = plan?.style ?? PERSONALITIES.balanced;
 
@@ -306,7 +323,7 @@ export function evaluateNormalTargets(
       score += lowResources || inPitLane ? NORMAL.pitBoxBonus : -heuristics.pitPenalty;
     } else if (cell && plan) {
       const tags = cell.tags ?? [];
-      if (cell.laneIndex === PIT_LANE && !inPitLane && tags.includes("PIT_ENTRY")) {
+      if (cell.laneIndex === PIT_LANE && !inPitLane && tags.includes('PIT_ENTRY')) {
         if (finalLap) score -= NORMAL.finalLapPitAvoid;
         else score += stopDue ? NORMAL.pitEntryBonus : -NORMAL.pitEntryAvoid;
       } else if (stopDue && from && cell.laneIndex !== PIT_LANE) {
@@ -347,37 +364,38 @@ export function decideBotActionWithTrace(
   targets: Map<string, TargetInfo>,
   car: Car,
   cellMap: Map<string, TrackCell>,
-  policy: BotPolicy = "normal",
+  policy: BotPolicy = 'normal',
   plan?: BotPlanContext
 ): BotDecisionResult {
   // "hard" ranks its candidates with the Normal score; the lookahead lives in raceEngine.
   const trace =
-    policy === "autopilot"
+    policy === 'autopilot'
       ? evaluateAutopilotTargets(targets, car, cellMap)
-      : policy === "easy"
+      : policy === 'easy'
         ? evaluateEasyTargets(targets, car, cellMap, plan)
         : evaluateNormalTargets(targets, car, cellMap, plan);
-  if (!trace.selectedCellId) return { action: { type: "skip" }, trace };
+  if (!trace.selectedCellId) return { action: { type: 'skip' }, trace };
   const selected = trace.candidates.find((candidate) => candidate.cellId === trace.selectedCellId);
-  if (!selected) return { action: { type: "skip" }, trace };
+  if (!selected) return { action: { type: 'skip' }, trace };
 
   const targetCell = cellMap.get(selected.cellId);
-  if (!targetCell) return { action: { type: "skip" }, trace };
+  if (!targetCell) return { action: { type: 'skip' }, trace };
   if (selected.info.isPitTrigger && shouldOpenPitModal(car, targetCell)) {
-    return { action: { type: "pit", target: targetCell, info: selected.info }, trace };
+    return { action: { type: 'pit', target: targetCell, info: selected.info }, trace };
   }
   const fromCell = cellMap.get(car.cellId);
-  if (!fromCell) return { action: { type: "skip" }, trace };
-  const moveSpend = selected.info.moveSpend
-    ?? computeMoveSpend(selected.info.distance, fromCell.laneIndex, targetCell.laneIndex);
-  return { action: { type: "move", target: targetCell, info: selected.info, moveSpend }, trace };
+  if (!fromCell) return { action: { type: 'skip' }, trace };
+  const moveSpend =
+    selected.info.moveSpend ??
+    computeMoveSpend(selected.info.distance, fromCell.laneIndex, targetCell.laneIndex);
+  return { action: { type: 'move', target: targetCell, info: selected.info, moveSpend }, trace };
 }
 
 export function decideBotAction(
   targets: Map<string, TargetInfo>,
   car: Car,
   cellMap: Map<string, TrackCell>,
-  policy: BotPolicy = "normal",
+  policy: BotPolicy = 'normal',
   plan?: BotPlanContext
 ): BotAction {
   return decideBotActionWithTrace(targets, car, cellMap, policy, plan).action;

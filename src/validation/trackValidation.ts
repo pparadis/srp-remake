@@ -1,12 +1,12 @@
-import type { TrackData } from "../game/types/track";
-import { MAIN_LANES, PIT_LANE } from "../game/constants";
+import type { TrackData } from '../game/types/track';
+import { MAIN_LANES, PIT_LANE } from '../game/constants';
 
 export function validateTrack(track: TrackData): string[] {
   const errors: string[] = [];
   const cells = track.cells ?? [];
-  const byId = new Map<string, typeof cells[number]>();
+  const byId = new Map<string, (typeof cells)[number]>();
   const byLane = new Map<number, typeof cells>();
-  const byZoneLane = new Map<string, typeof cells[number]>();
+  const byZoneLane = new Map<string, (typeof cells)[number]>();
 
   for (const cell of cells) {
     if (byId.has(cell.id)) errors.push(`duplicate cell id: ${cell.id}`);
@@ -43,7 +43,9 @@ export function validateTrack(track: TrackData): string[] {
     for (let i = 0; i < zones.length; i += 1) {
       const expected = base + i;
       if (zones[i] !== expected) {
-        errors.push(`lane ${lane} zone indices not contiguous: expected ${expected}, got ${zones[i]}`);
+        errors.push(
+          `lane ${lane} zone indices not contiguous: expected ${expected}, got ${zones[i]}`
+        );
         break;
       }
     }
@@ -53,9 +55,9 @@ export function validateTrack(track: TrackData): string[] {
   const spineLane = 1;
   const spineCells = byLane.get(spineLane) ?? [];
   if (spineCells.length === 0) {
-    errors.push("spine lane 1 has no cells");
+    errors.push('spine lane 1 has no cells');
   } else {
-    const spineStarts = spineCells.filter((c) => (c.tags ?? []).includes("START_FINISH"));
+    const spineStarts = spineCells.filter((c) => (c.tags ?? []).includes('START_FINISH'));
     if (spineStarts.length !== 1) {
       errors.push(`spine lane must have exactly 1 START_FINISH, got ${spineStarts.length}`);
     }
@@ -69,40 +71,44 @@ export function validateTrack(track: TrackData): string[] {
     const spineMax = spineCells.length - 1;
     for (const cell of cells) {
       if (cell.forwardIndex < 0 || cell.forwardIndex > spineMax) {
-        errors.push(`forwardIndex ${cell.forwardIndex} out of spine range 0..${spineMax} on ${cell.id}`);
+        errors.push(
+          `forwardIndex ${cell.forwardIndex} out of spine range 0..${spineMax} on ${cell.id}`
+        );
       }
     }
   }
 
   // Pit invariants.
-  const pitEntry = cells.filter((c) => (c.tags ?? []).includes("PIT_ENTRY"));
-  const pitExit = cells.filter((c) => (c.tags ?? []).includes("PIT_EXIT"));
+  const pitEntry = cells.filter((c) => (c.tags ?? []).includes('PIT_ENTRY'));
+  const pitExit = cells.filter((c) => (c.tags ?? []).includes('PIT_EXIT'));
   if (pitEntry.length !== 1) errors.push(`expected 1 PIT_ENTRY, got ${pitEntry.length}`);
   if (pitExit.length !== 1) errors.push(`expected 1 PIT_EXIT, got ${pitExit.length}`);
   for (const c of pitEntry) {
     if (c.laneIndex !== PIT_LANE) errors.push(`PIT_ENTRY must be in lane ${PIT_LANE}: ${c.id}`);
   }
-  const pitLine = cells.filter((c) => (c.tags ?? []).includes("PIT_LINE"));
+  const pitLine = cells.filter((c) => (c.tags ?? []).includes('PIT_LINE'));
   if (pitLine.length !== 1) errors.push(`expected 1 PIT_LINE, got ${pitLine.length}`);
   for (const c of pitLine) {
     if (c.laneIndex !== PIT_LANE) errors.push(`PIT_LINE must be in lane ${PIT_LANE}: ${c.id}`);
     // A car must be able to come from a cell before the line, so it cannot be the entry itself.
-    if ((c.tags ?? []).includes("PIT_ENTRY")) errors.push(`PIT_LINE cannot be the PIT_ENTRY cell: ${c.id}`);
+    if ((c.tags ?? []).includes('PIT_ENTRY')) {
+      errors.push(`PIT_LINE cannot be the PIT_ENTRY cell: ${c.id}`);
+    }
   }
   for (const c of pitExit) {
     if (c.laneIndex !== PIT_LANE) errors.push(`PIT_EXIT must be in lane ${PIT_LANE}: ${c.id}`);
   }
   for (const c of cells) {
-    if ((c.tags ?? []).includes("PIT_BOX") && c.laneIndex !== PIT_LANE) {
+    if ((c.tags ?? []).includes('PIT_BOX') && c.laneIndex !== PIT_LANE) {
       errors.push(`PIT_BOX must be in lane ${PIT_LANE}: ${c.id}`);
     }
   }
 
   // Spine lane forwardIndex monotonicity along next[].
   if (spineCells.length > 0) {
-    const start = spineCells.find((c) => (c.tags ?? []).includes("START_FINISH")) ?? spineCells[0];
+    const start = spineCells.find((c) => (c.tags ?? []).includes('START_FINISH')) ?? spineCells[0];
     const visited = new Set<string>();
-    let current: typeof cells[number] | undefined = start;
+    let current: (typeof cells)[number] | undefined = start;
     let steps = 0;
     const expectedNext = (v: number, max: number) => (v + 1 > max ? 0 : v + 1);
     const spineMax = spineCells.length - 1;
@@ -114,7 +120,9 @@ export function validateTrack(track: TrackData): string[] {
       if (!nextSame) break;
       const expected = expectedNext(current.forwardIndex, spineMax);
       if (nextSame.forwardIndex !== expected) {
-        errors.push(`spine forwardIndex jump ${current.id} -> ${nextSame.id} expected ${expected}, got ${nextSame.forwardIndex}`);
+        errors.push(
+          `spine forwardIndex jump ${current.id} -> ${nextSame.id} expected ${expected}, got ${nextSame.forwardIndex}`
+        );
         break;
       }
       current = nextSame;
@@ -148,7 +156,7 @@ export function validateTrack(track: TrackData): string[] {
       current = nextPit;
     }
     if (current !== exitId) {
-      errors.push("pit chain does not reach PIT_EXIT from PIT_ENTRY");
+      errors.push('pit chain does not reach PIT_EXIT from PIT_ENTRY');
     } else if (steps !== pitCells.length) {
       errors.push(`pit lane length mismatch: chain has ${steps}, pit lane has ${pitCells.length}`);
     }

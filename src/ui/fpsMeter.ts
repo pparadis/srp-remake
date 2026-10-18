@@ -18,7 +18,7 @@ export interface MeteredGame {
 
 // Phaser.Core.Events.POST_RENDER: emitted after each frame the game draws. Counting it (not requestAnimationFrame)
 // shows what the game itself draws, so a frame-rate cap shows up here.
-const POST_RENDER = "postrender";
+const POST_RENDER = 'postrender';
 
 export function fpsText(stats: FpsStats): string {
   return `fps ${stats.fps} \u00b7 worst frame ${stats.worstMs} ms`;
@@ -48,7 +48,10 @@ export function startFpsMeter(
     const t = now();
     // a second without a single frame is a stall: say how long it has been, not 0
     if (frames === 0 && last !== null) worst = t - last;
-    onUpdate({ fps: Math.round((frames * 1000) / Math.max(1, t - windowStart)), worstMs: Math.round(worst) });
+    onUpdate({
+      fps: Math.round((frames * 1000) / Math.max(1, t - windowStart)),
+      worstMs: Math.round(worst)
+    });
     frames = 0;
     worst = 0;
     windowStart = t;

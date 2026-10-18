@@ -1,6 +1,12 @@
-import type Phaser from "phaser";
-import { textResolution } from "../../hidpi";
-import { bakeFactor, ringTexture, SELECTED_RING, targetLayers, type TargetRing } from "../rendering/bakedTextures";
+import type Phaser from 'phaser';
+import { textResolution } from '../../hidpi';
+import {
+  bakeFactor,
+  ringTexture,
+  SELECTED_RING,
+  targetLayers,
+  type TargetRing
+} from '../rendering/bakedTextures';
 
 export interface TargetMarker {
   x: number;
@@ -28,19 +34,21 @@ export class TargetMarkers {
   /** Shows `markers` (and the picked target's ring, if any); whatever was shown before is hidden or reused. */
   show(markers: readonly TargetMarker[], selected: { x: number; y: number } | null): void {
     markers.forEach((m, i) => {
-      const ring = (this.rings[i] ??= this.scene.add.image(0, 0, "__DEFAULT").setScale(1 / bakeFactor()));
+      const ring = (this.rings[i] ??= this.scene.add
+        .image(0, 0, '__DEFAULT')
+        .setScale(1 / bakeFactor()));
       const key = ringTexture(this.scene, targetLayers(m.ring));
       if (ring.texture.key !== key) ring.setTexture(key);
       ring.setPosition(m.x, m.y).setVisible(true);
 
       const cost = (this.costs[i] ??= this.scene.add
-        .text(0, 0, "", {
-          fontFamily: "monospace",
+        .text(0, 0, '', {
+          fontFamily: 'monospace',
           resolution: textResolution(),
-          fontSize: "11px",
-          color: "#ffffff",
-          fontStyle: "bold",
-          stroke: "#0b0f14",
+          fontSize: '11px',
+          color: '#ffffff',
+          fontStyle: 'bold',
+          stroke: '#0b0f14',
           strokeThickness: 3
         })
         .setOrigin(0.5, 0.5)
@@ -54,7 +62,10 @@ export class TargetMarkers {
     }
     if (selected) {
       // above the other rings, under the trails (depth 4)
-      this.selected ??= this.scene.add.image(0, 0, ringTexture(this.scene, SELECTED_RING)).setScale(1 / bakeFactor()).setDepth(1);
+      this.selected ??= this.scene.add
+        .image(0, 0, ringTexture(this.scene, SELECTED_RING))
+        .setScale(1 / bakeFactor())
+        .setDepth(1);
       this.selected.setPosition(selected.x, selected.y).setVisible(true);
     } else this.selected?.setVisible(false);
   }

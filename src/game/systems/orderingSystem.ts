@@ -1,7 +1,7 @@
-import type { Car } from "../types/car";
-import type { TrackCell, TrackData } from "../types/track";
-import { buildLaneSequence } from "./laneSequence";
-import { lane1FwdByZoneOf, rankPosition, trackFwd, type TrackIndex } from "./trackIndex";
+import type { Car } from '../types/car';
+import type { TrackCell, TrackData } from '../types/track';
+import { buildLaneSequence } from './laneSequence';
+import { lane1FwdByZoneOf, rankPosition, trackFwd, type TrackIndex } from './trackIndex';
 
 interface CarSortKey {
   lapCount: number;
@@ -31,7 +31,9 @@ export function computeCarSortKey(
   const cell = cellMap.get(car.cellId);
   const progressIndex =
     progressMap?.get(car.cellId) ??
-    (trackIndex && cell ? rankPosition(trackIndex, cell) : getCellForwardIndex(car.cellId, cellMap));
+    (trackIndex && cell
+      ? rankPosition(trackIndex, cell)
+      : getCellForwardIndex(car.cellId, cellMap));
   const lapCount = car.lapCount ?? 0;
   return { lapCount, progressIndex, carId: car.carId };
 }
@@ -44,7 +46,8 @@ export function sortCarsByProgress(
   const turnOrderRank = new Map<number, number>();
   const turnOrder = options.turnOrder ?? [];
   if (turnOrder.length > 0) {
-    const start = ((options.turnIndex ?? 0) % turnOrder.length + turnOrder.length) % turnOrder.length;
+    const start =
+      (((options.turnIndex ?? 0) % turnOrder.length) + turnOrder.length) % turnOrder.length;
     for (let i = 0; i < turnOrder.length; i += 1) {
       const carId = turnOrder[(start + i) % turnOrder.length];
       if (carId != null) turnOrderRank.set(carId, i);
@@ -74,9 +77,10 @@ export function sortCarsByProgress(
 export function buildProgressMap(track: TrackData, spineLane = 1): Map<string, number> {
   const byId = new Map(track.cells.map((c) => [c.id, c]));
   const spineSeq = buildLaneSequence(track.cells, byId, spineLane);
-  const spineLen = spineSeq.length > 0
-    ? spineSeq.length
-    : Math.max(1, Math.max(...track.cells.map((c) => c.forwardIndex)) + 1);
+  const spineLen =
+    spineSeq.length > 0
+      ? spineSeq.length
+      : Math.max(1, Math.max(...track.cells.map((c) => c.forwardIndex)) + 1);
 
   const progressMap = new Map<string, number>();
   const laneIndices = new Set(track.cells.map((c) => c.laneIndex));

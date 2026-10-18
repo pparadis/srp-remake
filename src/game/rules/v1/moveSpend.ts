@@ -1,5 +1,5 @@
 // Frozen: v1's move spend, copied from a97293a (src/game/systems/moveBudgetSystem.ts). Never edit (#118).
-import { PIT_LANE } from "../../constants";
+import { PIT_LANE } from '../../constants';
 
 function isMainLane(laneIndex: number) {
   return laneIndex !== PIT_LANE;
@@ -12,11 +12,12 @@ export function computeMoveSpend(
   targetForwardDelta = distance
 ) {
   if (targetLaneIndex === PIT_LANE) return 1;
-  const laneChangeSurcharge = (
+  const laneChangeSurcharge =
     isMainLane(startLaneIndex) &&
     isMainLane(targetLaneIndex) &&
     startLaneIndex !== targetLaneIndex &&
     targetForwardDelta >= distance
-  ) ? 1 : 0;
+      ? 1
+      : 0;
   return distance + laneChangeSurcharge;
 }

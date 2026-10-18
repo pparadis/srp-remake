@@ -1,17 +1,17 @@
-import type { RaceAction, RejectReason } from "../game/race/raceEngine";
-import type { BotLevel, Car } from "../game/types/car";
+import type { RaceAction, RejectReason } from '../game/race/raceEngine';
+import type { BotLevel, Car } from '../game/types/car';
 
 // What a client submits for its turn; identical to the race engine's action.
 export type BackendTurnAction = RaceAction;
 
 // A turn as announced to everyone (the pit setup is not needed to render a log line).
 export interface AppliedTurnSummary {
-  type: "move" | "pit" | "skip" | "setup";
+  type: 'move' | 'pit' | 'skip' | 'setup';
   targetCellId?: string;
 }
 
 // Who decided a turn: absent for a human, "bot", or the server stepping in for a stuck player.
-export type TurnSource = "bot" | "timeout" | "force_skip";
+export type TurnSource = 'bot' | 'timeout' | 'force_skip';
 
 // Seconds a human seat has per turn before the server plays it (0 = no limit).
 export type TurnTimerSec = 0 | 30 | 60 | 120;
@@ -49,12 +49,12 @@ export interface ChatMessage {
 
 export interface PublicLobby {
   lobbyId: string;
-  status: "WAITING" | "IN_RACE" | "FINISHED";
+  status: 'WAITING' | 'IN_RACE' | 'FINISHED';
   hostPlayerId: string;
   createdAt: number;
   updatedAt: number;
   revision: number;
-  terminationReason?: "host_disconnected" | "race_finished";
+  terminationReason?: 'host_disconnected' | 'race_finished';
   settings: {
     trackId: string;
     totalCars: number;
@@ -111,7 +111,7 @@ type SubmitTurnResponse =
       playerId: string;
       clientCommandId: string;
       revision: number;
-      error: "stale_revision" | "lobby_not_in_race" | "not_active_player" | "invalid_action";
+      error: 'stale_revision' | 'lobby_not_in_race' | 'not_active_player' | 'invalid_action';
       // Why the race engine refused an `invalid_action`.
       reason?: RejectReason;
     };
@@ -129,15 +129,15 @@ export class BackendApiError extends Error {
 
 function isTurnRejection(payload: unknown): payload is SubmitTurnResponse {
   return (
-    typeof payload === "object" &&
+    typeof payload === 'object' &&
     payload !== null &&
     (payload as { ok?: unknown }).ok === false &&
-    typeof (payload as { error?: unknown }).error === "string"
+    typeof (payload as { error?: unknown }).error === 'string'
   );
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, "");
+  return baseUrl.replace(/\/+$/, '');
 }
 
 // A sleeping free-plan server needs about a minute for its first response.
@@ -155,7 +155,7 @@ export class BackendApiClient {
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const init: { method: string; headers?: Record<string, string>; body?: string } = { method };
     if (body !== undefined) {
-      init.headers = { "Content-Type": "application/json" };
+      init.headers = { 'Content-Type': 'application/json' };
       init.body = JSON.stringify(body);
     }
     const controller = new AbortController();
@@ -182,26 +182,26 @@ export class BackendApiClient {
     return payload as T;
   }
 
-  createLobby(name: string, settings: PublicLobby["settings"]): Promise<CreateLobbyResponse> {
-    return this.request("POST", "/api/v1/lobbies", { name, settings });
+  createLobby(name: string, settings: PublicLobby['settings']): Promise<CreateLobbyResponse> {
+    return this.request('POST', '/api/v1/lobbies', { name, settings });
   }
 
   joinLobby(lobbyId: string, name: string, playerToken?: string): Promise<JoinLobbyResponse> {
-    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/join`, {
+    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/join`, {
       name,
       ...(playerToken ? { playerToken } : {})
     });
   }
 
   startRace(lobbyId: string, playerToken: string): Promise<StartRaceResponse> {
-    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/start`, {
+    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/start`, {
       playerToken
     });
   }
 
   // Host only: a finished (not closed) lobby goes back to WAITING.
   resetLobby(lobbyId: string, playerToken: string): Promise<StartRaceResponse> {
-    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/reset`, {
+    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/reset`, {
       playerToken
     });
   }
@@ -209,9 +209,9 @@ export class BackendApiClient {
   updateSettings(
     lobbyId: string,
     playerToken: string,
-    settings: Partial<PublicLobby["settings"]>
+    settings: Partial<PublicLobby['settings']>
   ): Promise<StartRaceResponse> {
-    return this.request("PATCH", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/settings`, {
+    return this.request('PATCH', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/settings`, {
       playerToken,
       settings
     });
@@ -219,12 +219,12 @@ export class BackendApiClient {
 
   readLobby(lobbyId: string, playerToken: string): Promise<ReadLobbyResponse> {
     const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}?playerToken=${encodeURIComponent(playerToken)}`;
-    return this.request("GET", path);
+    return this.request('GET', path);
   }
 
   // Host only: the server plays one autopilot turn for the stuck human seat.
   forceSkip(lobbyId: string, playerToken: string, revision?: number): Promise<StartRaceResponse> {
-    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/force-skip`, {
+    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/force-skip`, {
       playerToken,
       ...(revision !== undefined ? { revision } : {})
     });
@@ -232,12 +232,15 @@ export class BackendApiClient {
 
   // The server applies the same rule as `normalizeChatText`; a 400 says the text was refused, a 429 to wait a second.
   sendChat(lobbyId: string, playerToken: string, text: string): Promise<{ message: ChatMessage }> {
-    return this.request("POST", `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/chat`, { playerToken, text });
+    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/chat`, {
+      playerToken,
+      text
+    });
   }
 
   // Cheap request that wakes a sleeping server; `sha` is the commit it runs (absent on an older server).
   health(): Promise<{ ok: boolean; lobbies?: number; sha?: string }> {
-    return this.request("GET", "/health");
+    return this.request('GET', '/health');
   }
 
   // A refused turn is a 409 whose body says why; hand that back instead of throwing.
@@ -250,12 +253,16 @@ export class BackendApiClient {
   ): Promise<SubmitTurnResponse> {
     try {
       return await this.request<SubmitTurnResponse>(
-        "POST",
+        'POST',
         `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/turns`,
         { playerToken, revision, clientCommandId, action }
       );
     } catch (error) {
-      if (error instanceof BackendApiError && error.status === 409 && isTurnRejection(error.payload)) {
+      if (
+        error instanceof BackendApiError &&
+        error.status === 409 &&
+        isTurnRejection(error.payload)
+      ) {
         return error.payload;
       }
       throw error;
@@ -265,7 +272,7 @@ export class BackendApiClient {
 
 export function resolveBackendBaseUrl(): string {
   const configured = import.meta.env.VITE_BACKEND_API_BASE_URL?.trim();
-  return configured && configured.length > 0 ? configured : "http://localhost:3001";
+  return configured && configured.length > 0 ? configured : 'http://localhost:3001';
 }
 
 export function resolveBackendWsBaseUrl(apiBaseUrl: string): string {
@@ -274,6 +281,6 @@ export function resolveBackendWsBaseUrl(apiBaseUrl: string): string {
     return normalizeBaseUrl(configured);
   }
   const parsed = new URL(apiBaseUrl);
-  parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
+  parsed.protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
   return normalizeBaseUrl(parsed.toString());
 }

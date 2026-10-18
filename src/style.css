@@ -25,8 +25,8 @@ body {
   position: relative;
 }
 
-body[data-screen="home"] #screen-home,
-body[data-screen="lobby"] #screen-lobby {
+body[data-screen='home'] #screen-home,
+body[data-screen='lobby'] #screen-lobby {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,12 +36,12 @@ body[data-screen="lobby"] #screen-lobby {
 }
 
 /* the lobby card can be taller than a landscape phone: scroll it, and "safe" keeps its top reachable */
-body[data-screen="lobby"] #screen-lobby {
+body[data-screen='lobby'] #screen-lobby {
   overflow-y: auto;
   align-items: safe center;
 }
 
-body[data-screen="race"] #screen-race {
+body[data-screen='race'] #screen-race {
   display: flex;
 }
 
@@ -54,7 +54,7 @@ body[data-screen="race"] #screen-race {
   /* The grass behind the (transparent) canvas: the browser tiles it for free. The game used to draw it as a
      4000x3000 tileSprite every frame, which took Firefox down to 9 fps (issue #79). The colour shows until the image
      loads. */
-  background: #27ae60 url("/assets/kenney/grass.png") repeat;
+  background: #27ae60 url('/assets/kenney/grass.png') repeat;
 }
 
 button {
@@ -93,7 +93,7 @@ button {
   align-items: end;
 }
 
-.row > input[type="text"] {
+.row > input[type='text'] {
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -120,7 +120,7 @@ button {
   box-sizing: border-box;
 }
 
-.card input[type="number"] {
+.card input[type='number'] {
   width: 8ch;
 }
 
@@ -235,8 +235,8 @@ button {
 /* On a narrow screen (a phone) the status line and the version sit below the home and lobby screens, not over
    them: the screen scrolls inside the space above them, so they never cover the page. */
 @media (max-width: 700px) {
-  body:not([data-screen="race"]) #statusLine,
-  body:not([data-screen="race"]) .version {
+  body:not([data-screen='race']) #statusLine,
+  body:not([data-screen='race']) .version {
     position: static;
     flex: none;
     align-self: flex-end;
@@ -245,19 +245,19 @@ button {
     text-align: right;
   }
 
-  body:not([data-screen="race"]) #statusLine {
+  body:not([data-screen='race']) #statusLine {
     align-self: flex-start;
   }
 }
 
 /* The race screen has its own HUD; the status line would sit on the canvas buttons. */
-body[data-screen="race"] #statusLine {
+body[data-screen='race'] #statusLine {
   display: none;
 }
 
 /* No version in a race: it sat over the board (on a phone, over the bottom kerb). It shows on the home and lobby
    screens, which is where a home-screen app running an older copy than the browser is noticed. */
-body[data-screen="race"] .version {
+body[data-screen='race'] .version {
   display: none;
 }
 
@@ -716,7 +716,7 @@ body[data-screen="race"] .version {
 }
 
 .chat-name::after {
-  content: ":";
+  content: ':';
 }
 
 .chat .chat-mute,
@@ -1167,7 +1167,7 @@ body[data-screen="race"] .version {
 
 /* ---- Home page: hero, pitch, call to action ---- */
 
-body[data-screen="home"] #screen-home {
+body[data-screen='home'] #screen-home {
   overflow-y: auto;
   align-items: flex-start;
 }
@@ -1178,9 +1178,9 @@ body[data-screen="home"] #screen-home {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   grid-template-areas:
-    "head  cta"
-    "track cta"
-    "pitch steps";
+    'head  cta'
+    'track cta'
+    'pitch steps';
   gap: 20px 32px;
   align-items: start;
 }
@@ -1343,11 +1343,11 @@ body[data-screen="home"] #screen-home {
   #screen-home .home {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "head"
-      "cta"
-      "track"
-      "pitch"
-      "steps";
+      'head'
+      'cta'
+      'track'
+      'pitch'
+      'steps';
     gap: 16px;
   }
 

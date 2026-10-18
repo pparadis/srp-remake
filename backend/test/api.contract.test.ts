@@ -1,15 +1,15 @@
-import assert from "node:assert/strict";
-import test from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
-import type { BackendConfig } from "../src/config.js";
-import { createApp } from "../src/server.js";
-import type { RaceState } from "../src/types.js";
-import { legalMove } from "./helpers.js";
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
+import type { BackendConfig } from '../src/config.js';
+import { createApp } from '../src/server.js';
+import type { RaceState } from '../src/types.js';
+import { legalMove } from './helpers.js';
 
 const TEST_CONFIG: BackendConfig = {
-  HOST: "127.0.0.1",
+  HOST: '127.0.0.1',
   PORT: 3001,
-  CORS_ALLOWED_ORIGINS: "*",
+  CORS_ALLOWED_ORIGINS: '*',
   PLAYER_TOKEN_TTL_SECONDS: 86400
 };
 
@@ -21,8 +21,8 @@ async function createTestApp() {
 
 function wsBaseUrl(app: Awaited<ReturnType<typeof createTestApp>>): string {
   const address = app.server.address();
-  if (!address || typeof address === "string") {
-    throw new Error("Server is not listening on a TCP address.");
+  if (!address || typeof address === 'string') {
+    throw new Error('Server is not listening on a TCP address.');
   }
   return `ws://127.0.0.1:${address.port}`;
 }
@@ -33,66 +33,66 @@ async function waitForWsClose(
 ): Promise<{ code: number; reason: string }> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new Error("Timed out waiting for websocket close.")),
+      () => reject(new Error('Timed out waiting for websocket close.')),
       timeoutMs
     );
-    ws.addEventListener("close", (event) => {
+    ws.addEventListener('close', (event) => {
       clearTimeout(timer);
       resolve({ code: event.code, reason: event.reason });
     });
-    ws.addEventListener("error", () => {
+    ws.addEventListener('error', () => {
       // Close event captures the actionable contract details.
     });
   });
 }
 
-test("uses REST-style v1 endpoints (RPC dot endpoint is not exposed)", async (t) => {
+test('uses REST-style v1 endpoints (RPC dot endpoint is not exposed)', async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
 
   const res = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobby.create",
-    payload: { name: "Host" }
+    method: 'POST',
+    url: '/api/v1/lobby.create',
+    payload: { name: 'Host' }
   });
 
   assert.equal(res.statusCode, 404);
 });
 
-test("supports CORS preflight on v1 endpoints", async (t) => {
+test('supports CORS preflight on v1 endpoints', async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
 
   const res = await app.inject({
-    method: "OPTIONS",
-    url: "/api/v1/lobbies",
+    method: 'OPTIONS',
+    url: '/api/v1/lobbies',
     headers: {
-      origin: "http://localhost:5173",
-      "access-control-request-method": "POST",
-      "access-control-request-headers": "content-type"
+      origin: 'http://localhost:5173',
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'content-type'
     }
   });
 
   assert.equal(res.statusCode, 204);
-  assert.equal(res.headers["access-control-allow-origin"], "*");
-  assert.match(String(res.headers["access-control-allow-methods"] ?? ""), /POST/);
+  assert.equal(res.headers['access-control-allow-origin'], '*');
+  assert.match(String(res.headers['access-control-allow-methods'] ?? ''), /POST/);
 });
 
-test("runs bot turns on backend", async (t) => {
+test('runs bot turns on backend', async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
+    method: 'POST',
+    url: '/api/v1/lobbies',
     payload: {
-      name: "Host",
+      name: 'Host',
       settings: {
         totalCars: 3,
         humanCars: 1,
@@ -108,7 +108,7 @@ test("runs bot turns on backend", async (t) => {
   };
 
   const startRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
     payload: { playerToken: createdBody.playerToken }
   });
@@ -117,11 +117,11 @@ test("runs bot turns on backend", async (t) => {
   const hostMove = legalMove(startState);
 
   const turnRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
     payload: {
       playerToken: createdBody.playerToken,
-      clientCommandId: "host-turn-with-bots",
+      clientCommandId: 'host-turn-with-bots',
       revision: 0,
       action: hostMove
     }
@@ -132,7 +132,7 @@ test("runs bot turns on backend", async (t) => {
   assert.equal(turnBody.revision, 1);
 
   const readRes = await app.inject({
-    method: "GET",
+    method: 'GET',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(createdBody.playerToken)}`
   });
   assert.equal(readRes.statusCode, 200);
@@ -147,7 +147,7 @@ test("runs bot turns on backend", async (t) => {
   assert.equal(raceState.turnIndex, 3);
   assert.equal(raceState.activeSeatIndex, 0);
   // The host's move was validated and applied, and both bots drove for real.
-  assert.equal(raceState.cars[0]?.cellId, hostMove.type === "move" ? hostMove.targetCellId : "");
+  assert.equal(raceState.cars[0]?.cellId, hostMove.type === 'move' ? hostMove.targetCellId : '');
   for (const seat of [0, 1, 2]) {
     assert.notEqual(raceState.cars[seat]?.cellId, startState.cars[seat]?.cellId);
     // A one-cell move on hard tires rounds to no wear, so only the bots (which move far) are checked for it.
@@ -155,16 +155,16 @@ test("runs bot turns on backend", async (t) => {
   }
 });
 
-test("supports lobby create, settings patch, and join contracts", async (t) => {
+test('supports lobby create, settings patch, and join contracts', async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: { name: 'Host' }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
@@ -173,7 +173,7 @@ test("supports lobby create, settings patch, and join contracts", async (t) => {
   };
 
   const settingsRes = await app.inject({
-    method: "PATCH",
+    method: 'PATCH',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/settings`,
     payload: {
       playerToken: createdBody.playerToken,
@@ -197,17 +197,17 @@ test("supports lobby create, settings patch, and join contracts", async (t) => {
       };
     };
   };
-  assert.equal(settingsBody.lobby.settings.trackId, "oval16_3lanes");
+  assert.equal(settingsBody.lobby.settings.trackId, 'oval16_3lanes');
   assert.equal(settingsBody.lobby.settings.totalCars, 4);
   assert.equal(settingsBody.lobby.settings.humanCars, 2);
   assert.equal(settingsBody.lobby.settings.botCars, 2);
   assert.equal(settingsBody.lobby.settings.raceLaps, 7);
 
   const joinRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
     payload: {
-      name: "Player 2"
+      name: 'Player 2'
     }
   });
   assert.equal(joinRes.statusCode, 200);
@@ -219,16 +219,16 @@ test("supports lobby create, settings patch, and join contracts", async (t) => {
   assert.equal(joinBody.lobby.players.length, 2);
 });
 
-test("supports authenticated lobby read contract", async (t) => {
+test('supports authenticated lobby read contract', async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: { name: 'Host' }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
@@ -238,7 +238,7 @@ test("supports authenticated lobby read contract", async (t) => {
   };
 
   const readRes = await app.inject({
-    method: "GET",
+    method: 'GET',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(createdBody.playerToken)}`
   });
   assert.equal(readRes.statusCode, 200);
@@ -251,22 +251,22 @@ test("supports authenticated lobby read contract", async (t) => {
   assert.equal(readBody.lobby.raceState, undefined);
 
   const badTokenRes = await app.inject({
-    method: "GET",
+    method: 'GET',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=invalid`
   });
   assert.equal(badTokenRes.statusCode, 401);
 });
 
-test("builds and exposes authoritative race state on start/reconnect", async (t) => {
+test('builds and exposes authoritative race state on start/reconnect', async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: { name: 'Host' }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
@@ -276,7 +276,7 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   };
 
   const settingsRes = await app.inject({
-    method: "PATCH",
+    method: 'PATCH',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/settings`,
     payload: {
       playerToken: createdBody.playerToken,
@@ -291,9 +291,9 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   assert.equal(settingsRes.statusCode, 200);
 
   const joinRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
-    payload: { name: "Guest" }
+    payload: { name: 'Guest' }
   });
   assert.equal(joinRes.statusCode, 200);
   const joinBody = joinRes.json() as {
@@ -302,7 +302,7 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   };
 
   const startRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
     payload: { playerToken: createdBody.playerToken }
   });
@@ -315,11 +315,11 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
         turnIndex: number;
         activeSeatIndex: number;
         winnerCarId: number | null;
-        cars: RaceState["cars"];
+        cars: RaceState['cars'];
       };
     };
   };
-  assert.equal(startBody.lobby.raceState.trackId, "oval16_3lanes");
+  assert.equal(startBody.lobby.raceState.trackId, 'oval16_3lanes');
   assert.equal(startBody.lobby.raceState.raceLaps, 7);
   assert.equal(startBody.lobby.raceState.turnIndex, 0);
   assert.equal(startBody.lobby.raceState.activeSeatIndex, 0);
@@ -327,19 +327,39 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   assert.equal(startBody.lobby.raceState.winnerCarId, null);
   const [hostCar, guestCar] = startBody.lobby.raceState.cars;
   assert.deepEqual(
-    [hostCar?.carId, hostCar?.seatIndex, hostCar?.playerId, hostCar?.name, hostCar?.isBot, hostCar?.lapCount],
-    [1, 0, createdBody.playerId, "Host", false, 0]
+    [
+      hostCar?.carId,
+      hostCar?.seatIndex,
+      hostCar?.playerId,
+      hostCar?.name,
+      hostCar?.isBot,
+      hostCar?.lapCount
+    ],
+    [1, 0, createdBody.playerId, 'Host', false, 0]
   );
   assert.deepEqual(
-    [guestCar?.carId, guestCar?.seatIndex, guestCar?.playerId, guestCar?.name, guestCar?.isBot, guestCar?.lapCount],
-    [2, 1, joinBody.playerId, "Guest", false, 0]
+    [
+      guestCar?.carId,
+      guestCar?.seatIndex,
+      guestCar?.playerId,
+      guestCar?.name,
+      guestCar?.isBot,
+      guestCar?.lapCount
+    ],
+    [2, 1, joinBody.playerId, 'Guest', false, 0]
   );
   // Full car state for rendering: fresh tires/fuel, on the grid, nothing spent.
   assert.deepEqual(
-    [hostCar?.tire, hostCar?.fuel, hostCar?.state, hostCar?.pitServiced, hostCar?.pitTurnsRemaining],
-    [100, 100, "ACTIVE", false, 0]
+    [
+      hostCar?.tire,
+      hostCar?.fuel,
+      hostCar?.state,
+      hostCar?.pitServiced,
+      hostCar?.pitTurnsRemaining
+    ],
+    [100, 100, 'ACTIVE', false, 0]
   );
-  assert.equal(hostCar?.cellId, "Z01_L1_00");
+  assert.equal(hostCar?.cellId, 'Z01_L1_00');
   assert.deepEqual(hostCar?.moveCycle, { index: 0, spent: [0, 0, 0, 0, 0] });
   assert.equal(startBody.lobby.raceState.cars[2]?.isBot, true);
   assert.equal(startBody.lobby.raceState.cars[2]?.playerId, null);
@@ -347,7 +367,7 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   assert.equal(startBody.lobby.raceState.cars[3]?.playerId, null);
 
   const readRes = await app.inject({
-    method: "GET",
+    method: 'GET',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(joinBody.playerToken)}`
   });
   assert.equal(readRes.statusCode, 200);
@@ -355,7 +375,7 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   assert.ok(readBody.lobby.raceState);
 
   const reconnectRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
     payload: {
       playerToken: joinBody.playerToken
@@ -370,16 +390,16 @@ test("builds and exposes authoritative race state on start/reconnect", async (t)
   assert.ok(reconnectBody.lobby.raceState);
 });
 
-test("enforces active turn ownership and applies validated moves to the authoritative race state", async (t) => {
+test('enforces active turn ownership and applies validated moves to the authoritative race state', async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: { name: 'Host' }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
@@ -389,7 +409,7 @@ test("enforces active turn ownership and applies validated moves to the authorit
   };
 
   const settingsRes = await app.inject({
-    method: "PATCH",
+    method: 'PATCH',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/settings`,
     payload: {
       playerToken: createdBody.playerToken,
@@ -404,9 +424,9 @@ test("enforces active turn ownership and applies validated moves to the authorit
   assert.equal(settingsRes.statusCode, 200);
 
   const joinRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
-    payload: { name: "Guest" }
+    payload: { name: 'Guest' }
   });
   assert.equal(joinRes.statusCode, 200);
   const joinBody = joinRes.json() as {
@@ -415,7 +435,7 @@ test("enforces active turn ownership and applies validated moves to the authorit
   };
 
   const startRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
     payload: { playerToken: createdBody.playerToken }
   });
@@ -424,11 +444,11 @@ test("enforces active turn ownership and applies validated moves to the authorit
   const hostMove = legalMove(startState);
 
   const hostTurnRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
     payload: {
       playerToken: createdBody.playerToken,
-      clientCommandId: "host-turn-1",
+      clientCommandId: 'host-turn-1',
       revision: 0,
       action: hostMove
     }
@@ -439,13 +459,13 @@ test("enforces active turn ownership and applies validated moves to the authorit
   assert.equal(hostTurnBody.revision, 1);
 
   const hostOutOfTurnRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
     payload: {
       playerToken: createdBody.playerToken,
-      clientCommandId: "host-turn-2",
+      clientCommandId: 'host-turn-2',
       revision: 1,
-      action: { type: "skip" }
+      action: { type: 'skip' }
     }
   });
   assert.equal(hostOutOfTurnRes.statusCode, 409);
@@ -455,17 +475,17 @@ test("enforces active turn ownership and applies validated moves to the authorit
     revision: number;
   };
   assert.equal(hostOutOfTurnBody.ok, false);
-  assert.equal(hostOutOfTurnBody.error, "not_active_player");
+  assert.equal(hostOutOfTurnBody.error, 'not_active_player');
   assert.equal(hostOutOfTurnBody.revision, 1);
 
   const hostOutOfTurnDedupeRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
     payload: {
       playerToken: createdBody.playerToken,
-      clientCommandId: "host-turn-2",
+      clientCommandId: 'host-turn-2',
       revision: 1,
-      action: { type: "skip" }
+      action: { type: 'skip' }
     }
   });
   assert.equal(hostOutOfTurnDedupeRes.statusCode, 200);
@@ -475,21 +495,23 @@ test("enforces active turn ownership and applies validated moves to the authorit
     revision: number;
   };
   assert.equal(hostOutOfTurnDedupeBody.ok, false);
-  assert.equal(hostOutOfTurnDedupeBody.error, "not_active_player");
+  assert.equal(hostOutOfTurnDedupeBody.error, 'not_active_player');
   assert.equal(hostOutOfTurnDedupeBody.revision, 1);
 
   const afterHostRes = await app.inject({
-    method: "GET",
+    method: 'GET',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(joinBody.playerToken)}`
   });
-  const guestMove = legalMove((afterHostRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState);
+  const guestMove = legalMove(
+    (afterHostRes.json() as { lobby: { raceState: RaceState } }).lobby.raceState
+  );
 
   const guestTurnRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
     payload: {
       playerToken: joinBody.playerToken,
-      clientCommandId: "guest-turn-1",
+      clientCommandId: 'guest-turn-1',
       revision: 1,
       action: guestMove
     }
@@ -500,7 +522,7 @@ test("enforces active turn ownership and applies validated moves to the authorit
   assert.equal(guestTurnBody.revision, 2);
 
   const readRes = await app.inject({
-    method: "GET",
+    method: 'GET',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}?playerToken=${encodeURIComponent(createdBody.playerToken)}`
   });
   assert.equal(readRes.statusCode, 200);
@@ -508,20 +530,20 @@ test("enforces active turn ownership and applies validated moves to the authorit
 
   assert.equal(raceState.turnIndex, 2);
   assert.equal(raceState.activeSeatIndex, 0);
-  assert.equal(raceState.cars[0]?.cellId, hostMove.type === "move" ? hostMove.targetCellId : "");
-  assert.equal(raceState.cars[1]?.cellId, guestMove.type === "move" ? guestMove.targetCellId : "");
+  assert.equal(raceState.cars[0]?.cellId, hostMove.type === 'move' ? hostMove.targetCellId : '');
+  assert.equal(raceState.cars[1]?.cellId, guestMove.type === 'move' ? guestMove.targetCellId : '');
 });
 
-test("enforces turn idempotency and stale revision contract", async (t) => {
+test('enforces turn idempotency and stale revision contract', async (t) => {
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: { name: 'Host' }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
@@ -531,7 +553,7 @@ test("enforces turn idempotency and stale revision contract", async (t) => {
   };
 
   const startRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
     payload: { playerToken: createdBody.playerToken }
   });
@@ -540,13 +562,13 @@ test("enforces turn idempotency and stale revision contract", async (t) => {
 
   const turnPayload = {
     playerToken: createdBody.playerToken,
-    clientCommandId: "cmd-1",
+    clientCommandId: 'cmd-1',
     revision: 0,
     action: legalMove(startState)
   };
 
   const turnRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
     payload: turnPayload
   });
@@ -557,7 +579,7 @@ test("enforces turn idempotency and stale revision contract", async (t) => {
   assert.equal(turnBody.playerId, createdBody.playerId);
 
   const dedupeRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
     payload: turnPayload
   });
@@ -567,22 +589,22 @@ test("enforces turn idempotency and stale revision contract", async (t) => {
   assert.equal(dedupeBody.revision, 1);
 
   const staleRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
     payload: {
       playerToken: createdBody.playerToken,
-      clientCommandId: "cmd-2",
+      clientCommandId: 'cmd-2',
       revision: 0,
-      action: { type: "skip" }
+      action: { type: 'skip' }
     }
   });
   assert.equal(staleRes.statusCode, 409);
   const staleBody = staleRes.json() as { ok: false; error: string };
   assert.equal(staleBody.ok, false);
-  assert.equal(staleBody.error, "stale_revision");
+  assert.equal(staleBody.error, 'stale_revision');
 });
 
-test("rejects expired player token", async (t) => {
+test('rejects expired player token', async (t) => {
   const app = await createApp(
     {
       ...TEST_CONFIG,
@@ -597,9 +619,9 @@ test("rejects expired player token", async (t) => {
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: { name: 'Host' }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
@@ -610,24 +632,24 @@ test("rejects expired player token", async (t) => {
   await delay(1100);
 
   const startRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
     payload: { playerToken: createdBody.playerToken }
   });
   assert.equal(startRes.statusCode, 401);
 });
 
-test("websocket rejects unknown player token (1008 or transport-level 1006)", async (t) => {
+test('websocket rejects unknown player token (1008 or transport-level 1006)', async (t) => {
   const app = await createTestApp();
-  await app.listen({ host: "127.0.0.1", port: 0 });
+  await app.listen({ host: '127.0.0.1', port: 0 });
   t.after(async () => {
     await app.close();
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host" }
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: { name: 'Host' }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as { lobby: { lobbyId: string } };
@@ -639,21 +661,21 @@ test("websocket rejects unknown player token (1008 or transport-level 1006)", as
   const closed = await waitForWsClose(ws);
   assert.ok([1006, 1008].includes(closed.code));
   if (closed.code === 1008) {
-    assert.equal(closed.reason, "invalid_token");
+    assert.equal(closed.reason, 'invalid_token');
   }
 });
 
-test("host websocket disconnect revokes tokens and ends race after the grace period", async (t) => {
+test('host websocket disconnect revokes tokens and ends race after the grace period', async (t) => {
   const app = await createApp({ ...TEST_CONFIG, HOST_GRACE_SECONDS: 0.3 }, { logger: false });
-  await app.listen({ host: "127.0.0.1", port: 0 });
+  await app.listen({ host: '127.0.0.1', port: 0 });
   t.after(async () => {
     await app.close();
   });
 
   const createdRes = await app.inject({
-    method: "POST",
-    url: "/api/v1/lobbies",
-    payload: { name: "Host", settings: { totalCars: 2, humanCars: 2, botCars: 0 } }
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: { name: 'Host', settings: { totalCars: 2, humanCars: 2, botCars: 0 } }
   });
   assert.equal(createdRes.statusCode, 201);
   const createdBody = createdRes.json() as {
@@ -661,14 +683,14 @@ test("host websocket disconnect revokes tokens and ends race after the grace per
     playerToken: string;
   };
   const joinRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,
-    payload: { name: "Guest" }
+    payload: { name: 'Guest' }
   });
   const guestToken = (joinRes.json() as { playerToken: string }).playerToken;
 
   const startRes = await app.inject({
-    method: "POST",
+    method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/start`,
     payload: { playerToken: createdBody.playerToken }
   });
@@ -682,10 +704,10 @@ test("host websocket disconnect revokes tokens and ends race after the grace per
   const waitForOpen = (ws: WebSocket) =>
     new Promise<void>((resolve, reject) => {
       const timer = setTimeout(
-        () => reject(new Error("Timed out waiting for websocket open.")),
+        () => reject(new Error('Timed out waiting for websocket open.')),
         2000
       );
-      ws.addEventListener("open", () => {
+      ws.addEventListener('open', () => {
         clearTimeout(timer);
         resolve();
       });
@@ -693,14 +715,14 @@ test("host websocket disconnect revokes tokens and ends race after the grace per
 
   await Promise.all([waitForOpen(wsPrimary), waitForOpen(wsObserver)]);
 
-  wsPrimary.close(1000, "test_close");
+  wsPrimary.close(1000, 'test_close');
   await waitForWsClose(wsPrimary);
 
   // After the grace period the guest is closed with 4001 (best-effort: some runtimes surface
   // it as a transport-level close code).
   const observerClosed = await waitForWsClose(wsObserver);
   if (observerClosed.code === 4001) {
-    assert.equal(observerClosed.reason, "host_disconnected");
+    assert.equal(observerClosed.reason, 'host_disconnected');
   }
 
   let sawTokenRevoked = false;
@@ -708,13 +730,13 @@ test("host websocket disconnect revokes tokens and ends race after the grace per
   let lastBody: unknown;
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const turnRes = await app.inject({
-      method: "POST",
+      method: 'POST',
       url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/turns`,
       payload: {
         playerToken: createdBody.playerToken,
         clientCommandId: `after-host-disconnect-${attempt}`,
         revision: 0,
-        action: { type: "skip" }
+        action: { type: 'skip' }
       }
     });
 

@@ -1,17 +1,17 @@
 // Race-level planning shared by the Normal and Hard bots: wear projection and pit-stop timing.
-import { MOVE_BUDGET, MOVE_CYCLE, MOVE_RATES, PIT_LANE } from "../constants";
-import type { Car, CarSetup } from "../types/car";
-import type { TrackCell } from "../types/track";
-import { cycleBudget } from "./moveBudgetSystem";
-import { setupFactors } from "./movementSystem";
-import type { Personality } from "./botStyle";
-import { trackFwd, type TrackIndex } from "./trackIndex";
+import { MOVE_BUDGET, MOVE_CYCLE, MOVE_RATES, PIT_LANE } from '../constants';
+import type { Car, CarSetup } from '../types/car';
+import type { TrackCell } from '../types/track';
+import { cycleBudget } from './moveBudgetSystem';
+import { setupFactors } from './movementSystem';
+import type { Personality } from './botStyle';
+import { trackFwd, type TrackIndex } from './trackIndex';
 
 // 32 psi everywhere costs nothing extra; compound and wing are the real choice (see bestSetup).
 const NEUTRAL_PSI = { fl: 32, fr: 32, rl: 32, rr: 32 } as const;
 // Every compound and wing level a car can run, in the order bestSetup breaks ties (the plain one first).
-export const SETUP_CHOICES: readonly CarSetup[] = (["hard", "soft"] as const).flatMap((compound) =>
-  (["medium", "low", "high"] as const).map((wing) => ({ compound, psi: { ...NEUTRAL_PSI }, wing }))
+export const SETUP_CHOICES: readonly CarSetup[] = (['hard', 'soft'] as const).flatMap((compound) =>
+  (['medium', 'low', 'high'] as const).map((wing) => ({ compound, psi: { ...NEUTRAL_PSI }, wing }))
 );
 
 // A pit stop costs about this many cells of racing: the lost turn plus the slow single-step pit
@@ -54,18 +54,23 @@ export function buildPlanContext(trackIndex: TrackIndex, raceLaps: number): BotP
     for (const cell of trackIndex.cellMap.values()) {
       if (cell.laneIndex !== 1) continue;
       const leadsToEntry = cell.next.some((id) =>
-        (trackIndex.cellMap.get(id)?.tags ?? []).includes("PIT_ENTRY")
+        (trackIndex.cellMap.get(id)?.tags ?? []).includes('PIT_ENTRY')
       );
       if (leadsToEntry) feederFwd = cell.forwardIndex;
     }
     feederCache.set(trackIndex, feederFwd);
   }
-  return { raceLaps, spineLen: trackIndex.spineLen, lane1FwdByZone: trackIndex.lane1FwdByZone, feederFwd };
+  return {
+    raceLaps,
+    spineLen: trackIndex.spineLen,
+    lane1FwdByZone: trackIndex.lane1FwdByZone,
+    feederFwd
+  };
 }
 
 export function wearPerCell(setup: CarSetup): { tire: number; fuel: number } {
   const { aeroTire, aeroFuel, psiFactor } = setupFactors(setup);
-  const tireRate = setup.compound === "soft" ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
+  const tireRate = setup.compound === 'soft' ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
   return { tire: tireRate * aeroTire * psiFactor, fuel: MOVE_RATES.fuel * aeroFuel };
 }
 
@@ -78,7 +83,12 @@ export function isFinalLap(car: Car, plan: BotPlanContext): boolean {
 }
 
 // Cells of racing left before tire or fuel hits 0; `safety` shaves the projection for planning.
-export function cellsUntilEmpty(tire: number, fuel: number, setup: CarSetup, safety = SAFETY): number {
+export function cellsUntilEmpty(
+  tire: number,
+  fuel: number,
+  setup: CarSetup,
+  safety = SAFETY
+): number {
   const wear = wearPerCell(setup);
   return Math.min(tire / wear.tire, fuel / wear.fuel) * safety;
 }
@@ -93,7 +103,9 @@ const PIT_STOP_MOVES = 8;
 export function projectedMoves(setup: CarSetup, cells: number): number {
   const pace = Math.min(cycleBudget(setup) / MOVE_CYCLE.moves, MOVE_BUDGET.baseMax);
   const untilEmpty = cellsUntilEmpty(100, 100, setup);
-  const crawl = Math.min(cells, untilEmpty) / pace + Math.max(0, cells - untilEmpty) / MOVE_BUDGET.zeroResourceMax;
+  const crawl =
+    Math.min(cells, untilEmpty) / pace +
+    Math.max(0, cells - untilEmpty) / MOVE_BUDGET.zeroResourceMax;
   const stops = Math.max(0, Math.ceil(cells / untilEmpty) - 1);
   const stopping = cells / pace + stops * PIT_STOP_MOVES;
   return Math.min(crawl, stopping);
@@ -148,7 +160,8 @@ export function stopIsDue(car: Car, cell: TrackCell, plan: BotPlanContext): bool
   if (shortfall === 0) return false;
   const fresh = cellsUntilEmpty(100, 100, bestSetup(remaining - toFeeder));
   const afterStop = Math.max(0, remaining - toFeeder - fresh);
-  const gain = (shortfall - afterStop) * EMPTY_SLOWDOWN - PIT_LANE_CELLS + (plan.style?.pitGain ?? 0);
+  const gain =
+    (shortfall - afterStop) * EMPTY_SLOWDOWN - PIT_LANE_CELLS + (plan.style?.pitGain ?? 0);
   if (gain <= 0) return false;
   // Pit as late as possible, but before the next pass would find the car already empty.
   return untilEmpty - toFeeder < plan.spineLen + 10 + (plan.style?.pitWindow ?? 0);
@@ -162,13 +175,19 @@ export function forwardGain(
   distance: number,
   plan: BotPlanContext | undefined
 ): number {
-  if (!from || !to || !plan || from.laneIndex === PIT_LANE || to.laneIndex === PIT_LANE) return distance;
+  if (!from || !to || !plan || from.laneIndex === PIT_LANE || to.laneIndex === PIT_LANE) {
+    return distance;
+  }
   return (to.forwardIndex - from.forwardIndex + plan.spineLen) % plan.spineLen;
 }
 
 // Points of score one unit of tire or fuel is worth: 1 normally, but a resource that will run out
 // before the flag is worth the crawl it saves (half a cell per cell of range, ten points a cell).
-export function resourceWeights(car: Car, cell: TrackCell, plan: BotPlanContext): { tire: number; fuel: number } {
+export function resourceWeights(
+  car: Car,
+  cell: TrackCell,
+  plan: BotPlanContext
+): { tire: number; fuel: number } {
   const wear = wearPerCell(car.setup);
   const remaining = plan.raceLaps * plan.spineLen - progressOf(car, cell, plan);
   const worth = (units: number, perCell: number) =>

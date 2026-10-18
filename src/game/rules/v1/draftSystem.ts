@@ -1,7 +1,7 @@
 // Frozen: rules v1, copied from a97293a (src/game/systems/draftSystem.ts) with only the import paths changed. Never edit:
 // a change in behavior is a new rules version, and src/game/rules/golden/v1.json fails the test if v1 moves (#118).
-import { DRAFT_RANGE, INNER_MAIN_LANE, OUTER_MAIN_LANE } from "../../constants";
-import type { TrackIndex } from "../../systems/trackIndex";
+import { DRAFT_RANGE, INNER_MAIN_LANE, OUTER_MAIN_LANE } from '../../constants';
+import type { TrackIndex } from '../../systems/trackIndex';
 
 // Drafting (issue #55, rules in docs/movement-spec.md): pure position logic, no costs here.
 
@@ -17,7 +17,11 @@ export interface DraftAhead {
  * exit), only a car in the same lane counts (an adjacent lane does not), and `forwardIndex` wraps at the start line.
  * `occupied` is every cell holding a car, the start cell included (it is skipped).
  */
-export function draftAhead(trackIndex: TrackIndex, cellId: string, occupied: Iterable<string>): DraftAhead | null {
+export function draftAhead(
+  trackIndex: TrackIndex,
+  cellId: string,
+  occupied: Iterable<string>
+): DraftAhead | null {
   const { cellMap, spineLen } = trackIndex;
   const start = cellMap.get(cellId);
   if (!start || start.laneIndex < INNER_MAIN_LANE || start.laneIndex > OUTER_MAIN_LANE) return null;

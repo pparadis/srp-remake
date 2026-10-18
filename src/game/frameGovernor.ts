@@ -14,20 +14,20 @@ const HOLD_MS = 600;
 
 /** Input that must repaint at once: the first frame after it has to be a full-rate one, not one idle frame late. */
 const WAKE_EVENTS = [
-  "pointerdown",
-  "pointermove",
-  "pointerup",
-  "wheel",
-  "keydown",
-  "touchstart",
-  "touchmove",
-  "resize",
+  'pointerdown',
+  'pointermove',
+  'pointerup',
+  'wheel',
+  'keydown',
+  'touchstart',
+  'touchmove',
+  'resize',
   // the page's own events that change the board: server state, the HUD's buttons, the sandbox panel, the cars toggle
-  "srp:backend-lobby-state",
-  "srp:backend-turn-applied",
-  "srp:hud-command",
-  "srp:sandbox-command",
-  "srp:toggle-cars-moves"
+  'srp:backend-lobby-state',
+  'srp:backend-turn-applied',
+  'srp:hud-command',
+  'srp:sandbox-command',
+  'srp:toggle-cars-moves'
 ];
 
 /** Frames per second while something moves (0: as often as the browser paints) and while nothing does. */
@@ -39,7 +39,7 @@ export interface FrameRates {
 // The e2e build (`vite build --mode test`) keeps its own low cap (see `startGame`): many headless pages at once.
 export const TEST_FPS = 10;
 export const FRAME_RATES: FrameRates =
-  import.meta.env.MODE === "test" ? { active: TEST_FPS, idle: TEST_FPS } : { active: 0, idle: 15 };
+  import.meta.env.MODE === 'test' ? { active: TEST_FPS, idle: TEST_FPS } : { active: 0, idle: 15 };
 
 function rate(fps: number): number {
   return fps > 0 ? 1000 / fps : 0;
@@ -51,7 +51,11 @@ export class FrameGovernor {
   private readonly rates: FrameRates;
   private readonly now: () => number;
 
-  constructor(limit: FrameLimit, rates: FrameRates = FRAME_RATES, now: () => number = () => performance.now()) {
+  constructor(
+    limit: FrameLimit,
+    rates: FrameRates = FRAME_RATES,
+    now: () => number = () => performance.now()
+  ) {
     this.limit = limit;
     this.rates = rates;
     this.now = now;
@@ -71,9 +75,11 @@ export class FrameGovernor {
   }
 
   /** Pokes on every input event of the page, until the returned function is called. */
-  watch(target: Pick<Window, "addEventListener" | "removeEventListener">): () => void {
+  watch(target: Pick<Window, 'addEventListener' | 'removeEventListener'>): () => void {
     const poke = () => this.poke();
-    for (const type of WAKE_EVENTS) target.addEventListener(type, poke, { capture: true, passive: true });
+    for (const type of WAKE_EVENTS) {
+      target.addEventListener(type, poke, { capture: true, passive: true });
+    }
     return () => {
       for (const type of WAKE_EVENTS) target.removeEventListener(type, poke, { capture: true });
     };

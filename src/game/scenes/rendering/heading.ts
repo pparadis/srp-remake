@@ -1,4 +1,4 @@
-import type { TrackCell } from "../../types/track";
+import type { TrackCell } from '../../types/track';
 
 interface Vec {
   x: number;
@@ -31,9 +31,7 @@ export function headingOf(cell: TrackCell, cellMap: CellMap): Vec {
   const next = nexts.find((c) => c && c.laneIndex === cell.laneIndex) ?? nexts[0];
   const prev = previousCells(cellMap).get(cell.id);
   const from = next && prev ? prev.pos : cell.pos;
-  const v: Vec = next
-    ? { x: next.pos.x - from.x, y: next.pos.y - from.y }
-    : { x: 1, y: 0 };
+  const v: Vec = next ? { x: next.pos.x - from.x, y: next.pos.y - from.y } : { x: 1, y: 0 };
   const len = Math.hypot(v.x, v.y) || 1;
   return { x: v.x / len, y: v.y / len };
 }

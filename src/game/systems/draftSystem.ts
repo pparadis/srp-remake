@@ -1,5 +1,5 @@
-import { DRAFT_RANGE, INNER_MAIN_LANE, OUTER_MAIN_LANE } from "../constants";
-import { cellsAlongLane, type TrackIndex } from "./trackIndex";
+import { DRAFT_RANGE, INNER_MAIN_LANE, OUTER_MAIN_LANE } from '../constants';
+import { cellsAlongLane, type TrackIndex } from './trackIndex';
 
 // Drafting (issue #55, rules in docs/movement-spec.md): pure position logic, no costs here.
 
@@ -16,7 +16,11 @@ export interface DraftAhead {
  * `forwardIndex`, which repeats on the outer lanes' bends, #114), wrapping at the start line.
  * `occupied` is every cell holding a car, the start cell included (it is skipped).
  */
-export function draftAhead(trackIndex: TrackIndex, cellId: string, occupied: Iterable<string>): DraftAhead | null {
+export function draftAhead(
+  trackIndex: TrackIndex,
+  cellId: string,
+  occupied: Iterable<string>
+): DraftAhead | null {
   const { cellMap } = trackIndex;
   const start = cellMap.get(cellId);
   if (!start || start.laneIndex < INNER_MAIN_LANE || start.laneIndex > OUTER_MAIN_LANE) return null;

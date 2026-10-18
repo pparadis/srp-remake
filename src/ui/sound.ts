@@ -1,22 +1,67 @@
 // Tiny WebAudio synth: no asset files. Silent until the first user gesture (autoplay policy),
 // while muted, and in test builds. The mute flag lives in localStorage["srp:muted"].
 
-type SoundEvent = "move" | "lap" | "finish" | "low" | "turn" | "slingshot" | "draft" | "ready";
+type SoundEvent = 'move' | 'lap' | 'finish' | 'low' | 'turn' | 'slingshot' | 'draft' | 'ready';
 
 /** [frequency Hz, start s, length s] per note. */
-const TONES: Record<SoundEvent, { wave: "sine" | "square" | "triangle"; gain: number; notes: Array<[number, number, number]> }> = {
-  move: { wave: "triangle", gain: 0.05, notes: [[330, 0, 0.06]] },
-  turn: { wave: "sine", gain: 0.09, notes: [[880, 0, 0.1]] },
-  lap: { wave: "sine", gain: 0.12, notes: [[660, 0, 0.12], [880, 0.12, 0.2]] },
-  low: { wave: "square", gain: 0.05, notes: [[440, 0, 0.1], [440, 0.18, 0.1]] },
-  slingshot: { wave: "triangle", gain: 0.12, notes: [[392, 0, 0.08], [587, 0.07, 0.08], [880, 0.14, 0.18]] },
+const TONES: Record<
+  SoundEvent,
+  { wave: 'sine' | 'square' | 'triangle'; gain: number; notes: Array<[number, number, number]> }
+> = {
+  move: { wave: 'triangle', gain: 0.05, notes: [[330, 0, 0.06]] },
+  turn: { wave: 'sine', gain: 0.09, notes: [[880, 0, 0.1]] },
+  lap: {
+    wave: 'sine',
+    gain: 0.12,
+    notes: [
+      [660, 0, 0.12],
+      [880, 0.12, 0.2]
+    ]
+  },
+  low: {
+    wave: 'square',
+    gain: 0.05,
+    notes: [
+      [440, 0, 0.1],
+      [440, 0.18, 0.1]
+    ]
+  },
+  slingshot: {
+    wave: 'triangle',
+    gain: 0.12,
+    notes: [
+      [392, 0, 0.08],
+      [587, 0.07, 0.08],
+      [880, 0.14, 0.18]
+    ]
+  },
   // tucked in behind a car: a soft low pair, then a brighter rising pair when the slingshot is ready
-  draft: { wave: "sine", gain: 0.07, notes: [[392, 0, 0.07], [494, 0.08, 0.1]] },
-  ready: { wave: "triangle", gain: 0.1, notes: [[523, 0, 0.07], [659, 0.07, 0.07], [784, 0.14, 0.12]] },
+  draft: {
+    wave: 'sine',
+    gain: 0.07,
+    notes: [
+      [392, 0, 0.07],
+      [494, 0.08, 0.1]
+    ]
+  },
+  ready: {
+    wave: 'triangle',
+    gain: 0.1,
+    notes: [
+      [523, 0, 0.07],
+      [659, 0.07, 0.07],
+      [784, 0.14, 0.12]
+    ]
+  },
   finish: {
-    wave: "triangle",
+    wave: 'triangle',
     gain: 0.14,
-    notes: [[523, 0, 0.15], [659, 0.15, 0.15], [784, 0.3, 0.15], [1047, 0.45, 0.5]]
+    notes: [
+      [523, 0, 0.15],
+      [659, 0.15, 0.15],
+      [784, 0.3, 0.15],
+      [1047, 0.45, 0.5]
+    ]
   }
 };
 
@@ -26,11 +71,11 @@ export function shouldPlay(event: SoundEvent, muted: boolean): boolean {
   return !muted && event in TONES;
 }
 
-const MUTE_KEY = "srp:muted";
+const MUTE_KEY = 'srp:muted';
 
 export function isMuted(): boolean {
   try {
-    return window.localStorage.getItem(MUTE_KEY) === "1";
+    return window.localStorage.getItem(MUTE_KEY) === '1';
   } catch {
     return false;
   }
@@ -38,7 +83,7 @@ export function isMuted(): boolean {
 
 export function setMuted(muted: boolean) {
   try {
-    window.localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+    window.localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
   } catch {
     // ignore: the flag then only lasts for this page
   }
@@ -51,7 +96,10 @@ export function currentlyMuted() {
   return memoryMuted ?? isMuted();
 }
 
-type Ctx = Pick<AudioContext, "currentTime" | "destination" | "state" | "resume" | "createOscillator" | "createGain">;
+type Ctx = Pick<
+  AudioContext,
+  'currentTime' | 'destination' | 'state' | 'resume' | 'createOscillator' | 'createGain'
+>;
 
 /** `makeContext` is injectable so the scheduling can be tested without a browser. */
 export function createSynth(makeContext: () => Ctx | null, muted: () => boolean = currentlyMuted) {
@@ -61,7 +109,7 @@ export function createSynth(makeContext: () => Ctx | null, muted: () => boolean 
     unlock() {
       try {
         ctx ??= makeContext();
-        if (ctx?.state === "suspended") void ctx.resume();
+        if (ctx?.state === 'suspended') void ctx.resume();
       } catch {
         ctx = null;
       }
@@ -90,7 +138,7 @@ export function createSynth(makeContext: () => Ctx | null, muted: () => boolean 
 }
 
 const synth = createSynth(() =>
-  import.meta.env.MODE === "test" || typeof AudioContext === "undefined" ? null : new AudioContext()
+  import.meta.env.MODE === 'test' || typeof AudioContext === 'undefined' ? null : new AudioContext()
 );
 
 export const play = synth.play;
@@ -99,9 +147,9 @@ export const play = synth.play;
 export function initSound() {
   const unlock = () => {
     synth.unlock();
-    window.removeEventListener("pointerdown", unlock);
-    window.removeEventListener("keydown", unlock);
+    window.removeEventListener('pointerdown', unlock);
+    window.removeEventListener('keydown', unlock);
   };
-  window.addEventListener("pointerdown", unlock);
-  window.addEventListener("keydown", unlock);
+  window.addEventListener('pointerdown', unlock);
+  window.addEventListener('keydown', unlock);
 }

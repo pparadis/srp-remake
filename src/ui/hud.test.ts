@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bannerText,
   formatCountdown,
@@ -14,12 +14,12 @@ import {
   showToast,
   type HudCar,
   type HudSnapshot
-} from "./hud";
+} from './hud';
 
 const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   carId,
   name: `Car ${carId}`,
-  color: "#e5484d",
+  color: '#e5484d',
   isBot: false,
   lap: 1,
   finished: false,
@@ -27,8 +27,8 @@ const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   fwd: carId,
   tire: 80,
   fuel: 90,
-  compound: "soft",
-  state: "ACTIVE",
+  compound: 'soft',
+  state: 'ACTIVE',
   pitTurns: 0,
   cycle: [3, 0, 0, 0, 0],
   cycleIndex: 1,
@@ -36,10 +36,10 @@ const car = (carId: number, over: Partial<HudCar> = {}): HudCar => ({
   drafting: false,
   draftTurns: 0,
   budget: 40,
-  wing: "medium",
+  wing: 'medium',
   pitServiced: false,
   stint: { laps: 2.14, moves: 17.2 },
-  advice: "ok",
+  advice: 'ok',
   ...over
 });
 
@@ -54,116 +54,134 @@ const snap = (over: Partial<HudSnapshot> = {}): HudSnapshot => ({
   cars: [car(1, { isBot: true }), car(2, { lap: 2 }), car(3, { isBot: true })],
   hover: null,
   debugText: null,
-  log: [{ text: "Car 1 +4 cells", kind: "move", mine: false }],
+  log: [{ text: 'Car 1 +4 cells', kind: 'move', mine: false }],
   ...over
 });
 
-const text = (root: Element, id: string) => root.querySelector(`[data-testid="${id}"]`)!.textContent;
+const text = (root: Element, id: string) =>
+  root.querySelector(`[data-testid="${id}"]`)!.textContent;
 
-describe("hud", () => {
+describe('hud', () => {
   let root: HTMLElement;
   beforeEach(() => {
-    root = document.createElement("div");
+    root = document.createElement('div');
     document.body.replaceChildren(root);
     mountHud(root);
   });
 
-  it("shows my car: lap, position, resources and budget", () => {
+  it('shows my car: lap, position, resources and budget', () => {
     renderHud(root, snap());
-    expect(text(root, "hud-lap")).toBe("Lap 2 / 2");
-    expect(text(root, "hud-position")).toBe("P2 / 3");
-    expect(text(root, "hud-tire")).toBe("Tire 80%");
-    expect(text(root, "hud-fuel")).toBe("Fuel 90%");
-    expect(text(root, "hud-compound")).toBe("SOFT");
-    expect(text(root, "hud-wing")).toBe("MED");
-    expect(text(root, "hud-budget")).toBe("37 / 40");
+    expect(text(root, 'hud-lap')).toBe('Lap 2 / 2');
+    expect(text(root, 'hud-position')).toBe('P2 / 3');
+    expect(text(root, 'hud-tire')).toBe('Tire 80%');
+    expect(text(root, 'hud-fuel')).toBe('Fuel 90%');
+    expect(text(root, 'hud-compound')).toBe('SOFT');
+    expect(text(root, 'hud-wing')).toBe('MED');
+    expect(text(root, 'hud-budget')).toBe('37 / 40');
     expect(root.querySelectorAll('[data-testid="hud-pip"]')).toHaveLength(5);
-    expect(root.querySelector('[data-testid="hud-state"]')).toHaveProperty("hidden", true);
+    expect(root.querySelector('[data-testid="hud-state"]')).toHaveProperty('hidden', true);
   });
 
-  it("flags low resources as crit and shows the hard compound and pit state", () => {
-    renderHud(root, snap({ cars: [car(2, { fuel: 12, tire: 55, compound: "hard", state: "PITTING", pitTurns: 2 })] }));
-    expect(root.querySelector('[data-testid="hud-fuel"]')!.className).toBe("hud-crit");
-    expect(root.querySelector('[data-testid="hud-fuel-bar"]')!.className).toBe("hud-crit");
-    expect(root.querySelector('[data-testid="hud-tire"]')!.className).toBe("hud-ok");
-    expect(text(root, "hud-compound")).toBe("HARD");
-    expect(text(root, "hud-state")).toBe("PITTING 2 turns");
-    expect(resourceLevel(19.9)).toBe("crit");
-    expect(resourceLevel(30)).toBe("warn");
-  });
-
-  it("picks the banner for each turn situation", () => {
-    expect(bannerText(snap())).toBe("Your turn - drag your car");
-    expect(bannerText(snap({ canControl: false }))).toBe("Waiting for the server");
-    expect(bannerText(snap({ activeCarId: 3 }))).toBe("Car 3 (bot) is playing");
-    const humans = snap({ activeCarId: 4, cars: [car(2), car(4, { name: "Alice" })] });
-    expect(bannerText(humans)).toBe("Waiting for Alice");
-    expect(bannerText(snap({ finished: true, winnerCarId: 1 }))).toBe("Race finished - Car 1 wins");
-    expect(bannerText(snap({ sandbox: "edit" }))).toBe("Sandbox: editing - drag any car, E to play");
-    expect(bannerText(snap({ sandbox: "play" }))).toBe("Your turn - drag your car");
-    renderHud(root, snap({ activeCarId: 1 }));
-    expect(text(root, "hud-banner")).toBe("Car 1 (bot) is playing");
-  });
-
-  it("lists standings with me and the active car highlighted", () => {
-    renderHud(root, snap({ activeCarId: 3 }));
-    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
-    expect(rows.map((r) => r.getAttribute("data-car-id"))).toEqual(["1", "2", "3"]);
-    expect(rows[1]!.classList.contains("is-me")).toBe(true);
-    expect(rows[2]!.classList.contains("is-active")).toBe(true);
-    expect(rows[0]!.textContent).toContain("1/2");
-    expect(gapLabel(car(2, { progress: 4 }), car(1, { progress: 9 }), 28)).toBe("+5");
-    expect(gapLabel(car(2, { progress: 4 }), car(1, { progress: 40 }), 28)).toBe("+1L");
-    // progress is a lap position in fractions of a cell (#114): the label is whole cells
-    expect(gapLabel(car(2, { progress: 4.1 }), car(1, { progress: 8.9 }), 28)).toBe("+5");
-    expect(gapLabel(car(2, { progress: 4.6 }), car(1, { progress: 4.9 }), 28)).toBe("+0");
-    expect(gapLabel(car(2), undefined, 28)).toBe("-");
-  });
-
-  it("shows a bot's style next to its name in the standings, and nothing for a car without one", () => {
-    renderHud(root, snap({ cars: [car(1, { isBot: true, style: "Racer" }), car(2)] }));
-    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
-    expect(rows[0]!.textContent).toContain("Car 1 · Racer");
-    expect(rows[0]!.querySelector(".hud-style")!.textContent).toBe(" · Racer");
-    expect(rows[1]!.querySelector(".hud-style")).toBeNull();
-    expect(rows[1]!.textContent).not.toContain("·");
-  });
-
-  it("shows the lap you are in, a hint behind the line, and Finished at the end", () => {
-    // pole car: Lap 1 straight away, no hint
-    renderHud(root, snap({ myCarId: 1 }));
-    expect(text(root, "hud-lap")).toBe("Lap 1 / 2");
-    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty("hidden", true);
-    // behind the line: Lap 0 / N and the hint; the standings column says 0/N and the gap stays small
-    const behind = car(2, { lap: 0, progress: -2, fwd: 26 });
-    renderHud(root, snap({ cars: [car(1, { progress: 0 }), behind], myCarId: 2 }));
-    expect(text(root, "hud-lap")).toBe("Lap 0 / 2");
-    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty("hidden", false);
-    expect(text(root, "hud-lap-hint")).toBe("Cross the start line to begin lap 1");
-    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
-    expect(rows[1]!.textContent).toContain("0/2");
-    expect(rows[1]!.textContent).toContain("+2");
-    expect(rows[1]!.textContent).not.toContain("L");
-    // finished
-    renderHud(root, snap({ cars: [car(2, { lap: 2, finished: true })], myCarId: 2 }));
-    expect(text(root, "hud-lap")).toBe("Finished");
-    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty("hidden", true);
-    expect(root.querySelector('[data-testid="hud-standing-row"]')!.textContent).toContain("Fin");
-  });
-
-  it("shows tooltip, debug text and feed only when given", () => {
-    renderHud(root, snap());
-    expect(root.querySelector('[data-testid="hud-tooltip"]')).toHaveProperty("hidden", true);
-    expect(root.querySelector('[data-testid="hud-debug"]')).toHaveProperty("hidden", true);
+  it('flags low resources as crit and shows the hard compound and pit state', () => {
     renderHud(
       root,
       snap({
-        hover: { x: 10, y: 20, distance: 4, moveSpend: 5, tireCost: 3, fuelCost: 2, isPit: true, tireBefore: 50, fuelBefore: 60 },
-        debugText: "cell: z1"
+        cars: [car(2, { fuel: 12, tire: 55, compound: 'hard', state: 'PITTING', pitTurns: 2 })]
       })
     );
-    expect(text(root, "hud-tooltip")).toBe("Move 5 - PIT stop: tire and fuel refilled");
-    expect(text(root, "hud-debug")).toBe("cell: z1");
+    expect(root.querySelector('[data-testid="hud-fuel"]')!.className).toBe('hud-crit');
+    expect(root.querySelector('[data-testid="hud-fuel-bar"]')!.className).toBe('hud-crit');
+    expect(root.querySelector('[data-testid="hud-tire"]')!.className).toBe('hud-ok');
+    expect(text(root, 'hud-compound')).toBe('HARD');
+    expect(text(root, 'hud-state')).toBe('PITTING 2 turns');
+    expect(resourceLevel(19.9)).toBe('crit');
+    expect(resourceLevel(30)).toBe('warn');
+  });
+
+  it('picks the banner for each turn situation', () => {
+    expect(bannerText(snap())).toBe('Your turn - drag your car');
+    expect(bannerText(snap({ canControl: false }))).toBe('Waiting for the server');
+    expect(bannerText(snap({ activeCarId: 3 }))).toBe('Car 3 (bot) is playing');
+    const humans = snap({ activeCarId: 4, cars: [car(2), car(4, { name: 'Alice' })] });
+    expect(bannerText(humans)).toBe('Waiting for Alice');
+    expect(bannerText(snap({ finished: true, winnerCarId: 1 }))).toBe('Race finished - Car 1 wins');
+    expect(bannerText(snap({ sandbox: 'edit' }))).toBe(
+      'Sandbox: editing - drag any car, E to play'
+    );
+    expect(bannerText(snap({ sandbox: 'play' }))).toBe('Your turn - drag your car');
+    renderHud(root, snap({ activeCarId: 1 }));
+    expect(text(root, 'hud-banner')).toBe('Car 1 (bot) is playing');
+  });
+
+  it('lists standings with me and the active car highlighted', () => {
+    renderHud(root, snap({ activeCarId: 3 }));
+    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
+    expect(rows.map((r) => r.getAttribute('data-car-id'))).toEqual(['1', '2', '3']);
+    expect(rows[1]!.classList.contains('is-me')).toBe(true);
+    expect(rows[2]!.classList.contains('is-active')).toBe(true);
+    expect(rows[0]!.textContent).toContain('1/2');
+    expect(gapLabel(car(2, { progress: 4 }), car(1, { progress: 9 }), 28)).toBe('+5');
+    expect(gapLabel(car(2, { progress: 4 }), car(1, { progress: 40 }), 28)).toBe('+1L');
+    // progress is a lap position in fractions of a cell (#114): the label is whole cells
+    expect(gapLabel(car(2, { progress: 4.1 }), car(1, { progress: 8.9 }), 28)).toBe('+5');
+    expect(gapLabel(car(2, { progress: 4.6 }), car(1, { progress: 4.9 }), 28)).toBe('+0');
+    expect(gapLabel(car(2), undefined, 28)).toBe('-');
+  });
+
+  it("shows a bot's style next to its name in the standings, and nothing for a car without one", () => {
+    renderHud(root, snap({ cars: [car(1, { isBot: true, style: 'Racer' }), car(2)] }));
+    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
+    expect(rows[0]!.textContent).toContain('Car 1 · Racer');
+    expect(rows[0]!.querySelector('.hud-style')!.textContent).toBe(' · Racer');
+    expect(rows[1]!.querySelector('.hud-style')).toBeNull();
+    expect(rows[1]!.textContent).not.toContain('·');
+  });
+
+  it('shows the lap you are in, a hint behind the line, and Finished at the end', () => {
+    // pole car: Lap 1 straight away, no hint
+    renderHud(root, snap({ myCarId: 1 }));
+    expect(text(root, 'hud-lap')).toBe('Lap 1 / 2');
+    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty('hidden', true);
+    // behind the line: Lap 0 / N and the hint; the standings column says 0/N and the gap stays small
+    const behind = car(2, { lap: 0, progress: -2, fwd: 26 });
+    renderHud(root, snap({ cars: [car(1, { progress: 0 }), behind], myCarId: 2 }));
+    expect(text(root, 'hud-lap')).toBe('Lap 0 / 2');
+    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty('hidden', false);
+    expect(text(root, 'hud-lap-hint')).toBe('Cross the start line to begin lap 1');
+    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
+    expect(rows[1]!.textContent).toContain('0/2');
+    expect(rows[1]!.textContent).toContain('+2');
+    expect(rows[1]!.textContent).not.toContain('L');
+    // finished
+    renderHud(root, snap({ cars: [car(2, { lap: 2, finished: true })], myCarId: 2 }));
+    expect(text(root, 'hud-lap')).toBe('Finished');
+    expect(root.querySelector('[data-testid="hud-lap-hint"]')).toHaveProperty('hidden', true);
+    expect(root.querySelector('[data-testid="hud-standing-row"]')!.textContent).toContain('Fin');
+  });
+
+  it('shows tooltip, debug text and feed only when given', () => {
+    renderHud(root, snap());
+    expect(root.querySelector('[data-testid="hud-tooltip"]')).toHaveProperty('hidden', true);
+    expect(root.querySelector('[data-testid="hud-debug"]')).toHaveProperty('hidden', true);
+    renderHud(
+      root,
+      snap({
+        hover: {
+          x: 10,
+          y: 20,
+          distance: 4,
+          moveSpend: 5,
+          tireCost: 3,
+          fuelCost: 2,
+          isPit: true,
+          tireBefore: 50,
+          fuelBefore: 60
+        },
+        debugText: 'cell: z1'
+      })
+    );
+    expect(text(root, 'hud-tooltip')).toBe('Move 5 - PIT stop: tire and fuel refilled');
+    expect(text(root, 'hud-debug')).toBe('cell: z1');
     expect(root.querySelectorAll('[data-testid="hud-feed-list"] li')).toHaveLength(1);
   });
 
@@ -172,221 +190,290 @@ describe("hud", () => {
       root,
       snap({
         log: [
-          { text: "Car 1 passes Car 3 for P1", kind: "pass", mine: false },
-          { text: "You starts lap 2/5", kind: "lap", mine: true }
+          { text: 'Car 1 passes Car 3 for P1', kind: 'pass', mine: false },
+          { text: 'You starts lap 2/5', kind: 'lap', mine: true }
         ]
       })
     );
     const items = [...root.querySelectorAll('[data-testid="hud-feed-list"] li')];
-    expect(items.map((li) => li.className)).toEqual(["is-pass", "is-lap is-mine"]);
-    expect(items.map((li) => li.textContent)).toEqual(["Car 1 passes Car 3 for P1", "You starts lap 2/5"]);
+    expect(items.map((li) => li.className)).toEqual(['is-pass', 'is-lap is-mine']);
+    expect(items.map((li) => li.textContent)).toEqual([
+      'Car 1 passes Car 3 for P1',
+      'You starts lap 2/5'
+    ]);
     expect((root.querySelector('[data-testid="hud-feed"]') as HTMLDetailsElement).open).toBe(true);
   });
 
-  it("shows the stint estimate under the bars and hides the chips when nothing is due", () => {
+  it('shows the stint estimate under the bars and hides the chips when nothing is due', () => {
     renderHud(root, snap());
-    expect(text(root, "hud-stint")).toBe("≈ 2.1 laps (~17 moves)");
-    expect(root.querySelector('[data-testid="hud-advice"]')).toHaveProperty("hidden", true);
-    expect(root.querySelector('[data-testid="hud-warning"]')).toHaveProperty("hidden", true);
-    expect(formatStint({ laps: 0.04, moves: 0.8 })).toBe("≈ <0.1 laps (~1 moves)");
-    expect(formatStint({ laps: 0, moves: 0 })).toBe("Empty: no stint left");
+    expect(text(root, 'hud-stint')).toBe('≈ 2.1 laps (~17 moves)');
+    expect(root.querySelector('[data-testid="hud-advice"]')).toHaveProperty('hidden', true);
+    expect(root.querySelector('[data-testid="hud-warning"]')).toHaveProperty('hidden', true);
+    expect(formatStint({ laps: 0.04, moves: 0.8 })).toBe('≈ <0.1 laps (~1 moves)');
+    expect(formatStint({ laps: 0, moves: 0 })).toBe('Empty: no stint left');
   });
 
-  it("shows the pit chips, and the zero-resource cap when a resource is gone", () => {
-    renderHud(root, snap({ cars: [car(2, { advice: "pit-soon" })] }));
-    expect(text(root, "hud-advice")).toBe("Pit this lap");
-    renderHud(root, snap({ cars: [car(2, { advice: "pit-now", fuel: 0 })] }));
-    expect(text(root, "hud-advice")).toBe("Pit now");
-    expect(root.querySelector('[data-testid="hud-advice"]')!.className).toContain("is-pit-now");
-    expect(text(root, "hud-warning")).toBe("Out of fuel: max 4 moves");
-    expect(resourceWarning({ tire: 0, fuel: 0 })).toBe("Out of tire and fuel: max 4 moves");
+  it('shows the pit chips, and the zero-resource cap when a resource is gone', () => {
+    renderHud(root, snap({ cars: [car(2, { advice: 'pit-soon' })] }));
+    expect(text(root, 'hud-advice')).toBe('Pit this lap');
+    renderHud(root, snap({ cars: [car(2, { advice: 'pit-now', fuel: 0 })] }));
+    expect(text(root, 'hud-advice')).toBe('Pit now');
+    expect(root.querySelector('[data-testid="hud-advice"]')!.className).toContain('is-pit-now');
+    expect(text(root, 'hud-warning')).toBe('Out of fuel: max 4 moves');
+    expect(resourceWarning({ tire: 0, fuel: 0 })).toBe('Out of tire and fuel: max 4 moves');
     expect(resourceWarning({ tire: 1, fuel: 1 })).toBeNull();
   });
 
-  it("tooltip shows tire and fuel before and after, coloured by the level they land on", () => {
-    const hover = { x: 1, y: 2, distance: 8, moveSpend: 7, tireCost: 5, fuelCost: 4, isPit: false, tireBefore: 63, fuelBefore: 30 };
+  it('tooltip shows tire and fuel before and after, coloured by the level they land on', () => {
+    const hover = {
+      x: 1,
+      y: 2,
+      distance: 8,
+      moveSpend: 7,
+      tireCost: 5,
+      fuelCost: 4,
+      isPit: false,
+      tireBefore: 63,
+      fuelBefore: 30
+    };
     renderHud(root, snap({ hover }));
-    expect(text(root, "hud-tooltip")).toBe("Move 7 - tire 63% → 58% - fuel 30% → 26%");
+    expect(text(root, 'hud-tooltip')).toBe('Move 7 - tire 63% → 58% - fuel 30% → 26%');
     const spans = root.querySelectorAll('[data-testid="hud-tooltip"] span');
-    expect([...spans].map((s) => s.className)).toEqual(["hud-ok", "hud-warn"]);
+    expect([...spans].map((s) => s.className)).toEqual(['hud-ok', 'hud-warn']);
   });
 
-  it("tooltip warns when the move empties tire or fuel, but not when it already was empty", () => {
+  it('tooltip warns when the move empties tire or fuel, but not when it already was empty', () => {
     const base = { x: 1, y: 2, distance: 8, moveSpend: 7, tireCost: 5, fuelCost: 4, isPit: false };
     renderHud(root, snap({ hover: { ...base, tireBefore: 4, fuelBefore: 80 } }));
-    expect(text(root, "hud-tooltip")).toContain("tire 4% → 0%");
-    expect(text(root, "hud-tooltip")).toContain("Empties your tire: max 4 moves next");
+    expect(text(root, 'hud-tooltip')).toContain('tire 4% → 0%');
+    expect(text(root, 'hud-tooltip')).toContain('Empties your tire: max 4 moves next');
     renderHud(root, snap({ hover: { ...base, tireBefore: 0, fuelBefore: 80 } }));
-    expect(text(root, "hud-tooltip")).not.toContain("Empties");
+    expect(text(root, 'hud-tooltip')).not.toContain('Empties');
   });
 
-  it("shows the draft on the car card: turns so far, then slingshot ready, and nothing when not drafting", () => {
+  it('shows the draft on the car card: turns so far, then slingshot ready, and nothing when not drafting', () => {
     const draft = () => root.querySelector<HTMLElement>('[data-testid="hud-draft"]')!;
     renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 1 })] }));
     expect(draft().hidden).toBe(false);
     // the card's line, and the short chip of the phone's top bar (CSS shows one of the two)
-    expect(text(root, "hud-draft-long")).toBe("In the tow 1/2");
-    expect(text(root, "hud-draft-short")).toBe("» DRAFT 1/2");
-    expect(draft().classList.contains("is-ready")).toBe(false);
+    expect(text(root, 'hud-draft-long')).toBe('In the tow 1/2');
+    expect(text(root, 'hud-draft-short')).toBe('» DRAFT 1/2');
+    expect(draft().classList.contains('is-ready')).toBe(false);
     renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 2 })] }));
-    expect(text(root, "hud-draft-long")).toBe("In the tow - slingshot ready");
-    expect(text(root, "hud-draft-short")).toBe("» SLINGSHOT");
-    expect(draft().classList.contains("is-ready")).toBe(true);
+    expect(text(root, 'hud-draft-long')).toBe('In the tow - slingshot ready');
+    expect(text(root, 'hud-draft-short')).toBe('» SLINGSHOT');
+    expect(draft().classList.contains('is-ready')).toBe(true);
     // a run longer than the slingshot needs still reads 2/2 once it is not ready (e.g. the sandbox's 9)
     renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 5 })] }));
-    expect(text(root, "hud-draft-short")).toBe("» SLINGSHOT");
+    expect(text(root, 'hud-draft-short')).toBe('» SLINGSHOT');
     renderHud(root, snap({ cars: [car(2, { drafting: false, draftTurns: 0 })] }));
     expect(draft().hidden).toBe(true);
   });
 
-  it("pulses the draft chip when it appears and when its count goes up, not on a repeated snapshot", () => {
+  it('pulses the draft chip when it appears and when its count goes up, not on a repeated snapshot', () => {
     const draft = () => root.querySelector<HTMLElement>('[data-testid="hud-draft"]')!;
-    const pulses = () => draft().classList.contains("is-pulse");
+    const pulses = () => draft().classList.contains('is-pulse');
     renderHud(root, snap({ cars: [car(2, { drafting: false, draftTurns: 0 })] }));
     expect(pulses()).toBe(false);
     renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 1 })] }));
     expect(pulses()).toBe(true);
-    draft().classList.remove("is-pulse"); // the animation ended
+    draft().classList.remove('is-pulse'); // the animation ended
     renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 1 })] }));
     expect(pulses()).toBe(false);
     renderHud(root, snap({ cars: [car(2, { drafting: true, draftTurns: 2 })] }));
     expect(pulses()).toBe(true);
   });
 
-  it("tooltip says when a move is drafted, and when it is a slingshot", () => {
-    const hover = { x: 1, y: 2, distance: 3, moveSpend: 4, tireCost: 2, fuelCost: 2, isPit: false, tireBefore: 90, fuelBefore: 90 };
+  it('tooltip says when a move is drafted, and when it is a slingshot', () => {
+    const hover = {
+      x: 1,
+      y: 2,
+      distance: 3,
+      moveSpend: 4,
+      tireCost: 2,
+      fuelCost: 2,
+      isPit: false,
+      tireBefore: 90,
+      fuelBefore: 90
+    };
     renderHud(root, snap({ hover }));
-    expect(text(root, "hud-tooltip")).not.toContain("Draft");
+    expect(text(root, 'hud-tooltip')).not.toContain('Draft');
     renderHud(root, snap({ hover: { ...hover, drafted: true } }));
-    expect(text(root, "hud-tooltip")).toContain("Draft: less wear");
+    expect(text(root, 'hud-tooltip')).toContain('Draft: less wear');
     renderHud(root, snap({ hover: { ...hover, drafted: true, slingshot: true } }));
-    expect(text(root, "hud-tooltip")).toContain("Slingshot: the lane change is free");
-    renderHud(root, snap({ hover: { ...hover, drafted: true, slingshot: true, slingshotOnly: true } }));
-    expect(text(root, "hud-tooltip")).toContain("Slingshot: only in reach thanks to the draft");
+    expect(text(root, 'hud-tooltip')).toContain('Slingshot: the lane change is free');
+    renderHud(
+      root,
+      snap({ hover: { ...hover, drafted: true, slingshot: true, slingshotOnly: true } })
+    );
+    expect(text(root, 'hud-tooltip')).toContain('Slingshot: only in reach thanks to the draft');
     // a move that ends 1-2 cells behind a car keeps the tow for the next one
     renderHud(root, snap({ hover: { ...hover, tucksIn: true } }));
-    expect(text(root, "hud-tooltip")).toContain("Ends in the tow: less wear next move");
-    expect(text(root, "hud-tooltip")).not.toContain("Draft:");
+    expect(text(root, 'hud-tooltip')).toContain('Ends in the tow: less wear next move');
+    expect(text(root, 'hud-tooltip')).not.toContain('Draft:');
   });
 
-  it("tooltip names the lane changes of a route that changes lane 2 or more times", () => {
-    const hover = { x: 1, y: 2, distance: 7, moveSpend: 9, tireCost: 5, fuelCost: 4, isPit: false, tireBefore: 63, fuelBefore: 30 };
+  it('tooltip names the lane changes of a route that changes lane 2 or more times', () => {
+    const hover = {
+      x: 1,
+      y: 2,
+      distance: 7,
+      moveSpend: 9,
+      tireCost: 5,
+      fuelCost: 4,
+      isPit: false,
+      tireBefore: 63,
+      fuelBefore: 30
+    };
     renderHud(root, snap({ hover }));
-    expect(text(root, "hud-tooltip")).toBe("Move 9 - tire 63% → 58% - fuel 30% → 26%");
+    expect(text(root, 'hud-tooltip')).toBe('Move 9 - tire 63% → 58% - fuel 30% → 26%');
     renderHud(root, snap({ hover: { ...hover, laneChanges: 2 } }));
-    expect(text(root, "hud-tooltip")).toBe("Move 9 (2 lane changes) - tire 63% → 58% - fuel 30% → 26%");
+    expect(text(root, 'hud-tooltip')).toBe(
+      'Move 9 (2 lane changes) - tire 63% → 58% - fuel 30% → 26%'
+    );
   });
 
-  it("tooltip and banner describe a squeeze", () => {
-    const hover = { x: 1, y: 2, distance: 3, moveSpend: 7, tireCost: 5, fuelCost: 4, isPit: false, squeezePassed: 2, tireBefore: 63, fuelBefore: 30 };
+  it('tooltip and banner describe a squeeze', () => {
+    const hover = {
+      x: 1,
+      y: 2,
+      distance: 3,
+      moveSpend: 7,
+      tireCost: 5,
+      fuelCost: 4,
+      isPit: false,
+      squeezePassed: 2,
+      tireBefore: 63,
+      fuelBefore: 30
+    };
     renderHud(root, snap({ hover, boxedIn: true }));
-    expect(text(root, "hud-tooltip")).toBe("Squeeze past 2 cars - Move 7 (+4 points) - tire 63% → 58% - fuel 30% → 26%");
-    expect(text(root, "hud-banner")).toBe("Boxed in - squeeze past (+2 points per car)");
+    expect(text(root, 'hud-tooltip')).toBe(
+      'Squeeze past 2 cars - Move 7 (+4 points) - tire 63% → 58% - fuel 30% → 26%'
+    );
+    expect(text(root, 'hud-banner')).toBe('Boxed in - squeeze past (+2 points per car)');
     renderHud(root, snap({ hover: { ...hover, squeezePassed: 1, moveSpend: 4 } }));
-    expect(text(root, "hud-tooltip")).toContain("Squeeze past 1 car - Move 4 (+2 points)");
+    expect(text(root, 'hud-tooltip')).toContain('Squeeze past 1 car - Move 4 (+2 points)');
     renderHud(root, snap({ boxedIn: true, pitExitBlocked: true }));
-    expect(text(root, "hud-banner")).toBe("Pit exit blocked - squeeze out (+2 points per car)");
+    expect(text(root, 'hud-banner')).toBe('Pit exit blocked - squeeze out (+2 points per car)');
   });
 
-  it("a picked target shows its card beside the cell; Move here and Cancel ask the scene", () => {
+  it('a picked target shows its card beside the cell; Move here and Cancel ask the scene', () => {
     const card = () => root.querySelector<HTMLElement>('[data-testid="hud-select"]')!;
     renderHud(root, snap());
     expect(card().hidden).toBe(true);
 
-    const pick = { x: 700, y: 100, distance: 6, moveSpend: 6, tireCost: 4, fuelCost: 3, isPit: false, tireBefore: 80, fuelBefore: 90 };
-    vi.stubGlobal("innerWidth", 1000);
-    vi.stubGlobal("innerHeight", 400);
+    const pick = {
+      x: 700,
+      y: 100,
+      distance: 6,
+      moveSpend: 6,
+      tireCost: 4,
+      fuelCost: 3,
+      isPit: false,
+      tireBefore: 80,
+      fuelBefore: 90
+    };
+    vi.stubGlobal('innerWidth', 1000);
+    vi.stubGlobal('innerHeight', 400);
     renderHud(root, snap({ selection: pick }));
     expect(card().hidden).toBe(false);
-    expect(text(root, "hud-select-info")).toBe("Move 6 - tire 80% → 76% - fuel 90% → 87%");
-    expect(text(root, "hud-select-confirm")).toBe("Move here");
+    expect(text(root, 'hud-select-info')).toBe('Move 6 - tire 80% → 76% - fuel 90% → 87%');
+    expect(text(root, 'hud-select-confirm')).toBe('Move here');
     // near the right edge and the top: the card opens to the left and below the cell
-    expect(card().classList.contains("is-left")).toBe(true);
-    expect(card().classList.contains("is-below")).toBe(true);
+    expect(card().classList.contains('is-left')).toBe(true);
+    expect(card().classList.contains('is-below')).toBe(true);
 
     const commands: string[] = [];
-    const listener = (event: Event) => commands.push((event as CustomEvent<{ type: string }>).detail.type);
-    window.addEventListener("srp:hud-command", listener);
+    const listener = (event: Event) =>
+      commands.push((event as CustomEvent<{ type: string }>).detail.type);
+    window.addEventListener('srp:hud-command', listener);
     root.querySelector<HTMLButtonElement>('[data-testid="hud-select-confirm"]')!.click();
     root.querySelector<HTMLButtonElement>('[data-testid="hud-select-cancel"]')!.click();
-    window.removeEventListener("srp:hud-command", listener);
-    expect(commands).toEqual(["confirm-move", "cancel-move"]);
+    window.removeEventListener('srp:hud-command', listener);
+    expect(commands).toEqual(['confirm-move', 'cancel-move']);
 
     renderHud(root, snap({ selection: { ...pick, x: 100, y: 300, isPit: true } }));
-    expect(text(root, "hud-select-confirm")).toBe("Pit here");
-    expect(card().classList.contains("is-left")).toBe(false);
-    expect(card().classList.contains("is-below")).toBe(false);
+    expect(text(root, 'hud-select-confirm')).toBe('Pit here');
+    expect(card().classList.contains('is-left')).toBe(false);
+    expect(card().classList.contains('is-below')).toBe(false);
     vi.unstubAllGlobals();
   });
 
-  it("the Standings button opens and closes the drawer of the compact layout", () => {
+  it('the Standings button opens and closes the drawer of the compact layout', () => {
     const toggle = root.querySelector<HTMLButtonElement>('[data-testid="hud-drawer-toggle"]')!;
     toggle.click();
-    expect(root.classList.contains("is-drawer-open")).toBe(true);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(root.classList.contains('is-drawer-open')).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     toggle.click();
-    expect(root.classList.contains("is-drawer-open")).toBe(false);
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(root.classList.contains('is-drawer-open')).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it("renders the mute toggle label", () => {
+  it('renders the mute toggle label', () => {
     renderMute(root, true);
-    expect(text(root, "hud-mute")).toBe("Sound: off");
-    expect(root.querySelector('[data-testid="hud-mute"]')!.getAttribute("aria-pressed")).toBe("true");
+    expect(text(root, 'hud-mute')).toBe('Sound: off');
+    expect(root.querySelector('[data-testid="hud-mute"]')!.getAttribute('aria-pressed')).toBe(
+      'true'
+    );
     renderMute(root, false);
-    expect(text(root, "hud-mute")).toBe("Sound: on");
+    expect(text(root, 'hud-mute')).toBe('Sound: on');
   });
 
-  it("renders the frame-rate readout and its toggle", () => {
+  it('renders the frame-rate readout and its toggle', () => {
     expect(root.querySelector<HTMLElement>('[data-testid="hud-fps"]')!.hidden).toBe(true);
-    renderFps(root, true, "fps 58 \u00b7 worst frame 40 ms");
+    renderFps(root, true, 'fps 58 \u00b7 worst frame 40 ms');
     const line = root.querySelector<HTMLElement>('[data-testid="hud-fps"]')!;
     expect(line.hidden).toBe(false);
-    expect(line.textContent).toBe("fps 58 \u00b7 worst frame 40 ms");
-    expect(text(root, "hud-fps-toggle")).toBe("FPS: on");
-    expect(root.querySelector('[data-testid="hud-fps-toggle"]')!.getAttribute("aria-pressed")).toBe("true");
-    renderFps(root, false, "stale text");
+    expect(line.textContent).toBe('fps 58 \u00b7 worst frame 40 ms');
+    expect(text(root, 'hud-fps-toggle')).toBe('FPS: on');
+    expect(root.querySelector('[data-testid="hud-fps-toggle"]')!.getAttribute('aria-pressed')).toBe(
+      'true'
+    );
+    renderFps(root, false, 'stale text');
     expect(line.hidden).toBe(true);
-    expect(line.textContent).toBe("");
-    expect(text(root, "hud-fps-toggle")).toBe("FPS: off");
+    expect(line.textContent).toBe('');
+    expect(text(root, 'hud-fps-toggle')).toBe('FPS: off');
   });
 
-  describe("toast", () => {
+  describe('toast', () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("shows, replaces and hides itself", () => {
+    it('shows, replaces and hides itself', () => {
       const toast = root.querySelector('[data-testid="hud-toast"]') as HTMLElement;
       expect(toast.hidden).toBe(true);
-      showToast(root, "Lap 1 / 3", "lap");
+      showToast(root, 'Lap 1 / 3', 'lap');
       expect(toast.hidden).toBe(false);
       vi.advanceTimersByTime(2000);
-      showToast(root, "Final lap", "final");
+      showToast(root, 'Final lap', 'final');
       vi.advanceTimersByTime(2000); // the first timer must not hide the second toast
       expect(toast.hidden).toBe(false);
-      expect(toast.textContent).toBe("Final lap");
-      expect(toast.className).toContain("is-final");
+      expect(toast.textContent).toBe('Final lap');
+      expect(toast.className).toContain('is-final');
       vi.advanceTimersByTime(600);
       expect(toast.hidden).toBe(true);
     });
   });
 
-  it("renders the final standings into the results table", () => {
-    document.body.insertAdjacentHTML("beforeend", '<table data-testid="results-standings"><tbody></tbody></table>');
+  it('renders the final standings into the results table', () => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<table data-testid="results-standings"><tbody></tbody></table>'
+    );
     renderResults(document.body, snap({ finished: true, winnerCarId: 2 }));
     const rows = document.querySelectorAll('[data-testid="results-row"]');
     expect(rows).toHaveLength(3);
-    expect(rows[0]!.textContent).toContain("Car 1");
+    expect(rows[0]!.textContent).toContain('Car 1');
   });
 });
 
-describe("formatCountdown", () => {
-  it("formats m:ss and rounds up", () => {
-    expect(formatCountdown(120_000)).toBe("2:00");
-    expect(formatCountdown(59_001)).toBe("1:00");
-    expect(formatCountdown(9_400)).toBe("0:10");
-    expect(formatCountdown(1)).toBe("0:01");
-    expect(formatCountdown(0)).toBe("0:00");
-    expect(formatCountdown(-5)).toBe("0:00");
+describe('formatCountdown', () => {
+  it('formats m:ss and rounds up', () => {
+    expect(formatCountdown(120_000)).toBe('2:00');
+    expect(formatCountdown(59_001)).toBe('1:00');
+    expect(formatCountdown(9_400)).toBe('0:10');
+    expect(formatCountdown(1)).toBe('0:01');
+    expect(formatCountdown(0)).toBe('0:00');
+    expect(formatCountdown(-5)).toBe('0:00');
   });
 });

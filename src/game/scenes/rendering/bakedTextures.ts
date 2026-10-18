@@ -1,5 +1,5 @@
-import type Phaser from "phaser";
-import { renderScale } from "../../hidpi";
+import type Phaser from 'phaser';
+import { renderScale } from '../../hidpi';
 
 // Canvas renderer on purpose (AGENTS.md): what repeats is drawn once into a canvas texture and shown as an Image, with
 // plain 2D canvas calls (no WebGL-only feature). Baked at `renderScale()` times 2: the player can pinch to 3x, and a
@@ -12,7 +12,7 @@ export function bakeFactor(): number {
 }
 
 function css(color: number): string {
-  return `#${color.toString(16).padStart(6, "0")}`;
+  return `#${color.toString(16).padStart(6, '0')}`;
 }
 
 function bake(
@@ -55,12 +55,14 @@ export interface TargetRing {
   /** tuck: the move ends 1-2 cells behind a car in its lane, so the car is in the tow for its next move: a blue dashed ring */
   tuck: boolean;
   /** risk: the move leaves a resource under 20% (thin ring) or empty (thick ring) */
-  risk: "none" | "low" | "empty";
+  risk: 'none' | 'low' | 'empty';
 }
 
 /** The circles of a target marker, bottom to top. */
 export function targetLayers(t: TargetRing): RingLayer[] {
-  const layers: RingLayer[] = [{ radius: 10, width: 2, color: t.color, alpha: 0.95, fillAlpha: 0.4 }];
+  const layers: RingLayer[] = [
+    { radius: 10, width: 2, color: t.color, alpha: 0.95, fillAlpha: 0.4 }
+  ];
   if (t.squeeze) layers.push({ radius: 13, width: 3, color: 0xffb020, alpha: 1, dashes: 10 });
   // (dashed like the squeeze ring but blue and thinner: a squeeze target never ends tucked in, it has no free lane)
   if (t.tuck) layers.push({ radius: 13, width: 2, color: 0x7fb4ff, alpha: 1, dashes: 8 });
@@ -68,7 +70,9 @@ export function targetLayers(t: TargetRing): RingLayer[] {
     layers.push({ radius: 13, width: 2, color: 0xffd166, alpha: 1 });
     if (t.slingshotOnly) layers.push({ radius: 16, width: 2, color: 0xffd166, alpha: 1 });
   }
-  if (t.risk !== "none") layers.push({ radius: 14, width: t.risk === "empty" ? 4 : 2, color: 0xff4d4d, alpha: 1 });
+  if (t.risk !== 'none') {
+    layers.push({ radius: 14, width: t.risk === 'empty' ? 4 : 2, color: 0xff4d4d, alpha: 1 });
+  }
   return layers;
 }
 
@@ -80,7 +84,7 @@ const RING_BOX = 40;
 
 /** Texture key of a marker, baked on first use. The image is centred: its origin is the cell. */
 export function ringTexture(scene: Phaser.Scene, layers: RingLayer[]): string {
-  const key = `ring:${layers.map((l) => [l.radius, l.width, l.color, l.alpha, l.fillAlpha ?? 0, l.dashes ?? 0].join("/")).join(",")}`;
+  const key = `ring:${layers.map((l) => [l.radius, l.width, l.color, l.alpha, l.fillAlpha ?? 0, l.dashes ?? 0].join('/')).join(',')}`;
   return bake(scene, key, RING_BOX, RING_BOX, (ctx) => {
     const c = RING_BOX / 2;
     for (const l of layers) {
@@ -106,9 +110,14 @@ export function ringTexture(scene: Phaser.Scene, layers: RingLayer[]): string {
 }
 
 /** A car picture at its display size (w x h world units), downscaled once instead of on every frame. */
-export function carBodyTexture(scene: Phaser.Scene, spriteKey: string, w: number, h: number): string {
+export function carBodyTexture(
+  scene: Phaser.Scene,
+  spriteKey: string,
+  w: number,
+  h: number
+): string {
   return bake(scene, `body:${spriteKey}`, w, h, (ctx) => {
-    ctx.imageSmoothingQuality = "high";
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(scene.textures.get(spriteKey).getSourceImage() as HTMLImageElement, 0, 0, w, h);
   });
 }
@@ -124,13 +133,13 @@ export function badgeTexture(scene: Phaser.Scene, carId: number): string {
     ctx.arc(BADGE / 2, BADGE / 2, 5.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = '#ffffff';
     const text = String(carId);
     // Two digits (cars 10 and 11) are wider than the disc at 9px: a smaller font, and a width cap so the digits stay
     // inside whatever monospace font the device has (fillText squeezes the text to fit).
-    ctx.font = text.length > 1 ? "8px monospace" : "9px monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.font = text.length > 1 ? '8px monospace' : '9px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(text, BADGE / 2, BADGE / 2, text.length > 1 ? 8.2 : undefined);
   });
 }

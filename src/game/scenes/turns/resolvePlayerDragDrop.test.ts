@@ -1,10 +1,10 @@
-import type Phaser from "phaser";
-import { describe, expect, it, vi } from "vitest";
-import type { Car } from "../../types/car";
-import type { TrackCell } from "../../types/track";
-import type { MoveValidationResult } from "../../systems/moveValidationSystem";
-import { PIT_LANE } from "../../constants";
-import { resolvePlayerDragDrop } from "./resolvePlayerDragDrop";
+import type Phaser from 'phaser';
+import { describe, expect, it, vi } from 'vitest';
+import type { Car } from '../../types/car';
+import type { TrackCell } from '../../types/track';
+import type { MoveValidationResult } from '../../systems/moveValidationSystem';
+import { PIT_LANE } from '../../constants';
+import { resolvePlayerDragDrop } from './resolvePlayerDragDrop';
 
 function makeCell(id: string, laneIndex: number, x: number, y: number): TrackCell {
   return {
@@ -21,18 +21,18 @@ function makeCell(id: string, laneIndex: number, x: number, y: number): TrackCel
 function makeCar(overrides: Partial<Car> = {}): Car {
   return {
     carId: 1,
-    ownerId: "P1",
+    ownerId: 'P1',
     isBot: false,
-    cellId: "A",
+    cellId: 'A',
     lapCount: 0,
     tire: 90,
     fuel: 90,
     setup: {
-      compound: "soft",
+      compound: 'soft',
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wing: "medium" as const
+      wing: 'medium' as const
     },
-    state: "ACTIVE",
+    state: 'ACTIVE',
     pitTurnsRemaining: 0,
     pitExitBoost: true,
     pitServiced: true,
@@ -74,11 +74,11 @@ function makeOkValidation(moveSpend: number, isPitStop = false): MoveValidationR
   };
 }
 
-describe("resolvePlayerDragDrop", () => {
-  it("hands a normal move to the engine without touching the car", () => {
-    const car = makeCar({ cellId: "A", pitExitBoost: true, pitServiced: true });
-    const fromCell = makeCell("A", 1, 10, 20);
-    const toCell = makeCell("B", 2, 100, 200);
+describe('resolvePlayerDragDrop', () => {
+  it('hands a normal move to the engine without touching the car', () => {
+    const car = makeCar({ cellId: 'A', pitExitBoost: true, pitServiced: true });
+    const fromCell = makeCell('A', 1, 10, 20);
+    const toCell = makeCell('B', 2, 100, 200);
     const token = makeToken(15, 25);
     const onOpenPitModal = vi.fn();
     const onMove = vi.fn();
@@ -90,24 +90,24 @@ describe("resolvePlayerDragDrop", () => {
       nearestCell: toCell,
       validation: makeOkValidation(3),
       cellMap: new Map([
-        ["A", fromCell],
-        ["B", toCell]
+        ['A', fromCell],
+        ['B', toCell]
       ]),
       activeHalo: makeHalo(15, 25),
       onOpenPitModal,
       onMove
     });
 
-    expect(onMove).toHaveBeenCalledWith("B");
+    expect(onMove).toHaveBeenCalledWith('B');
     expect(onOpenPitModal).not.toHaveBeenCalled();
     expect(token.x).toBe(100);
     expect(token.y).toBe(200);
-    expect(car).toMatchObject({ cellId: "A", pitExitBoost: true, pitServiced: true });
+    expect(car).toMatchObject({ cellId: 'A', pitExitBoost: true, pitServiced: true });
   });
 
-  it("a tap hands the move over and leaves the token on its cell, for the board to glide", () => {
-    const car = makeCar({ cellId: "A" });
-    const toCell = makeCell("B", 2, 100, 200);
+  it('a tap hands the move over and leaves the token on its cell, for the board to glide', () => {
+    const car = makeCar({ cellId: 'A' });
+    const toCell = makeCell('B', 2, 100, 200);
     const token = makeToken(10, 20);
     const onMove = vi.fn();
 
@@ -118,8 +118,8 @@ describe("resolvePlayerDragDrop", () => {
       nearestCell: toCell,
       validation: makeOkValidation(3),
       cellMap: new Map([
-        ["A", makeCell("A", 1, 10, 20)],
-        ["B", toCell]
+        ['A', makeCell('A', 1, 10, 20)],
+        ['B', toCell]
       ]),
       activeHalo: null,
       onOpenPitModal: vi.fn(),
@@ -127,24 +127,24 @@ describe("resolvePlayerDragDrop", () => {
       glideMove: true
     });
 
-    expect(onMove).toHaveBeenCalledWith("B");
+    expect(onMove).toHaveBeenCalledWith('B');
     expect([token.x, token.y]).toEqual([10, 20]);
   });
 
-  it("a dropped drag leaves the token where it was dropped, for the board to glide onto the cell (#110)", () => {
-    const toCell = makeCell("B", 2, 100, 200);
+  it('a dropped drag leaves the token where it was dropped, for the board to glide onto the cell (#110)', () => {
+    const toCell = makeCell('B', 2, 100, 200);
     const token = makeToken(96, 205); // dropped a little off the cell
     const onMove = vi.fn();
 
     resolvePlayerDragDrop({
-      activeCar: makeCar({ cellId: "A" }),
+      activeCar: makeCar({ cellId: 'A' }),
       token,
       origin: { x: 10, y: 20 },
       nearestCell: toCell,
       validation: makeOkValidation(3),
       cellMap: new Map([
-        ["A", makeCell("A", 1, 10, 20)],
-        ["B", toCell]
+        ['A', makeCell('A', 1, 10, 20)],
+        ['B', toCell]
       ]),
       activeHalo: null,
       onOpenPitModal: vi.fn(),
@@ -157,19 +157,19 @@ describe("resolvePlayerDragDrop", () => {
     expect([token.x, token.y]).toEqual([96, 205]);
   });
 
-  it("a refused drop hands the way back to the board and does not move the token itself (#110)", () => {
+  it('a refused drop hands the way back to the board and does not move the token itself (#110)', () => {
     const token = makeToken(99, 99);
     const halo = makeHalo(99, 99);
     const onMove = vi.fn();
     const onReturn = vi.fn();
 
     resolvePlayerDragDrop({
-      activeCar: makeCar({ cellId: "A" }),
+      activeCar: makeCar({ cellId: 'A' }),
       token,
       origin: { x: 5, y: 6 },
       nearestCell: null,
-      validation: { ok: false, reason: "invalid-target" },
-      cellMap: new Map([["A", makeCell("A", 1, 11, 22)]]),
+      validation: { ok: false, reason: 'invalid-target' },
+      cellMap: new Map([['A', makeCell('A', 1, 11, 22)]]),
       activeHalo: halo,
       onOpenPitModal: vi.fn(),
       onMove,
@@ -181,9 +181,9 @@ describe("resolvePlayerDragDrop", () => {
     expect([token.x, token.y, halo.x, halo.y]).toEqual([99, 99, 99, 99]);
   });
 
-  it("opens the pit modal for a pit stop instead of moving", () => {
-    const car = makeCar({ cellId: "A", pitServiced: false });
-    const pitCell = makeCell("P1", PIT_LANE, 30, 40);
+  it('opens the pit modal for a pit stop instead of moving', () => {
+    const car = makeCar({ cellId: 'A', pitServiced: false });
+    const pitCell = makeCell('P1', PIT_LANE, 30, 40);
     const token = makeToken(10, 20);
     const onOpenPitModal = vi.fn();
     const onMove = vi.fn();
@@ -195,8 +195,8 @@ describe("resolvePlayerDragDrop", () => {
       nearestCell: pitCell,
       validation: makeOkValidation(1, true),
       cellMap: new Map([
-        ["A", makeCell("A", 1, 10, 20)],
-        ["P1", pitCell]
+        ['A', makeCell('A', 1, 10, 20)],
+        ['P1', pitCell]
       ]),
       activeHalo: null,
       onOpenPitModal,
@@ -205,14 +205,14 @@ describe("resolvePlayerDragDrop", () => {
 
     expect(onOpenPitModal).toHaveBeenCalledWith(pitCell, { x: 10, y: 20 });
     expect(onMove).not.toHaveBeenCalled();
-    expect(car.cellId).toBe("A");
+    expect(car.cellId).toBe('A');
     expect(token.x).toBe(30);
     expect(token.y).toBe(40);
   });
 
-  it("resets token and halo to current active cell when validation fails", () => {
-    const car = makeCar({ cellId: "A" });
-    const currentCell = makeCell("A", 1, 11, 22);
+  it('resets token and halo to current active cell when validation fails', () => {
+    const car = makeCar({ cellId: 'A' });
+    const currentCell = makeCell('A', 1, 11, 22);
     const token = makeToken(99, 99);
     const halo = makeHalo(99, 99);
     const onMove = vi.fn();
@@ -222,8 +222,8 @@ describe("resolvePlayerDragDrop", () => {
       token,
       origin: { x: 5, y: 6 },
       nearestCell: null,
-      validation: { ok: false, reason: "invalid-target" },
-      cellMap: new Map([["A", currentCell]]),
+      validation: { ok: false, reason: 'invalid-target' },
+      cellMap: new Map([['A', currentCell]]),
       activeHalo: halo,
       onOpenPitModal: vi.fn(),
       onMove
@@ -236,8 +236,8 @@ describe("resolvePlayerDragDrop", () => {
     expect(halo.y).toBe(22);
   });
 
-  it("resets token and halo to drag origin when active cell is missing", () => {
-    const car = makeCar({ cellId: "MISSING" });
+  it('resets token and halo to drag origin when active cell is missing', () => {
+    const car = makeCar({ cellId: 'MISSING' });
     const token = makeToken(50, 60);
     const halo = makeHalo(50, 60);
 
@@ -246,7 +246,7 @@ describe("resolvePlayerDragDrop", () => {
       token,
       origin: { x: 7, y: 8 },
       nearestCell: null,
-      validation: { ok: false, reason: "no-cell" },
+      validation: { ok: false, reason: 'no-cell' },
       cellMap: new Map(),
       activeHalo: halo,
       onOpenPitModal: vi.fn(),

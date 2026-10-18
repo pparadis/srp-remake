@@ -1,6 +1,6 @@
-import Phaser from "phaser";
-import { renderScale } from "../../hidpi";
-import { swatchTexture } from "../rendering/bakedTextures";
+import Phaser from 'phaser';
+import { renderScale } from '../../hidpi';
+import { swatchTexture } from '../rendering/bakedTextures';
 
 interface Piece {
   img: Phaser.GameObjects.Image;
@@ -33,7 +33,11 @@ export class Confetti {
     const k = 1 / zoom;
     const px = renderScale(); // canvas pixels per CSS pixel: the pieces keep their size on screen
     // Fixed objects are zoomed with the camera; undo that so the burst covers the screen.
-    this.layer = scene.add.container((width / 2) * (1 - k), (height / 2) * (1 - k)).setScrollFactor(0).setDepth(90).setScale(k);
+    this.layer = scene.add
+      .container((width / 2) * (1 - k), (height / 2) * (1 - k))
+      .setScrollFactor(0)
+      .setDepth(90)
+      .setScale(k);
     for (let i = 0; i < count; i += 1) {
       const img = scene.add.image(0, 0, swatchTexture(scene, COLORS[i % COLORS.length]!));
       this.layer.add(img);
@@ -62,7 +66,9 @@ export class Confetti {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.angle += p.spin * dt;
-      p.img.setPosition(p.x, p.y).setDisplaySize(p.size * (0.4 + Math.abs(Math.cos(p.angle))), p.size);
+      p.img
+        .setPosition(p.x, p.y)
+        .setDisplaySize(p.size * (0.4 + Math.abs(Math.cos(p.angle))), p.size);
     }
   }
 

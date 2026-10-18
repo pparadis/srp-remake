@@ -1,6 +1,6 @@
-import type { WingLevel } from "../game/constants";
-import type { CarEdit } from "../game/race/sandbox";
-import type { BotLevel } from "../game/types/car";
+import type { WingLevel } from '../game/constants';
+import type { CarEdit } from '../game/race/sandbox';
+import type { BotLevel } from '../game/types/car';
 
 // DOM panel of the sandbox (`?sandbox`). The scene sends `srp:sandbox` snapshots after every change; the panel sends
 // `srp:sandbox-command` back. No Phaser here, same split as the HUD.
@@ -14,7 +14,7 @@ export interface SandboxSnapshot {
     lapCount: number;
     tire: number;
     fuel: number;
-    compound: "soft" | "hard";
+    compound: 'soft' | 'hard';
     wing: WingLevel;
     budgetLeft: number;
     draftTurns: number;
@@ -26,12 +26,12 @@ export interface SandboxSnapshot {
 }
 
 export type SandboxCommand =
-  | { type: "edit"; carId: number; edit: CarEdit }
-  | { type: "select"; carId: number }
-  | { type: "mode"; editing: boolean }
-  | { type: "copy-test" }
-  | { type: "copy-link" }
-  | { type: "load"; text: string };
+  | { type: 'edit'; carId: number; edit: CarEdit }
+  | { type: 'select'; carId: number }
+  | { type: 'mode'; editing: boolean }
+  | { type: 'copy-test' }
+  | { type: 'copy-link' }
+  | { type: 'load'; text: string };
 
 const TEMPLATE = `
 <div class="sandbox-head">
@@ -72,49 +72,55 @@ const TEMPLATE = `
 `;
 
 function send(command: SandboxCommand): void {
-  window.dispatchEvent(new CustomEvent<SandboxCommand>("srp:sandbox-command", { detail: command }));
+  window.dispatchEvent(new CustomEvent<SandboxCommand>('srp:sandbox-command', { detail: command }));
 }
 
 export function mountSandboxPanel(parent: Element): HTMLElement {
-  const root = document.createElement("section");
-  root.className = "hud-card sandbox-panel";
-  root.dataset.testid = "sandbox-panel";
+  const root = document.createElement('section');
+  root.className = 'hud-card sandbox-panel';
+  root.dataset.testid = 'sandbox-panel';
   root.hidden = true; // until a race sends a snapshot: online races have no sandbox
   root.innerHTML = TEMPLATE;
   parent.append(root);
   const q = <T extends HTMLElement>(id: string) => root.querySelector<T>(`[data-testid="${id}"]`)!;
   let last: SandboxSnapshot | null = null;
   const carId = () => last?.activeCarId ?? 0;
-  const edit = (patch: CarEdit) => send({ type: "edit", carId: carId(), edit: patch });
-  const num = (id: string, key: "lapCount" | "tire" | "fuel" | "budgetLeft" | "draftTurns") =>
-    q<HTMLInputElement>(id).addEventListener("change", (e) => {
+  const edit = (patch: CarEdit) => send({ type: 'edit', carId: carId(), edit: patch });
+  const num = (id: string, key: 'lapCount' | 'tire' | 'fuel' | 'budgetLeft' | 'draftTurns') =>
+    q<HTMLInputElement>(id).addEventListener('change', (e) => {
       const value = (e.target as HTMLInputElement).valueAsNumber;
       if (Number.isFinite(value)) edit({ [key]: value });
     });
-  num("sandbox-lap", "lapCount");
-  num("sandbox-tire", "tire");
-  num("sandbox-fuel", "fuel");
-  num("sandbox-budget", "budgetLeft");
-  num("sandbox-draft", "draftTurns");
-  q("sandbox-car").addEventListener("change", (e) =>
-    send({ type: "select", carId: Number((e.target as HTMLSelectElement).value) })
+  num('sandbox-lap', 'lapCount');
+  num('sandbox-tire', 'tire');
+  num('sandbox-fuel', 'fuel');
+  num('sandbox-budget', 'budgetLeft');
+  num('sandbox-draft', 'draftTurns');
+  q('sandbox-car').addEventListener('change', (e) =>
+    send({ type: 'select', carId: Number((e.target as HTMLSelectElement).value) })
   );
-  q("sandbox-cell").addEventListener("change", (e) => edit({ cellId: (e.target as HTMLInputElement).value.trim() }));
-  q("sandbox-compound").addEventListener("change", (e) =>
-    edit({ compound: (e.target as HTMLSelectElement).value as "soft" | "hard" })
+  q('sandbox-cell').addEventListener('change', (e) =>
+    edit({ cellId: (e.target as HTMLInputElement).value.trim() })
   );
-  q("sandbox-wing").addEventListener("change", (e) =>
+  q('sandbox-compound').addEventListener('change', (e) =>
+    edit({ compound: (e.target as HTMLSelectElement).value as 'soft' | 'hard' })
+  );
+  q('sandbox-wing').addEventListener('change', (e) =>
     edit({ wing: (e.target as HTMLSelectElement).value as WingLevel })
   );
-  q("sandbox-driver").addEventListener("change", (e) => {
+  q('sandbox-driver').addEventListener('change', (e) => {
     const value = (e.target as HTMLSelectElement).value;
-    edit(value === "human" ? { isBot: false } : { isBot: true, botLevel: value as BotLevel });
+    edit(value === 'human' ? { isBot: false } : { isBot: true, botLevel: value as BotLevel });
   });
-  q("sandbox-mode").addEventListener("click", () => send({ type: "mode", editing: !last?.editing }));
-  q("sandbox-copy-test").addEventListener("click", () => send({ type: "copy-test" }));
-  q("sandbox-copy-link").addEventListener("click", () => send({ type: "copy-link" }));
-  q("sandbox-load").addEventListener("click", () => send({ type: "load", text: q<HTMLTextAreaElement>("sandbox-load-text").value }));
-  window.addEventListener("srp:sandbox", (event) => {
+  q('sandbox-mode').addEventListener('click', () =>
+    send({ type: 'mode', editing: !last?.editing })
+  );
+  q('sandbox-copy-test').addEventListener('click', () => send({ type: 'copy-test' }));
+  q('sandbox-copy-link').addEventListener('click', () => send({ type: 'copy-link' }));
+  q('sandbox-load').addEventListener('click', () =>
+    send({ type: 'load', text: q<HTMLTextAreaElement>('sandbox-load-text').value })
+  );
+  window.addEventListener('srp:sandbox', (event) => {
     last = (event as CustomEvent<SandboxSnapshot>).detail;
     root.hidden = false;
     renderSandboxPanel(root, last);
@@ -129,25 +135,30 @@ function setValue(input: HTMLInputElement | HTMLSelectElement, value: string): v
 
 export function renderSandboxPanel(root: HTMLElement, s: SandboxSnapshot) {
   const q = <T extends HTMLElement>(id: string) => root.querySelector<T>(`[data-testid="${id}"]`)!;
-  q<HTMLButtonElement>("sandbox-mode").textContent = s.editing ? "Play (E)" : "Edit (E)";
-  q<HTMLFieldSetElement>("sandbox-fields").disabled = !s.editing;
-  const select = q<HTMLSelectElement>("sandbox-car");
+  q<HTMLButtonElement>('sandbox-mode').textContent = s.editing ? 'Play (E)' : 'Edit (E)';
+  q<HTMLFieldSetElement>('sandbox-fields').disabled = !s.editing;
+  const select = q<HTMLSelectElement>('sandbox-car');
   if (select.options.length !== s.carIds.length) {
     select.replaceChildren(
-      ...s.carIds.map((id) => Object.assign(document.createElement("option"), { value: String(id), textContent: `Car ${id}` }))
+      ...s.carIds.map((id) =>
+        Object.assign(document.createElement('option'), {
+          value: String(id),
+          textContent: `Car ${id}`
+        })
+      )
     );
   }
   setValue(select, String(s.activeCarId));
-  setValue(q<HTMLInputElement>("sandbox-cell"), s.car.cellId);
-  setValue(q<HTMLSelectElement>("sandbox-driver"), s.car.isBot ? s.car.botLevel : "human");
-  const lap = q<HTMLInputElement>("sandbox-lap");
-  lap.min = "-1";
+  setValue(q<HTMLInputElement>('sandbox-cell'), s.car.cellId);
+  setValue(q<HTMLSelectElement>('sandbox-driver'), s.car.isBot ? s.car.botLevel : 'human');
+  const lap = q<HTMLInputElement>('sandbox-lap');
+  lap.min = '-1';
   lap.max = String(s.raceLaps - 1);
   setValue(lap, String(s.car.lapCount));
-  setValue(q<HTMLInputElement>("sandbox-tire"), String(Math.round(s.car.tire)));
-  setValue(q<HTMLInputElement>("sandbox-fuel"), String(Math.round(s.car.fuel)));
-  setValue(q<HTMLInputElement>("sandbox-budget"), String(s.car.budgetLeft));
-  setValue(q<HTMLInputElement>("sandbox-draft"), String(s.car.draftTurns));
-  setValue(q<HTMLSelectElement>("sandbox-compound"), s.car.compound);
-  setValue(q<HTMLSelectElement>("sandbox-wing"), s.car.wing);
+  setValue(q<HTMLInputElement>('sandbox-tire'), String(Math.round(s.car.tire)));
+  setValue(q<HTMLInputElement>('sandbox-fuel'), String(Math.round(s.car.fuel)));
+  setValue(q<HTMLInputElement>('sandbox-budget'), String(s.car.budgetLeft));
+  setValue(q<HTMLInputElement>('sandbox-draft'), String(s.car.draftTurns));
+  setValue(q<HTMLSelectElement>('sandbox-compound'), s.car.compound);
+  setValue(q<HTMLSelectElement>('sandbox-wing'), s.car.wing);
 }

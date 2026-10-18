@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 const vec2Schema = z.object({
   x: z.number(),
@@ -12,7 +12,7 @@ const cellSchema = z.object({
   forwardIndex: z.number().int().min(0),
   pos: vec2Schema,
   next: z.array(z.string().min(1)),
-  tags: z.array(z.enum(["START_FINISH", "PIT_ENTRY", "PIT_BOX", "PIT_EXIT", "PIT_LINE"])).optional()
+  tags: z.array(z.enum(['START_FINISH', 'PIT_ENTRY', 'PIT_BOX', 'PIT_EXIT', 'PIT_LINE'])).optional()
 });
 
 export const trackSchema = z.object({
@@ -21,4 +21,3 @@ export const trackSchema = z.object({
   lanes: z.number().int().min(1),
   cells: z.array(cellSchema).min(1)
 });
-

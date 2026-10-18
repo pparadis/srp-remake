@@ -1,8 +1,9 @@
-import { execSync } from "node:child_process";
-import { defineConfig } from "vite";
+import { execSync } from 'node:child_process';
+import { defineConfig } from 'vite';
 
-const repoName = globalThis.process?.env?.GITHUB_REPOSITORY?.split("/")[1] ?? "";
-const defaultBase = globalThis.process?.env?.GITHUB_ACTIONS === "true" && repoName ? `/${repoName}/` : "/";
+const repoName = globalThis.process?.env?.GITHUB_REPOSITORY?.split('/')[1] ?? '';
+const defaultBase =
+  globalThis.process?.env?.GITHUB_ACTIONS === 'true' && repoName ? `/${repoName}/` : '/';
 
 export default defineConfig({
   base: globalThis.process?.env?.VITE_BASE_PATH ?? defaultBase,
@@ -10,14 +11,14 @@ export default defineConfig({
     // The day this build was made, shown next to the commit on the home screen.
     __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
     // The PR number of a preview build (#96), "" for production.
-    __PREVIEW_PR__: JSON.stringify(globalThis.process?.env?.VITE_PREVIEW_PR ?? ""),
+    __PREVIEW_PR__: JSON.stringify(globalThis.process?.env?.VITE_PREVIEW_PR ?? ''),
     __GIT_SHA__: JSON.stringify(
       globalThis.process?.env?.GIT_SHA ??
         (() => {
           try {
-            return execSync("git rev-parse HEAD").toString().trim();
+            return execSync('git rev-parse HEAD').toString().trim();
           } catch {
-            return "unknown";
+            return 'unknown';
           }
         })()
     )
@@ -28,8 +29,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (id.includes("node_modules/phaser")) return "phaser";
-          if (id.includes("node_modules/zod")) return "zod";
+          if (id.includes('node_modules/phaser')) return 'phaser';
+          if (id.includes('node_modules/zod')) return 'zod';
           return undefined;
         }
       }

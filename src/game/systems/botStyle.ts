@@ -4,7 +4,14 @@
 // "balanced", exactly the pre-personality Normal bot). Humans and the autopilot never get one.
 // Documented in docs/bot-system.md; this table is the single source of the numbers.
 
-export type PersonalityKey = "balanced" | "adaptive" | "pusher" | "steady" | "racer" | "defender" | "strategist";
+export type PersonalityKey =
+  | 'balanced'
+  | 'adaptive'
+  | 'pusher'
+  | 'steady'
+  | 'racer'
+  | 'defender'
+  | 'strategist';
 
 export interface Personality {
   key: PersonalityKey;
@@ -31,8 +38,17 @@ export interface Personality {
 }
 
 const BASE: Personality = {
-  key: "balanced", label: "Balanced",
-  wearWeight: 1, shareWeight: 2, innerLane: 0, laneChange: 0, overtake: 0, queue: 0, block: 0, pitGain: 0, pitWindow: 0
+  key: 'balanced',
+  label: 'Balanced',
+  wearWeight: 1,
+  shareWeight: 2,
+  innerLane: 0,
+  laneChange: 0,
+  overtake: 0,
+  queue: 0,
+  block: 0,
+  pitGain: 0,
+  pitWindow: 0
 };
 
 // The table. The pit strategist's sign comes from the seed (pitSide): early + / late -.
@@ -40,17 +56,49 @@ export const PERSONALITIES: Record<PersonalityKey, Personality> = {
   balanced: BASE,
   // Hard's own taste, not drawn from the seed: no quirks, front-loads the cycle, values the inner lane
   // (measured: Hard with a seeded quirky style lost its edge over Normal, this one is +0.1 / +0.4).
-  adaptive: { ...BASE, key: "adaptive", label: "Adaptive", shareWeight: 0, innerLane: 0.6 },
+  adaptive: { ...BASE, key: 'adaptive', label: 'Adaptive', shareWeight: 0, innerLane: 0.6 },
   // front-loads the cycle (9-9-9-9-4), takes tire risks, will pass when it is cheap
-  pusher: { ...BASE, key: "pusher", label: "Pusher", wearWeight: 0.5, shareWeight: 0, innerLane: 0.6, overtake: 8, queue: 4 },
+  pusher: {
+    ...BASE,
+    key: 'pusher',
+    label: 'Pusher',
+    wearWeight: 0.5,
+    shareWeight: 0,
+    innerLane: 0.6,
+    overtake: 8,
+    queue: 4
+  },
   // even spend (8-8-8-8-8: the share weight outweighs a cell of progress), inner lane, few lane changes
-  steady: { ...BASE, key: "steady", label: "Steady", shareWeight: 48, innerLane: 1, laneChange: -3 },
+  steady: {
+    ...BASE,
+    key: 'steady',
+    label: 'Steady',
+    shareWeight: 48,
+    innerLane: 1,
+    laneChange: -3
+  },
   // hunts positions: passes with lane changes, hates queuing, accepts the +1 lane change cost
-  racer: { ...BASE, key: "racer", label: "Racer", innerLane: 0.7, overtake: 30, queue: 10, block: 10, laneChange: 2 },
+  racer: {
+    ...BASE,
+    key: 'racer',
+    label: 'Racer',
+    innerLane: 0.7,
+    overtake: 30,
+    queue: 10,
+    block: 10,
+    laneChange: 2
+  },
   // holds the inner lane and sits in the lane of a rival close behind
-  defender: { ...BASE, key: "defender", label: "Defender", innerLane: 1.2, laneChange: -8, block: 14 },
+  defender: {
+    ...BASE,
+    key: 'defender',
+    label: 'Defender',
+    innerLane: 1.2,
+    laneChange: -8,
+    block: 14
+  },
   // plain Normal, but stops earlier or later than the rest
-  strategist: { ...BASE, key: "strategist", label: "Strategist", innerLane: 0.8 }
+  strategist: { ...BASE, key: 'strategist', label: 'Strategist', innerLane: 0.8 }
 };
 
 // What Hard adds to its personality: it reads the field instead of only its own plan.
@@ -65,7 +113,13 @@ export const QUEUE_RANGE = 2;
 export const EASY_NOISE = 25;
 export const EASY_IGNORE_STYLE = 0.3;
 
-export const SEEDED_STYLES: PersonalityKey[] = ["pusher", "steady", "racer", "defender", "strategist"];
+export const SEEDED_STYLES: PersonalityKey[] = [
+  'pusher',
+  'steady',
+  'racer',
+  'defender',
+  'strategist'
+];
 
 // FNV-style integer mix (no Math.random anywhere in the engine).
 function mix(...parts: number[]): number {
@@ -96,7 +150,7 @@ export function personalityOf(seed: number, carId: number): Personality {
 
 // A given style for a car; the pit strategist's early/late side still comes from the seed.
 export function personalityFor(key: PersonalityKey, seed: number, carId: number): Personality {
-  if (key !== "strategist") return PERSONALITIES[key];
+  if (key !== 'strategist') return PERSONALITIES[key];
   const early = mix(seed, carId, 99) % 2 === 0;
   return {
     ...PERSONALITIES.strategist,

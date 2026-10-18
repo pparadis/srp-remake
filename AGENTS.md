@@ -304,8 +304,11 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 - Tests (`*.test.ts`, `backend/test`, `e2e`) may use top-level arrow helpers.
 - Deviation: `export default` in the three config files (`vite`, `vitest`, `playwright`), which the tools require.
 - Type-aware rules run only on `src/**` and `backend/src/**` (the files a tsconfig covers); they add about 3 s to lint.
-- Not done yet, tracked separately: single quotes (#74), snake_case file names (#75), JSDoc on every top-level export
-  (#76), `!` and `as` assertions (#77).
+- Single quotes (#74) and the rest of the layout are Prettier's (`.prettierrc.json`): lint-staged runs it on every
+  staged file and CI runs `npm run format:check`. The one-off reformat commit is in `.git-blame-ignore-revs`
+  (`git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+- Not done yet, tracked separately: snake_case file names (#75), JSDoc on every top-level export (#76), `!` and `as`
+  assertions (#77).
 
 ## Conventions
 

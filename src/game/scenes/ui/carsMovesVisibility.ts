@@ -1,4 +1,4 @@
-import type Phaser from "phaser";
+import type Phaser from 'phaser';
 
 interface ApplyCarsMovesVisibilityParams {
   showCarsAndMoves: boolean;

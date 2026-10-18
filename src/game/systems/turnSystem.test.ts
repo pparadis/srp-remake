@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import type { Car } from "../types/car";
-import { createMoveCycle } from "./moveBudgetSystem";
-import { advanceTurn, createTurnState, getCurrentCarId } from "./turnSystem";
+import { describe, expect, it } from 'vitest';
+import type { Car } from '../types/car';
+import { createMoveCycle } from './moveBudgetSystem';
+import { advanceTurn, createTurnState, getCurrentCarId } from './turnSystem';
 
 function makeCar(id: number): Car {
   return {
@@ -13,11 +13,11 @@ function makeCar(id: number): Car {
     tire: 100,
     fuel: 100,
     setup: {
-      compound: "soft",
+      compound: 'soft',
       psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
-      wing: "medium" as const
+      wing: 'medium' as const
     },
-    state: "ACTIVE",
+    state: 'ACTIVE',
     pitTurnsRemaining: 0,
     pitExitBoost: false,
     pitServiced: false,
@@ -25,25 +25,25 @@ function makeCar(id: number): Car {
   };
 }
 
-describe("turnSystem", () => {
-  it("creates a turn order from car ids and clamps start index", () => {
+describe('turnSystem', () => {
+  it('creates a turn order from car ids and clamps start index', () => {
     const cars = [makeCar(10), makeCar(11), makeCar(12)];
     const state = createTurnState(cars, 99);
     expect(state.order).toEqual([10, 11, 12]);
     expect(state.index).toBe(2);
   });
 
-  it("returns null when there are no cars", () => {
+  it('returns null when there are no cars', () => {
     const state = createTurnState([], 0);
     expect(getCurrentCarId(state)).toBeNull();
   });
 
-  it("returns null when index points outside order bounds", () => {
+  it('returns null when index points outside order bounds', () => {
     const state = { order: [7, 8], index: 99 };
     expect(getCurrentCarId(state)).toBeNull();
   });
 
-  it("advances and wraps turn index", () => {
+  it('advances and wraps turn index', () => {
     const cars = [makeCar(1), makeCar(2)];
     const state = createTurnState(cars, 0);
     expect(getCurrentCarId(state)).toBe(1);
@@ -53,7 +53,7 @@ describe("turnSystem", () => {
     expect(getCurrentCarId(state)).toBe(1);
   });
 
-  it("does not advance when turn order is empty", () => {
+  it('does not advance when turn order is empty', () => {
     const state = createTurnState([], 0);
     advanceTurn(state);
     expect(state.index).toBe(0);

@@ -1,6 +1,6 @@
-import type { TrackCell } from "../types/track";
-import type { CarSetup } from "../types/car";
-import { DIAGONAL_MIN_GAIN, lapAhead, type TrackIndex } from "./trackIndex";
+import type { TrackCell } from '../types/track';
+import type { CarSetup } from '../types/car';
+import { DIAGONAL_MIN_GAIN, lapAhead, type TrackIndex } from './trackIndex';
 import {
   INNER_MAIN_LANE,
   MIDDLE_MAIN_LANE,
@@ -10,8 +10,8 @@ import {
   DRAFT_TIRE_FACTOR,
   SQUEEZE_SURCHARGE_PER_CAR,
   WING_EFFECTS
-} from "../constants";
-import { computeMoveSpend } from "./moveBudgetSystem";
+} from '../constants';
+import { computeMoveSpend } from './moveBudgetSystem';
 
 export interface TargetInfo {
   distance: number;
@@ -49,7 +49,10 @@ interface MovementCostContext extends MovementCostRates {
   setup: CarSetup;
 }
 
-function laneFactor(laneIndex: number, factors: { inner: number; middle: number; outer: number }): number {
+function laneFactor(
+  laneIndex: number,
+  factors: { inner: number; middle: number; outer: number }
+): number {
   if (laneIndex === INNER_MAIN_LANE) return factors.inner;
   if (laneIndex === MIDDLE_MAIN_LANE) return factors.middle;
   if (laneIndex === OUTER_MAIN_LANE) return factors.outer;
@@ -57,12 +60,20 @@ function laneFactor(laneIndex: number, factors: { inner: number; middle: number;
 }
 
 // Setup multipliers on per-cell wear (1 = no penalty). Exported so bots can project wear.
-export function setupFactors(setup: CarSetup): { aeroTire: number; aeroFuel: number; psiFactor: number } {
+export function setupFactors(setup: CarSetup): {
+  aeroTire: number;
+  aeroFuel: number;
+  psiFactor: number;
+} {
   const { tire: aeroTire, fuel: aeroFuel } = WING_EFFECTS[setup.wing];
   const psi = setup.psi;
   const psiFactor =
     1 +
-    (Math.abs(psi.fl - 32) + Math.abs(psi.fr - 32) + Math.abs(psi.rl - 32) + Math.abs(psi.rr - 32)) * 0.002;
+    (Math.abs(psi.fl - 32) +
+      Math.abs(psi.fr - 32) +
+      Math.abs(psi.rl - 32) +
+      Math.abs(psi.rr - 32)) *
+      0.002;
   return { aeroTire, aeroFuel, psiFactor };
 }
 
@@ -85,7 +96,9 @@ function computeCosts(
   const draftTire = drafting ? DRAFT_TIRE_FACTOR : 1;
   const draftFuel = drafting ? DRAFT_FUEL_FACTOR : 1;
 
-  const tireCost = Math.round(distance * costs.tireRate * aeroTire * psiFactor * tireLaneFactor * draftTire);
+  const tireCost = Math.round(
+    distance * costs.tireRate * aeroTire * psiFactor * tireLaneFactor * draftTire
+  );
   const fuelCost = Math.round(distance * costs.fuelRate * aeroFuel * fuelLaneFactor * draftFuel);
 
   return { tireCost, fuelCost };
@@ -119,7 +132,7 @@ function routeGraphOf(trackIndex: TrackIndex): RouteGraph {
     next: cells.map((c) => c.next.flatMap((id) => (index.has(id) ? [index.get(id)!] : []))),
     lane: cells.map((c) => c.laneIndex),
     lap: cells.map((c) => trackIndex.lapPos.get(c.id) ?? c.forwardIndex),
-    pitEntry: cells.map((c) => (c.tags ?? []).includes("PIT_ENTRY"))
+    pitEntry: cells.map((c) => (c.tags ?? []).includes('PIT_ENTRY'))
   };
   routeGraphs.set(trackIndex, graph);
   return graph;
@@ -142,7 +155,8 @@ function searchRoutes(
   const { spineLen } = trackIndex;
   const start = g.index.get(startCell.id)!;
   // lap position gained from cell a to cell b, as lapAhead does it
-  const gain = (a: number, b: number) => Math.round(((((g.lap[b]! - g.lap[a]!) % spineLen) + spineLen) % spineLen) * 10) / 10;
+  const gain = (a: number, b: number) =>
+    Math.round(((((g.lap[b]! - g.lap[a]!) % spineLen) + spineLen) % spineLen) * 10) / 10;
   const blocked = new Uint8Array(g.ids.length);
   for (const id of occupied) {
     const i = g.index.get(id);
@@ -197,7 +211,12 @@ function searchRoutes(
   }
   const best = new Map<string, Route & { minSteps: number }>();
   for (const i of order) {
-    best.set(g.ids[i]!, { steps: steps[i]!, price: price[i]!, laneChanges: changes[i]!, minSteps: minSteps[i]! });
+    best.set(g.ids[i]!, {
+      steps: steps[i]!,
+      price: price[i]!,
+      laneChanges: changes[i]!,
+      minSteps: minSteps[i]!
+    });
   }
   return best;
 }
@@ -226,7 +245,7 @@ export function computeValidTargets(
     for (const [id, d] of dist.entries()) {
       if (d !== 1) continue;
       const c = cellMap.get(id);
-      if (c && (c.tags ?? []).includes("PIT_BOX")) {
+      if (c && (c.tags ?? []).includes('PIT_BOX')) {
         pitBoxAdjacent = true;
         break;
       }
@@ -245,7 +264,7 @@ export function computeValidTargets(
         .find((c) => c && c.laneIndex === PIT_LANE);
       if (!nextSame) break;
       steps += 1;
-      if ((nextSame.tags ?? []).includes("PIT_BOX")) {
+      if ((nextSame.tags ?? []).includes('PIT_BOX')) {
         const prev = dist.get(nextSame.id);
         if (prev == null || steps < prev) dist.set(nextSame.id, steps);
       }
@@ -262,20 +281,25 @@ export function computeValidTargets(
     if (occupied.has(cellId)) continue;
     const cell = cellMap.get(cellId);
     if (!cell) continue;
-    const isPitEntryTarget = (cell.tags ?? []).includes("PIT_ENTRY");
-    const isPitBox = (cell.tags ?? []).includes("PIT_BOX");
+    const isPitEntryTarget = (cell.tags ?? []).includes('PIT_ENTRY');
+    const isPitBox = (cell.tags ?? []).includes('PIT_BOX');
     if (d > effectiveMaxSteps) {
       if (!(startIsPitLane && pitBoxAdjacent && isPitBox)) continue;
     }
     if (startIsPitLane && cell.laneIndex === PIT_LANE && d > 1) {
       if (!pitBoxAdjacent || !isPitBox) continue;
     }
-    if (!startIsPitLane && cell.laneIndex !== PIT_LANE && Math.abs(cell.laneIndex - startCell.laneIndex) > 1) {
+    if (
+      !startIsPitLane &&
+      cell.laneIndex !== PIT_LANE &&
+      Math.abs(cell.laneIndex - startCell.laneIndex) > 1
+    ) {
       continue;
     }
     const targetDelta = lapAhead(trackIndex, startCell, cell);
     // Main-lane moves are priced by their cheapest route (lane changes included); the pit lane keeps the plain walk.
-    const route: Route | undefined = !startIsPitLane && cell.laneIndex !== PIT_LANE ? routes.get(cellId) : undefined;
+    const route: Route | undefined =
+      !startIsPitLane && cell.laneIndex !== PIT_LANE ? routes.get(cellId) : undefined;
     // A lane change must advance: no sideways target, by lap position or by zone (the owner's rule, #108).
     if (
       !startIsPitLane &&
@@ -294,10 +318,14 @@ export function computeValidTargets(
     // Slingshot: after enough moves in a row ended tucked in, a route with a lane change skips the +1 surcharge. The
     // walk itself is still paid.
     const slingshot =
-      drafted && options.slingshotReady === true && route !== undefined && route.laneChanges >= 1 && moveSpend > steps;
+      drafted &&
+      options.slingshotReady === true &&
+      route !== undefined &&
+      route.laneChanges >= 1 &&
+      moveSpend > steps;
     if (slingshot) moveSpend -= 1;
     if (moveSpend > maxSteps) continue;
-    if (options.disallowPitBoxTargets && (cell.tags ?? []).includes("PIT_BOX")) continue;
+    if (options.disallowPitBoxTargets && (cell.tags ?? []).includes('PIT_BOX')) continue;
 
     const { tireCost, fuelCost } = computeCosts(steps, cell.laneIndex, costs, drafted);
     targets.set(cellId, {
@@ -305,7 +333,7 @@ export function computeValidTargets(
       moveSpend,
       tireCost,
       fuelCost,
-      isPitTrigger: (cell.tags ?? []).includes("PIT_BOX"),
+      isPitTrigger: (cell.tags ?? []).includes('PIT_BOX'),
       ...(route && route.laneChanges >= 2 ? { laneChanges: route.laneChanges } : {}),
       ...(drafted ? { drafted: true as const } : {}),
       ...(slingshot ? { slingshot: true as const } : {}),
@@ -313,7 +341,7 @@ export function computeValidTargets(
     });
   }
 
-  if (options.allowPitExitSkip && startIsPitLane && (startCell.tags ?? []).includes("PIT_BOX")) {
+  if (options.allowPitExitSkip && startIsPitLane && (startCell.tags ?? []).includes('PIT_BOX')) {
     const lastPitBoxZone = trackIndex.pitBoxMaxZone;
     if (lastPitBoxZone == null) return targets;
     const exitZone = lastPitBoxZone + 1;
@@ -354,7 +382,7 @@ export function computeSqueezeTargets(
   const targets = new Map<string, TargetInfo>();
   if (!startCell) return targets;
   if (startCell.laneIndex === PIT_LANE) {
-    return (startCell.tags ?? []).includes("PIT_EXIT")
+    return (startCell.tags ?? []).includes('PIT_EXIT')
       ? computePitExitSqueezeTargets(trackIndex, startCell, occupied, maxSteps, costs)
       : targets;
   }
@@ -364,7 +392,10 @@ export function computeSqueezeTargets(
   for (const id of occupied) {
     const c = cellMap.get(id);
     if (!c || id === startCellId || c.laneIndex === PIT_LANE) continue;
-    occupiedAhead.set(c.laneIndex, [...(occupiedAhead.get(c.laneIndex) ?? []), lapAhead(trackIndex, startCell, c)]);
+    occupiedAhead.set(c.laneIndex, [
+      ...(occupiedAhead.get(c.laneIndex) ?? []),
+      lapAhead(trackIndex, startCell, c)
+    ]);
   }
 
   // Fewest cells to each cell, and the fewest diagonal lane changes among those paths (priced like a route).
@@ -380,7 +411,10 @@ export function computeSqueezeTargets(
       const n = cellMap.get(nextId);
       if (!n || n.laneIndex === PIT_LANE) continue;
       const diag =
-        diagonals.get(id)! + (n.laneIndex !== from.laneIndex && lapAhead(trackIndex, from, n) >= DIAGONAL_MIN_GAIN ? 1 : 0);
+        diagonals.get(id)! +
+        (n.laneIndex !== from.laneIndex && lapAhead(trackIndex, from, n) >= DIAGONAL_MIN_GAIN
+          ? 1
+          : 0);
       // a cell one layer further is still open to a cheaper parent of the same layer
       if (dist.get(nextId) === d + 1 && diag < diagonals.get(nextId)!) diagonals.set(nextId, diag);
       if (dist.has(nextId)) continue;
@@ -398,12 +432,21 @@ export function computeSqueezeTargets(
     if (targetAhead < DIAGONAL_MIN_GAIN || cell.zoneIndex === startCell.zoneIndex) continue;
     const lanes = new Set([startCell.laneIndex, cell.laneIndex]);
     let passed = 0;
-    for (const lane of lanes) passed += (occupiedAhead.get(lane) ?? []).filter((x) => x > 0 && x < targetAhead).length;
+    for (const lane of lanes) {
+      passed += (occupiedAhead.get(lane) ?? []).filter((x) => x > 0 && x < targetAhead).length;
+    }
     if (passed < 1) continue;
     const moveSpend = d + diagonals.get(cellId)! + SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
-    targets.set(cellId, { distance: d, moveSpend, tireCost, fuelCost, isPitTrigger: false, squeezePassed: passed });
+    targets.set(cellId, {
+      distance: d,
+      moveSpend,
+      tireCost,
+      fuelCost,
+      isPitTrigger: false,
+      squeezePassed: passed
+    });
   }
   return targets;
 }
@@ -441,10 +484,18 @@ function computePitExitSqueezeTargets(
     const cell = cellMap.get(cellId)!;
     const passed = passedTo.get(cellId)!;
     if (d <= 0 || occupied.has(cellId) || passed < 1) continue;
-    const moveSpend = computeMoveSpend(d, startCell.laneIndex, cell.laneIndex) + SQUEEZE_SURCHARGE_PER_CAR * passed;
+    const moveSpend =
+      computeMoveSpend(d, startCell.laneIndex, cell.laneIndex) + SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
-    targets.set(cellId, { distance: d, moveSpend, tireCost, fuelCost, isPitTrigger: false, squeezePassed: passed });
+    targets.set(cellId, {
+      distance: d,
+      moveSpend,
+      tireCost,
+      fuelCost,
+      isPitTrigger: false,
+      squeezePassed: passed
+    });
   }
   return targets;
 }

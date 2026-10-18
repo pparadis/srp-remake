@@ -1,8 +1,8 @@
-import type { Car } from "../types/car";
-import type { TrackCell } from "../types/track";
-import type { TargetInfo } from "./movementSystem";
-import { recordMove } from "./moveBudgetSystem";
-import { PIT_LANE } from "../constants";
+import type { Car } from '../types/car';
+import type { TrackCell } from '../types/track';
+import type { TargetInfo } from './movementSystem';
+import { recordMove } from './moveBudgetSystem';
+import { PIT_LANE } from '../constants';
 
 function clamp01to100(value: number) {
   if (value < 0) return 0;
@@ -16,7 +16,11 @@ function clamp01to100(value: number) {
  * beyond it (pit forwardIndex rises along the pit lane, so a jump to a box over the line counts); the
  * move from lane 1 onto the pit entry and the pit exit onto lane 1 never count.
  */
-export function crossesStartLine(fromCell: TrackCell, targetCell: TrackCell, pitLineFwd: number | null): boolean {
+export function crossesStartLine(
+  fromCell: TrackCell,
+  targetCell: TrackCell,
+  pitLineFwd: number | null
+): boolean {
   if (fromCell.laneIndex !== PIT_LANE && targetCell.laneIndex !== PIT_LANE) {
     return fromCell.forwardIndex > targetCell.forwardIndex;
   }

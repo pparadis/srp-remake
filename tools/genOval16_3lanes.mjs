@@ -1,5 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
 function addStraight(points, count, x0, y0, x1, y1) {
   const steps = Math.max(2, count);
@@ -86,11 +86,11 @@ const CONFIG = {
   }
 };
 
-const outDir = path.join(process.cwd(), "public", "tracks");
+const outDir = path.join(process.cwd(), 'public', 'tracks');
 fs.mkdirSync(outDir, { recursive: true });
 
 function id(z, l) {
-  return `Z${String(z).padStart(2, "0")}_L${l}_00`;
+  return `Z${String(z).padStart(2, '0')}_L${l}_00`;
 }
 
 const {
@@ -159,7 +159,7 @@ for (const lane of mainLanes) {
       next: [],
       tags: []
     };
-    if (lane !== pitLane && zoneIndex === 1) cell.tags.push("START_FINISH");
+    if (lane !== pitLane && zoneIndex === 1) cell.tags.push('START_FINISH');
     cells.push(cell);
     seq.push({ cell, progress: k / len, nx: p.nx, ny: p.ny });
     angleByZone.set(zoneIndex, { nx: p.nx, ny: p.ny, x: p.x, y: p.y });
@@ -195,11 +195,11 @@ for (const z of pitZones) {
     tags: []
   };
 
-  if (z === 28) pitCell.tags.push("PIT_ENTRY");
-  if (z === 2 || z === 3) pitCell.tags.push("PIT_BOX");
-  if (z === 6) pitCell.tags.push("PIT_EXIT");
+  if (z === 28) pitCell.tags.push('PIT_ENTRY');
+  if (z === 2 || z === 3) pitCell.tags.push('PIT_BOX');
+  if (z === 6) pitCell.tags.push('PIT_EXIT');
   // The start/finish line extends across the pit lane: the pit cell under it is where a lap is credited.
-  if (z === 1) pitCell.tags.push("PIT_LINE");
+  if (z === 1) pitCell.tags.push('PIT_LINE');
 
   cells.push(pitCell);
 }
@@ -223,7 +223,7 @@ function toSpineForwardIndex(zoneIndex) {
 
 function inWrapRange(zoneIndex, start, end, laneLen) {
   if (start <= end) return zoneIndex >= start && zoneIndex <= end;
-  return zoneIndex >= start && zoneIndex <= laneLen || zoneIndex >= 1 && zoneIndex <= end;
+  return (zoneIndex >= start && zoneIndex <= laneLen) || (zoneIndex >= 1 && zoneIndex <= end);
 }
 
 function mappedStraightSpineZone(zoneIndex, laneIndex, laneLen) {
@@ -354,13 +354,13 @@ for (let i = 0; i < pitZones.length; i += 1) {
 }
 
 const track = {
-  trackId: "oval16_3lanes",
+  trackId: 'oval16_3lanes',
   zones: maxZones,
   lanes,
   cells
 };
 
-const outPath = path.join(outDir, "oval16_3lanes.json");
-fs.writeFileSync(outPath, JSON.stringify(track, null, 2), "utf-8");
+const outPath = path.join(outDir, 'oval16_3lanes.json');
+fs.writeFileSync(outPath, JSON.stringify(track, null, 2), 'utf-8');
 
 console.log(`Generated: ${outPath}`);

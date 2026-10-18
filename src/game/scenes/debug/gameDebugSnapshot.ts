@@ -1,9 +1,9 @@
-import { PIT_LANE } from "../../constants";
-import { DEFAULT_RULES_VERSION } from "../../rules/versions";
-import { cycleBudget, getRemainingBudget } from "../../systems/moveBudgetSystem";
-import type { TargetInfo } from "../../systems/movementSystem";
-import type { Car } from "../../types/car";
-import type { TrackCell, TrackData } from "../../types/track";
+import { PIT_LANE } from '../../constants';
+import { DEFAULT_RULES_VERSION } from '../../rules/versions';
+import { cycleBudget, getRemainingBudget } from '../../systems/moveBudgetSystem';
+import type { TargetInfo } from '../../systems/movementSystem';
+import type { Car } from '../../types/car';
+import type { TrackCell, TrackData } from '../../types/track';
 
 interface MoveBudgetConfig {
   baseMax: number;
@@ -56,7 +56,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
 
   const spineCells = track.cells.filter((c) => c.laneIndex === spineLane);
   const startFinishIds = track.cells
-    .filter((c) => (c.tags ?? []).includes("START_FINISH"))
+    .filter((c) => (c.tags ?? []).includes('START_FINISH'))
     .map((c) => c.id);
   const occupiedByCell = Object.fromEntries(cars.map((car) => [car.cellId, car.carId]));
   const serializedCars = cars
@@ -91,12 +91,11 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
 
   const activeCell = cellMap.get(activeCar.cellId);
   const occupied = new Set(cars.map((c) => c.cellId));
-  const baseMaxSteps = activeCar.tire === 0 || activeCar.fuel === 0
-    ? moveBudget.zeroResourceMax
-    : moveBudget.baseMax;
+  const baseMaxSteps =
+    activeCar.tire === 0 || activeCar.fuel === 0 ? moveBudget.zeroResourceMax : moveBudget.baseMax;
   const remainingBudget = getRemainingBudget(activeCar.moveCycle, cycleBudget(activeCar.setup));
   const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
-  const tireRate = activeCar.setup.compound === "soft" ? moveRates.softTire : moveRates.hardTire;
+  const tireRate = activeCar.setup.compound === 'soft' ? moveRates.softTire : moveRates.hardTire;
   const fuelRate = moveRates.fuel;
   const inPitLane = activeCell?.laneIndex === PIT_LANE;
   const serializedTargets = Array.from(validTargets.entries()).map(([cellId, info]) => ({

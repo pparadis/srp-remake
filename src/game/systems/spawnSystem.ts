@@ -1,10 +1,10 @@
-import type { Car } from "../types/car";
-import type { TrackCell, TrackData } from "../types/track";
-import { createMoveCycle } from "./moveBudgetSystem";
-import { MAIN_LANES, PIT_LANE } from "../constants";
-import { buildLaneSequence } from "./laneSequence";
-import { gridSlots } from "./botStyle";
-import { lapCountAtSpawn } from "./lapProgress";
+import type { Car } from '../types/car';
+import type { TrackCell, TrackData } from '../types/track';
+import { createMoveCycle } from './moveBudgetSystem';
+import { MAIN_LANES, PIT_LANE } from '../constants';
+import { buildLaneSequence } from './laneSequence';
+import { gridSlots } from './botStyle';
+import { lapCountAtSpawn } from './lapProgress';
 
 interface SpawnOptions {
   totalCars?: number;
@@ -13,18 +13,25 @@ interface SpawnOptions {
 }
 
 // Texture keys loaded in BootScene (public/assets/kenney).
-export const CAR_SPRITES = ["car-red", "car-blue", "car-yellow", "car-green", "car-black", "car-orange"] as const;
+export const CAR_SPRITES = [
+  'car-red',
+  'car-blue',
+  'car-yellow',
+  'car-green',
+  'car-black',
+  'car-orange'
+] as const;
 // Same order as CAR_SPRITES, for the DOM HUD chips.
-const CAR_COLORS = ["#e5484d", "#3b86c4", "#f5d90a", "#4cd964", "#3a3f47", "#ff8a3d"];
+const CAR_COLORS = ['#e5484d', '#3b86c4', '#f5d90a', '#4cd964', '#3a3f47', '#ff8a3d'];
 export function carColor(index: number) {
   return CAR_COLORS[index % CAR_COLORS.length]!;
 }
 // Everyone is dealt the plain setup (hard, Medium wing); soft and the wing are a choice made on the grid.
-const DEFAULT_SETUPS: Car["setup"][] = [
-  { compound: "hard", psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: "medium" },
-  { compound: "hard", psi: { fl: 24, fr: 24, rl: 22, rr: 22 }, wing: "medium" },
-  { compound: "hard", psi: { fl: 25, fr: 25, rl: 23, rr: 23 }, wing: "medium" },
-  { compound: "hard", psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wing: "medium" }
+const DEFAULT_SETUPS: Car['setup'][] = [
+  { compound: 'hard', psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: 'medium' },
+  { compound: 'hard', psi: { fl: 24, fr: 24, rl: 22, rr: 22 }, wing: 'medium' },
+  { compound: 'hard', psi: { fl: 25, fr: 25, rl: 23, rr: 23 }, wing: 'medium' },
+  { compound: 'hard', psi: { fl: 22, fr: 22, rl: 20, rr: 20 }, wing: 'medium' }
 ];
 
 export function carSprite(index: number): string {
@@ -40,23 +47,23 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
 
   const spineLane = 1;
   const spineSeq = buildLaneSequence(track.cells, byId, spineLane, {
-    startTagPriority: ["START_FINISH"]
+    startTagPriority: ['START_FINISH']
   });
   const spineLen = spineSeq.length;
-  const spineStartIdx = spineSeq.findIndex((c) => (c.tags ?? []).includes("START_FINISH"));
+  const spineStartIdx = spineSeq.findIndex((c) => (c.tags ?? []).includes('START_FINISH'));
   const spineStart = spineStartIdx >= 0 ? spineStartIdx : 0;
 
   const lanePickByForwardIndex = new Map<number, Map<number, TrackCell>>();
   for (const lane of MAIN_LANES) {
     const seq = buildLaneSequence(track.cells, byId, lane, {
-      startTagPriority: ["START_FINISH"]
+      startTagPriority: ['START_FINISH']
     });
     if (seq.length === 0) continue;
-    const startIdx = seq.findIndex((c) => (c.tags ?? []).includes("START_FINISH"));
+    const startIdx = seq.findIndex((c) => (c.tags ?? []).includes('START_FINISH'));
     const start = startIdx >= 0 ? startIdx : 0;
     const picks = new Map<number, TrackCell>();
     for (let offset = 0; offset < seq.length; offset += 1) {
-      const idx = ((start - offset) % seq.length + seq.length) % seq.length;
+      const idx = (((start - offset) % seq.length) + seq.length) % seq.length;
       const cell = seq[idx];
       if (!cell) continue;
       if (!picks.has(cell.forwardIndex)) {
@@ -69,7 +76,7 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
   const slots: TrackCell[] = [];
   const rowCount = spineLen > 0 ? spineLen : 0;
   for (let row = 0; row < rowCount; row += 1) {
-    const spineIdx = ((spineStart - row) % spineLen + spineLen) % spineLen;
+    const spineIdx = (((spineStart - row) % spineLen) + spineLen) % spineLen;
     const spineCell = spineSeq[spineIdx];
     if (!spineCell) continue;
     const targetForwardIndex = spineCell.forwardIndex;
@@ -86,9 +93,15 @@ export function spawnCars(track: TrackData, options: SpawnOptions, seed = 0) {
   const slots = buildSpawnSlots(track);
   const maxSlots = Math.max(1, slots.length);
 
-  const requestedTotal = Math.max(1, Math.min(options.totalCars ?? ((options.humanCount ?? 0) + (options.botCount ?? 0)), maxSlots));
+  const requestedTotal = Math.max(
+    1,
+    Math.min(options.totalCars ?? (options.humanCount ?? 0) + (options.botCount ?? 0), maxSlots)
+  );
   const humanCount = Math.max(0, Math.min(options.humanCount ?? requestedTotal, requestedTotal));
-  let botCount = Math.max(0, Math.min(options.botCount ?? (requestedTotal - humanCount), requestedTotal - humanCount));
+  let botCount = Math.max(
+    0,
+    Math.min(options.botCount ?? requestedTotal - humanCount, requestedTotal - humanCount)
+  );
 
   const count = Math.max(1, Math.min(requestedTotal, humanCount + botCount, maxSlots));
   // `humanCount` is already clamped to `requestedTotal`, and `count` is
@@ -115,7 +128,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions, seed = 0) {
       tire: 100,
       fuel: 100,
       setup: structuredClone(setup),
-      state: "ACTIVE",
+      state: 'ACTIVE',
       pitTurnsRemaining: 0,
       pitExitBoost: false,
       pitServiced: false,

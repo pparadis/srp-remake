@@ -1,13 +1,17 @@
-import { describe, expect, it } from "vitest";
-import track from "../../public/tracks/oval16_3lanes.json";
-import { PIT_LANE } from "../game/constants";
+import { describe, expect, it } from 'vitest';
+import track from '../../public/tracks/oval16_3lanes.json';
+import { PIT_LANE } from '../game/constants';
 
 function inWrapRange(zoneIndex: number, start: number, end: number, maxZone: number): boolean {
   if (start <= end) return zoneIndex >= start && zoneIndex <= end;
-  return zoneIndex >= start && zoneIndex <= maxZone || zoneIndex >= 1 && zoneIndex <= end;
+  return (zoneIndex >= start && zoneIndex <= maxZone) || (zoneIndex >= 1 && zoneIndex <= end);
 }
 
-function mappedStraightSpineZone(zoneIndex: number, laneIndex: number, maxZone: number): number | null {
+function mappedStraightSpineZone(
+  zoneIndex: number,
+  laneIndex: number,
+  maxZone: number
+): number | null {
   if (laneIndex === 1) {
     if (inWrapRange(zoneIndex, 28, 6, maxZone)) return zoneIndex === 28 ? 28 : zoneIndex;
     if (zoneIndex >= 14 && zoneIndex <= 20) return zoneIndex;
@@ -26,18 +30,21 @@ function mappedStraightSpineZone(zoneIndex: number, laneIndex: number, maxZone: 
   return null;
 }
 
-describe("track forwardIndex mapping", () => {
-  it("includes forwardIndex on every cell", () => {
+describe('track forwardIndex mapping', () => {
+  it('includes forwardIndex on every cell', () => {
     for (const cell of track.cells) {
       expect(Number.isInteger(cell.forwardIndex)).toBe(true);
       expect(cell.forwardIndex).toBeGreaterThanOrEqual(0);
     }
   });
 
-  it("assigns contiguous forwardIndex on spine lane", () => {
+  it('assigns contiguous forwardIndex on spine lane', () => {
     const spineCells = track.cells
       .filter((c: { laneIndex: number }) => c.laneIndex === 1)
-      .sort((a: { forwardIndex: number }, b: { forwardIndex: number }) => a.forwardIndex - b.forwardIndex);
+      .sort(
+        (a: { forwardIndex: number }, b: { forwardIndex: number }) =>
+          a.forwardIndex - b.forwardIndex
+      );
     expect(spineCells.length).toBeGreaterThan(0);
     let i = 0;
     for (const cell of spineCells) {
@@ -46,7 +53,7 @@ describe("track forwardIndex mapping", () => {
     }
   });
 
-  it("maps pit lane forwardIndex within spine range", () => {
+  it('maps pit lane forwardIndex within spine range', () => {
     const spineCells = track.cells.filter((c: { laneIndex: number }) => c.laneIndex === 1);
     const spineMax = spineCells.length > 0 ? spineCells.length - 1 : 0;
     const pitCells = track.cells.filter((c: { laneIndex: number }) => c.laneIndex === PIT_LANE);
@@ -56,7 +63,7 @@ describe("track forwardIndex mapping", () => {
     }
   });
 
-  it("normalizes main-lane forwardIndex on straight zones", () => {
+  it('normalizes main-lane forwardIndex on straight zones', () => {
     const mainLanes = [1, 2, 3] as const;
     const spineLen = track.cells.filter((c: { laneIndex: number }) => c.laneIndex === 1).length;
     for (const lane of mainLanes) {
@@ -65,13 +72,13 @@ describe("track forwardIndex mapping", () => {
       for (const cell of laneCells) {
         const mappedZone = mappedStraightSpineZone(cell.zoneIndex, lane, laneMaxZone);
         if (mappedZone == null) continue;
-        const expected = ((mappedZone - 1) % spineLen + spineLen) % spineLen;
+        const expected = (((mappedZone - 1) % spineLen) + spineLen) % spineLen;
         expect(cell.forwardIndex).toBe(expected);
       }
     }
   });
 
-  it("allows banking offset on corners for at least one outer-lane zone", () => {
+  it('allows banking offset on corners for at least one outer-lane zone', () => {
     const lane1ByZone = new Map(
       track.cells
         .filter((c: { laneIndex: number }) => c.laneIndex === 1)

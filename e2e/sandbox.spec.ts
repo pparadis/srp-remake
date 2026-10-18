@@ -1,24 +1,24 @@
-import { expect, test } from "@playwright/test";
-import { collectErrors, playMyTurn, setLobbySettings, startRace } from "./support/game";
+import { expect, test } from '@playwright/test';
+import { collectErrors, playMyTurn, setLobbySettings, startRace } from './support/game';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 test.setTimeout(90_000);
 
-const tid = (page: import("@playwright/test").Page, id: string) => page.getByTestId(id);
+const tid = (page: import('@playwright/test').Page, id: string) => page.getByTestId(id);
 
-async function sandboxRace(page: import("@playwright/test").Page) {
-  await page.goto("/?sandbox&seed=0");
-  await expect(tid(page, "home-quick")).toBeVisible();
-  await tid(page, "home-quick").click();
+async function sandboxRace(page: import('@playwright/test').Page) {
+  await page.goto('/?sandbox&seed=0');
+  await expect(tid(page, 'home-quick')).toBeVisible();
+  await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
   await startRace(page);
 }
 
 // E toggles edit mode; if it does not, say what the page looked like (a page without focus gets no key events).
-async function pressE(page: import("@playwright/test").Page, banner: string) {
-  await page.keyboard.press("e");
+async function pressE(page: import('@playwright/test').Page, banner: string) {
+  await page.keyboard.press('e');
   try {
-    await expect(tid(page, "hud-banner")).toHaveText(banner);
+    await expect(tid(page, 'hud-banner')).toHaveText(banner);
   } catch (error) {
     const health = await page.evaluate(() => ({
       hasFocus: document.hasFocus(),
@@ -31,16 +31,16 @@ async function pressE(page: import("@playwright/test").Page, banner: string) {
   }
 }
 
-const snapshot = (page: import("@playwright/test").Page) =>
+const snapshot = (page: import('@playwright/test').Page) =>
   page.evaluate(() => window.__srp!.state());
 
-test("sandbox: drag a bot onto an offered cell, edit the move points, play on from there", async ({
+test('sandbox: drag a bot onto an offered cell, edit the move points, play on from there', async ({
   page
 }) => {
   const errors = collectErrors(page);
   await sandboxRace(page);
-  await expect(tid(page, "sandbox-panel")).toBeVisible();
-  await expect(tid(page, "hud-banner")).toHaveText("Sandbox: editing - drag any car, E to play");
+  await expect(tid(page, 'sandbox-panel')).toBeVisible();
+  await expect(tid(page, 'hud-banner')).toHaveText('Sandbox: editing - drag any car, E to play');
 
   // in edit mode the bots wait and the engine still shows what car 1 is offered
   const before = await snapshot(page);
@@ -63,15 +63,15 @@ test("sandbox: drag a bot onto an offered cell, edit the move points, play on fr
     .poll(async () => (await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId)
     .toBe(target.cellId);
   expect((await snapshot(page)).activeCarId).toBe(2);
-  await tid(page, "sandbox-car").selectOption("1");
+  await tid(page, 'sandbox-car').selectOption('1');
   await expect.poll(async () => (await snapshot(page)).activeCarId).toBe(1);
   // so car 1 is no longer offered that cell
   const after = await snapshot(page);
   expect(after.movement.validTargets.map((t) => t.cellId)).not.toContain(target.cellId);
 
   // only 3 move points left: no target costs more
-  await tid(page, "sandbox-budget").fill("3");
-  await tid(page, "sandbox-budget").press("Tab");
+  await tid(page, 'sandbox-budget').fill('3');
+  await tid(page, 'sandbox-budget').press('Tab');
   await expect
     .poll(async () =>
       Math.max(...(await snapshot(page)).movement.validTargets.map((t) => t.moveSpend ?? 0))
@@ -79,42 +79,42 @@ test("sandbox: drag a bot onto an offered cell, edit the move points, play on fr
     .toBeLessThanOrEqual(3);
 
   // leave edit mode with the key and move normally from the edited position
-  await page.locator("canvas").click({ position: { x: 5, y: 5 } }); // a click on the board takes the focus back from the panel
+  await page.locator('canvas').click({ position: { x: 5, y: 5 } }); // a click on the board takes the focus back from the panel
   // the game handles the click on its next frame: wait for the field to let go before pressing E
-  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe("BODY");
-  await pressE(page, "Your turn - drag your car");
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe('BODY');
+  await pressE(page, 'Your turn - drag your car');
   const mover = (await snapshot(page)).cars.find((c) => c.carId === 1)!.cellId;
   await playMyTurn(page);
   expect((await snapshot(page)).cars.find((c) => c.carId === 1)!.cellId).not.toBe(mover);
 
-  await pressE(page, "Sandbox: editing - drag any car, E to play");
+  await pressE(page, 'Sandbox: editing - drag any car, E to play');
   expect(errors).toEqual([]);
 });
 
-test("sandbox: a Copy debug position loads back, and it is refused when it does not fit", async ({
+test('sandbox: a Copy debug position loads back, and it is refused when it does not fit', async ({
   page
 }) => {
   await sandboxRace(page);
   const snap = await snapshot(page);
   const moved = {
     ...snap,
-    cars: snap.cars.map((c) => (c.carId === 2 ? { ...c, cellId: "Z20_L1_00", lapCount: 2 } : c))
+    cars: snap.cars.map((c) => (c.carId === 2 ? { ...c, cellId: 'Z20_L1_00', lapCount: 2 } : c))
   };
-  await page.getByText("Load position").click();
-  await tid(page, "sandbox-load-text").fill(JSON.stringify(moved));
-  await tid(page, "sandbox-load").click();
+  await page.getByText('Load position').click();
+  await tid(page, 'sandbox-load-text').fill(JSON.stringify(moved));
+  await tid(page, 'sandbox-load').click();
   await expect
     .poll(async () => (await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId)
-    .toBe("Z20_L1_00");
+    .toBe('Z20_L1_00');
   expect((await snapshot(page)).cars.find((c) => c.carId === 2)!.lapCount).toBe(2);
 
-  await tid(page, "sandbox-load-text").fill(JSON.stringify({ ...snap, cars: snap.cars.slice(1) }));
-  await tid(page, "sandbox-load").click();
-  await expect(tid(page, "hud-feed-list")).toContainText("Load refused");
-  expect((await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId).toBe("Z20_L1_00");
+  await tid(page, 'sandbox-load-text').fill(JSON.stringify({ ...snap, cars: snap.cars.slice(1) }));
+  await tid(page, 'sandbox-load').click();
+  await expect(tid(page, 'hud-feed-list')).toContainText('Load refused');
+  expect((await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId).toBe('Z20_L1_00');
 });
 
-test("sandbox: dropping a car on another car swaps their places", async ({ page }) => {
+test('sandbox: dropping a car on another car swaps their places', async ({ page }) => {
   await sandboxRace(page);
   const cellOf = async (carId: number) =>
     (await snapshot(page)).cars.find((c) => c.carId === carId)!.cellId;
@@ -131,11 +131,11 @@ test("sandbox: dropping a car on another car swaps their places", async ({ page 
   expect(await cellOf(3)).toBe(one);
 });
 
-test("no sandbox without ?sandbox", async ({ page }) => {
-  await page.goto("/?seed=0");
-  await tid(page, "home-quick").click();
+test('no sandbox without ?sandbox', async ({ page }) => {
+  await page.goto('/?seed=0');
+  await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 1, laps: 1 });
   await startRace(page);
-  await expect(tid(page, "hud-banner")).toHaveText("Your turn - drag your car");
-  await expect(tid(page, "sandbox-panel")).toHaveCount(0);
+  await expect(tid(page, 'hud-banner')).toHaveText('Your turn - drag your car');
+  await expect(tid(page, 'sandbox-panel')).toHaveCount(0);
 });

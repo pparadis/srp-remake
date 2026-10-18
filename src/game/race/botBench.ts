@@ -2,13 +2,13 @@
 // One policy per grid slot; rotating the line-up gives every policy every grid slot (and every
 // starting tire), so pole position and the default setups are not a bias. Each race has a seed
 // (it decides the bots' personalities); results can be cut by policy, personality or grid slot.
-import { SETUP_CHOICES } from "../systems/botPlan";
-import { trackFwd } from "../systems/trackIndex";
-import type { CarSetup } from "../types/car";
-import { cycleBudget, getRemainingBudget } from "../systems/moveBudgetSystem";
-import type { RulesVersion } from "../rules/versions";
-import type { BotPolicy } from "../systems/botSystem";
-import { gridSlots, personalityFor, personalityOf, type PersonalityKey } from "../systems/botStyle";
+import { SETUP_CHOICES } from '../systems/botPlan';
+import { trackFwd } from '../systems/trackIndex';
+import type { CarSetup } from '../types/car';
+import { cycleBudget, getRemainingBudget } from '../systems/moveBudgetSystem';
+import type { RulesVersion } from '../rules/versions';
+import type { BotPolicy } from '../systems/botSystem';
+import { gridSlots, personalityFor, personalityOf, type PersonalityKey } from '../systems/botStyle';
 import {
   applyAction,
   computeTargets,
@@ -18,11 +18,11 @@ import {
   type RaceAction,
   type RaceContext,
   type RaceState
-} from "./raceEngine";
+} from './raceEngine';
 
 // Scripted drivers standing in for a human who found a fixed strategy: always the inner lane,
 // and either the even spend 9-8-8-8-7 or the biggest move it can make ("greedy").
-type ScriptedPolicy = "scripted" | "greedy";
+type ScriptedPolicy = 'scripted' | 'greedy';
 export type BenchPolicy = BotPolicy | ScriptedPolicy;
 const SCRIPT = [9, 8, 8, 8, 7];
 
@@ -68,20 +68,30 @@ interface PolicyStats extends Stat {
 function scriptedAction(ctx: RaceContext, state: RaceState, policy: ScriptedPolicy): RaceAction {
   const car = getActiveCar(state);
   const want =
-    policy === "greedy" ? 99 : Math.min(SCRIPT[car.moveCycle.index] ?? 7, getRemainingBudget(car.moveCycle, cycleBudget(car.setup)));
+    policy === 'greedy'
+      ? 99
+      : Math.min(
+          SCRIPT[car.moveCycle.index] ?? 7,
+          getRemainingBudget(car.moveCycle, cycleBudget(car.setup))
+        );
   let best: { id: string; score: number } | null = null;
   for (const [id, info] of computeTargets(ctx, state, car)) {
     if (info.isPitTrigger) continue;
     const spend = info.moveSpend ?? info.distance;
     // inwards is better: 50 for lane 1, 25 for lane 2 (so it works its way in from the outer lane)
     const inner = Math.max(0, 4 - ctx.cellMap.get(id)!.laneIndex) * 25 - 25;
-    const score = (policy === "greedy" ? spend * 10 : -Math.abs(Math.min(want, 9) - spend) * 10) + inner + info.distance * 0.1;
+    const score =
+      (policy === 'greedy' ? spend * 10 : -Math.abs(Math.min(want, 9) - spend) * 10) +
+      inner +
+      info.distance * 0.1;
     if (!best || score > best.score) best = { id, score };
   }
-  if (best) return { type: "move", targetCellId: best.id };
+  if (best) return { type: 'move', targetCellId: best.id };
   // Only pit boxes reachable (it never plans a stop, but a skip would be rejected): take the box.
   const [id] = computeTargets(ctx, state, car).keys();
-  return id ? { type: "pit", targetCellId: id, setup: structuredClone(SETUP_CHOICES[0]!) } : { type: "skip" };
+  return id
+    ? { type: 'pit', targetCellId: id, setup: structuredClone(SETUP_CHOICES[0]!) }
+    : { type: 'skip' };
 }
 
 // Plays until every car has covered the distance; the order cars cross the line is the finishing
@@ -98,7 +108,7 @@ export function playBenchRace(
   // The movement rules the race is played on (src/game/rules/versions.ts); the default when omitted.
   rulesVersion?: RulesVersion
 ): BenchRaceResult {
-  const isScripted = (p: BenchPolicy) => p === "scripted" || p === "greedy";
+  const isScripted = (p: BenchPolicy) => p === 'scripted' || p === 'greedy';
   const state = createRace(
     ctx,
     policies.map((policy, i) => ({
@@ -114,7 +124,7 @@ export function playBenchRace(
     if (setup) state.cars[slot]!.setup = structuredClone(setup);
   });
   const turnsPlayed = new Map<number, number>();
-  const decisionMs: BenchRaceResult["decisionMs"] = {};
+  const decisionMs: BenchRaceResult['decisionMs'] = {};
   const finishers: BenchFinisher[] = [];
   let overtakes = 0;
   const spineLen = ctx.trackIndex.spineLen;
@@ -123,7 +133,9 @@ export function playBenchRace(
     state.cars
       .map((c) => ({
         id: c.carId,
-        progress: (c.lapCount ?? 0) * spineLen + trackFwd(ctx.cellMap.get(c.cellId)!, ctx.trackIndex.lane1FwdByZone)
+        progress:
+          (c.lapCount ?? 0) * spineLen +
+          trackFwd(ctx.cellMap.get(c.cellId)!, ctx.trackIndex.lane1FwdByZone)
       }))
       .sort((a, b) => b.progress - a.progress || a.id - b.id)
       .map((c) => c.id);
@@ -154,7 +166,11 @@ export function playBenchRace(
       }
       before = after;
     }
-    if (!applied.ok) throw new Error(`bench: ${policy} action rejected (${applied.reason} ${JSON.stringify(action)})`);
+    if (!applied.ok) {
+      throw new Error(
+        `bench: ${policy} action rejected (${applied.reason} ${JSON.stringify(action)})`
+      );
+    }
     if (state.winnerCarId !== null) {
       const finished = state.winnerCarId;
       const p = policies[finished - 1]!;
@@ -163,9 +179,16 @@ export function playBenchRace(
         policy: p,
         slot: finished - 1,
         grid: gridSlots(seed, policies.length)[finished - 1]!,
-        style: isScripted(p) || p === "autopilot" ? null : p === "hard" ? "adaptive" : (forced ? personalityFor(forced, seed, finished) : personalityOf(seed, finished)).key,
+        style:
+          isScripted(p) || p === 'autopilot'
+            ? null
+            : p === 'hard'
+              ? 'adaptive'
+              : (forced ? personalityFor(forced, seed, finished) : personalityOf(seed, finished))
+                  .key,
         place: finishers.length + 1,
-        moves: (turnsPlayed.get(finished) ?? 0) - overshootOf(ctx, state, finished, applied.moveSpend)
+        moves:
+          (turnsPlayed.get(finished) ?? 0) - overshootOf(ctx, state, finished, applied.moveSpend)
       });
       // Drop the finisher; the next car in the turn order is the one that was about to play.
       const at = state.turn.order.indexOf(finished);
@@ -175,7 +198,7 @@ export function playBenchRace(
       state.winnerCarId = null;
     }
   }
-  if (finishers.length !== policies.length) throw new Error("bench: race did not finish");
+  if (finishers.length !== policies.length) throw new Error('bench: race did not finish');
   return { finishers, order: finishers.map((f) => f.policy), decisionMs, overtakes };
 }
 
@@ -199,7 +222,10 @@ interface BenchOptions {
 }
 
 // Groups finishers by any key into win rate / average finish.
-export function statsBy(results: BenchRaceResult[], key: (f: BenchFinisher) => string | null): Map<string, Stat> {
+export function statsBy(
+  results: BenchRaceResult[],
+  key: (f: BenchFinisher) => string | null
+): Map<string, Stat> {
   const sums = new Map<string, { races: number; wins: number; finishSum: number }>();
   for (const result of results) {
     for (const f of result.finishers) {
@@ -212,30 +238,51 @@ export function statsBy(results: BenchRaceResult[], key: (f: BenchFinisher) => s
       sums.set(k, s);
     }
   }
-  return new Map([...sums].map(([k, s]) => [k, { races: s.races, wins: s.wins, winRate: s.wins / s.races, avgFinish: s.finishSum / s.races }]));
+  return new Map(
+    [...sums].map(([k, s]) => [
+      k,
+      { races: s.races, wins: s.wins, winRate: s.wins / s.races, avgFinish: s.finishSum / s.races }
+    ])
+  );
 }
 
 // Every rotation of the line-up on every lap count and seed.
-export function runBench(ctx: RaceContext, { lineup, laps, seeds = [0], styles, rulesVersion }: BenchOptions) {
+export function runBench(
+  ctx: RaceContext,
+  { lineup, laps, seeds = [0], styles, rulesVersion }: BenchOptions
+) {
   const results: BenchRaceResult[] = [];
   for (const lapCount of laps) {
     for (const seed of seeds) {
       for (let rotation = 0; rotation < lineup.length; rotation += 1) {
         const at = (slot: number) => (slot + rotation) % lineup.length;
-        results.push(playBenchRace(ctx, lineup.map((_policy, slot) => lineup[at(slot)]!), lapCount, seed, styles && lineup.map((_policy, slot) => styles[at(slot)]), undefined, rulesVersion));
+        results.push(
+          playBenchRace(
+            ctx,
+            lineup.map((_policy, slot) => lineup[at(slot)]!),
+            lapCount,
+            seed,
+            styles && lineup.map((_policy, slot) => styles[at(slot)]),
+            undefined,
+            rulesVersion
+          )
+        );
       }
     }
   }
   const timing = new Map<BenchPolicy, { totalMs: number; count: number }>();
   for (const r of results) {
-    for (const [policy, d] of Object.entries(r.decisionMs) as Array<[BenchPolicy, { totalMs: number; count: number }]>) {
+    for (const [policy, d] of Object.entries(r.decisionMs) as Array<
+      [BenchPolicy, { totalMs: number; count: number }]
+    >) {
       const t = timing.get(policy) ?? { totalMs: 0, count: 0 };
       t.totalMs += d.totalMs;
       t.count += d.count;
       timing.set(policy, t);
     }
   }
-  const overtakesPerRace = results.reduce((sum, r) => sum + r.overtakes, 0) / Math.max(1, results.length);
+  const overtakesPerRace =
+    results.reduce((sum, r) => sum + r.overtakes, 0) / Math.max(1, results.length);
   const stats = new Map<BenchPolicy, PolicyStats>();
   for (const [policy, s] of statsBy(results, (f) => f.policy)) {
     const t = timing.get(policy as BenchPolicy)!;
@@ -260,12 +307,22 @@ export interface SetupSweepRow {
   best: number;
 }
 
-export function setupSweep(ctx: RaceContext, { laps, seeds = [1] }: { laps: number[]; seeds?: number[] }): SetupSweepRow[] {
+export function setupSweep(
+  ctx: RaceContext,
+  { laps, seeds = [1] }: { laps: number[]; seeds?: number[] }
+): SetupSweepRow[] {
   return laps.map((lapCount) => {
     const moves = SETUP_CHOICES.map((choice) => {
       let total = 0;
       for (const seed of seeds) {
-        const result = playBenchRace(ctx, ["normal", "normal", "normal", "normal"], lapCount, seed, undefined, [choice]);
+        const result = playBenchRace(
+          ctx,
+          ['normal', 'normal', 'normal', 'normal'],
+          lapCount,
+          seed,
+          undefined,
+          [choice]
+        );
         total += result.finishers.find((f) => f.slot === 0)!.moves;
       }
       return total / seeds.length;

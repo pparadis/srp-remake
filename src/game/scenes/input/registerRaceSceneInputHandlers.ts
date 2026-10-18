@@ -1,12 +1,12 @@
-import type Phaser from "phaser";
-import { validateMoveAttempt } from "../../systems/moveValidationSystem";
-import type { TargetInfo } from "../../systems/movementSystem";
-import type { Car } from "../../types/car";
-import type { TrackCell } from "../../types/track";
-import type { PitModal } from "../ui/PitModal";
-import { resolvePlayerDragDrop } from "../turns/resolvePlayerDragDrop";
-import { easeAngle, spriteRotation } from "../rendering/heading";
-import { onKeyDown } from "./onKeyDown";
+import type Phaser from 'phaser';
+import { validateMoveAttempt } from '../../systems/moveValidationSystem';
+import type { TargetInfo } from '../../systems/movementSystem';
+import type { Car } from '../../types/car';
+import type { TrackCell } from '../../types/track';
+import type { PitModal } from '../ui/PitModal';
+import { resolvePlayerDragDrop } from '../turns/resolvePlayerDragDrop';
+import { easeAngle, spriteRotation } from '../rendering/heading';
+import { onKeyDown } from './onKeyDown';
 
 /** How far a pointer may travel between press and release and still count as a tap, in screen pixels. */
 const TAP_SLOP_PX = 10;
@@ -74,23 +74,26 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     dragSnapDist
   } = params;
 
-  scene.input.on("dragstart", (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
-    if (isSuspended?.()) return;
-    if (isRaceFinished()) return;
-    if (pitModal.isActive()) return;
-    const token = getActiveToken();
-    if (!token || obj !== token) return;
-    if (canControlActiveCar && !canControlActiveCar()) {
-      onUnauthorizedControlAttempt?.();
-      return;
+  scene.input.on(
+    'dragstart',
+    (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+      if (isSuspended?.()) return;
+      if (isRaceFinished()) return;
+      if (pitModal.isActive()) return;
+      const token = getActiveToken();
+      if (!token || obj !== token) return;
+      if (canControlActiveCar && !canControlActiveCar()) {
+        onUnauthorizedControlAttempt?.();
+        return;
+      }
+      recomputeTargets();
+      drawTargets();
+      setDragOrigin({ x: token.x, y: token.y });
     }
-    recomputeTargets();
-    drawTargets();
-    setDragOrigin({ x: token.x, y: token.y });
-  });
+  );
 
   scene.input.on(
-    "drag",
+    'drag',
     (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, x: number, y: number) => {
       if (isSuspended?.()) return;
       if (isRaceFinished()) return;
@@ -106,57 +109,62 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
       // keeps its rotation.
       const road = findNearestCell(x, y, hoverMaxDist);
       const body = token.first as Phaser.GameObjects.Image;
-      if (road && body) body.setRotation(easeAngle(body.rotation, spriteRotation(road, cellMap), DRAG_TURN));
+      if (road && body) {
+        body.setRotation(easeAngle(body.rotation, spriteRotation(road, cellMap), DRAG_TURN));
+      }
     }
   );
 
-  scene.input.on("dragend", (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
-    if (isSuspended?.()) return;
-    if (isRaceFinished()) return;
-    if (pitModal.isActive()) return;
-    const token = getActiveToken();
-    if (!token || obj !== token) return;
-    if (canControlActiveCar && !canControlActiveCar()) {
-      onUnauthorizedControlAttempt?.();
+  scene.input.on(
+    'dragend',
+    (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+      if (isSuspended?.()) return;
+      if (isRaceFinished()) return;
+      if (pitModal.isActive()) return;
+      const token = getActiveToken();
+      if (!token || obj !== token) return;
+      if (canControlActiveCar && !canControlActiveCar()) {
+        onUnauthorizedControlAttempt?.();
+        const activeCar = getActiveCar();
+        if (cellMap.get(activeCar.cellId)) onReturn();
+        setDragOrigin(null);
+        return;
+      }
+      const origin = getDragOrigin() ?? { x: token.x, y: token.y };
+      const nearestCell = findNearestCell(token.x, token.y, dragSnapDist);
       const activeCar = getActiveCar();
-      if (cellMap.get(activeCar.cellId)) onReturn();
+      const fromCell = cellMap.get(activeCar.cellId) ?? null;
+      const validation = validateMoveAttempt(
+        activeCar,
+        fromCell,
+        nearestCell,
+        getValidTargets(),
+        obj === token
+      );
+      resolvePlayerDragDrop({
+        activeCar,
+        token,
+        origin,
+        nearestCell,
+        validation,
+        cellMap,
+        activeHalo: activeHalos.get(activeCar.carId) ?? null,
+        onOpenPitModal: openPitModal,
+        onMove,
+        onReturn,
+        // the board glides the car from where it was dropped onto the cell (#110)
+        glideMove: true
+      });
       setDragOrigin(null);
-      return;
     }
-    const origin = getDragOrigin() ?? { x: token.x, y: token.y };
-    const nearestCell = findNearestCell(token.x, token.y, dragSnapDist);
-    const activeCar = getActiveCar();
-    const fromCell = cellMap.get(activeCar.cellId) ?? null;
-    const validation = validateMoveAttempt(
-      activeCar,
-      fromCell,
-      nearestCell,
-      getValidTargets(),
-      obj === token
-    );
-    resolvePlayerDragDrop({
-      activeCar,
-      token,
-      origin,
-      nearestCell,
-      validation,
-      cellMap,
-      activeHalo: activeHalos.get(activeCar.carId) ?? null,
-      onOpenPitModal: openPitModal,
-      onMove,
-      onReturn,
-      // the board glides the car from where it was dropped onto the cell (#110)
-      glideMove: true
-    });
-    setDragOrigin(null);
-  });
+  );
 
-  scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+  scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
     const cell = findNearestCell(pointer.worldX, pointer.worldY, hoverMaxDist);
     setHoverCell(cell);
   });
 
-  scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+  scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
     const cell = findNearestCell(pointer.worldX, pointer.worldY, hoverMaxDist);
     if (!cell) return;
     copyCellId(cell.id);
@@ -165,14 +173,13 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
   });
 
   // A tap (no drag between press and release) picks a target to confirm: the way to move on a touchscreen.
-  scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+  scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
     if (!onTap || pointer.getDistance() > TAP_SLOP_PX) return;
     if (isSuspended?.() || isRaceFinished() || pitModal.isActive()) return;
     onTap(pointer.worldX, pointer.worldY);
   });
 
-  onKeyDown(scene, "F", () => {
+  onKeyDown(scene, 'F', () => {
     toggleForwardIndexOverlay();
   });
-
 }

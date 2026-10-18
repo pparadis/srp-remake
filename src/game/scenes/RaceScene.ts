@@ -1,9 +1,9 @@
-import { renderScale, textResolution } from "../hidpi";
-import { FrameGovernor, type FrameLimit } from "../frameGovernor";
-import Phaser from "phaser";
-import type { TrackData, TrackCell } from "../types/track";
-import type { BotLevel, Car } from "../types/car";
-import { trackSchema } from "../../validation/trackSchema";
+import { renderScale, textResolution } from '../hidpi';
+import { FrameGovernor, type FrameLimit } from '../frameGovernor';
+import Phaser from 'phaser';
+import type { TrackData, TrackCell } from '../types/track';
+import type { BotLevel, Car } from '../types/car';
+import { trackSchema } from '../../validation/trackSchema';
 import {
   REG_ANIMATE,
   REG_BOT_CARS,
@@ -15,28 +15,28 @@ import {
   REG_RULES_VERSION,
   REG_SEED,
   REG_TOTAL_CARS
-} from "../constants";
-import type { TargetInfo } from "../systems/movementSystem";
-import type { FeelEvent } from "../systems/feelEvents";
-import { play } from "../../ui/sound";
-import { Confetti } from "./ui/Confetti";
-import { carSprite } from "../systems/spawnSystem";
-import type { RaceAction } from "../race/raceEngine";
-import { DEFAULT_RULES_VERSION, type RulesVersion } from "../rules/versions";
-import { RaceSession, SERVER_WAIT_MS, type MovePreview } from "../race/raceSession";
-import { positionAsTest, type CarEdit } from "../race/sandbox";
-import type { SandboxCommand } from "../../ui/sandboxPanel";
-import { validateTrack } from "../../validation/trackValidation";
-import { PIT_PANEL, PitModal } from "./ui/PitModal";
-import { DebugButtons } from "./ui/DebugButtons";
-import { makeButton } from "./ui/makeButton";
-import { applyCarsMovesVisibility } from "./ui/carsMovesVisibility";
-import { TargetMarkers, type TargetMarker } from "./ui/TargetMarkers";
-import { badgeTexture, carBodyTexture } from "./rendering/bakedTextures";
-import { drawTrack as drawTrackGraphics, laneColor } from "./rendering/trackRenderer";
-import { easeAngle, headingOf, spriteRotation } from "./rendering/heading";
-import { GLIDE, glideCap, glideDuration } from "./rendering/glide";
-import { roadPath } from "./rendering/roadPath";
+} from '../constants';
+import type { TargetInfo } from '../systems/movementSystem';
+import type { FeelEvent } from '../systems/feelEvents';
+import { play } from '../../ui/sound';
+import { Confetti } from './ui/Confetti';
+import { carSprite } from '../systems/spawnSystem';
+import type { RaceAction } from '../race/raceEngine';
+import { DEFAULT_RULES_VERSION, type RulesVersion } from '../rules/versions';
+import { RaceSession, SERVER_WAIT_MS, type MovePreview } from '../race/raceSession';
+import { positionAsTest, type CarEdit } from '../race/sandbox';
+import type { SandboxCommand } from '../../ui/sandboxPanel';
+import { validateTrack } from '../../validation/trackValidation';
+import { PIT_PANEL, PitModal } from './ui/PitModal';
+import { DebugButtons } from './ui/DebugButtons';
+import { makeButton } from './ui/makeButton';
+import { applyCarsMovesVisibility } from './ui/carsMovesVisibility';
+import { TargetMarkers, type TargetMarker } from './ui/TargetMarkers';
+import { badgeTexture, carBodyTexture } from './rendering/bakedTextures';
+import { drawTrack as drawTrackGraphics, laneColor } from './rendering/trackRenderer';
+import { easeAngle, headingOf, spriteRotation } from './rendering/heading';
+import { GLIDE, glideCap, glideDuration } from './rendering/glide';
+import { roadPath } from './rendering/roadPath';
 import {
   centerOn,
   FITTED,
@@ -46,18 +46,23 @@ import {
   wheelTo,
   type Fit,
   type UserView
-} from "./rendering/cameraView";
-import { registerCameraGestures } from "./input/registerCameraGestures";
-import { carColor } from "../systems/spawnSystem";
-import { movePath } from "../systems/movePath";
-import { registerRaceSceneInputHandlers } from "./input/registerRaceSceneInputHandlers";
-import { registerSandboxInputHandlers } from "./input/registerSandboxInputHandlers";
-import { hudGutters, isCompactHud } from "../../ui/layout";
-import type { HudCommand } from "../../ui/hud";
-import { validateMoveAttempt } from "../systems/moveValidationSystem";
-import { resolvePlayerDragDrop } from "./turns/resolvePlayerDragDrop";
-import type { buildGameDebugSnapshot } from "./debug/gameDebugSnapshot";
-import type { AppliedTurnSummary, BackendTurnAction, PublicLobby, TurnSource } from "../../net/backendApi";
+} from './rendering/cameraView';
+import { registerCameraGestures } from './input/registerCameraGestures';
+import { carColor } from '../systems/spawnSystem';
+import { movePath } from '../systems/movePath';
+import { registerRaceSceneInputHandlers } from './input/registerRaceSceneInputHandlers';
+import { registerSandboxInputHandlers } from './input/registerSandboxInputHandlers';
+import { hudGutters, isCompactHud } from '../../ui/layout';
+import type { HudCommand } from '../../ui/hud';
+import { validateMoveAttempt } from '../systems/moveValidationSystem';
+import { resolvePlayerDragDrop } from './turns/resolvePlayerDragDrop';
+import type { buildGameDebugSnapshot } from './debug/gameDebugSnapshot';
+import type {
+  AppliedTurnSummary,
+  BackendTurnAction,
+  PublicLobby,
+  TurnSource
+} from '../../net/backendApi';
 
 declare global {
   interface Window {
@@ -65,7 +70,9 @@ declare global {
       state: () => ReturnType<typeof buildGameDebugSnapshot>;
       cellScreenPos: (cellId: string) => { x: number; y: number } | null;
       /** Centre of a canvas button (page coordinates): Setup, and the pit modal's wing -/+ and Confirm. Null when hidden. */
-      uiButtonPos: (name: "setup" | "wing-minus" | "wing-plus" | "confirm") => { x: number; y: number } | null;
+      uiButtonPos: (
+        name: 'setup' | 'wing-minus' | 'wing-plus' | 'confirm'
+      ) => { x: number; y: number } | null;
       /** Where a car token is drawn right now (page coordinates), mid-tween included. */
       tokenScreenPos: (carId: number) => { x: number; y: number } | null;
       /** The rotation of a car's body in radians (Phaser's: 0 = pointing up), mid-drag and mid-glide included. */
@@ -89,7 +96,10 @@ declare global {
       /** Stops the looping halo pulse so screenshots are deterministic. */
       freezeAnimations: () => void;
       /** The path being previewed (picked or hovered target), and the trails on the board: cells, as drawn. */
-      overlays: () => { preview: MovePreview | null; trails: Array<{ carId: number; cells: string[]; alpha: number }> };
+      overlays: () => {
+        preview: MovePreview | null;
+        trails: Array<{ carId: number; cells: string[]; alpha: number }>;
+      };
       /** The camera: the player's zoom (1 = fitted), the camera's own zoom and whether the Fit button shows. */
       view: () => { userZoom: number; zoom: number; fitVisible: boolean };
       status: () => {
@@ -103,7 +113,6 @@ declare global {
 }
 
 type CellMap = Map<string, TrackCell>;
-
 
 export class RaceScene extends Phaser.Scene {
   private static readonly UI = {
@@ -180,8 +189,8 @@ export class RaceScene extends Phaser.Scene {
   };
   private readonly onHudCommand = (event: Event) => {
     const type = (event as CustomEvent<HudCommand>).detail?.type;
-    if (type === "confirm-move") this.confirmSelectedTarget();
-    else if (type === "cancel-move") {
+    if (type === 'confirm-move') this.confirmSelectedTarget();
+    else if (type === 'cancel-move') {
       this.session.clearSelection();
       this.drawTargets();
       this.emitHud();
@@ -194,7 +203,7 @@ export class RaceScene extends Phaser.Scene {
     const lobby = custom.detail?.lobby;
     if (!lobby) return;
     const localPlayerId =
-      typeof custom.detail?.localPlayerId === "string" ? custom.detail.localPlayerId : null;
+      typeof custom.detail?.localPlayerId === 'string' ? custom.detail.localPlayerId : null;
     this.applyBackendLobbyState(lobby, localPlayerId);
   };
   private readonly onBackendTurnApplied = (event: Event) => {
@@ -207,8 +216,8 @@ export class RaceScene extends Phaser.Scene {
     const detail = custom.detail;
     if (
       !detail ||
-      typeof detail.lobbyId !== "string" ||
-      typeof detail.playerId !== "string" ||
+      typeof detail.lobbyId !== 'string' ||
+      typeof detail.playerId !== 'string' ||
       !detail.applied
     ) {
       return;
@@ -218,31 +227,32 @@ export class RaceScene extends Phaser.Scene {
   };
 
   constructor() {
-    super("RaceScene");
+    super('RaceScene');
   }
 
   create() {
-    const raw = this.cache.json.get("track");
+    const raw = this.cache.json.get('track');
     const parsed = trackSchema.safeParse(raw);
 
     if (!parsed.success) {
-      const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\\n");
+      const msg = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\\n');
       throw new Error(`Invalid track JSON:\\n${msg}`);
     }
 
     this.track = parsed.data as TrackData;
     const validationErrors = validateTrack(this.track);
     if (validationErrors.length > 0) {
-      throw new Error(`Invalid track data:\\n${validationErrors.map((e) => `- ${e}`).join("\\n")}`);
+      throw new Error(`Invalid track data:\\n${validationErrors.map((e) => `- ${e}`).join('\\n')}`);
     }
     this.session = new RaceSession(this.track, {
       totalCars: this.registry.get(REG_TOTAL_CARS),
       humanCars: this.registry.get(REG_HUMAN_CARS),
       botCars: this.registry.get(REG_BOT_CARS),
       raceLaps: this.registry.get(REG_RACE_LAPS),
-      botLevel: (this.registry.get(REG_BOT_LEVEL) as BotLevel | undefined) ?? "normal",
+      botLevel: (this.registry.get(REG_BOT_LEVEL) as BotLevel | undefined) ?? 'normal',
       seed: (this.registry.get(REG_SEED) as number | undefined) ?? 0,
-      rulesVersion: (this.registry.get(REG_RULES_VERSION) as RulesVersion | undefined) ?? DEFAULT_RULES_VERSION,
+      rulesVersion:
+        (this.registry.get(REG_RULES_VERSION) as RulesVersion | undefined) ?? DEFAULT_RULES_VERSION,
       sandbox: this.registry.get(REG_SANDBOX) === true
     });
     this.cellMap = this.session.cellMap;
@@ -259,7 +269,7 @@ export class RaceScene extends Phaser.Scene {
     this.drawFrame();
     this.centerTrack();
     this.setUIFixed();
-    this.scale.on("resize", () => {
+    this.scale.on('resize', () => {
       this.drawFrame();
       this.layoutUI();
       this.centerTrack();
@@ -285,11 +295,11 @@ export class RaceScene extends Phaser.Scene {
     // game.destroy() emits DESTROY, not SHUTDOWN: without both, a dead scene keeps
     // reacting to lobby events (the next online race would hit its destroyed sprites).
     const removeWindowListeners = () => {
-      window.removeEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
-      window.removeEventListener("srp:hud-command", this.onHudCommand);
-      window.removeEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
-      window.removeEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
-      window.removeEventListener("srp:sandbox-command", this.onSandboxCommand);
+      window.removeEventListener('srp:toggle-cars-moves', this.onExternalToggleCarsMoves);
+      window.removeEventListener('srp:hud-command', this.onHudCommand);
+      window.removeEventListener('srp:backend-lobby-state', this.onBackendLobbyState);
+      window.removeEventListener('srp:backend-turn-applied', this.onBackendTurnApplied);
+      window.removeEventListener('srp:sandbox-command', this.onSandboxCommand);
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, removeWindowListeners);
     this.events.once(Phaser.Scenes.Events.DESTROY, removeWindowListeners);
@@ -304,11 +314,11 @@ export class RaceScene extends Phaser.Scene {
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, stopGoverning);
     this.events.once(Phaser.Scenes.Events.DESTROY, stopGoverning);
-    window.addEventListener("srp:toggle-cars-moves", this.onExternalToggleCarsMoves);
-    window.addEventListener("srp:hud-command", this.onHudCommand);
-    window.addEventListener("srp:backend-lobby-state", this.onBackendLobbyState);
-    window.addEventListener("srp:backend-turn-applied", this.onBackendTurnApplied);
-    if (this.sandbox) window.addEventListener("srp:sandbox-command", this.onSandboxCommand);
+    window.addEventListener('srp:toggle-cars-moves', this.onExternalToggleCarsMoves);
+    window.addEventListener('srp:hud-command', this.onHudCommand);
+    window.addEventListener('srp:backend-lobby-state', this.onBackendLobbyState);
+    window.addEventListener('srp:backend-turn-applied', this.onBackendTurnApplied);
+    if (this.sandbox) window.addEventListener('srp:sandbox-command', this.onSandboxCommand);
 
     registerRaceSceneInputHandlers({
       scene: this,
@@ -335,12 +345,12 @@ export class RaceScene extends Phaser.Scene {
       toggleForwardIndexOverlay: () => this.toggleForwardIndexOverlay(),
       openPitModal: (cell, origin) => this.openPitModal(cell, origin),
       onMove: (targetCellId) => {
-        this.applyLocalAction({ type: "move", targetCellId });
+        this.applyLocalAction({ type: 'move', targetCellId });
       },
       onReturn: () => this.glideTo(this.activeCar.carId, this.activeCar.cellId),
       canControlActiveCar: () => this.canLocalControlActiveCar(),
       onUnauthorizedControlAttempt: () => {
-        this.addLog("Not your turn/car.");
+        this.addLog('Not your turn/car.');
       },
       isSuspended: () => this.editing,
       hoverMaxDist: RaceScene.HUD.hoverMaxDist,
@@ -368,9 +378,13 @@ export class RaceScene extends Phaser.Scene {
     });
     // iOS Safari pinches the whole page with its own gesture events even under touch-action: none; the board owns them
     const stopPageZoom = (event: Event) => event.preventDefault();
-    document.addEventListener("gesturestart", stopPageZoom);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => document.removeEventListener("gesturestart", stopPageZoom));
-    this.events.once(Phaser.Scenes.Events.DESTROY, () => document.removeEventListener("gesturestart", stopPageZoom));
+    document.addEventListener('gesturestart', stopPageZoom);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
+      document.removeEventListener('gesturestart', stopPageZoom)
+    );
+    this.events.once(Phaser.Scenes.Events.DESTROY, () =>
+      document.removeEventListener('gesturestart', stopPageZoom)
+    );
     if (this.sandbox) {
       registerSandboxInputHandlers({
         scene: this,
@@ -388,7 +402,7 @@ export class RaceScene extends Phaser.Scene {
       });
     }
 
-    if (import.meta.env.DEV || import.meta.env.MODE === "test") {
+    if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
       // e2e hook: read-only state + cell -> page coordinates for real mouse drags
       window.__srp = {
         state: () => this.session.debugSnapshot(),
@@ -405,7 +419,11 @@ export class RaceScene extends Phaser.Scene {
         }),
         overlays: () => ({
           preview: this.previewShown,
-          trails: [...this.trails].map(([carId, g]) => ({ carId, cells: this.session.lastMovePath(carId), alpha: g.alpha }))
+          trails: [...this.trails].map(([carId, g]) => ({
+            carId,
+            cells: this.session.lastMovePath(carId),
+            alpha: g.alpha
+          }))
         }),
         freezeAnimations: () => {
           this.activeHaloTween?.stop();
@@ -429,7 +447,9 @@ export class RaceScene extends Phaser.Scene {
           return {
             topCarId: hits[0] ? carIdOf(hits[0]) : null,
             hits: hits.length,
-            draggableCarIds: [...this.carTokens].filter(([, token]) => token.input?.draggable).map(([id]) => id),
+            draggableCarIds: [...this.carTokens]
+              .filter(([, token]) => token.input?.draggable)
+              .map(([id]) => id),
             activeCarId: this.activeCar.carId,
             canvas: {
               phaser: [bounds.x, bounds.y, bounds.width, bounds.height].map(Math.round),
@@ -457,7 +477,7 @@ export class RaceScene extends Phaser.Scene {
       };
     }
     // main.ts replays the latest lobby state now that the scene listens for it.
-    window.dispatchEvent(new Event("srp:scene-ready"));
+    window.dispatchEvent(new Event('srp:scene-ready'));
   }
 
   private spawnCarTokens() {
@@ -514,14 +534,17 @@ export class RaceScene extends Phaser.Scene {
 
     // Kenney cars point up; the sprite alone is rotated so the badge stays upright.
     // Both pictures are baked once (bakedTextures.ts): nothing is rescaled or rasterised per frame.
-    const body = this.add.image(0, 0, carBodyTexture(this, spriteKey, 15, 28)).setDisplaySize(15, 28);
+    const body = this.add
+      .image(0, 0, carBodyTexture(this, spriteKey, 15, 28))
+      .setDisplaySize(15, 28);
     body.setRotation(spriteRotation(cell, this.cellMap));
     const badge = this.add.image(0, 0, badgeTexture(this, car.carId)).setDisplaySize(12, 12);
 
     const token = this.add.container(cell.pos.x, cell.pos.y, [body, badge]);
     token.setDepth(50);
     // a finger needs a bigger target than the sprite; the drawing stays the same
-    const coarse = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    const coarse =
+      typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
     token.setSize(coarse ? 40 : 28, coarse ? 30 : 18);
     token.setInteractive({ useHandCursor: true });
     this.carTokens.set(car.carId, token);
@@ -566,7 +589,7 @@ export class RaceScene extends Phaser.Scene {
     this.maybeFollowMyCar();
     if (this.session.takeFinish()) {
       window.dispatchEvent(
-        new CustomEvent("srp:race-finished", { detail: { winnerCarId: this.session.winnerCarId } })
+        new CustomEvent('srp:race-finished', { detail: { winnerCarId: this.session.winnerCarId } })
       );
     }
   }
@@ -578,27 +601,35 @@ export class RaceScene extends Phaser.Scene {
 
   private reactTo(event: FeelEvent) {
     switch (event.type) {
-      case "lap": {
-        const text = event.final ? "Final lap" : `Lap ${event.lap} / ${event.laps}`;
-        window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text, kind: event.final ? "final" : "lap" } }));
-        play("lap");
+      case 'lap': {
+        const text = event.final ? 'Final lap' : `Lap ${event.lap} / ${event.laps}`;
+        window.dispatchEvent(
+          new CustomEvent('srp:toast', { detail: { text, kind: event.final ? 'final' : 'lap' } })
+        );
+        play('lap');
         break;
       }
-      case "slingshot":
-        window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text: "Slingshot!", kind: "slingshot" } }));
-        play("slingshot");
+      case 'slingshot':
+        window.dispatchEvent(
+          new CustomEvent('srp:toast', { detail: { text: 'Slingshot!', kind: 'slingshot' } })
+        );
+        play('slingshot');
         break;
-      case "draft":
-        window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text: "In the tow: less wear", kind: "draft" } }));
-        play("draft");
+      case 'draft':
+        window.dispatchEvent(
+          new CustomEvent('srp:toast', { detail: { text: 'In the tow: less wear', kind: 'draft' } })
+        );
+        play('draft');
         break;
-      case "slingshotReady":
-        window.dispatchEvent(new CustomEvent("srp:toast", { detail: { text: "Slingshot ready", kind: "slingshot" } }));
-        play("ready");
+      case 'slingshotReady':
+        window.dispatchEvent(
+          new CustomEvent('srp:toast', { detail: { text: 'Slingshot ready', kind: 'slingshot' } })
+        );
+        play('ready');
         break;
-      case "finish":
+      case 'finish':
         if (!this.animationsFrozen) this.confetti = new Confetti(this);
-        play("finish");
+        play('finish');
         break;
       default:
         play(event.type);
@@ -608,15 +639,18 @@ export class RaceScene extends Phaser.Scene {
   // Online, the server moves the car: until it answers, the car we just dropped (or tapped) keeps the place and heading
   // of its target cell instead of sliding back to the old one; a tapped car glides there at once.
   private faceDroppedCell(action: RaceAction) {
-    if (action.type === "skip" || action.type === "setup") return;
+    if (action.type === 'skip' || action.type === 'setup') return;
     this.glideTo(this.activeCar.carId, action.targetCellId);
   }
 
   // Cars move at once in the e2e build (specs read where they are), under reduced motion, and in a frozen screenshot.
   private instantMoves(): boolean {
     if (this.animationsFrozen) return true;
-    if (import.meta.env.MODE === "test" && this.registry.get(REG_ANIMATE) !== true) return true;
-    return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (import.meta.env.MODE === 'test' && this.registry.get(REG_ANIMATE) !== true) return true;
+    return (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
   }
 
   // Ends a glide now: the car stands on the cell it was gliding to.
@@ -630,7 +664,12 @@ export class RaceScene extends Phaser.Scene {
    * moved), turning with the road, in `delayMs` after now. Returns how long the glide takes (0 when it is already there
    * or the move is instant). The token's cell is recorded at once, so a second sync does not glide it again.
    */
-  private glideTo(carId: number, toCellId: string, delayMs = 0, capMs: number = GLIDE.maxMs): number {
+  private glideTo(
+    carId: number,
+    toCellId: string,
+    delayMs = 0,
+    capMs: number = GLIDE.maxMs
+  ): number {
     const token = this.carTokens.get(carId);
     const cell = this.cellMap.get(toCellId);
     if (!token || !cell) return 0;
@@ -663,7 +702,10 @@ export class RaceScene extends Phaser.Scene {
     const points =
       ids.length >= 2
         ? ids.map((id) => this.cellMap.get(id)!.pos)
-        : [{ x: token.x, y: token.y }, { x: cell.pos.x, y: cell.pos.y }];
+        : [
+            { x: token.x, y: token.y },
+            { x: cell.pos.x, y: cell.pos.y }
+          ];
     const path = roadPath(points);
 
     const here = new Phaser.Math.Vector2();
@@ -679,7 +721,7 @@ export class RaceScene extends Phaser.Scene {
       to: 1,
       duration,
       delay: delayMs,
-      ease: "Sine.easeInOut",
+      ease: 'Sine.easeInOut',
       // the trail shows when the car sets off, not while it waits for the cars before it
       onStart: () => this.showTrail(carId),
       onUpdate: (counter: Phaser.Tweens.Tween) => {
@@ -724,7 +766,9 @@ export class RaceScene extends Phaser.Scene {
       if (token.x === cell.pos.x && token.y === cell.pos.y) {
         // already there (a drag-drop, a sandbox edit): nothing to animate
         this.tokenCell.set(car.carId, car.cellId);
-        if (!this.glides.has(car.carId)) (token.first as Phaser.GameObjects.Image).setRotation(spriteRotation(cell, this.cellMap));
+        if (!this.glides.has(car.carId)) {
+          (token.first as Phaser.GameObjects.Image).setRotation(spriteRotation(cell, this.cellMap));
+        }
       } else if (this.tokenCell.get(car.carId) !== car.cellId) {
         moving.push(car);
       }
@@ -738,7 +782,9 @@ export class RaceScene extends Phaser.Scene {
     let delay = 0;
     for (const car of moving) delay += this.glideTo(car.carId, car.cellId, delay, cap);
     // a car that moved but did not glide (a drop is its own motion; instant moves) still leaves its trail
-    for (const carId of order) if (!moving.some((car) => car.carId === carId)) this.showTrail(carId);
+    for (const carId of order) {
+      if (!moving.some((car) => car.carId === carId)) this.showTrail(carId);
+    }
   }
 
   private processBotsUntilHuman() {
@@ -771,7 +817,8 @@ export class RaceScene extends Phaser.Scene {
       token.setVisible(true);
       const halo = this.activeHalos.get(carId);
       if (carId === this.activeCar.carId) {
-        const canControlActive = this.editing || (this.canLocalControlActiveCar() && !this.raceFinished);
+        const canControlActive =
+          this.editing || (this.canLocalControlActiveCar() && !this.raceFinished);
         token.setAlpha(1);
         token.setScale(canControlActive ? 1.1 : 1);
         this.input.setDraggable(token, canControlActive);
@@ -803,7 +850,7 @@ export class RaceScene extends Phaser.Scene {
         duration: 520,
         yoyo: true,
         repeat: -1,
-        ease: "Sine.easeInOut"
+        ease: 'Sine.easeInOut'
       });
     }
   }
@@ -838,7 +885,7 @@ export class RaceScene extends Phaser.Scene {
           slingshot: Boolean(info.slingshot),
           slingshotOnly: Boolean(info.slingshotOnly),
           tuck: !info.isPitTrigger && this.session.endsTucked(cellId),
-          risk: info.isPitTrigger || least >= 20 ? "none" : least <= 0 ? "empty" : "low"
+          risk: info.isPitTrigger || least >= 20 ? 'none' : least <= 0 ? 'empty' : 'low'
         },
         cost: String(this.session.moveSpendOf(info, cell.laneIndex))
       });
@@ -861,7 +908,9 @@ export class RaceScene extends Phaser.Scene {
       if (!start) continue;
       const points = [start.pos];
       for (let cur = start, i = 0; i < link.gap; i += 1) {
-        const next = cur.next.map((id) => this.cellMap.get(id)).find((c) => c && c.laneIndex === cur.laneIndex);
+        const next = cur.next
+          .map((id) => this.cellMap.get(id))
+          .find((c) => c && c.laneIndex === cur.laneIndex);
         if (!next) break;
         points.push(next.pos);
         cur = next;
@@ -870,7 +919,10 @@ export class RaceScene extends Phaser.Scene {
       const heading = headingOf(start, this.cellMap);
       this.gTow.lineStyle(2, link.ready ? 0xffd166 : 0x7fb4ff, 0.6);
       for (const offset of [-4, 0, 4]) {
-        const line = points.map((p) => ({ x: p.x - heading.y * offset, y: p.y + heading.x * offset }));
+        const line = points.map((p) => ({
+          x: p.x - heading.y * offset,
+          y: p.y + heading.x * offset
+        }));
         roadPath(line).draw(this.gTow, 24);
       }
     }
@@ -888,7 +940,13 @@ export class RaceScene extends Phaser.Scene {
     if (!target) return;
     this.previewShown = preview;
     const color =
-      preview.kind === "pit" ? 0xffe066 : preview.kind === "slingshot" ? 0xffd166 : preview.kind === "squeeze" ? 0xffb020 : laneColor(target.laneIndex);
+      preview.kind === 'pit'
+        ? 0xffe066
+        : preview.kind === 'slingshot'
+          ? 0xffd166
+          : preview.kind === 'squeeze'
+            ? 0xffb020
+            : laneColor(target.laneIndex);
     const path = roadPath(preview.cells.map((id) => this.cellMap.get(id)!.pos));
     this.gPreview.lineStyle(7, 0x0b0f14, 0.35); // a dark edge, so it reads on the asphalt and on the kerbs
     path.draw(this.gPreview, 64);
@@ -908,12 +966,17 @@ export class RaceScene extends Phaser.Scene {
     // a killed tween is destroyed (targets null) but stays listed until the manager's next preUpdate
     const moving = this.tweens
       .getTweens()
-      .some((tween) => !tween.isDestroyed() && tween !== this.activeHaloTween && !tween.targets.some((t) => ambient.has(t)));
+      .some(
+        (tween) =>
+          !tween.isDestroyed() &&
+          tween !== this.activeHaloTween &&
+          !tween.targets.some((t) => ambient.has(t))
+      );
     return moving || this.confetti?.active === true || this.pitModal.isActive();
   }
 
   private showTrail(carId: number) {
-    if (import.meta.env.MODE === "test" && this.registry.get(REG_ANIMATE) !== true) return;
+    if (import.meta.env.MODE === 'test' && this.registry.get(REG_ANIMATE) !== true) return;
     const cells = this.session.lastMovePath(carId);
     if (cells.length < 2) return;
     let trail = this.trails.get(carId);
@@ -922,23 +985,35 @@ export class RaceScene extends Phaser.Scene {
       this.trails.set(carId, trail);
     }
     this.tweens.killTweensOf(trail);
-    const index = Math.max(0, this.cars.findIndex((car) => car.carId === carId));
+    const index = Math.max(
+      0,
+      this.cars.findIndex((car) => car.carId === carId)
+    );
     trail.clear();
     trail.lineStyle(3, Phaser.Display.Color.HexStringToColor(carColor(index)).color, 1);
     roadPath(cells.map((id) => this.cellMap.get(id)!.pos)).draw(trail, 64);
     trail.setVisible(this.showCarsAndMoves);
-    const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduced =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced || this.animationsFrozen) {
       trail.setAlpha(0.35);
       return;
     }
     trail.setAlpha(0.75);
-    this.tweens.add({ targets: trail, alpha: 0.22, duration: 4500, ease: "Quad.easeOut" });
+    this.tweens.add({ targets: trail, alpha: 0.22, duration: 4500, ease: 'Quad.easeOut' });
   }
 
   /** A tap on the board (a press and release without a drag) picks the nearest target in reach, or drops the pick. */
   private tapBoard(x: number, y: number) {
-    if (this.editing || this.pitModal.isActive() || !this.showCarsAndMoves || !this.session.localCanControl()) return;
+    if (
+      this.editing ||
+      this.pitModal.isActive() ||
+      !this.showCarsAndMoves ||
+      !this.session.localCanControl()
+    ) {
+      return;
+    }
     let best: { id: string; d: number } | null = null;
     for (const cellId of this.validTargets.keys()) {
       const cell = this.cellMap.get(cellId);
@@ -979,7 +1054,7 @@ export class RaceScene extends Phaser.Scene {
       cellMap: this.cellMap,
       activeHalo: this.activeHalos.get(activeCar.carId) ?? null,
       onOpenPitModal: (pitCell, origin) => this.openPitModal(pitCell, origin),
-      onMove: (targetCellId) => this.applyLocalAction({ type: "move", targetCellId }),
+      onMove: (targetCellId) => this.applyLocalAction({ type: 'move', targetCellId }),
       glideMove: true
     });
     this.drawTargets();
@@ -1000,7 +1075,7 @@ export class RaceScene extends Phaser.Scene {
     for (const obj of fixed) {
       if (
         typeof (obj as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor ===
-        "function"
+        'function'
       ) {
         (obj as unknown as { setScrollFactor: (x: number, y?: number) => unknown }).setScrollFactor(
           0
@@ -1027,7 +1102,7 @@ export class RaceScene extends Phaser.Scene {
     const s = renderScale();
     const w = this.scale.width;
     const h = this.scale.height;
-    const hud = document.getElementById("hud");
+    const hud = document.getElementById('hud');
     const css = hud
       ? hudGutters(hud, this.game.canvas.getBoundingClientRect())
       : { left: 0, right: 0, top: 0 };
@@ -1092,10 +1167,14 @@ export class RaceScene extends Phaser.Scene {
       from: 0,
       to: 1,
       duration: 260,
-      ease: "Sine.easeInOut",
+      ease: 'Sine.easeInOut',
       onUpdate: (counter: Phaser.Tweens.Tween) => {
         const t = counter.getValue() ?? 1;
-        this.setUserView({ zoom: from.zoom + (1 - from.zoom) * t, px: from.px * (1 - t), py: from.py * (1 - t) });
+        this.setUserView({
+          zoom: from.zoom + (1 - from.zoom) * t,
+          px: from.px * (1 - t),
+          py: from.py * (1 - t)
+        });
       },
       onComplete: () => this.setUserView(FITTED)
     });
@@ -1106,7 +1185,14 @@ export class RaceScene extends Phaser.Scene {
   private followedCell: string | null = null;
   private maybeFollowMyCar() {
     const car = this.session.localCar();
-    if (!car || this.raceFinished || !this.session.localCanControl() || car.cellId === this.followedCell) return;
+    if (
+      !car ||
+      this.raceFinished ||
+      !this.session.localCanControl() ||
+      car.cellId === this.followedCell
+    ) {
+      return;
+    }
     this.followedCell = car.cellId;
     this.followMyCar();
   }
@@ -1128,10 +1214,14 @@ export class RaceScene extends Phaser.Scene {
       from: 0,
       to: 1,
       duration: 320,
-      ease: "Sine.easeInOut",
+      ease: 'Sine.easeInOut',
       onUpdate: (counter: Phaser.Tweens.Tween) => {
         const t = counter.getValue() ?? 1;
-        this.setUserView({ zoom: from.zoom, px: from.px + (target.px - from.px) * t, py: from.py + (target.py - from.py) * t });
+        this.setUserView({
+          zoom: from.zoom,
+          px: from.px + (target.px - from.px) * t,
+          py: from.py + (target.py - from.py) * t
+        });
       }
     });
   }
@@ -1160,10 +1250,10 @@ export class RaceScene extends Phaser.Scene {
     if (!this.showForwardIndex) return;
     for (const cell of this.track.cells) {
       const label = this.add.text(cell.pos.x + 8, cell.pos.y + 6, String(cell.forwardIndex), {
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         resolution: textResolution(),
-        fontSize: "10px",
-        color: "#e6edf3"
+        fontSize: '10px',
+        color: '#e6edf3'
       });
       label.setDepth(20);
       this.forwardIndexLabels.push(label);
@@ -1193,7 +1283,12 @@ export class RaceScene extends Phaser.Scene {
     // pixel per unit, `k` undoes the camera zoom on positions).
     const z = this.cameras.main.zoom;
     const k = 1 / z;
-    const texts = [this.skipButton, this.setupButton, this.fitButton, ...(this.debugButtons?.getTexts() ?? [])].filter(Boolean);
+    const texts = [
+      this.skipButton,
+      this.setupButton,
+      this.fitButton,
+      ...(this.debugButtons?.getTexts() ?? [])
+    ].filter(Boolean);
     for (const t of texts) {
       if (t) t.setScale(k * s).setPosition(w / 2 + (t.x - w / 2) * k, h / 2 + (t.y - h / 2) * k);
     }
@@ -1205,7 +1300,10 @@ export class RaceScene extends Phaser.Scene {
     this.pitModal
       ?.getContainer()
       .setScale(sc)
-      .setPosition(w / 2 - (PIT_PANEL.x + PIT_PANEL.width / 2) * sc, h / 2 - (PIT_PANEL.y + PIT_PANEL.height / 2) * sc);
+      .setPosition(
+        w / 2 - (PIT_PANEL.x + PIT_PANEL.width / 2) * sc,
+        h / 2 - (PIT_PANEL.y + PIT_PANEL.height / 2) * sc
+      );
   }
 
   private createPitModal() {
@@ -1213,8 +1311,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private createSkipButton() {
-    this.skipButton = makeButton(this, "Skip turn", {
-      fontSize: "14px",
+    this.skipButton = makeButton(this, 'Skip turn', {
+      fontSize: '14px',
       originX: 0.5,
       originY: 1,
       onClick: () => this.skipTurn()
@@ -1225,8 +1323,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private createSetupButton() {
-    this.setupButton = makeButton(this, "Setup", {
-      fontSize: "14px",
+    this.setupButton = makeButton(this, 'Setup', {
+      fontSize: '14px',
       originX: 0.5,
       originY: 1,
       onClick: () => this.openGridSetup()
@@ -1238,8 +1336,8 @@ export class RaceScene extends Phaser.Scene {
 
   // Back to the fitted track: only shown once the player has zoomed in (double-tap on the board does the same).
   private createFitButton() {
-    this.fitButton = makeButton(this, "Fit", {
-      fontSize: "14px",
+    this.fitButton = makeButton(this, 'Fit', {
+      fontSize: '14px',
       originX: 0.5,
       originY: 1,
       onClick: () => this.resetView()
@@ -1253,13 +1351,17 @@ export class RaceScene extends Phaser.Scene {
   private openGridSetup() {
     if (!this.session.canSetup() || this.pitModal.isActive()) return;
     this.pitModal.open({
-      title: "Grid setup",
+      title: 'Grid setup',
       setup: this.activeCar.setup,
       stints: (setup) => this.session.pitStints(setup),
-      bodyLines: ["Compound, pressures and wing,", "free until your first move.", "Low wing is fast and hard on tires."],
+      bodyLines: [
+        'Compound, pressures and wing,',
+        'free until your first move.',
+        'Low wing is fast and hard on tires.'
+      ],
       onConfirm: (setup) => {
         this.pitModal.close();
-        this.applyLocalAction({ type: "setup", setup });
+        this.applyLocalAction({ type: 'setup', setup });
       },
       onCancel: () => this.pitModal.close()
     });
@@ -1276,9 +1378,9 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private updateExternalToggleLabel() {
-    const button = document.getElementById("toggleCarsMovesBtn") as HTMLButtonElement | null;
+    const button = document.getElementById('toggleCarsMovesBtn') as HTMLButtonElement | null;
     if (!button) return;
-    button.textContent = this.showCarsAndMoves ? "Cars+moves: ON" : "Cars+moves: OFF";
+    button.textContent = this.showCarsAndMoves ? 'Cars+moves: ON' : 'Cars+moves: OFF';
   }
 
   private applyCarsAndMovesVisibility() {
@@ -1317,10 +1419,10 @@ export class RaceScene extends Phaser.Scene {
     const payload = JSON.stringify(snapshot, null, 2);
     try {
       await navigator.clipboard.writeText(payload);
-      this.addLog("Copied debug snapshot to clipboard.");
+      this.addLog('Copied debug snapshot to clipboard.');
     } catch {
-      this.addLog("Clipboard failed. Check console for snapshot.");
-      console.log("Debug snapshot:", payload);
+      this.addLog('Clipboard failed. Check console for snapshot.');
+      console.log('Debug snapshot:', payload);
     }
   }
 
@@ -1329,10 +1431,10 @@ export class RaceScene extends Phaser.Scene {
     const payload = JSON.stringify(snapshot, null, 2);
     try {
       await navigator.clipboard.writeText(payload);
-      this.addLog("Copied bot decision snapshot to clipboard.");
+      this.addLog('Copied bot decision snapshot to clipboard.');
     } catch {
-      this.addLog("Clipboard failed. Check console for bot snapshot.");
-      console.log("Bot decision snapshot:", payload);
+      this.addLog('Clipboard failed. Check console for bot snapshot.');
+      console.log('Bot decision snapshot:', payload);
     }
   }
 
@@ -1341,10 +1443,10 @@ export class RaceScene extends Phaser.Scene {
     const payload = JSON.stringify(snapshot, null, 2);
     try {
       await navigator.clipboard.writeText(payload);
-      this.addLog("Copied short bot decision snapshot to clipboard.");
+      this.addLog('Copied short bot decision snapshot to clipboard.');
     } catch {
-      this.addLog("Clipboard failed. Check console for short bot snapshot.");
-      console.log("Short bot decision snapshot:", payload);
+      this.addLog('Clipboard failed. Check console for short bot snapshot.');
+      console.log('Short bot decision snapshot:', payload);
     }
   }
 
@@ -1354,18 +1456,18 @@ export class RaceScene extends Phaser.Scene {
       this.addLog(`Copied cell id: ${cellId}`);
     } catch {
       this.addLog(`Clipboard failed for cell id: ${cellId}`);
-      console.log("Cell id:", cellId);
+      console.log('Cell id:', cellId);
     }
   }
 
   private skipTurn() {
     if (this.raceFinished) return;
     if (!this.canLocalControlActiveCar()) {
-      this.addLog("Not your turn/car.");
+      this.addLog('Not your turn/car.');
       return;
     }
-    if (this.validTargets.size !== 0 || this.activeCar.state !== "ACTIVE") return;
-    this.applyLocalAction({ type: "skip" });
+    if (this.validTargets.size !== 0 || this.activeCar.state !== 'ACTIVE') return;
+    this.applyLocalAction({ type: 'skip' });
   }
 
   private openPitModal(cell: TrackCell, origin: { x: number; y: number }) {
@@ -1385,7 +1487,7 @@ export class RaceScene extends Phaser.Scene {
         if (!this.pendingPit) return;
         const targetCellId = this.pendingPit.cell.id;
         this.closePitModal();
-        this.applyLocalAction({ type: "pit", targetCellId, setup });
+        this.applyLocalAction({ type: 'pit', targetCellId, setup });
       },
       onCancel: () => {
         if (!this.pendingPit) return;
@@ -1407,7 +1509,7 @@ export class RaceScene extends Phaser.Scene {
 
   private emitLocalTurnAction(action: BackendTurnAction) {
     window.dispatchEvent(
-      new CustomEvent<BackendTurnAction>("srp:local-turn-action", { detail: action })
+      new CustomEvent<BackendTurnAction>('srp:local-turn-action', { detail: action })
     );
   }
 
@@ -1428,7 +1530,7 @@ export class RaceScene extends Phaser.Scene {
     });
     // Bake into a texture: a Graphics object is re-tessellated every frame, the static track is not worth that.
     // At `renderScale()` texture pixels per unit and shown at 1 / k, so `?hidpi` is sharp (it was upscaled from 1x).
-    const key = "track-baked";
+    const key = 'track-baked';
     this.trackImage?.destroy();
     if (this.textures.exists(key)) this.textures.remove(key);
     const xs = this.track.cells.map((c) => c.pos.x);
@@ -1437,7 +1539,11 @@ export class RaceScene extends Phaser.Scene {
     const h = Math.ceil(Math.max(...ys) + 100);
     this.gTrack.generateTexture(key, Math.ceil(w * k), Math.ceil(h * k));
     this.gTrack.clear();
-    this.trackImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(-5).setScale(1 / k);
+    this.trackImage = this.add
+      .image(0, 0, key)
+      .setOrigin(0, 0)
+      .setDepth(-5)
+      .setScale(1 / k);
   }
 
   private findNearestCell(x: number, y: number, maxDist: number): TrackCell | null {
@@ -1464,9 +1570,11 @@ export class RaceScene extends Phaser.Scene {
 
   // Centre of a canvas button in page coordinates, or null while it is not on screen. The buttons are fixed
   // (scrollFactor 0) and zoomed with the camera around its centre.
-  private uiButtonScreenPos(name: "setup" | "wing-minus" | "wing-plus" | "confirm"): { x: number; y: number } | null {
-    const button = name === "setup" ? this.setupButton : this.pitModal.button(name);
-    if (!button || !button.visible || (name !== "setup" && !this.pitModal.isActive())) return null;
+  private uiButtonScreenPos(
+    name: 'setup' | 'wing-minus' | 'wing-plus' | 'confirm'
+  ): { x: number; y: number } | null {
+    const button = name === 'setup' ? this.setupButton : this.pitModal.button(name);
+    if (!button || !button.visible || (name !== 'setup' && !this.pitModal.isActive())) return null;
     const b = button.getBounds();
     const cam = this.cameras.main;
     const rect = this.game.canvas.getBoundingClientRect();
@@ -1508,9 +1616,11 @@ export class RaceScene extends Phaser.Scene {
       cellScreenPos: (cellId) => this.cellScreenPos(cellId)
     });
     if (!snapshot) return;
-    window.dispatchEvent(new CustomEvent("srp:hud", { detail: snapshot }));
+    window.dispatchEvent(new CustomEvent('srp:hud', { detail: snapshot }));
     if (this.sandbox) {
-      window.dispatchEvent(new CustomEvent("srp:sandbox", { detail: this.session.sandboxSnapshot() }));
+      window.dispatchEvent(
+        new CustomEvent('srp:sandbox', { detail: this.session.sandboxSnapshot() })
+      );
     }
   }
 
@@ -1549,29 +1659,32 @@ export class RaceScene extends Phaser.Scene {
 
   private runSandboxCommand(command: SandboxCommand) {
     switch (command.type) {
-      case "edit":
+      case 'edit':
         this.sandboxEdit(command.carId, command.edit);
         break;
-      case "select":
+      case 'select':
         this.sandboxSelect(command.carId);
         break;
-      case "mode":
+      case 'mode':
         this.setEditing(command.editing);
         break;
-      case "copy-test":
-        void this.copyText(positionAsTest(this.session.ctx, this.session.race), "Copied the position as a vitest case.");
+      case 'copy-test':
+        void this.copyText(
+          positionAsTest(this.session.ctx, this.session.race),
+          'Copied the position as a vitest case.'
+        );
         break;
-      case "copy-link": {
+      case 'copy-link': {
         const { cars, activeCarId } = this.session.debugSnapshot();
         const pos = encodeURIComponent(btoa(JSON.stringify({ activeCarId, cars })));
         // the position reproduces only under its own rules: the link carries them (the menu's Rules starts on it)
         const version = this.session.race.rulesVersion ?? DEFAULT_RULES_VERSION;
-        const rules = version === DEFAULT_RULES_VERSION ? "" : `&rules=${version}`;
+        const rules = version === DEFAULT_RULES_VERSION ? '' : `&rules=${version}`;
         const url = `${window.location.origin}${import.meta.env.BASE_URL}?sandbox&seed=${this.session.race.seed}${rules}&pos=${pos}`;
-        void this.copyText(url, "Copied the sandbox link (open it, then Quick race).");
+        void this.copyText(url, 'Copied the sandbox link (open it, then Quick race).');
         break;
       }
-      case "load":
+      case 'load':
         this.applyPosition(command.text);
         this.refreshAfterTurn();
         break;
@@ -1585,7 +1698,7 @@ export class RaceScene extends Phaser.Scene {
       await navigator.clipboard.writeText(text);
       this.addLog(done);
     } catch {
-      this.addLog("Clipboard failed. Check the console.");
+      this.addLog('Clipboard failed. Check the console.');
       console.log(text);
     }
   }

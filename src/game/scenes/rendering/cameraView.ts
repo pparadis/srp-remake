@@ -49,7 +49,11 @@ function clamp(v: number, lo: number, hi: number): number {
 
 /** The camera for a fit and a user view; the user view is clamped (zoom range, and pan so the track stays in sight). */
 export function viewOf(fit: Fit, wanted: UserView): CameraView {
-  const userZoom = clamp(wanted.zoom, 1, Math.max(1, Math.min(MAX_USER_ZOOM, (MAX_USER_ZOOM * fit.scale) / fit.zoom)));
+  const userZoom = clamp(
+    wanted.zoom,
+    1,
+    Math.max(1, Math.min(MAX_USER_ZOOM, (MAX_USER_ZOOM * fit.scale) / fit.zoom))
+  );
   const zoom = fit.zoom * userZoom;
   const freeW = fit.w - fit.gl - fit.gr;
   const freeH = fit.h - fit.top - fit.bottom;
@@ -67,7 +71,12 @@ export function viewOf(fit: Fit, wanted: UserView): CameraView {
 }
 
 /** The world point under a screen point. */
-export function screenToWorld(fit: Fit, view: CameraView, sx: number, sy: number): { x: number; y: number } {
+export function screenToWorld(
+  fit: Fit,
+  view: CameraView,
+  sx: number,
+  sy: number
+): { x: number; y: number } {
   return { x: view.cx + (sx - fit.w / 2) / view.zoom, y: view.cy + (sy - fit.h / 2) / view.zoom };
 }
 
@@ -84,13 +93,18 @@ export function pinchTo(
   const held = screenToWorld(fit, before, last.x, last.y);
   const zoomed = viewOf(fit, { ...before.user, zoom: before.user.zoom * (now.dist / last.dist) });
   const under = screenToWorld(fit, zoomed, now.x, now.y);
-  return viewOf(fit, { zoom: zoomed.user.zoom, px: zoomed.user.px + (held.x - under.x), py: zoomed.user.py + (held.y - under.y) }).user;
+  return viewOf(fit, {
+    zoom: zoomed.user.zoom,
+    px: zoomed.user.px + (held.x - under.x),
+    py: zoomed.user.py + (held.y - under.y)
+  }).user;
 }
 
 /** A one-finger pan: the content follows the finger by (`dx`, `dy`) screen pixels. */
 export function panBy(fit: Fit, user: UserView, dx: number, dy: number): UserView {
   const { zoom, user: clamped } = viewOf(fit, user);
-  return viewOf(fit, { zoom: clamped.zoom, px: clamped.px - dx / zoom, py: clamped.py - dy / zoom }).user;
+  return viewOf(fit, { zoom: clamped.zoom, px: clamped.px - dx / zoom, py: clamped.py - dy / zoom })
+    .user;
 }
 
 /** The user view that puts a world point at the centre of the free area (where the fitted track is centred). */
@@ -99,7 +113,13 @@ export function centerOn(fit: Fit, user: UserView, wx: number, wy: number): User
 }
 
 /** A wheel notch (desktop): zoom about the pointer. `deltaY` is the wheel's, negative zooms in. */
-export function wheelTo(fit: Fit, user: UserView, sx: number, sy: number, deltaY: number): UserView {
+export function wheelTo(
+  fit: Fit,
+  user: UserView,
+  sx: number,
+  sy: number,
+  deltaY: number
+): UserView {
   const factor = Math.exp(-deltaY * 0.0015);
   return pinchTo(fit, user, { x: sx, y: sy, dist: 100 }, { x: sx, y: sy, dist: 100 * factor });
 }

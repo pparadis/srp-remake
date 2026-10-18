@@ -1,7 +1,7 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page } from '@playwright/test';
 
 // eslint-disable-next-line no-undef -- Node-side Playwright code
-const BACKEND_ORIGIN = `http://localhost:${process.env.E2E_BACKEND_PORT ?? "3001"}`;
+const BACKEND_ORIGIN = `http://localhost:${process.env.E2E_BACKEND_PORT ?? '3001'}`;
 
 /**
  * Set on CI. Screenshot baselines match only the Chromium build CI installs for the locked Playwright, so pixel checks
@@ -13,24 +13,24 @@ export const onCi = !!process.env.CI;
 /** Collects console errors and uncaught page errors; assert `errors` is empty at the end of a test. */
 export function collectErrors(page: Page): string[] {
   const errors: string[] = [];
-  page.on("console", (msg) => {
-    if (msg.type() === "error") errors.push(`console: ${msg.text()}`);
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(`console: ${msg.text()}`);
   });
-  page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
+  page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
   return errors;
 }
 
 /** Journey guardrail: console errors, page errors and failed or non-2xx backend requests. */
 export function guard(page: Page): string[] {
   const errors = collectErrors(page);
-  page.on("requestfailed", (req) => {
-    const failure = req.failure()?.errorText ?? "";
+  page.on('requestfailed', (req) => {
+    const failure = req.failure()?.errorText ?? '';
     // reloads and closed pages abort in-flight requests on purpose
-    if (req.url().startsWith(BACKEND_ORIGIN) && !failure.includes("ERR_ABORTED")) {
+    if (req.url().startsWith(BACKEND_ORIGIN) && !failure.includes('ERR_ABORTED')) {
       errors.push(`requestfailed: ${req.method()} ${req.url()} ${failure}`);
     }
   });
-  page.on("response", (res) => {
+  page.on('response', (res) => {
     if (res.url().startsWith(BACKEND_ORIGIN) && res.status() >= 400) {
       errors.push(`response ${res.status()}: ${res.request().method()} ${res.url()}`);
     }
@@ -48,13 +48,13 @@ interface SrpStatus {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function gotoHome(page: Page) {
-  await page.goto("/?seed=0");
-  await expect(page.getByTestId("home-quick")).toBeVisible();
+  await page.goto('/?seed=0');
+  await expect(page.getByTestId('home-quick')).toBeVisible();
 }
 
 export async function setName(page: Page, name: string) {
-  await page.getByTestId("home-name").fill(name);
-  await page.getByTestId("home-name").press("Tab"); // fires change -> remembered for invite links
+  await page.getByTestId('home-name').fill(name);
+  await page.getByTestId('home-name').press('Tab'); // fires change -> remembered for invite links
 }
 
 export async function setLobbySettings(
@@ -63,41 +63,41 @@ export async function setLobbySettings(
     bots?: number;
     laps?: number;
     timer?: 0 | 30 | 60 | 120;
-    botLevel?: "easy" | "normal" | "hard";
+    botLevel?: 'easy' | 'normal' | 'hard';
   }
 ) {
   if (s.timer !== undefined) {
-    await page.getByTestId("lobby-turn-timer").selectOption(String(s.timer));
+    await page.getByTestId('lobby-turn-timer').selectOption(String(s.timer));
   }
-  if (s.bots !== undefined) await page.getByTestId("lobby-bots").selectOption(String(s.bots));
+  if (s.bots !== undefined) await page.getByTestId('lobby-bots').selectOption(String(s.bots));
   // the level select only shows while there are bots, so set it after them
-  if (s.botLevel !== undefined) await page.getByTestId("lobby-bot-level").selectOption(s.botLevel);
+  if (s.botLevel !== undefined) await page.getByTestId('lobby-bot-level').selectOption(s.botLevel);
   if (s.laps !== undefined) {
-    await page.getByTestId("lobby-laps").fill(String(s.laps));
-    await page.getByTestId("lobby-laps").press("Tab");
+    await page.getByTestId('lobby-laps').fill(String(s.laps));
+    await page.getByTestId('lobby-laps').press('Tab');
   }
 }
 
 /** Waits until the race scene is built and exposes its test hook. */
 export async function waitForRace(page: Page) {
-  await expect(page.locator("canvas")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('canvas')).toBeVisible({ timeout: 20_000 });
   await page.waitForFunction(
     () => window.__srp !== undefined && window.__srp.state().cars.length > 0
   );
 }
 
 export async function startRace(page: Page) {
-  await page.getByTestId("lobby-start").click();
+  await page.getByTestId('lobby-start').click();
   await waitForRace(page);
 }
 
 /** Home -> Quick race -> settings -> Start; ends on the Race screen. */
 export async function quickRace(
   page: Page,
-  opts: { bots?: number; laps?: number; botLevel?: "easy" | "normal" | "hard" } = {}
+  opts: { bots?: number; laps?: number; botLevel?: 'easy' | 'normal' | 'hard' } = {}
 ) {
   await gotoHome(page);
-  await page.getByTestId("home-quick").click();
+  await page.getByTestId('home-quick').click();
   await setLobbySettings(page, {
     bots: opts.bots ?? 2,
     laps: opts.laps ?? 1,
@@ -113,21 +113,21 @@ export async function createLobby(
 ): Promise<string> {
   await gotoHome(page);
   if (opts.name) await setName(page, opts.name);
-  await page.getByTestId("home-create").click();
-  await expect(page.getByTestId("lobby-title")).toBeVisible();
+  await page.getByTestId('home-create').click();
+  await expect(page.getByTestId('lobby-title')).toBeVisible();
   // No turn timer unless a spec asks for one: journeys must not race the auto-play.
   await setLobbySettings(page, { ...opts, timer: opts.timer ?? 0 });
-  const invite = page.getByTestId("lobby-invite-link");
+  const invite = page.getByTestId('lobby-invite-link');
   await expect(invite).toHaveValue(/\/lobby\/[^/]+$/);
   return invite.inputValue();
 }
 
 /** Opens an invite link as a new player and waits until the lobby shows them. */
-export async function joinByInvite(page: Page, inviteUrl: string, name = "Guest") {
+export async function joinByInvite(page: Page, inviteUrl: string, name = 'Guest') {
   await gotoHome(page);
   await setName(page, name);
   await page.goto(inviteUrl);
-  await expect(page.getByTestId("lobby-player").filter({ hasText: `${name} (you)` })).toBeVisible();
+  await expect(page.getByTestId('lobby-player').filter({ hasText: `${name} (you)` })).toBeVisible();
 }
 
 const status = (page: Page) => page.evaluate(() => window.__srp?.status() as SrpStatus | undefined);
@@ -155,7 +155,7 @@ export async function nextMover(pages: Page[], timeout = 60_000): Promise<Page |
     }
     await sleep(100);
   }
-  throw new Error("nobody got a turn within the timeout");
+  throw new Error('nobody got a turn within the timeout');
 }
 
 /**
@@ -168,12 +168,12 @@ async function grabbable(page: Page, carId: number, at: { x: number; y: number }
       ({ carId, at }) => {
         // what the browser hands a mouse event at the press point to: the canvas, or something covering it
         const el = document.elementFromPoint(at.x, at.y);
-        const testId = el?.getAttribute("data-testid");
+        const testId = el?.getAttribute('data-testid');
         return {
           ...window.__srp!.pointerProbe(),
           at: [at.x, at.y].map(Math.round),
           tokenScreen: window.__srp!.tokenScreenPos(carId),
-          under: el && `${el.tagName}${el.id ? `#${el.id}` : ""}${testId ? `[${testId}]` : ""}`,
+          under: el && `${el.tagName}${el.id ? `#${el.id}` : ''}${testId ? `[${testId}]` : ''}`,
           health: {
             hasFocus: document.hasFocus(),
             visibility: document.visibilityState,
@@ -228,7 +228,7 @@ export async function playMyTurn(page: Page) {
       .filter((t) => !t.isPitTrigger)
       .sort((a, b) => b.distance - a.distance)[0];
     if (!target) {
-      return { error: "no valid non-pit target" as const, carId: car.carId, cellId: car.cellId };
+      return { error: 'no valid non-pit target' as const, carId: car.carId, cellId: car.cellId };
     }
     return {
       carId: car.carId,
@@ -238,7 +238,7 @@ export async function playMyTurn(page: Page) {
     };
   });
   if (!plan) return;
-  if ("error" in plan) throw new Error(`${plan.error} for car ${plan.carId} at ${plan.cellId}`);
+  if ('error' in plan) throw new Error(`${plan.error} for car ${plan.carId} at ${plan.cellId}`);
   await page.mouse.move(plan.from.x, plan.from.y);
   await grabbable(page, plan.carId, plan.from);
   await page.mouse.down();
@@ -276,7 +276,7 @@ export async function playMyTurn(page: Page) {
               activeElement: document.activeElement?.tagName
             },
             validTargets: state?.movement.validTargets.length,
-            canvases: [...document.querySelectorAll("canvas")].map((c) => {
+            canvases: [...document.querySelectorAll('canvas')].map((c) => {
               const r = c.getBoundingClientRect();
               return [r.x, r.y, r.width, r.height].map(Math.round);
             }),
@@ -326,7 +326,7 @@ export const hudStandings = (page: Page) =>
   page.evaluate(() =>
     JSON.stringify(
       [...document.querySelectorAll('[data-testid="hud-standing-row"]')].map((row) => [
-        row.getAttribute("data-car-id"),
+        row.getAttribute('data-car-id'),
         ...[...row.children].slice(3, 5).map((td) => td.textContent)
       ])
     )

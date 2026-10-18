@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import type Phaser from "phaser";
-import { onKeyDown } from "./onKeyDown";
+import { describe, expect, it, vi } from 'vitest';
+import type Phaser from 'phaser';
+import { onKeyDown } from './onKeyDown';
 
 // A scene whose keyboard just keeps the handlers, so a test can replay what Phaser emits.
 function fakeScene() {
@@ -16,43 +16,43 @@ function fakeScene() {
   };
 }
 
-describe("onKeyDown", () => {
-  it("runs once when Phaser replays the same keydown (another key queued before it)", () => {
+describe('onKeyDown', () => {
+  it('runs once when Phaser replays the same keydown (another key queued before it)', () => {
     const { scene, emit } = fakeScene();
     const handler = vi.fn();
-    onKeyDown(scene, "E", handler);
-    const press = new KeyboardEvent("keydown", { key: "e" });
-    emit("keydown-E", press);
-    emit("keydown-E", press); // the keyup re-reads the queue and emits the same event again
+    onKeyDown(scene, 'E', handler);
+    const press = new KeyboardEvent('keydown', { key: 'e' });
+    emit('keydown-E', press);
+    emit('keydown-E', press); // the keyup re-reads the queue and emits the same event again
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it("runs for every new press", () => {
+  it('runs for every new press', () => {
     const { scene, emit } = fakeScene();
     const handler = vi.fn();
-    onKeyDown(scene, "E", handler);
-    emit("keydown-E", new KeyboardEvent("keydown", { key: "e" }));
-    emit("keydown-E", new KeyboardEvent("keydown", { key: "e" }));
+    onKeyDown(scene, 'E', handler);
+    emit('keydown-E', new KeyboardEvent('keydown', { key: 'e' }));
+    emit('keydown-E', new KeyboardEvent('keydown', { key: 'e' }));
     expect(handler).toHaveBeenCalledTimes(2);
   });
 
-  it("ignores keys typed in a form field (the chat), and runs again once it loses the focus", () => {
+  it('ignores keys typed in a form field (the chat), and runs again once it loses the focus', () => {
     const { scene, emit } = fakeScene();
     const handler = vi.fn();
-    onKeyDown(scene, "F", handler);
-    const input = document.createElement("input");
+    onKeyDown(scene, 'F', handler);
+    const input = document.createElement('input');
     document.body.append(input);
     input.focus();
-    emit("keydown-F", new KeyboardEvent("keydown", { key: "f" }));
+    emit('keydown-F', new KeyboardEvent('keydown', { key: 'f' }));
     expect(handler).not.toHaveBeenCalled();
 
     input.blur();
-    emit("keydown-F", new KeyboardEvent("keydown", { key: "f" }));
+    emit('keydown-F', new KeyboardEvent('keydown', { key: 'f' }));
     expect(handler).toHaveBeenCalledTimes(1);
     input.remove();
   });
 
-  it("does nothing without a keyboard", () => {
-    expect(() => onKeyDown({ input: {} } as unknown as Phaser.Scene, "F", vi.fn())).not.toThrow();
+  it('does nothing without a keyboard', () => {
+    expect(() => onKeyDown({ input: {} } as unknown as Phaser.Scene, 'F', vi.fn())).not.toThrow();
   });
 });

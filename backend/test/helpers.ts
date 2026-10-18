@@ -1,14 +1,14 @@
-import track from "../../public/tracks/oval16_3lanes.json";
+import track from '../../public/tracks/oval16_3lanes.json';
 import {
   computeTargets,
   createRaceContext,
   getActiveCar,
   type RaceAction,
   type RaceState as EngineRaceState
-} from "../../src/game/race/raceEngine";
-import type { TrackData } from "../../src/game/types/track";
-import { toEngineRace } from "../../src/net/raceSync";
-import type { RaceState } from "../src/types.js";
+} from '../../src/game/race/raceEngine';
+import type { TrackData } from '../../src/game/types/track';
+import { toEngineRace } from '../../src/net/raceSync';
+import type { RaceState } from '../src/types.js';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 
@@ -21,27 +21,36 @@ export function toEngineState(raceState: RaceState): EngineRaceState {
 export function legalMove(raceState: RaceState): RaceAction {
   const state = toEngineState(raceState);
   const [target] = Array.from(computeTargets(ctx, state, getActiveCar(state)).keys()).sort();
-  if (!target) throw new Error("active car has no legal move");
-  return { type: "move", targetCellId: target };
+  if (!target) throw new Error('active car has no legal move');
+  return { type: 'move', targetCellId: target };
 }
 
-type InjectApp = Awaited<ReturnType<typeof import("../src/server.js").createApp>>;
+type InjectApp = Awaited<ReturnType<typeof import('../src/server.js').createApp>>;
 
 export async function readLobby(app: InjectApp, lobbyId: string, playerToken: string) {
   const res = await app.inject({
-    method: "GET",
+    method: 'GET',
     url: `/api/v1/lobbies/${lobbyId}?playerToken=${encodeURIComponent(playerToken)}`
   });
-  return (res.json() as { lobby: { status: string; revision: number; terminationReason?: string; raceState: RaceState } }).lobby;
+  return (
+    res.json() as {
+      lobby: { status: string; revision: number; terminationReason?: string; raceState: RaceState };
+    }
+  ).lobby;
 }
 
 // Submits legal moves for the (only) human seat until the race ends; returns the final lobby.
-export async function playRaceToEnd(app: InjectApp, lobbyId: string, playerToken: string, idPrefix = "play") {
+export async function playRaceToEnd(
+  app: InjectApp,
+  lobbyId: string,
+  playerToken: string,
+  idPrefix = 'play'
+) {
   for (let i = 0; i < 400; i += 1) {
     const lobby = await readLobby(app, lobbyId, playerToken);
-    if (lobby.status === "FINISHED") return lobby;
+    if (lobby.status === 'FINISHED') return lobby;
     const res = await app.inject({
-      method: "POST",
+      method: 'POST',
       url: `/api/v1/lobbies/${lobbyId}/turns`,
       payload: {
         playerToken,
@@ -52,5 +61,5 @@ export async function playRaceToEnd(app: InjectApp, lobbyId: string, playerToken
     });
     if (res.statusCode !== 200) throw new Error(`turn rejected: ${res.statusCode} ${res.body}`);
   }
-  throw new Error("race did not finish");
+  throw new Error('race did not finish');
 }

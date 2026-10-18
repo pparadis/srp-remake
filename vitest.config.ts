@@ -1,20 +1,20 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   define: {
-    __GIT_SHA__: JSON.stringify("0123456789abcdef0123456789abcdef01234567"),
-    __BUILD_DATE__: JSON.stringify("2026-01-02"),
-    __PREVIEW_PR__: JSON.stringify("")
+    __GIT_SHA__: JSON.stringify('0123456789abcdef0123456789abcdef01234567'),
+    __BUILD_DATE__: JSON.stringify('2026-01-02'),
+    __PREVIEW_PR__: JSON.stringify('')
   },
   test: {
-    include: ["src/**/*.test.ts", "tools/diagrams/**/*.test.ts", "tools/make404.test.ts"],
-    environment: "jsdom",
+    include: ['src/**/*.test.ts', 'tools/diagrams/**/*.test.ts', 'tools/make404.test.ts'],
+    environment: 'jsdom',
     // CSS is not processed in tests, except when a test reads the stylesheet's text (`style.css?raw`)
     css: { include: [/style\.css\?raw/] },
     coverage: {
-      reporter: ["text", "lcov"],
-      include: ["src/**/*.ts"],
-      exclude: ["src/game/types/**", "src/game/scenes/**", "src/main.ts"],
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.ts'],
+      exclude: ['src/game/types/**', 'src/game/scenes/**', 'src/main.ts'],
       thresholds: {
         statements: 92,
         branches: 80,

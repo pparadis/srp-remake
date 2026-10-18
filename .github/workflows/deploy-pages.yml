@@ -4,7 +4,7 @@ name: Deploy Pages
 # pr-preview.yml), so this deploy must keep that folder. The repo's Pages source is "Deploy from a branch: gh-pages".
 on:
   push:
-    branches: ["main"]
+    branches: ['main']
   workflow_dispatch:
 
 permissions:
@@ -24,8 +24,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
-          cache: "npm"
+          node-version: '24'
+          cache: 'npm'
 
       - name: Install
         run: npm ci

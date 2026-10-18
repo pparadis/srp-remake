@@ -1,4 +1,4 @@
-import type Phaser from "phaser";
+import type Phaser from 'phaser';
 
 /** A press that travels less than this (screen pixels) is a tap, not a pan; the same slop the tap-to-move uses. */
 const PAN_SLOP_PX = 10;
@@ -10,7 +10,10 @@ interface CameraGestureParams {
   /** The player's finger(s) moved the board by this much (screen pixels): one finger, content follows it. */
   onPan: (dx: number, dy: number) => void;
   /** Two fingers: where they are and how far apart now, and where they were. */
-  onPinch: (last: { x: number; y: number; dist: number }, now: { x: number; y: number; dist: number }) => void;
+  onPinch: (
+    last: { x: number; y: number; dist: number },
+    now: { x: number; y: number; dist: number }
+  ) => void;
   /** The wheel (desktop): zoom about the pointer. */
   onWheel: (x: number, y: number, deltaY: number) => void;
   /** Two quick taps on the empty board: back to the fit. */
@@ -41,23 +44,26 @@ export function registerCameraGestures(params: CameraGestureParams): void {
     return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y) };
   };
 
-  scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-    if (!enabled()) return;
-    if (pinchNow()) {
-      // a second finger: whatever the first was doing, this is a pinch now
-      panId = null;
+  scene.input.on(
+    'pointerdown',
+    (pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (!enabled()) return;
+      if (pinchNow()) {
+        // a second finger: whatever the first was doing, this is a pinch now
+        panId = null;
+        panning = false;
+        pinch = pinchNow();
+        lastTap = null;
+        return;
+      }
+      if (over.length > 0) return; // a car or a button
+      panId = pointer.id;
+      last = { x: pointer.x, y: pointer.y };
       panning = false;
-      pinch = pinchNow();
-      lastTap = null;
-      return;
     }
-    if (over.length > 0) return; // a car or a button
-    panId = pointer.id;
-    last = { x: pointer.x, y: pointer.y };
-    panning = false;
-  });
+  );
 
-  scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+  scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
     if (!enabled()) return;
     if (pinch) {
       const now = pinchNow();
@@ -77,7 +83,7 @@ export function registerCameraGestures(params: CameraGestureParams): void {
     last = { x: pointer.x, y: pointer.y };
   });
 
-  scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+  scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
     if (pinch) {
       if (!pinchNow()) pinch = null; // fewer than two fingers down: the pinch is over (a lifted finger does not pan)
       panId = null;
@@ -90,7 +96,11 @@ export function registerCameraGestures(params: CameraGestureParams): void {
     panning = false;
     if (wasPan || !enabled() || pointer.getDistance() > PAN_SLOP_PX) return;
     const now = performance.now();
-    if (lastTap && now - lastTap.t <= DOUBLE_TAP_MS && Math.hypot(pointer.x - lastTap.x, pointer.y - lastTap.y) <= DOUBLE_TAP_PX) {
+    if (
+      lastTap &&
+      now - lastTap.t <= DOUBLE_TAP_MS &&
+      Math.hypot(pointer.x - lastTap.x, pointer.y - lastTap.y) <= DOUBLE_TAP_PX
+    ) {
       lastTap = null;
       onDoubleTap();
     } else {
@@ -98,7 +108,10 @@ export function registerCameraGestures(params: CameraGestureParams): void {
     }
   });
 
-  scene.input.on("wheel", (pointer: Phaser.Input.Pointer, _over: unknown, _dx: number, dy: number) => {
-    if (enabled()) onWheel(pointer.x, pointer.y, dy);
-  });
+  scene.input.on(
+    'wheel',
+    (pointer: Phaser.Input.Pointer, _over: unknown, _dx: number, dy: number) => {
+      if (enabled()) onWheel(pointer.x, pointer.y, dy);
+    }
+  );
 }

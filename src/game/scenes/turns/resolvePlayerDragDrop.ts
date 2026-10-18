@@ -1,7 +1,7 @@
-import type Phaser from "phaser";
-import { type MoveValidationResult } from "../../systems/moveValidationSystem";
-import type { Car } from "../../types/car";
-import type { TrackCell } from "../../types/track";
+import type Phaser from 'phaser';
+import { type MoveValidationResult } from '../../systems/moveValidationSystem';
+import type { Car } from '../../types/car';
+import type { TrackCell } from '../../types/track';
 
 interface ResolvePlayerDragDropParams {
   activeCar: Car;

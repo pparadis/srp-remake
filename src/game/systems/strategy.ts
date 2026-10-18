@@ -1,8 +1,8 @@
 // What the HUD tells the player about tire and fuel: stint length and pit advice. Phaser-free.
 // The wear math and the stop timing are botPlan's, so the advice and the Normal bot agree.
-import { MOVE_BUDGET, MOVE_CYCLE } from "../constants";
-import type { Car } from "../types/car";
-import type { TrackCell } from "../types/track";
+import { MOVE_BUDGET, MOVE_CYCLE } from '../constants';
+import type { Car } from '../types/car';
+import type { TrackCell } from '../types/track';
 import {
   type BotPlanContext,
   cellsToFeeder,
@@ -10,7 +10,7 @@ import {
   isFinalLap,
   projectShortfall,
   stopIsDue
-} from "./botPlan";
+} from './botPlan';
 
 export interface StintEstimate {
   /** Cells of racing until tire or fuel reaches 0 (middle lane, no safety margin). */
@@ -20,9 +20,9 @@ export interface StintEstimate {
   moves: number;
 }
 
-export type PitAdvice = "ok" | "pit-soon" | "pit-now" | "no-need";
+export type PitAdvice = 'ok' | 'pit-soon' | 'pit-now' | 'no-need';
 
-type Resources = Pick<Car, "tire" | "fuel" | "setup">;
+type Resources = Pick<Car, 'tire' | 'fuel' | 'setup'>;
 
 export function stintEstimate(car: Resources, spineLen: number): StintEstimate {
   const cells = cellsUntilEmpty(car.tire, car.fuel, car.setup, 1);
@@ -40,10 +40,10 @@ export function cellsToPitEntry(cell: TrackCell, plan: BotPlanContext): number |
  * then) or the car can finish on what it has.
  */
 export function pitAdvice(car: Car, cell: TrackCell, plan: BotPlanContext): PitAdvice {
-  if (car.pitServiced || isFinalLap(car, plan)) return "no-need";
+  if (car.pitServiced || isFinalLap(car, plan)) return 'no-need';
   const toEntry = cellsToPitEntry(cell, plan);
-  if (toEntry === null) return "no-need";
-  if (projectShortfall(car, cell, plan).shortfall === 0) return "no-need";
-  if (!stopIsDue(car, cell, plan)) return "ok";
-  return toEntry < MOVE_BUDGET.baseMax ? "pit-now" : "pit-soon";
+  if (toEntry === null) return 'no-need';
+  if (projectShortfall(car, cell, plan).shortfall === 0) return 'no-need';
+  if (!stopIsDue(car, cell, plan)) return 'ok';
+  return toEntry < MOVE_BUDGET.baseMax ? 'pit-now' : 'pit-soon';
 }

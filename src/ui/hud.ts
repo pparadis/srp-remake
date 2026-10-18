@@ -1,8 +1,13 @@
 // Race HUD as a DOM overlay. `renderHud` is pure over the snapshot RaceScene emits as `srp:hud`.
-import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, SQUEEZE_SURCHARGE_PER_CAR, type WingLevel } from "../game/constants";
-import type { PitAdvice, StintEstimate } from "../game/systems/strategy";
-import type { FeedKind } from "../game/systems/raceFeed";
-import { isCompactHud } from "./layout";
+import {
+  DRAFT_SLINGSHOT_TURNS,
+  MOVE_BUDGET,
+  SQUEEZE_SURCHARGE_PER_CAR,
+  type WingLevel
+} from '../game/constants';
+import type { PitAdvice, StintEstimate } from '../game/systems/strategy';
+import type { FeedKind } from '../game/systems/raceFeed';
+import { isCompactHud } from './layout';
 
 export interface HudCar {
   carId: number;
@@ -22,9 +27,9 @@ export interface HudCar {
   fwd: number;
   tire: number;
   fuel: number;
-  compound: "soft" | "hard";
+  compound: 'soft' | 'hard';
   wing: WingLevel;
-  state: "ACTIVE" | "PITTING" | "WAITING" | "DNF";
+  state: 'ACTIVE' | 'PITTING' | 'WAITING' | 'DNF';
   pitTurns: number;
   /** Distance spent in each move of the current cycle, and which one is next. */
   cycle: number[];
@@ -39,7 +44,7 @@ export interface HudCar {
   drafting: boolean;
   draftTurns: number;
   /** Racing left on the current tire and fuel at this car's setup (see strategy.ts). */
-  stint: Pick<StintEstimate, "laps" | "moves">;
+  stint: Pick<StintEstimate, 'laps' | 'moves'>;
   advice: PitAdvice;
 }
 
@@ -90,7 +95,7 @@ export interface HudSnapshot {
   /** With boxedIn: the car is stuck at the pit exit (squeezes out onto lane 1). */
   pitExitBlocked?: boolean;
   /** Sandbox races only: editing (cars can be dragged anywhere) or playing from the edited position. */
-  sandbox?: "edit" | "play";
+  sandbox?: 'edit' | 'play';
   /** Full cell debug, only while the F overlay is on. */
   debugText: string | null;
   /** The race feed, oldest first. `mine`: the line is about the local player's car. */
@@ -98,7 +103,7 @@ export interface HudSnapshot {
 }
 
 const HEAD =
-  "<thead><tr><th>#</th><th></th><th>Car</th><th>Lap</th><th>Gap</th><th></th></tr></thead>";
+  '<thead><tr><th>#</th><th></th><th>Car</th><th>Lap</th><th>Gap</th><th></th></tr></thead>';
 
 const TEMPLATE = `
 <div class="hud-banner" data-testid="hud-banner"></div>
@@ -157,23 +162,23 @@ const TEMPLATE = `
 export function mountHud(root: HTMLElement) {
   root.innerHTML = TEMPLATE;
   // The feed is the record of what the others did: open by default, except on a phone, where the drawer holds it (#92).
-  if (!isCompactHud()) (q(root, "hud-feed") as HTMLDetailsElement).open = true;
+  if (!isCompactHud()) (q(root, 'hud-feed') as HTMLDetailsElement).open = true;
   // Compact layout (a phone in landscape): standings and the race feed sit in a drawer that this button opens.
-  const toggle = q(root, "hud-drawer-toggle");
-  toggle.addEventListener("click", () => {
-    const open = root.classList.toggle("is-drawer-open");
-    toggle.setAttribute("aria-expanded", String(open));
+  const toggle = q(root, 'hud-drawer-toggle');
+  toggle.addEventListener('click', () => {
+    const open = root.classList.toggle('is-drawer-open');
+    toggle.setAttribute('aria-expanded', String(open));
   });
   // Tap to move: the picked target's card asks the scene to play it, or to drop the pick.
-  const command = (type: HudCommand["type"]) => () =>
-    window.dispatchEvent(new CustomEvent<HudCommand>("srp:hud-command", { detail: { type } }));
-  q(root, "hud-select-confirm").addEventListener("click", command("confirm-move"));
-  q(root, "hud-select-cancel").addEventListener("click", command("cancel-move"));
+  const command = (type: HudCommand['type']) => () =>
+    window.dispatchEvent(new CustomEvent<HudCommand>('srp:hud-command', { detail: { type } }));
+  q(root, 'hud-select-confirm').addEventListener('click', command('confirm-move'));
+  q(root, 'hud-select-cancel').addEventListener('click', command('cancel-move'));
 }
 
 /** What the HUD asks the race scene to do (`srp:hud-command` on window). */
 export interface HudCommand {
-  type: "confirm-move" | "cancel-move";
+  type: 'confirm-move' | 'cancel-move';
 }
 
 function q(root: Element, id: string): HTMLElement {
@@ -181,75 +186,81 @@ function q(root: Element, id: string): HTMLElement {
 }
 
 /** ok / warn / crit, same 20% threshold the old canvas HUD used. */
-export function resourceLevel(percent: number): "ok" | "warn" | "crit" {
-  if (percent < 20) return "crit";
-  if (percent < 40) return "warn";
-  return "ok";
+export function resourceLevel(percent: number): 'ok' | 'warn' | 'crit' {
+  if (percent < 20) return 'crit';
+  if (percent < 40) return 'warn';
+  return 'ok';
 }
 
 /** m:ss for a countdown; rounds up so it reads 0:01 until the very end. */
 export function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 /** "≈ 2.1 laps (~17 moves)": racing left until tire or fuel is empty. */
-export function formatStint(stint: Pick<StintEstimate, "laps" | "moves">): string {
-  if (stint.moves < 0.5) return "Empty: no stint left";
-  const laps = stint.laps < 0.1 ? "<0.1" : stint.laps.toFixed(1);
+export function formatStint(stint: Pick<StintEstimate, 'laps' | 'moves'>): string {
+  if (stint.moves < 0.5) return 'Empty: no stint left';
+  const laps = stint.laps < 0.1 ? '<0.1' : stint.laps.toFixed(1);
   return `≈ ${laps} laps (~${Math.round(stint.moves)} moves)`;
 }
 
-const ADVICE_LABEL: Partial<Record<PitAdvice, string>> = { "pit-soon": "Pit this lap", "pit-now": "Pit now" };
+const ADVICE_LABEL: Partial<Record<PitAdvice, string>> = {
+  'pit-soon': 'Pit this lap',
+  'pit-now': 'Pit now'
+};
 
 /** The cap that applies once tire or fuel is gone (raceEngine: zeroResourceMax), or null. */
-export function resourceWarning(car: Pick<HudCar, "tire" | "fuel">): string | null {
-  const gone = [car.tire <= 0 ? "tire" : null, car.fuel <= 0 ? "fuel" : null].filter(Boolean);
+export function resourceWarning(car: Pick<HudCar, 'tire' | 'fuel'>): string | null {
+  const gone = [car.tire <= 0 ? 'tire' : null, car.fuel <= 0 ? 'fuel' : null].filter(Boolean);
   if (gone.length === 0) return null;
-  return `Out of ${gone.join(" and ")}: max ${MOVE_BUDGET.zeroResourceMax} moves`;
+  return `Out of ${gone.join(' and ')}: max ${MOVE_BUDGET.zeroResourceMax} moves`;
 }
 
 /** Tooltip content for a hovered target: the move and what tire and fuel are left after it. */
 function renderTooltip(tip: HTMLElement, h: HudHover) {
   const part = (label: string, before: number, cost: number) => {
     const after = Math.max(0, before - cost);
-    const span = document.createElement("span");
+    const span = document.createElement('span');
     span.className = `hud-${resourceLevel(after)}`;
     span.textContent = `${label} ${Math.round(before)}% → ${Math.round(after)}%`;
     return { span, empty: after <= 0 };
   };
   const squeeze = h.squeezePassed
-    ? `Squeeze past ${h.squeezePassed} car${h.squeezePassed > 1 ? "s" : ""} - Move ${h.moveSpend} (+${h.squeezePassed * SQUEEZE_SURCHARGE_PER_CAR} points) - `
+    ? `Squeeze past ${h.squeezePassed} car${h.squeezePassed > 1 ? 's' : ''} - Move ${h.moveSpend} (+${h.squeezePassed * SQUEEZE_SURCHARGE_PER_CAR} points) - `
     : null;
-  const lanes = h.laneChanges ? ` (${h.laneChanges} lane changes)` : "";
+  const lanes = h.laneChanges ? ` (${h.laneChanges} lane changes)` : '';
   const nodes: Array<string | HTMLElement> = [squeeze ?? `Move ${h.moveSpend}${lanes} - `];
   if (h.isPit) {
-    nodes.push("PIT stop: tire and fuel refilled");
+    nodes.push('PIT stop: tire and fuel refilled');
   } else {
-    const tire = part("tire", h.tireBefore, h.tireCost);
-    const fuel = part("fuel", h.fuelBefore, h.fuelCost);
-    nodes.push(tire.span, " - ", fuel.span);
+    const tire = part('tire', h.tireBefore, h.tireCost);
+    const fuel = part('fuel', h.fuelBefore, h.fuelCost);
+    nodes.push(tire.span, ' - ', fuel.span);
     if (h.drafted || h.slingshot) {
-      const note = document.createElement("div");
-      note.className = "hud-tooltip-draft";
+      const note = document.createElement('div');
+      note.className = 'hud-tooltip-draft';
       note.textContent = h.slingshotOnly
-        ? "Slingshot: only in reach thanks to the draft"
+        ? 'Slingshot: only in reach thanks to the draft'
         : h.slingshot
-          ? "Slingshot: the lane change is free"
-          : "Draft: less wear";
+          ? 'Slingshot: the lane change is free'
+          : 'Draft: less wear';
       nodes.push(note);
     }
     if (h.tucksIn) {
-      const note = document.createElement("div");
-      note.className = "hud-tooltip-draft";
-      note.textContent = "Ends in the tow: less wear next move";
+      const note = document.createElement('div');
+      note.className = 'hud-tooltip-draft';
+      note.textContent = 'Ends in the tow: less wear next move';
       nodes.push(note);
     }
-    const empties = [tire.empty && h.tireBefore > 0 ? "tire" : null, fuel.empty && h.fuelBefore > 0 ? "fuel" : null].filter(Boolean);
+    const empties = [
+      tire.empty && h.tireBefore > 0 ? 'tire' : null,
+      fuel.empty && h.fuelBefore > 0 ? 'fuel' : null
+    ].filter(Boolean);
     if (empties.length > 0) {
-      const warn = document.createElement("div");
-      warn.className = "hud-crit hud-tooltip-warn";
-      warn.textContent = `Empties your ${empties.join(" and ")}: max ${MOVE_BUDGET.zeroResourceMax} moves next`;
+      const warn = document.createElement('div');
+      warn.className = 'hud-crit hud-tooltip-warn';
+      warn.textContent = `Empties your ${empties.join(' and ')}: max ${MOVE_BUDGET.zeroResourceMax} moves next`;
       nodes.push(warn);
     }
   }
@@ -263,36 +274,36 @@ function renderTooltip(tip: HTMLElement, h: HudHover) {
 function renderSelection(card: HTMLElement, sel: HudHover | null) {
   card.hidden = !sel;
   if (!sel) return;
-  renderTooltip(q(card, "hud-select-info"), sel);
-  q(card, "hud-select-confirm").textContent = sel.isPit ? "Pit here" : "Move here";
+  renderTooltip(q(card, 'hud-select-info'), sel);
+  q(card, 'hud-select-confirm').textContent = sel.isPit ? 'Pit here' : 'Move here';
   card.style.left = `${sel.x}px`;
   card.style.top = `${sel.y}px`;
-  card.classList.toggle("is-left", sel.x > window.innerWidth * 0.55);
-  card.classList.toggle("is-below", sel.y < window.innerHeight * 0.45);
+  card.classList.toggle('is-left', sel.x > window.innerWidth * 0.55);
+  card.classList.toggle('is-below', sel.y < window.innerHeight * 0.45);
 }
 
 export function renderMute(root: Element, muted: boolean) {
-  const button = q(root, "hud-mute");
-  button.textContent = muted ? "Sound: off" : "Sound: on";
-  button.setAttribute("aria-pressed", String(muted));
+  const button = q(root, 'hud-mute');
+  button.textContent = muted ? 'Sound: off' : 'Sound: on';
+  button.setAttribute('aria-pressed', String(muted));
 }
 
 /** The frame-rate readout (P key, `?fps`): the line shows `text` while `on`; the touch button follows the state. */
 export function renderFps(root: Element, on: boolean, text: string) {
-  const line = q(root, "hud-fps");
+  const line = q(root, 'hud-fps');
   line.hidden = !on;
-  line.textContent = on ? text : "";
-  const button = q(root, "hud-fps-toggle");
-  button.textContent = on ? "FPS: on" : "FPS: off";
-  button.setAttribute("aria-pressed", String(on));
+  line.textContent = on ? text : '';
+  const button = q(root, 'hud-fps-toggle');
+  button.textContent = on ? 'FPS: on' : 'FPS: off';
+  button.setAttribute('aria-pressed', String(on));
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-export type ToastKind = "lap" | "final" | "slingshot" | "draft";
+export type ToastKind = 'lap' | 'final' | 'slingshot' | 'draft';
 
 /** A short banner in the middle of the race screen ("Lap 2 / 5", "Final lap", "Slingshot!"). */
-export function showToast(root: Element, text: string, kind: ToastKind = "lap", ms = 2500) {
-  const toast = q(root, "hud-toast");
+export function showToast(root: Element, text: string, kind: ToastKind = 'lap', ms = 2500) {
+  const toast = q(root, 'hud-toast');
   toast.textContent = text;
   toast.className = `hud-toast is-${kind}`;
   toast.hidden = false;
@@ -302,7 +313,7 @@ export function showToast(root: Element, text: string, kind: ToastKind = "lap", 
 
 /** "+5" cells behind the car ahead, or "+1L" once a whole lap or more behind. */
 export function gapLabel(car: HudCar, ahead: HudCar | undefined, spineLen: number): string {
-  if (!ahead) return "-";
+  if (!ahead) return '-';
   // progress is a lap position in fractions of a cell (#114); the label is whole cells
   const gap = Math.max(0, Math.round(ahead.progress - car.progress));
   return gap >= spineLen ? `+${Math.floor(gap / spineLen)}L` : `+${gap}`;
@@ -310,21 +321,25 @@ export function gapLabel(car: HudCar, ahead: HudCar | undefined, spineLen: numbe
 
 /** Lap column / card text: the lap the car is in, "Finished" once it crossed the line to end the race. */
 function lapText(car: HudCar, raceLaps: number, short = false): string {
-  if (car.finished) return short ? "Fin" : "Finished";
+  if (car.finished) return short ? 'Fin' : 'Finished';
   return short ? `${car.lap}/${raceLaps}` : `Lap ${car.lap} / ${raceLaps}`;
 }
 
 export function bannerText(s: HudSnapshot): string {
   const winner = s.cars.find((c) => c.carId === s.winnerCarId);
-  if (s.sandbox === "edit") return "Sandbox: editing - drag any car, E to play";
+  if (s.sandbox === 'edit') return 'Sandbox: editing - drag any car, E to play';
   if (s.finished) return `Race finished - ${winner ? winner.name : `Car ${s.winnerCarId}`} wins`;
   const active = s.cars.find((c) => c.carId === s.activeCarId);
-  if (!active) return "";
+  if (!active) return '';
   if (active.carId === s.myCarId && s.canControl && s.boxedIn) {
-    if (s.pitExitBlocked) return `Pit exit blocked - squeeze out (+${SQUEEZE_SURCHARGE_PER_CAR} points per car)`;
+    if (s.pitExitBlocked) {
+      return `Pit exit blocked - squeeze out (+${SQUEEZE_SURCHARGE_PER_CAR} points per car)`;
+    }
     return `Boxed in - squeeze past (+${SQUEEZE_SURCHARGE_PER_CAR} points per car)`;
   }
-  if (active.carId === s.myCarId) return s.canControl ? "Your turn - drag your car" : "Waiting for the server";
+  if (active.carId === s.myCarId) {
+    return s.canControl ? 'Your turn - drag your car' : 'Waiting for the server';
+  }
   if (active.isBot) return `Car ${active.carId} (bot) is playing`;
   return `Waiting for ${active.name}`;
 }
@@ -340,10 +355,10 @@ function setMeter(valueEl: HTMLElement, barEl: HTMLElement, label: string, perce
 
 function nameCell(car: HudCar): string | HTMLElement {
   if (!car.style) return car.name;
-  const span = document.createElement("span");
-  span.className = "hud-style";
+  const span = document.createElement('span');
+  span.className = 'hud-style';
   span.textContent = ` · ${car.style}`;
-  const cell = document.createElement("span");
+  const cell = document.createElement('span');
   cell.append(car.name, span);
   return cell;
 }
@@ -351,15 +366,15 @@ function nameCell(car: HudCar): string | HTMLElement {
 function fillStandings(tbody: Element, cars: HudCar[], s: HudSnapshot, rowId: string) {
   tbody.replaceChildren(
     ...cars.map((car, i) => {
-      const tr = document.createElement("tr");
+      const tr = document.createElement('tr');
       tr.dataset.testid = rowId;
       tr.dataset.carId = String(car.carId);
-      tr.classList.toggle("is-me", car.carId === s.myCarId);
-      tr.classList.toggle("is-active", !s.finished && car.carId === s.activeCarId);
-      const chip = document.createElement("span");
-      chip.className = "hud-chip";
+      tr.classList.toggle('is-me', car.carId === s.myCarId);
+      tr.classList.toggle('is-active', !s.finished && car.carId === s.activeCarId);
+      const chip = document.createElement('span');
+      chip.className = 'hud-chip';
       chip.style.background = car.color;
-      const icon = car.state === "DNF" ? "DNF" : car.state === "PITTING" ? "PIT" : "";
+      const icon = car.state === 'DNF' ? 'DNF' : car.state === 'PITTING' ? 'PIT' : '';
       const cells: Array<string | HTMLElement> = [
         String(i + 1),
         chip,
@@ -369,7 +384,7 @@ function fillStandings(tbody: Element, cars: HudCar[], s: HudSnapshot, rowId: st
         icon
       ];
       for (const content of cells) {
-        const td = document.createElement("td");
+        const td = document.createElement('td');
         td.append(content);
         tr.append(td);
       }
@@ -380,81 +395,85 @@ function fillStandings(tbody: Element, cars: HudCar[], s: HudSnapshot, rowId: st
 
 export function renderHud(root: HTMLElement, s: HudSnapshot) {
   const me = s.cars.find((c) => c.carId === s.myCarId);
-  const banner = q(root, "hud-banner");
+  const banner = q(root, 'hud-banner');
   banner.textContent = bannerText(s);
-  banner.className = `hud-banner${s.finished ? " is-finished" : s.canControl ? (s.boxedIn ? " is-mine is-boxed" : " is-mine") : ""}`;
+  banner.className = `hud-banner${s.finished ? ' is-finished' : s.canControl ? (s.boxedIn ? ' is-mine is-boxed' : ' is-mine') : ''}`;
 
-  q(root, "hud-card").hidden = !me;
+  q(root, 'hud-card').hidden = !me;
   if (me) {
-    q(root, "hud-chip").style.background = me.color;
-    q(root, "hud-name").textContent = me.name;
-    q(root, "hud-lap").textContent = lapText(me, s.raceLaps);
-    q(root, "hud-lap-hint").hidden = me.lap > 0 || me.finished;
-    q(root, "hud-position").textContent = `P${s.cars.indexOf(me) + 1} / ${s.cars.length}`;
-    setMeter(q(root, "hud-tire"), q(root, "hud-tire-bar"), "Tire", me.tire);
-    setMeter(q(root, "hud-fuel"), q(root, "hud-fuel-bar"), "Fuel", me.fuel);
-    const compound = q(root, "hud-compound");
+    q(root, 'hud-chip').style.background = me.color;
+    q(root, 'hud-name').textContent = me.name;
+    q(root, 'hud-lap').textContent = lapText(me, s.raceLaps);
+    q(root, 'hud-lap-hint').hidden = me.lap > 0 || me.finished;
+    q(root, 'hud-position').textContent = `P${s.cars.indexOf(me) + 1} / ${s.cars.length}`;
+    setMeter(q(root, 'hud-tire'), q(root, 'hud-tire-bar'), 'Tire', me.tire);
+    setMeter(q(root, 'hud-fuel'), q(root, 'hud-fuel-bar'), 'Fuel', me.fuel);
+    const compound = q(root, 'hud-compound');
     compound.textContent = me.compound.toUpperCase();
     compound.className = `hud-compound is-${me.compound}`;
-    const wing = q(root, "hud-wing");
-    wing.textContent = me.wing === "medium" ? "MED" : me.wing.toUpperCase();
+    const wing = q(root, 'hud-wing');
+    wing.textContent = me.wing === 'medium' ? 'MED' : me.wing.toUpperCase();
     wing.title = `${me.wing} wing`;
-    q(root, "hud-budget").textContent = `${me.remaining} / ${me.budget}`;
-    q(root, "hud-stint").textContent = formatStint(me.stint);
-    const draft = q(root, "hud-draft");
+    q(root, 'hud-budget').textContent = `${me.remaining} / ${me.budget}`;
+    q(root, 'hud-stint').textContent = formatStint(me.stint);
+    const draft = q(root, 'hud-draft');
     const ready = me.draftTurns >= DRAFT_SLINGSHOT_TURNS;
     draft.hidden = !me.drafting;
     // the long line on the card, the short chip in the phone's top bar (style.css picks one)
     const run = Math.min(me.draftTurns, DRAFT_SLINGSHOT_TURNS);
-    q(draft, "hud-draft-long").textContent = ready ? "In the tow - slingshot ready" : `In the tow ${run}/${DRAFT_SLINGSHOT_TURNS}`;
-    q(draft, "hud-draft-short").textContent = ready ? "» SLINGSHOT" : `» DRAFT ${run}/${DRAFT_SLINGSHOT_TURNS}`;
-    draft.classList.toggle("is-ready", me.drafting && ready);
+    q(draft, 'hud-draft-long').textContent = ready
+      ? 'In the tow - slingshot ready'
+      : `In the tow ${run}/${DRAFT_SLINGSHOT_TURNS}`;
+    q(draft, 'hud-draft-short').textContent = ready
+      ? '» SLINGSHOT'
+      : `» DRAFT ${run}/${DRAFT_SLINGSHOT_TURNS}`;
+    draft.classList.toggle('is-ready', me.drafting && ready);
     // a pulse when the chip appears or its count goes up (CSS: none under prefers-reduced-motion)
-    const towState = me.drafting ? String(run) : "";
-    if (towState !== "" && towState !== draft.dataset.state) {
-      draft.classList.remove("is-pulse");
+    const towState = me.drafting ? String(run) : '';
+    if (towState !== '' && towState !== draft.dataset.state) {
+      draft.classList.remove('is-pulse');
       void draft.offsetWidth; // restart the animation when it was still running
-      draft.classList.add("is-pulse");
+      draft.classList.add('is-pulse');
     }
     draft.dataset.state = towState;
-    const advice = q(root, "hud-advice");
+    const advice = q(root, 'hud-advice');
     const label = ADVICE_LABEL[me.advice];
     advice.hidden = !label;
-    advice.textContent = label ?? "";
+    advice.textContent = label ?? '';
     advice.className = `hud-advice is-${me.advice}`;
-    const warning = q(root, "hud-warning");
+    const warning = q(root, 'hud-warning');
     const warn = resourceWarning(me);
     warning.hidden = warn === null;
-    warning.textContent = warn ?? "";
-    q(root, "hud-pips").replaceChildren(
+    warning.textContent = warn ?? '';
+    q(root, 'hud-pips').replaceChildren(
       ...me.cycle.map((spent, i) => {
-        const pip = document.createElement("i");
-        pip.dataset.testid = "hud-pip";
+        const pip = document.createElement('i');
+        pip.dataset.testid = 'hud-pip';
         pip.textContent = String(spent);
-        pip.className = i === me.cycleIndex ? "is-current" : spent > 0 ? "is-used" : "";
+        pip.className = i === me.cycleIndex ? 'is-current' : spent > 0 ? 'is-used' : '';
         return pip;
       })
     );
-    const state = q(root, "hud-state");
-    state.hidden = me.state !== "PITTING" && me.state !== "DNF";
+    const state = q(root, 'hud-state');
+    state.hidden = me.state !== 'PITTING' && me.state !== 'DNF';
     state.textContent =
-      me.state === "DNF" ? "DNF" : `PITTING ${me.pitTurns} turn${me.pitTurns === 1 ? "" : "s"}`;
+      me.state === 'DNF' ? 'DNF' : `PITTING ${me.pitTurns} turn${me.pitTurns === 1 ? '' : 's'}`;
   }
 
-  fillStandings(q(root, "hud-standings").querySelector("tbody")!, s.cars, s, "hud-standing-row");
+  fillStandings(q(root, 'hud-standings').querySelector('tbody')!, s.cars, s, 'hud-standing-row');
 
-  const feed = q(root, "hud-feed-list");
+  const feed = q(root, 'hud-feed-list');
   feed.replaceChildren(
     ...s.log.map((line) => {
-      const li = document.createElement("li");
+      const li = document.createElement('li');
       li.textContent = line.text;
-      li.className = `is-${line.kind}${line.mine ? " is-mine" : ""}`;
+      li.className = `is-${line.kind}${line.mine ? ' is-mine' : ''}`;
       return li;
     })
   );
   feed.scrollTop = feed.scrollHeight; // newest line at the bottom, in view
 
-  const tip = q(root, "hud-tooltip");
+  const tip = q(root, 'hud-tooltip');
   tip.hidden = !s.hover;
   if (s.hover) {
     const h = s.hover;
@@ -462,13 +481,18 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     tip.style.left = `${h.x}px`;
     tip.style.top = `${h.y}px`;
   }
-  renderSelection(q(root, "hud-select"), s.selection ?? null);
-  const dbg = q(root, "hud-debug");
+  renderSelection(q(root, 'hud-select'), s.selection ?? null);
+  const dbg = q(root, 'hud-debug');
   dbg.hidden = s.debugText === null;
-  dbg.textContent = s.debugText ?? "";
+  dbg.textContent = s.debugText ?? '';
 }
 
 /** Final standings for the results overlay. */
 export function renderResults(root: HTMLElement, s: HudSnapshot) {
-  fillStandings(q(root, "results-standings").querySelector("tbody")!, s.cars, { ...s, finished: true }, "results-row");
+  fillStandings(
+    q(root, 'results-standings').querySelector('tbody')!,
+    s.cars,
+    { ...s, finished: true },
+    'results-row'
+  );
 }

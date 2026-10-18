@@ -11,19 +11,19 @@ export interface BoundsGame {
 // after the canvas moved (a new race laid out, a phone turned) places the pointer where the canvas was, and it stays
 // there until the next event: a press then misses the token (issue #41: pointer y -284 while the mouse was at 440).
 const EVENTS = [
-  "mousedown",
-  "mousemove",
-  "mouseup",
-  "touchstart",
-  "touchmove",
-  "touchend"
+  'mousedown',
+  'mousemove',
+  'mouseup',
+  'touchstart',
+  'touchmove',
+  'touchend'
 ] as const;
 
 /**
  * Re-measures the canvas before Phaser sees each mouse or touch event, when it moved since Phaser last looked.
  * Listens on `window` in the capture phase, which runs before Phaser's own listeners; stops when the game is destroyed.
  */
-export function keepCanvasBoundsFresh(game: BoundsGame, destroyEvent = "destroy"): void {
+export function keepCanvasBoundsFresh(game: BoundsGame, destroyEvent = 'destroy'): void {
   const check = () => {
     if (!game.canvas) return;
     const rect = game.canvas.getBoundingClientRect();
