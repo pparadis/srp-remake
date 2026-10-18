@@ -60,21 +60,19 @@ diagonal change paid by its surcharge. Zone numbers differ per lane, so a sidewa
 ## Occupancy
 
 - A target cell is invalid if it is occupied.
-- Target-lane blocker policy (cars ordered by lap position, #114):
-  - For same-lane movement, the nearest occupied cell ahead is the blocker.
-  - For lane changes, you may pass one blocker in the destination lane (merge in front of it, or into a gap).
-  - Lane-change targets are blocked by the second blocker ahead in the destination lane. With only one car in that lane
-    nothing blocks beyond it: a lone car can be passed like the first of two.
-  - Pass and return: a same-lane target beyond the nearest same-lane blocker is legal when a free route goes round the
-    blocker through ONE adjacent lane and rejoins your lane. Like a merge it may pass one blocker, not the next. The
-    route stays in the two lanes, passes at most one car in the lane it goes round through, as a merge into it would
-    (cells of that lane at or beyond its second car are not available to it), and pays for its lane changes (out and back is `+2`).
-  - Adjacent lanes do not block unless they are the chosen destination lane.
+- A main-lane target is legal when a route over free cells reaches it within the move cap (#102). Its price, cells
+  walked, tire and fuel are that route's (see "Price of a lane change"); nothing else gates it. There is no cap on how
+  many cars a move may pass: a car in the way is an obstacle the route goes round, and going round is paid for by the
+  lane changes it needs (a pass and return is out and back, `+2`; weaving round two cars costs the same).
+  - Same-lane target beyond a car: legal only when a route goes round the car (through an adjacent lane, or two).
+  - Lane change into a lane with cars: legal past them when a free route reaches the target within the cap.
+  - Adjacent lanes only for the target (a move changes at most one lane net); the route itself may use any lane.
+- Cars are real obstacles, and the car ahead picks its cells first: sometimes you win, sometimes you lose the gap.
 - Occupied cells are not traversable during target search (except the start cell).
 
 Which cells the engine offers around other cars: the move points on a free cell, or a cross when it is not offered.
 
-![Cars in the way: a lane change passes one car in its lane, never the second; a lone car is open beyond it; a full row cannot be passed](img/blockers.svg)
+![Cars in the way: a lane change may pass any number of cars; a pack in the next lane is passed by the free lane within the budget; a full row cannot be passed](img/blockers.svg)
 
 Pass and return, one real route: out through the adjacent lane, past the car, and back. Out and back is two lane changes, so the route costs two points more than its forward cells.
 

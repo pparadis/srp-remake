@@ -54,10 +54,14 @@ describe("pass and return: go around a blocker and rejoin your lane", () => {
     expect(targetsFrom(START, [BLOCKER], 6).has("Z24_L1_00")).toBe(true);
   });
 
-  it("passes at most one blocker: not the next car in the same lane", () => {
+  it("passes several blockers when a free route round them is within the budget (#102)", () => {
     const targets = targetsFrom(START, [BLOCKER, "Z25_L1_00"]);
-    expect(targets.has("Z24_L1_00")).toBe(true);
-    for (const id of ["Z26_L1_00", "Z27_L1_00"]) expect(targets.has(id), id).toBe(false);
+    expect(targets.get("Z24_L1_00")).toMatchObject({ laneChanges: 2, moveSpend: 6 }); // between the two cars
+    // round both: out, past the two, back in. The price is the route's: 7 cells walked + 2 diagonal changes
+    expect(targets.get("Z26_L1_00")).toMatchObject({ laneChanges: 2, distance: 7, moveSpend: 9 });
+    // the cap is the move points, not the number of cars: one cell further is over 9
+    for (const id of ["Z27_L1_00", "Z28_L1_00"]) expect(targets.has(id), id).toBe(false);
+    expect(targetsFrom(START, [BLOCKER, "Z25_L1_00"], 8).has("Z26_L1_00")).toBe(false);
   });
 
   it("needs a free adjacent lane to go around through", () => {
@@ -67,12 +71,41 @@ describe("pass and return: go around a blocker and rejoin your lane", () => {
     expect([...blocked.keys()].filter((id) => cell(id).laneIndex === 1 && delta(START, id) > 3)).toEqual([]);
   });
 
-  it("may pass one car in the lane it goes round through, like a merge, but not two", () => {
+  it("goes round through a lane that holds cars, wherever a free route runs (#102)", () => {
     // a car in lane 2 behind the blocker (Z23_L2 is one cell ahead of the start): merge past it into lane 2, then
     // back into lane 1 in front of the blocker
     expect(targetsFrom(START, [BLOCKER, "Z23_L2_00"]).get("Z24_L1_00")?.laneChanges).toBe(2);
-    // two cars in lane 2 behind the blocker (Z24_L2 stays free, so only the rule stops it): going round passes both
-    expect(targetsFrom(START, [BLOCKER, "Z22_L2_00", "Z23_L2_00"]).has("Z24_L1_00")).toBe(false);
+    // two cars in lane 2 beside the blocker: the route still threads between them and Z24_L2 on to lane 1
+    expect(targetsFrom(START, [BLOCKER, "Z22_L2_00", "Z23_L2_00"]).get("Z24_L1_00")).toMatchObject({
+      laneChanges: 2,
+      distance: 5,
+      moveSpend: 6
+    });
+  });
+
+  it("offers nothing beyond a wall of cars across every lane: that is for squeeze", () => {
+    // cars on Z22_L1, Z23_L2 and Z24_L3 are side by side; no path over free cells reaches past them
+    const wall = ["Z22_L1_00", "Z23_L2_00", "Z24_L3_00"];
+    const wallAhead = delta(START, "Z22_L1_00");
+    const targets = targetsFrom(START, wall);
+    expect(targets.size).toBeGreaterThan(0); // the cells in front of the wall are still offered
+    for (const id of targets.keys()) expect(delta(START, id), id).toBeLessThanOrEqual(wallAhead);
+  });
+
+  it("offers the free cells beyond a pack in the next lane, as far as the budget reaches (#102)", () => {
+    // from the report: lap 3/5, the middle lane free, four cars in a row in the inner lane ahead
+    const pack = ["Z18_L1_00", "Z19_L1_00", "Z20_L1_00", "Z21_L1_00"];
+    const targets = targetsFrom("Z16_L2_00", pack);
+    expect(targets.get("Z17_L1_00")?.moveSpend).toBe(3); // in front of the pack, as before
+    // beyond it: seven cells down the free middle lane, then in (sideways, paid by the cell)
+    expect(targets.get("Z22_L1_00")).toMatchObject({ distance: 8, moveSpend: 8 });
+    expect(targets.get("Z23_L1_00")).toMatchObject({ distance: 9, moveSpend: 9 });
+    expect(targets.has("Z24_L1_00")).toBe(false); // 10 points
+    // no cell of the pack is offered, and every price is within the cap
+    for (const [id, info] of targets) {
+      expect(pack).not.toContain(id);
+      expect(info.moveSpend ?? 0).toBeLessThanOrEqual(9);
+    }
   });
 
   it("goes round a blocker with a car alongside in the other lane (position reported from the sandbox)", () => {
@@ -113,19 +146,26 @@ describe("lane change past a car in the destination lane (position reported from
     expect(targets.has("Z24_L2_00")).toBe(false);
   });
 
-  it("still cannot pass a second car in the middle lane", () => {
+  it("can pass a second car in the middle lane when a free route round both is within the budget (#102)", () => {
     const targets = targetsFrom(from, [...occupied, "Z21_L2_00"]);
-    expect(targets.has("Z20_L2_00")).toBe(true); // between the two cars
+    expect(targets.get("Z20_L2_00")).toMatchObject({ moveSpend: 6 }); // between the two cars
+    // beyond the second car the only ways round are through lane 3 (Z01_L3 stands on the far side) or back through
+    // lane 1: more than 9 points, so not offered; with the second car closer the budget reaches
     for (const id of ["Z22_L2_00", "Z23_L2_00", "Z24_L2_00"]) expect(targets.has(id), id).toBe(false);
+    const closer = targetsFrom(from, [...occupied, "Z19_L2_00"]);
+    expect(closer.get("Z21_L2_00"), "round Z18_L2 and Z19_L2").toBeDefined();
   });
 });
 
 describe("cars on the lane-3 bend, where forwardIndex repeats (#114)", () => {
-  it("counts the car directly ahead as a blocker, so a go-around passes one car, not two", () => {
+  it("counts the car directly ahead as a car in the way, so the route goes round it", () => {
     // Z12_L3 and Z13_L3 share forwardIndex 10: by index the car ahead was level and ignored
     const targets = targetsFrom("Z12_L3_00", ["Z13_L3_00", "Z15_L3_00"]);
     expect(targets.get("Z14_L3_00")?.laneChanges).toBe(2); // round the first car, between the two
-    for (const id of ["Z16_L3_00", "Z17_L3_00", "Z18_L3_00"]) expect(targets.has(id), id).toBe(false);
+    // round both (#102): 5 to 7 cells walked and 2 diagonal changes, priced as the route
+    for (const [id, spend] of [["Z16_L3_00", 5], ["Z17_L3_00", 6], ["Z18_L3_00", 7]] as const) {
+      expect(targets.get(id), id).toMatchObject({ laneChanges: 2, moveSpend: spend });
+    }
   });
 
   it("charges the diagonal change into the bend, though the lane has more cells than forwardIndex steps", () => {
@@ -194,6 +234,7 @@ describe("over simulated races", () => {
   it("prices every target at the cells walked plus at most a point per lane change, and caps it at the budget", () => {
     let positions = 0;
     let goArounds = 0;
+    let beyondTwo = 0;
     for (const cars of [4, 8]) {
       for (const seed of [1, 2, 3, 4]) {
         const state = createRace(
@@ -222,11 +263,11 @@ describe("over simulated races", () => {
             expect(info.moveSpend ?? 0).toBeGreaterThanOrEqual(info.distance);
             expect(info.moveSpend ?? 0).toBeLessThanOrEqual(info.distance + changes);
             expect(info.moveSpend ?? 0).toBeLessThanOrEqual(9);
-            // a same-lane target beyond the nearest same-lane car is only ever a go-around
+            // a same-lane target beyond the nearest same-lane car is only ever a go-around (a route round it)
             if (to.laneIndex === from.laneIndex && sameLaneBlockers[0] != null && delta(from.id, id) > sameLaneBlockers[0]) {
               goArounds += 1;
               expect(info.laneChanges).toBeGreaterThanOrEqual(2);
-              if (sameLaneBlockers[1] != null) expect(delta(from.id, id)).toBeLessThanOrEqual(sameLaneBlockers[1]);
+              if (sameLaneBlockers[1] != null && delta(from.id, id) > sameLaneBlockers[1]) beyondTwo += 1;
             }
           }
           const action = decideBotAction(ctx, state).action;
@@ -236,5 +277,6 @@ describe("over simulated races", () => {
     }
     expect(positions).toBeGreaterThan(200);
     expect(goArounds).toBeGreaterThan(0);
+    expect(beyondTwo, "targets beyond two cars of the lane, now reachable by a free route").toBeGreaterThan(0);
   });
 });

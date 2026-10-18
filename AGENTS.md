@@ -53,11 +53,10 @@ Project guide for Codex and other automation.
 - Price = cells walked + diagonal lane changes (a change gaining 0.5 lap position or more; a sideways one is paid by
   its cell): one change +1, out and back +2. The search is by price (`searchRoutes` in `movementSystem.ts`); see
   `docs/movement-spec.md`.
-- Passing/merging uses target-lane blockers:
-  - Same-lane moves cannot pass the nearest car ahead, except by going round it through ONE adjacent lane and rejoining
-    (pass and return: at most one blocker passed, and at most one car in the lane it goes round through, as a merge).
-  - Lane-change moves may pass one target-lane blocker to merge into a gap, but cannot pass the next blocker.
-  - Adjacent lanes do not block unless they are the target lane.
+- A main-lane target is legal when a route over free cells reaches it within the move cap (#102); its price, cells and
+  wear are that route's. No cap on how many cars a move passes: they are obstacles the route goes round, paid by its
+  lane changes. The target lane is still at most one lane from the start lane. Squeeze applies only when nothing is
+  reachable.
 - Occupied cells are non-traversable for movement target search (except the start cell).
 - Drafting (#55, #98): a move that ENDS 1-2 cells behind another car in the same lane (`draftAhead` in `draftSystem.ts`,
   judged in `applyAction` after the move) puts the car in the tow: its next move wears less (fuel x0.8, tire x0.9), and

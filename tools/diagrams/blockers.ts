@@ -9,18 +9,18 @@ export type BlockerPanel = Pick<StripSpec, "title" | "note" | "start" | "cars" |
 
 export const BLOCKER_PANELS: BlockerPanel[] = [
   {
-    title: "A lane change passes one car in its lane, never the second",
-    note: "Two cars in lane 3: merging past the first car is fine, the cell past the second is not.",
+    title: "Cars in the next lane are no cap: a lane change may pass any number of them",
+    note: "Two cars in lane 3: the cells between, and past, both are offered; each price is its route's.",
     start: "Z12_L2_00",
     cars: ["Z14_L3_00", "Z16_L3_00"],
     zones: zoneRange(12, 17)
   },
   {
-    title: "With only one car in the lane, the lane is open beyond it",
-    note: "A lone car can be passed like the first of two.",
-    start: "Z12_L2_00",
-    cars: ["Z14_L3_00"],
-    zones: zoneRange(12, 17)
+    title: "A pack in the next lane: past it by the free lane, as far as the budget reaches",
+    note: "Four cars in lane 1, lane 2 free: 7 cells down lane 2 and in is 8 points, one more is 9, then the cap.",
+    start: "Z16_L2_00",
+    cars: ["Z18_L1_00", "Z19_L1_00", "Z20_L1_00", "Z21_L1_00"],
+    zones: zoneRange(16, 24)
   },
   {
     title: "A full row cannot be passed: occupied cells are never driven through",
