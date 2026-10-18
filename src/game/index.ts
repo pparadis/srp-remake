@@ -3,6 +3,7 @@ import { BootScene } from "./scenes/BootScene";
 import { RaceScene } from "./scenes/RaceScene";
 import { keepCanvasBoundsFresh } from "./canvasBounds";
 import { keepGameSizeInSync } from "./gameSize";
+import { FRAME_RATES, TEST_FPS } from "./frameGovernor";
 import { renderScale, setHidpi } from "./hidpi";
 import {
   REG_BOT_CARS,
@@ -39,7 +40,6 @@ interface GameOptions {
 }
 
 const isTestBuild = import.meta.env.MODE === "test";
-const TEST_FPS = 10;
 
 export function startGame(parent: HTMLElement, options: GameOptions) {
   setHidpi(options.hidpi ?? false);
@@ -49,8 +49,9 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
     // Canvas on purpose: a turn-based board (lines, a few sprites, text) needs no WebGL, and software WebGL
     // burned many CPU cores per page (tools/cpuProbe.mjs: 125.6 s vs 8.8 s of CPU for the same race).
     type: Phaser.CANVAS,
-    // e2e build only: still lowers the load of many headless pages; tweens use delta time, so they finish.
-    ...(isTestBuild ? { fps: { target: TEST_FPS, limit: TEST_FPS } } : {}),
+    // A frame limit, so the loop can skip frames: the race scene's FrameGovernor moves it between the idle rate and
+    // full speed (#82). The e2e build keeps a low cap for the load of many headless pages; tweens use delta time.
+    fps: isTestBuild ? { target: TEST_FPS, limit: TEST_FPS } : { limit: FRAME_RATES.idle },
     parent,
     // The grass is the CSS background of the container (#app in style.css), drawn by the browser instead of the game.
     transparent: true,
