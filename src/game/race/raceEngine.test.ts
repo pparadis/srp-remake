@@ -88,10 +88,6 @@ describe("applyAction: move", () => {
     expect(car.fuel).toBe(100 - info.fuelCost);
     expect(car.moveCycle.spent[0]).toBeGreaterThan(0);
     expect(getActiveCar(state).carId).toBe(2);
-    if (result.ok) {
-      expect(result.log[0]).toBe(`Car 1 moved to ${target}.`);
-      expect(result.log.at(-1)).toBe("Car 2 to play.");
-    }
   });
 
   it("rejects an unreachable cell and leaves the state untouched", () => {
@@ -146,7 +142,7 @@ describe("applyAction: pit", () => {
     expect(getActiveCar(state).carId).toBe(2);
     expect(car.state).toBe("ACTIVE");
     expect(car.pitExitBoost).toBe(true);
-    if (second.ok) expect(second.log).toContain("Car 1 pit penalty (remaining 0).");
+    expect(second.ok).toBe(true);
   });
 
   it("rejects a pit action that is not on a pit box, or with an invalid setup", () => {
@@ -209,7 +205,7 @@ describe("laps and winning", () => {
     expect(car.lapCount).toBe(1);
     expect(state.winnerCarId).toBe(1);
     expect(getActiveCar(state).carId).toBe(1);
-    if (result.ok) expect(result.log.at(-1)).toBe("Race finished. Car 1 wins the 1-lap race.");
+    expect(result.ok).toBe(true);
     expect(applyAction(ctx, state, { type: "skip" })).toEqual({ ok: false, reason: "race_finished" });
   });
 });
@@ -245,7 +241,6 @@ describe("laps from a staggered grid", () => {
     expect(result.ok).toBe(true);
     expect(car.lapCount).toBe(0);
     expect(state.winnerCarId).toBeNull();
-    if (result.ok) expect(result.log.join("\n")).not.toContain("Race finished");
   });
 
   it("a 1-lap race is won by the first car to cross the line after starting on it", () => {
@@ -255,7 +250,7 @@ describe("laps from a staggered grid", () => {
     const result = applyAction(ctx, state, { type: "move", targetCellId: crossingTarget(state) });
     expect(pole!.lapCount).toBe(1);
     expect(state.winnerCarId).toBe(1);
-    if (result.ok) expect(result.log.at(-1)).toBe("Race finished. Car 1 wins the 1-lap race.");
+    expect(result.ok).toBe(true);
   });
 });
 
@@ -717,18 +712,15 @@ describe("drafting turns and the slingshot", () => {
     expect(tire - car1.tire).toBe(info.tireCost);
     expect(fuel - car1.fuel).toBe(info.fuelCost);
     expect(car1.moveCycle.spent[0]).toBe(3);
-    // counted and logged
     expect(car1.slingshots).toBe(1);
-    expect(result.ok && result.log).toContain("Car 1 slingshots.");
   });
 
-  it("a drafted move that is not a slingshot is neither counted nor logged as one", () => {
+  it("a drafted move that is not a slingshot is not counted as one", () => {
     const state = draftRace();
     const car1 = state.cars[0]!;
     car1.draftTurns = 2;
     const result = applyAction(ctx, state, { type: "move", targetCellId: "Z06_L1_00" });
     expect(result.ok).toBe(true);
     expect(car1.slingshots ?? 0).toBe(0);
-    expect(result.ok && result.log.some((line) => line.includes("slingshot"))).toBe(false);
   });
 });

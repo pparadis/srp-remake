@@ -795,9 +795,43 @@ body[data-screen="race"] .version {
 
 .hud-feed ol {
   margin: 6px 0 0;
-  padding-left: 26px;
+  padding: 0;
+  list-style: none;
   max-height: 140px;
   overflow-y: auto;
+}
+
+/* One kind, one edge colour (#92); your own car's lines are brighter. */
+.hud-feed li {
+  padding: 1px 0 1px 6px;
+  border-left: 3px solid #3a4a5a;
+  color: #9fb3c6;
+}
+
+.hud-feed li.is-mine {
+  color: #fff;
+  font-weight: 600;
+}
+
+.hud-feed li.is-pass {
+  border-left-color: #6fd08c;
+}
+
+.hud-feed li.is-lap {
+  border-left-color: #5aa9ff;
+}
+
+.hud-feed li.is-pit {
+  border-left-color: #b48cff;
+}
+
+.hud-feed li.is-warn {
+  border-left-color: #ff9f43;
+}
+
+.hud-feed li.is-finish {
+  border-left-color: #ffe066;
+  color: #ffe066;
 }
 
 .hud-tooltip {

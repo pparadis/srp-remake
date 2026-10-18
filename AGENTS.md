@@ -139,6 +139,12 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
   budget is `cycleBudget(setup)` (40, +1 Low, -1 High, +1 soft), never `MOVE_CYCLE.budget` for a car. The `setup` action
   (grid setup, before the first move, not a turn) sets it; bots set up in `createRace` with `bestSetup`. A change to the
   numbers must keep `npx tsx tools/botBench.ts --setups` passing the gate (`docs/bot-system.md`).
+- Race feed (#92): `src/game/systems/raceFeed.ts` (`feedLines(ctx, before, after, name)`, pure) turns the difference between
+  two race states into `{ text, kind, carId }` lines (move, pass, lap, pit, warn, finish, info). Solo calls it after each
+  action (`RaceSession.addFeed`, with a clone of the state before) and online after each server state, so both say the same.
+  The engine has no log of its own; `HudSnapshot.log` carries `{ text, kind, mine }` and `hud.ts` styles by kind. The feed
+  starts open except in the compact (phone) layout. A rule or resource that should be said goes in `feedLines`, with a case in
+  `raceFeed.test.ts`.
 - Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
   `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
 - Cars glide to their cells (#85): `RaceSession.drainMoves()` gives the cars that moved, in order, and

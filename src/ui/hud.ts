@@ -1,6 +1,8 @@
 // Race HUD as a DOM overlay. `renderHud` is pure over the snapshot RaceScene emits as `srp:hud`.
 import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, SQUEEZE_SURCHARGE_PER_CAR, type WingLevel } from "../game/constants";
 import type { PitAdvice, StintEstimate } from "../game/systems/strategy";
+import type { FeedKind } from "../game/systems/raceFeed";
+import { isCompactHud } from "./layout";
 
 export interface HudCar {
   carId: number;
@@ -91,7 +93,8 @@ export interface HudSnapshot {
   sandbox?: "edit" | "play";
   /** Full cell debug, only while the F overlay is on. */
   debugText: string | null;
-  log: string[];
+  /** The race feed, oldest first. `mine`: the line is about the local player's car. */
+  log: Array<{ text: string; kind: FeedKind; mine: boolean }>;
 }
 
 const HEAD =
@@ -153,6 +156,8 @@ const TEMPLATE = `
 
 export function mountHud(root: HTMLElement) {
   root.innerHTML = TEMPLATE;
+  // The feed is the record of what the others did: open by default, except on a phone, where the drawer holds it (#92).
+  if (!isCompactHud()) (q(root, "hud-feed") as HTMLDetailsElement).open = true;
   // Compact layout (a phone in landscape): standings and the race feed sit in a drawer that this button opens.
   const toggle = q(root, "hud-drawer-toggle");
   toggle.addEventListener("click", () => {
@@ -440,10 +445,12 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
   feed.replaceChildren(
     ...s.log.map((line) => {
       const li = document.createElement("li");
-      li.textContent = line;
+      li.textContent = line.text;
+      li.className = `is-${line.kind}${line.mine ? " is-mine" : ""}`;
       return li;
     })
   );
+  feed.scrollTop = feed.scrollHeight; // newest line at the bottom, in view
 
   const tip = q(root, "hud-tooltip");
   tip.hidden = !s.hover;

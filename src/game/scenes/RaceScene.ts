@@ -518,7 +518,6 @@ export class RaceScene extends Phaser.Scene {
 
   private initTurn() {
     this.followedCell = this.session.localCar()?.cellId ?? null;
-    this.addLog(`Car ${this.activeCar.carId} to play.`);
     this.updateActiveCarVisuals();
     this.processBotsUntilHuman();
   }

@@ -110,7 +110,6 @@ test("sandbox: a Copy debug position loads back, and it is refused when it does 
 
   await tid(page, "sandbox-load-text").fill(JSON.stringify({ ...snap, cars: snap.cars.slice(1) }));
   await tid(page, "sandbox-load").click();
-  await page.getByTestId("hud-feed").locator("summary").click();
   await expect(tid(page, "hud-feed-list")).toContainText("Load refused");
   expect((await snapshot(page)).cars.find((c) => c.carId === 2)!.cellId).toBe("Z20_L1_00");
 });
