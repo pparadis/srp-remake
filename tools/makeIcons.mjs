@@ -4,7 +4,9 @@ import { readFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
 const svg = readFileSync(new URL("../public/icons/icon.svg", import.meta.url), "utf8");
-const out = (name) => new URL(`../public/icons/${name}`, import.meta.url).pathname;
+function out(name) {
+  return new URL(`../public/icons/${name}`, import.meta.url).pathname;
+}
 // maskable: the launcher may crop to a circle, so the art sits inside the middle 80% on the same background
 const ICONS = [
   { name: "icon-192.png", size: 192, pad: 0 },

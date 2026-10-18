@@ -41,6 +41,8 @@ export function routePath(route: Route, base = DEFAULT_BASE): string {
       return `${root}/lobby/${encodeURIComponent(route.id)}`;
     case "lobbyRace":
       return `${root}/lobby/${encodeURIComponent(route.id)}/race`;
+    default:
+      return route satisfies never; // a new route that is not handled above fails to compile
   }
 }
 

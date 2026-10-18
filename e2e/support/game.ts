@@ -38,12 +38,12 @@ export function guard(page: Page): string[] {
   return errors;
 }
 
-type SrpStatus = {
+interface SrpStatus {
   raceLaps: number;
   winnerCarId: number | null;
   canControl: boolean;
   activeOwnerId: string;
-};
+}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -66,8 +66,9 @@ export async function setLobbySettings(
     botLevel?: "easy" | "normal" | "hard";
   }
 ) {
-  if (s.timer !== undefined)
+  if (s.timer !== undefined) {
     await page.getByTestId("lobby-turn-timer").selectOption(String(s.timer));
+  }
   if (s.bots !== undefined) await page.getByTestId("lobby-bots").selectOption(String(s.bots));
   // the level select only shows while there are bots, so set it after them
   if (s.botLevel !== undefined) await page.getByTestId("lobby-bot-level").selectOption(s.botLevel);
@@ -226,8 +227,9 @@ export async function playMyTurn(page: Page) {
     const target = state.movement.validTargets
       .filter((t) => !t.isPitTrigger)
       .sort((a, b) => b.distance - a.distance)[0];
-    if (!target)
+    if (!target) {
       return { error: "no valid non-pit target" as const, carId: car.carId, cellId: car.cellId };
+    }
     return {
       carId: car.carId,
       cellId: car.cellId,

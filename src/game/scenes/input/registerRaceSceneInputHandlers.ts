@@ -74,7 +74,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     dragSnapDist
   } = params;
 
-  scene.input.on("dragstart", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+  scene.input.on("dragstart", (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
     if (isSuspended?.()) return;
     if (isRaceFinished()) return;
     if (pitModal.isActive()) return;
@@ -91,7 +91,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
 
   scene.input.on(
     "drag",
-    (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, x: number, y: number) => {
+    (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, x: number, y: number) => {
       if (isSuspended?.()) return;
       if (isRaceFinished()) return;
       if (pitModal.isActive()) return;
@@ -110,7 +110,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     }
   );
 
-  scene.input.on("dragend", (_: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+  scene.input.on("dragend", (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
     if (isSuspended?.()) return;
     if (isRaceFinished()) return;
     if (pitModal.isActive()) return;

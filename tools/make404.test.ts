@@ -23,6 +23,7 @@ function run(html: string, pathname: string) {
     close() {}
   };
   const code = /<script>(.*)<\/script>/s.exec(html)![1];
+  // eslint-disable-next-line no-new-func -- the test runs the page script the generator emitted
   new Function("location", "XMLHttpRequest", "document", code)({ pathname }, FakeXhr, doc);
   return { asked, written };
 }

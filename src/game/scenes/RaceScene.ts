@@ -127,8 +127,8 @@ export class RaceScene extends Phaser.Scene {
   private hoverCell: TrackCell | null = null;
   private showForwardIndex = false;
   private forwardIndexLabels: Phaser.GameObjects.Text[] = [];
-  private carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
-  private activeHalos: Map<number, Phaser.GameObjects.Ellipse> = new Map();
+  private readonly carTokens: Map<number, Phaser.GameObjects.Container> = new Map();
+  private readonly activeHalos: Map<number, Phaser.GameObjects.Ellipse> = new Map();
   private activeHaloTween: Phaser.Tweens.Tween | null = null;
   private dragOrigin: { x: number; y: number } | null = null;
   private pendingPit: { cell: TrackCell; origin: { x: number; y: number } } | null = null;
@@ -141,7 +141,7 @@ export class RaceScene extends Phaser.Scene {
   // Set by the e2e hook: no celebration may run over a screenshot.
   private animationsFrozen = false;
   // The cell each car token stands on, or glides to (the board draws from what the session already knows).
-  private tokenCell = new Map<number, string>();
+  private readonly tokenCell = new Map<number, string>();
   // The camera: what the fit leaves (set by centerTrack), and the player's zoom and pan on top of it.
   private fit: Fit | null = null;
   private userView: UserView = FITTED;
@@ -151,9 +151,9 @@ export class RaceScene extends Phaser.Scene {
   private gPreview!: Phaser.GameObjects.Graphics;
   private gTow!: Phaser.GameObjects.Graphics;
   private previewShown: MovePreview | null = null;
-  private trails = new Map<number, Phaser.GameObjects.Graphics>();
+  private readonly trails = new Map<number, Phaser.GameObjects.Graphics>();
   // Gliding cars: stop() jumps the token to the end of its glide.
-  private glides = new Map<number, { stop: () => void }>();
+  private readonly glides = new Map<number, { stop: () => void }>();
   private get cars(): Car[] {
     return this.session.cars;
   }
@@ -1575,6 +1575,8 @@ export class RaceScene extends Phaser.Scene {
         this.applyPosition(command.text);
         this.refreshAfterTurn();
         break;
+      default:
+        command satisfies never; // a new command that is not handled above fails to compile
     }
   }
 

@@ -21,7 +21,9 @@ export interface CarEdit {
   botLevel?: BotLevel;
 }
 
-const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(n)));
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, Math.round(n)));
+}
 
 // A cycle with `left` points unspent: the points already gone sit in the first move slot.
 export function cycleWithBudgetLeft(left: number, total: number = MOVE_CYCLE.budget): MoveCycle {
@@ -149,7 +151,9 @@ export function restorePosition(ctx: RaceContext, state: RaceState, snapshot: un
 }
 
 /** The move points a car has left in its cycle (the sandbox panel shows it). */
-export const budgetLeftOf = (car: Car) => getRemainingBudget(car.moveCycle, cycleBudget(car.setup));
+export function budgetLeftOf(car: Car) {
+  return getRemainingBudget(car.moveCycle, cycleBudget(car.setup));
+}
 
 /**
  * A ready-to-paste vitest case for the current position: the whole state as data, and the targets the engine offers

@@ -1,6 +1,9 @@
 import type { TrackCell } from "../../types/track";
 
-type Vec = { x: number; y: number };
+interface Vec {
+  x: number;
+  y: number;
+}
 type CellMap = Map<string, TrackCell>;
 
 const previousCache = new WeakMap<CellMap, Map<string, TrackCell>>();

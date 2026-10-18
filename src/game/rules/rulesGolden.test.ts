@@ -38,7 +38,7 @@ describe("rules versions", () => {
 for (const v of frozen) {
   describe(`frozen rules ${v} replay their golden file`, () => {
     const golden = GOLDEN[v]!;
-    it.each(golden.samples.map((s) => [s.name, s] as const))("%s", (_, sample) => {
+    it.each(golden.samples.map((s) => [s.name, s] as const))("%s", (_name, sample) => {
       const now = replay(ctx, sample, v);
       expect(now.targets).toEqual(sample.targets);
       expect(now.after).toEqual(sample.after);

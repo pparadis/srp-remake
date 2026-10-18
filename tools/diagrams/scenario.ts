@@ -35,7 +35,7 @@ export function positionOf(ctx: RaceContext, s: Pick<Scenario, "start" | "cars" 
   const cells = [s.start, ...s.cars];
   const state = createRace(
     ctx,
-    cells.map((_, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
+    cells.map((_cell, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
     5
   );
   cells.forEach((cell, i) => {

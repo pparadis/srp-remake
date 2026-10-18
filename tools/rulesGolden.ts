@@ -29,7 +29,9 @@ import { isRulesVersion, type RulesVersion } from "../src/game/rules/versions";
 import type { TrackData } from "../src/game/types/track";
 
 const LEVELS = ["hard", "normal", "easy"] as const;
-const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
+function clone<T>(x: T): T {
+  return JSON.parse(JSON.stringify(x)) as T;
+}
 
 function sample(ctx: RaceContext, name: string, state: RaceState, action: RaceAction): GoldenSample {
   const before = clone(state);
@@ -47,7 +49,7 @@ function raceSamples(ctx: RaceContext, version: RulesVersion): GoldenSample[] {
     for (const seed of [1, 2, 3, 4]) {
       const state = createRace(
         ctx,
-        Array.from({ length: cars }, (_, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: LEVELS[i % 3]! })),
+        Array.from({ length: cars }, (_slot, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: LEVELS[i % 3]! })),
         5,
         seed,
         version
@@ -89,7 +91,7 @@ const HAND: { name: string; start: string; cars: string[]; move: string; edit?: 
 function handSamples(ctx: RaceContext, version: RulesVersion): GoldenSample[] {
   return HAND.map((h) => {
     const cells = [h.start, ...h.cars];
-    const state = createRace(ctx, cells.map((_, i) => ({ isBot: false, ownerId: `P${i + 1}` })), 5, 0, version);
+    const state = createRace(ctx, cells.map((_cell, i) => ({ isBot: false, ownerId: `P${i + 1}` })), 5, 0, version);
     cells.forEach((cell, i) => {
       const refused = placeCar(ctx, state, i + 1, cell);
       if (refused) throw new Error(`${h.name}: ${refused}`);

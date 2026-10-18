@@ -16,7 +16,17 @@ const TEST_CONFIG: BackendConfig = {
 };
 
 type App = Awaited<ReturnType<typeof createApp>>;
-type WsEvent = { event: string; payload: any };
+interface WsPayload {
+  source?: string;
+  seatIndex?: number;
+  applied: { type: string };
+  raceState: { turnRemainingMs: number };
+  players: { isHost: boolean; connected: boolean }[];
+}
+interface WsEvent {
+  event: string;
+  payload: WsPayload;
+}
 
 async function setup(
   t: { after: (fn: () => Promise<void>) => void },
@@ -174,7 +184,7 @@ test("host grace: a host reconnect within the grace period keeps the lobby", asy
   await delay(900); // well past the grace period
   assert.equal((await readLobby(app, lobbyId, hostToken)).status, "IN_RACE");
   assert.equal(guest.events.some((e) => e.event === "race.ended"), false);
-  const last = guest.events.filter((e) => e.event === "lobby.state").at(-1)!.payload as PublicLobby;
+  const last = guest.events.filter((e) => e.event === "lobby.state").at(-1)!.payload as unknown as PublicLobby;
   assert.equal(last.players.find((p) => p.isHost)!.connected, true);
 
   // and the grace period starts over on the next disconnect, then ends the lobby

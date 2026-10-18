@@ -222,7 +222,7 @@ export function runBench(ctx: RaceContext, { lineup, laps, seeds = [0], styles, 
     for (const seed of seeds) {
       for (let rotation = 0; rotation < lineup.length; rotation += 1) {
         const at = (slot: number) => (slot + rotation) % lineup.length;
-        results.push(playBenchRace(ctx, lineup.map((_, slot) => lineup[at(slot)]!), lapCount, seed, styles && lineup.map((_, slot) => styles[at(slot)]), undefined, rulesVersion));
+        results.push(playBenchRace(ctx, lineup.map((_policy, slot) => lineup[at(slot)]!), lapCount, seed, styles && lineup.map((_policy, slot) => styles[at(slot)]), undefined, rulesVersion));
       }
     }
   }

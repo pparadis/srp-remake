@@ -8,7 +8,7 @@ import { budgetLeftOf, editCar, normalizeSetup, placeCar, positionAsTest, restor
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const newRace = (cars = 3): RaceState =>
-  createRace(ctx, Array.from({ length: cars }, (_, i) => ({ isBot: i > 0, ownerId: i > 0 ? `BOT${i}` : "P1" })), 5);
+  createRace(ctx, Array.from({ length: cars }, (_slot, i) => ({ isBot: i > 0, ownerId: i > 0 ? `BOT${i}` : "P1" })), 5);
 const targetsOf = (state: RaceState) => computeTargets(ctx, state, getActiveCar(state));
 
 describe("sandbox edits", () => {

@@ -184,19 +184,19 @@ interface BackendSession {
   isHost: boolean;
 }
 
-type BackendLobbyStateEventDetail = {
+interface BackendLobbyStateEventDetail {
   lobby: PublicLobby;
   source: string;
   localPlayerId: string;
-};
+}
 
-type BackendTurnAppliedEventDetail = {
+interface BackendTurnAppliedEventDetail {
   lobbyId: string;
   playerId: string;
   revision: number;
   applied: AppliedTurnSummary;
   source?: TurnSource;
-};
+}
 
 let backendSession: BackendSession | null = null;
 let lastLobby: PublicLobby | null = null;
@@ -275,7 +275,9 @@ function renderTurnTimer() {
 }
 
 // sessionStorage is per tab: a reload rejoins with the same player token, a second tab is a new player.
-const sessionKey = (lobbyId: string) => `srp:session:${lobbyId}`;
+function sessionKey(lobbyId: string): string {
+  return `srp:session:${lobbyId}`;
+}
 
 function storeSession(session: BackendSession) {
   try {
@@ -467,7 +469,7 @@ function renderLobby() {
   lobbyRulesField.hidden = online;
   lobbyRules.value = soloSettings.rulesVersion;
   // The select stays in the DOM; with no bots there is nothing for it to set.
-  lobbyBotLevelField.hidden = Number.parseInt(lobbyBots.value, 10) === 0;
+  lobbyBotLevelField.hidden = Number(lobbyBots.value) === 0;
   const editable = isHost && waiting && !backendBusy;
   lobbyHumans.disabled = lobbyBots.disabled = lobbyLaps.disabled = lobbyTurnTimer.disabled = lobbyBotLevel.disabled =
     lobbyRules.disabled =
@@ -605,6 +607,9 @@ async function handleRoute(route: Route, source: "push" | "replace" | "pop") {
         return;
       }
       syncOnlineScreen();
+      break;
+    default:
+      route satisfies never; // a new route that is not handled above fails to compile
   }
 }
 
@@ -985,10 +990,10 @@ async function playAgain() {
 }
 
 async function changeSettings() {
-  const humanCars = Number.parseInt(lobbyHumans.value, 10);
-  const botCars = Number.parseInt(lobbyBots.value, 10);
-  const raceLaps = Math.max(1, Math.min(999, Number.parseInt(lobbyLaps.value, 10) || 1));
-  const turnTimerSec = Number.parseInt(lobbyTurnTimer.value, 10) as TurnTimerSec;
+  const humanCars = Number(lobbyHumans.value);
+  const botCars = Number(lobbyBots.value);
+  const raceLaps = Math.max(1, Math.min(999, Math.trunc(Number(lobbyLaps.value)) || 1));
+  const turnTimerSec = Number(lobbyTurnTimer.value) as TurnTimerSec;
   const botLevel = lobbyBotLevel.value as BotLevel;
   if (mode === "solo") {
     soloSettings.botCars = botCars;

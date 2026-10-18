@@ -70,7 +70,7 @@ export function laneChangePriceSvg(ctx: RaceContext, s: Scenario = LANE_CHANGE_S
   const bend = drawBend(ctx.trackIndex, zoneRange(...s.zones), { x: 60, y: 146, w: 660 });
   const panelH = Math.max(300, bend.height + 84);
   const listY = 108 + panelH + 34;
-  const H = Math.max(640, listY + 22 + p.steps.length * 24 + 40);
+  const height = Math.max(640, listY + 22 + p.steps.length * 24 + 40);
   const body: string[] = [];
   body.push(text(40, 44, copy.title, { size: 22, bold: true, color: COLORS.text }));
   body.push(text(40, 70, `${copy.intro} (zones ${s.zones[0]}-${s.zones[1]}), drawn as it is on the board, travel left to right.`));
@@ -85,7 +85,7 @@ export function laneChangePriceSvg(ctx: RaceContext, s: Scenario = LANE_CHANGE_S
   body.push(text(40, listY, `The route, step by step (${p.cellsWalked} cells walked, ${p.forward} of them forward, ${p.laneChanges} lane changes)`, { bold: true, color: COLORS.text }));
   body.push(drawStepList(p.steps, 40, listY + 22));
 
-  body.push(panel(780, 100, 400, H - 140));
+  body.push(panel(780, 100, 400, height - 140));
   body.push(text(800, 134, "What this route costs", { size: 16, bold: true, color: COLORS.text }));
   if (p.rule === p.code) {
     body.push(text(800, 179, "The rule and the code agree", { bold: true, color: COLORS.text }));
@@ -101,6 +101,6 @@ export function laneChangePriceSvg(ctx: RaceContext, s: Scenario = LANE_CHANGE_S
     const diff = p.rule - p.code;
     body.push(text(800, 420, `The code charges ${Math.abs(diff)} point${Math.abs(diff) === 1 ? "" : "s"} ${diff > 0 ? "under" : "over"} the rule.`, { size: 11, color: COLORS.sideways }));
   }
-  body.push(text(800, H - 70, `${p.forward} forward cell${p.forward === 1 ? "" : "s"} cost ${p.code} points here.`, { size: 11, color: COLORS.sideways }));
-  return document(1220, H, body);
+  body.push(text(800, height - 70, `${p.forward} forward cell${p.forward === 1 ? "" : "s"} cost ${p.code} points here.`, { size: 11, color: COLORS.sideways }));
+  return document(1220, height, body);
 }

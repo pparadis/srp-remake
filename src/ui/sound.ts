@@ -47,7 +47,9 @@ export function setMuted(muted: boolean) {
 
 // Fallback when storage is blocked: still honour the toggle for this page.
 let memoryMuted: boolean | null = null;
-export const currentlyMuted = () => memoryMuted ?? isMuted();
+export function currentlyMuted() {
+  return memoryMuted ?? isMuted();
+}
 
 type Ctx = Pick<AudioContext, "currentTime" | "destination" | "state" | "resume" | "createOscillator" | "createGain">;
 

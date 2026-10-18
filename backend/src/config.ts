@@ -6,14 +6,14 @@ export const DEFAULT_LOBBY_IDLE_SECONDS = 3600;
 export const DEFAULT_MAX_LOBBIES = 1000;
 
 // "true" | "false" | a hop count, as Fastify's `trustProxy` takes it.
-const TrustProxy = z
+const trustProxy = z
   .string()
   .regex(/^(true|false|\d+)$/, "TRUST_PROXY must be true, false or a hop count")
   .transform((value): boolean | number =>
     value === "true" ? true : value === "false" ? false : Number(value)
   );
 
-const ConfigSchema = z.object({
+const configSchema = z.object({
   HOST: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().int().positive().default(3001),
   CORS_ALLOWED_ORIGINS: z.string().default("*"),
@@ -26,7 +26,7 @@ const ConfigSchema = z.object({
   MAX_LOBBIES: z.coerce.number().int().positive().default(DEFAULT_MAX_LOBBIES),
   // Read the client address from X-Forwarded-For. Only behind a proxy that sets it (Render); never when the
   // backend is reachable directly, or a client could fake the header to dodge the rate limit.
-  TRUST_PROXY: TrustProxy.default(false),
+  TRUST_PROXY: trustProxy.default(false),
   // Per-IP rate limit. Tests switch it off; a partial test config (field absent) is also off.
   RATE_LIMIT_ENABLED: z
     .enum(["true", "false"])
@@ -38,7 +38,7 @@ const ConfigSchema = z.object({
   GIT_SHA: z.string().optional()
 });
 
-export type BackendConfig = z.infer<typeof ConfigSchema>;
+export type BackendConfig = z.infer<typeof configSchema>;
 
 type ProcessEnv = Record<string, string | undefined>;
 
@@ -54,5 +54,5 @@ function currentCommit(env: ProcessEnv): string {
 }
 
 export function loadConfig(env: ProcessEnv = process.env): BackendConfig {
-  return ConfigSchema.parse({ ...env, GIT_SHA: currentCommit(env) });
+  return configSchema.parse({ ...env, GIT_SHA: currentCommit(env) });
 }

@@ -43,18 +43,22 @@ interface FeelMemory {
   finished: boolean;
 }
 
-export const createFeelMemory = (): FeelMemory => ({
-  seeded: false,
-  cells: new Map(),
-  laps: 0,
-  slingshots: 0,
-  draftTurns: 0,
-  low: { tire: 0, fuel: 0 },
-  canControl: false,
-  finished: false
-});
+export function createFeelMemory(): FeelMemory {
+  return {
+    seeded: false,
+    cells: new Map(),
+    laps: 0,
+    slingshots: 0,
+    draftTurns: 0,
+    low: { tire: 0, fuel: 0 },
+    canControl: false,
+    finished: false
+  };
+}
 
-const lowLevel = (percent: number) => (percent <= 0 ? 2 : resourceLevel(percent) === "crit" ? 1 : 0);
+function lowLevel(percent: number): number {
+  return percent <= 0 ? 2 : resourceLevel(percent) === "crit" ? 1 : 0;
+}
 
 /**
  * Compares the view with the last one. The first view only seeds the memory, so joining or

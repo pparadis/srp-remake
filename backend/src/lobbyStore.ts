@@ -141,7 +141,7 @@ export function toPublicLobby(lobby: Lobby): PublicLobby {
 
 export class LobbyError extends Error {
   constructor(
-    public readonly statusCode: number,
+    readonly statusCode: number,
     message: string
   ) {
     super(message);
@@ -154,7 +154,7 @@ export class LobbyStore {
     private readonly maxLobbies = Number.POSITIVE_INFINITY
   ) {}
 
-  private lobbies = new Map<string, Lobby>();
+  private readonly lobbies = new Map<string, Lobby>();
 
   count(): number {
     return this.lobbies.size;
@@ -199,7 +199,7 @@ export class LobbyStore {
     }
 
     let botCounter = 0;
-    const seats = Array.from({ length: lobby.settings.totalCars }, (_, seatIndex): RaceSeatInfo => {
+    const seats = Array.from({ length: lobby.settings.totalCars }, (_seat, seatIndex): RaceSeatInfo => {
       const player = playersBySeat.get(seatIndex);
       if (!player) botCounter += 1;
       return {

@@ -290,6 +290,23 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 - If a test failure is reported, run `npm test` first to confirm the failure before using `npm run test:coverage`.
 - From time to time, run `npm run build` to ensure the full build stays green.
 
+## TypeScript style
+
+- The reference is the [Google TypeScript style guide](https://google.github.io/styleguide/tsguide.html); a local clone
+  is at `/home/pascal/code/styleguide/tsguide.html` (`git pull --ff-only` before reading). It is enforced by
+  typescript-eslint with a curated rule set in `eslint.config.js` (not a preset): `npm run lint` must stay at 0 errors,
+  and a new rule goes in only once its violations are 0. Enforced today: `interface` over object `type` aliases,
+  no `any`, no `public`, no `#private`, no `const enum`, no default export, `Number()` instead of
+  `parseInt` / `parseFloat`, `readonly` members that are never reassigned (type-aware), a `default` in every `switch`
+  (an exhaustive one ends in `x satisfies never`), the guide's naming (`_name` stays for an unused parameter or an
+  ignored destructured name; the bare `_` does not), and a top-level named function is a `function` declaration (a
+  nested one may be an arrow, and so may an arrow with a type annotation).
+- Tests (`*.test.ts`, `backend/test`, `e2e`) may use top-level arrow helpers.
+- Deviation: `export default` in the three config files (`vite`, `vitest`, `playwright`), which the tools require.
+- Type-aware rules run only on `src/**` and `backend/src/**` (the files a tsconfig covers); they add about 3 s to lint.
+- Not done yet, tracked separately: single quotes (#74), snake_case file names (#75), JSDoc on every top-level export
+  (#76), `!` and `as` assertions (#77).
+
 ## Conventions
 
 - Use `forwardIndex` for ordering/progress, not `zoneIndex`.

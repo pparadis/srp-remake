@@ -25,7 +25,7 @@ const ctx = createRaceContext(track);
 const versions = arg("rules", "v1,v2").split(",");
 for (const v of versions) if (!isRulesVersion(v)) throw new Error(`Unknown rules version ${v}`);
 const seedCount = Number(arg("seeds", "12"));
-const seeds = Array.from({ length: seedCount }, (_, i) => i + 1);
+const seeds = Array.from({ length: seedCount }, (_item, i) => i + 1);
 const laps = Number(arg("laps", "5"));
 const LEVELS = ["hard", "normal", "easy"] as const;
 
@@ -48,7 +48,7 @@ function reach(version: RulesVersion): Row {
     for (const seed of seeds) {
       const state = createRace(
         ctx,
-        Array.from({ length: cars }, (_, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: LEVELS[i % 3]! })),
+        Array.from({ length: cars }, (_slot, i) => ({ isBot: true, ownerId: `B${i}`, botLevel: LEVELS[i % 3]! })),
         laps,
         seed,
         version

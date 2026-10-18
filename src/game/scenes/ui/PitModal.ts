@@ -35,16 +35,16 @@ interface PitModalOpenOptions {
 export const PIT_PANEL = { x: 320, y: 200, width: 460, height: 345 };
 
 export class PitModal {
-  private scene: Phaser.Scene;
-  private modal: Phaser.GameObjects.Container;
-  private modalTitle: Phaser.GameObjects.Text;
-  private modalBody: Phaser.GameObjects.Text;
-  private modalConfirm: Phaser.GameObjects.Text;
-  private wingButtons!: { minus: Phaser.GameObjects.Text; plus: Phaser.GameObjects.Text };
-  private modalCancel: Phaser.GameObjects.Text;
+  private readonly scene: Phaser.Scene;
+  private readonly modal: Phaser.GameObjects.Container;
+  private readonly modalTitle: Phaser.GameObjects.Text;
+  private readonly modalBody: Phaser.GameObjects.Text;
+  private readonly modalConfirm: Phaser.GameObjects.Text;
+  private readonly wingButtons!: { minus: Phaser.GameObjects.Text; plus: Phaser.GameObjects.Text };
+  private readonly modalCancel: Phaser.GameObjects.Text;
   private modalSetup: Car["setup"] | null = null;
   private stints: PitModalOpenOptions["stints"] | null = null;
-  private modalValueTexts: PitModalTexts;
+  private readonly modalValueTexts: PitModalTexts;
   private active = false;
 
   constructor(scene: Phaser.Scene) {

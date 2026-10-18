@@ -18,11 +18,14 @@ export const COLORS = {
 };
 const FONT = "ui-monospace, Menlo, Consolas, monospace";
 
-export const esc = (s: string | number): string =>
-  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+export function esc(s: string | number): string {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 // Numbers are rounded to one decimal so the file does not depend on float noise.
-const n = (v: number): string => String(Math.round(v * 10) / 10);
+function n(v: number): string {
+  return String(Math.round(v * 10) / 10);
+}
 
 export interface TextOpts {
   size?: number;

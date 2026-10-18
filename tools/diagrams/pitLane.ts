@@ -5,9 +5,13 @@ import type { TrackCell } from "../../src/game/types/track";
 import { drawStrip, type StripSpec } from "./strip";
 import { COLORS, document, text } from "./svg";
 
-const pitCell = (c: TrackCell) => c.laneIndex === 0;
+function pitCell(c: TrackCell): boolean {
+  return c.laneIndex === 0;
+}
 // ahead of the start along the pit lane (its forwardIndex scale is its own)
-const pitAhead = (c: TrackCell, s: TrackCell) => pitCell(c) && c.forwardIndex > s.forwardIndex;
+function pitAhead(c: TrackCell, s: TrackCell): boolean {
+  return pitCell(c) && c.forwardIndex > s.forwardIndex;
+}
 const SIDE = "The pit lane has its own forwardIndex scale: its dots do not compare with lane 1.";
 
 export const PIT_ENTRY_PANELS: StripSpec[] = [
@@ -82,8 +86,10 @@ function stack(ctx: RaceContext, title: string, intro: string[], panels: StripSp
   return document(840, y, body);
 }
 
-export const pitEntrySvg = (ctx: RaceContext) =>
-  stack(ctx, "Pit entry: from lane 1, one zone before", ["Each pit cell shows what the engine offers, or a cross.", SIDE], PIT_ENTRY_PANELS);
+export function pitEntrySvg(ctx: RaceContext) {
+  return stack(ctx, "Pit entry: from lane 1, one zone before", ["Each pit cell shows what the engine offers, or a cross.", SIDE], PIT_ENTRY_PANELS);
+}
 
-export const pitLaneSvg = (ctx: RaceContext) =>
-  stack(ctx, "In the pit lane: one step, the box jump, the exit", ["Each cell shows what the engine offers, or a cross.", SIDE], PIT_LANE_PANELS);
+export function pitLaneSvg(ctx: RaceContext) {
+  return stack(ctx, "In the pit lane: one step, the box jump, the exit", ["Each cell shows what the engine offers, or a cross.", SIDE], PIT_LANE_PANELS);
+}

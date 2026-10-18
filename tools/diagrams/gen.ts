@@ -10,7 +10,9 @@ import { hashText } from "./lock";
 
 const track = JSON.parse(readFileSync(new URL("../../public/tracks/oval16_3lanes.json", import.meta.url), "utf8")) as TrackData;
 const dir = new URL("../../docs/img/", import.meta.url);
-const file = (name: string) => new URL(name, dir);
+function file(name: string): URL {
+  return new URL(name, dir);
+}
 const LOCK = "diagrams.lock.json";
 const lock: Record<string, string> = existsSync(file(LOCK)) ? JSON.parse(readFileSync(file(LOCK), "utf8")) : {};
 

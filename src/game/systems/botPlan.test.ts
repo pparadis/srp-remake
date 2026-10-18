@@ -142,7 +142,7 @@ describe("progress of a car in the pit lane", () => {
 });
 
 describe("bestSetup", () => {
-  const lengths = Array.from({ length: 24 }, (_, i) => (i + 1) * 28);
+  const lengths = Array.from({ length: 24 }, (_item, i) => (i + 1) * 28);
 
   it("picks Low wing, High wing and Medium wing for some race length each", () => {
     const wings = new Set(lengths.map((cells) => bestSetup(cells).wing));

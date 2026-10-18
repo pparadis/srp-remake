@@ -321,8 +321,9 @@ export function computeValidTargets(
     if (startIsPitLane && cell.laneIndex === PIT_LANE && d > 1) {
       if (!pitBoxAdjacent || !isPitBox) continue;
     }
-    if (!startIsPitLane && cell.laneIndex !== PIT_LANE && Math.abs(cell.laneIndex - startCell.laneIndex) > 1)
+    if (!startIsPitLane && cell.laneIndex !== PIT_LANE && Math.abs(cell.laneIndex - startCell.laneIndex) > 1) {
       continue;
+    }
     const targetDelta = (cell.forwardIndex - startCell.forwardIndex + spineLen) % spineLen;
     // Main-lane moves are priced by their cheapest route (lane changes included); the pit lane keeps the plain walk.
     let route: Route | undefined = !startIsPitLane && cell.laneIndex !== PIT_LANE ? routes.get(cellId) : undefined;
@@ -346,8 +347,9 @@ export function computeValidTargets(
       cell.laneIndex !== startCell.laneIndex &&
       (targetDelta === 0 || cell.zoneIndex === startCell.zoneIndex) &&
       !isPitEntryTarget
-    )
+    ) {
       continue;
+    }
     if (!startIsPitLane && cell.laneIndex === PIT_LANE) {
       if (!isPitEntryTarget) continue;
       if (d !== 1) continue;
