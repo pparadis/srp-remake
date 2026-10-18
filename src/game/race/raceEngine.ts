@@ -5,6 +5,7 @@ import {
   DRAFT_SLINGSHOT_TURNS,
   MOVE_BUDGET,
   MOVE_RATES,
+  PIT_LANE,
   SETUP_LIMITS,
   WING_LEVELS
 } from '../constants';
@@ -183,8 +184,21 @@ export function computeTargets(
     },
     costs
   );
-  if (normal.size > 0 || car.state !== 'ACTIVE') return normal;
-  return rules.computeSqueezeTargets(ctx.trackIndex, car.cellId, occupied, maxSteps, costs);
+  if (car.state !== 'ACTIVE') return normal;
+  // A pit entry alone does not count as a way out: the squeeze is offered next to it (#137).
+  const inPit = ctx.cellMap.get(car.cellId)?.laneIndex === PIT_LANE;
+  const wayOut = [...normal.keys()].some(
+    (id) => inPit || ctx.cellMap.get(id)?.laneIndex !== PIT_LANE
+  );
+  if (wayOut) return normal;
+  const squeeze = rules.computeSqueezeTargets(
+    ctx.trackIndex,
+    car.cellId,
+    occupied,
+    maxSteps,
+    costs
+  );
+  return new Map([...normal, ...squeeze]);
 }
 
 // True when the car stands tucked in right now: another car 1 to DRAFT_RANGE cells ahead in its own lane. The rule
