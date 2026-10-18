@@ -905,7 +905,10 @@ export class RaceScene extends Phaser.Scene {
    */
   private isAnimating(): boolean {
     const ambient = new Set<unknown>([this.activeHaloTween, ...this.trails.values()]);
-    const moving = this.tweens.getTweens().some((tween) => tween !== this.activeHaloTween && !tween.targets.some((t) => ambient.has(t)));
+    // a killed tween is destroyed (targets null) but stays listed until the manager's next preUpdate
+    const moving = this.tweens
+      .getTweens()
+      .some((tween) => !tween.isDestroyed() && tween !== this.activeHaloTween && !tween.targets.some((t) => ambient.has(t)));
     return moving || this.confetti?.active === true || this.pitModal.isActive();
   }
 
