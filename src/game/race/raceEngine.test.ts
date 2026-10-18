@@ -492,6 +492,24 @@ describe('squeeze (boxed in)', () => {
     });
   });
 
+  it('offers the squeeze next to a pit entry that is the only normal target (#137)', () => {
+    const state = newRace(5, [
+      { isBot: true, ownerId: 'B1' },
+      { isBot: true, ownerId: 'B2' },
+      { isBot: true, ownerId: 'B3' },
+      { isBot: true, ownerId: 'B4' }
+    ]);
+    ['Z27_L1_00', 'Z28_L1_00', 'Z29_L2_00', 'Z30_L2_00'].forEach((id, i) => {
+      state.cars[i]!.cellId = id;
+    });
+    // 7 points left, as in the issue: too few for the way round through lane 3
+    getActiveCar(state).moveCycle.spent = [33, 0, 0, 0, 0];
+    getActiveCar(state).moveCycle.index = 1;
+    const targets = computeTargets(ctx, state, getActiveCar(state));
+    expect(targets.has('Z28_L0_00')).toBe(true);
+    expect(targets.get('Z01_L1_00')).toMatchObject({ squeezePassed: 1, moveSpend: 4 });
+  });
+
   it('accepts a skip when not even a squeeze fits the budget', () => {
     const state = boxedRace();
     getActiveCar(state).moveCycle.spent = [39, 0, 0, 0, 0];

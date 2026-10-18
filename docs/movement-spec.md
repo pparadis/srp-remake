@@ -80,8 +80,9 @@ Pass and return, one real route: out through the adjacent lane, past the car, an
 
 ## Squeeze (boxed in)
 
-Only when an ACTIVE car has no normal target at all, `computeTargets` (raceEngine) returns squeeze targets from
-`computeSqueezeTargets` instead of an empty map. When any normal target exists, squeeze is never offered.
+Only when an ACTIVE car has no normal target on a main lane, `computeTargets` (raceEngine) adds squeeze targets from
+`computeSqueezeTargets`. A pit entry alone does not count: it stays offered next to the squeeze, so a boxed-in car is
+never forced into the pit (#137). When any main-lane target exists, squeeze is never offered.
 
 - BFS over `next[]` up to `maxSteps` ignores occupancy for traversal, but the target cell must be free.
 - Main lanes only (never PIT_ENTRY, pit lane or PIT_BOX), at most 1 lane change, at least `DIAGONAL_MIN_GAIN` ahead by lap position and a later zone than the start (no backwards or pure sideways).
