@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import track from "../../../public/tracks/oval16_3lanes.json";
 import type { TrackData } from "../types/track";
+import { lapAhead } from "../systems/trackIndex";
 import { applyAction, computeTargets, createRace, createRaceContext, decideBotAction, getActiveCar } from "./raceEngine";
 
 // Reachability: a rule that is never exercised in play passes every test that builds its own position, and the player
@@ -24,6 +25,8 @@ interface Reach {
   /** a same-lane pass round a blocker, or a zig-zag: a route with 2 or more lane changes */
   multiLaneChange: number;
   laneChanges: number;
+  /** the move passes 2 or more cars: they stand between the start and the target, in the start or the target lane (#102) */
+  passesTwoOrMore: number;
   pitStops: number;
 }
 
@@ -37,6 +40,7 @@ function play(carCounts: number[], seeds: number[], laps: number): Reach {
     squeezes: 0,
     multiLaneChange: 0,
     laneChanges: 0,
+    passesTwoOrMore: 0,
     pitStops: 0
   };
   for (const cars of carCounts) {
@@ -70,7 +74,19 @@ function play(carCounts: number[], seeds: number[], laps: number): Reach {
         if ((car.draftTurns ?? 0) >= 1) reach.endedTucked += 1;
         if (info.squeezePassed) reach.squeezes += 1;
         if ((info.laneChanges ?? 0) >= 2) reach.multiLaneChange += 1;
-        if (ctx.cellMap.get(action.targetCellId)!.laneIndex !== from.laneIndex) reach.laneChanges += 1;
+        const to = ctx.cellMap.get(action.targetCellId)!;
+        if (to.laneIndex !== from.laneIndex) reach.laneChanges += 1;
+        if (!info.squeezePassed) {
+          const ahead = lapAhead(ctx.trackIndex, from, to);
+          const passed = state.cars.filter((c) => {
+            if (c.carId === car.carId) return false;
+            const other = ctx.cellMap.get(c.cellId)!;
+            if (other.laneIndex !== from.laneIndex && other.laneIndex !== to.laneIndex) return false;
+            const d = lapAhead(ctx.trackIndex, from, other);
+            return d > 0 && d < ahead;
+          }).length;
+          if (passed >= 2) reach.passesTwoOrMore += 1;
+        }
       }
       reach.slingshots += state.cars.reduce((sum, c) => sum + (c.slingshots ?? 0), 0);
     }
@@ -90,7 +106,7 @@ describe("rules come up in play", () => {
       `reach over ${reach.races} races, ${reach.moves} moves: ` +
         `in tow ${pct(reach.inTow, reach.moves).toFixed(1)}%, ended tucked ${pct(reach.endedTucked, reach.moves).toFixed(1)}%, ` +
         `slingshots ${(reach.slingshots / reach.races).toFixed(1)}/race, squeezes ${reach.squeezes}, ` +
-        `multi lane change ${reach.multiLaneChange}, lane changes ${pct(reach.laneChanges, reach.moves).toFixed(1)}%, ` +
+        `multi lane change ${reach.multiLaneChange}, passes 2+ cars ${reach.passesTwoOrMore}, lane changes ${pct(reach.laneChanges, reach.moves).toFixed(1)}%, ` +
         `pit stops ${(reach.pitStops / reach.races).toFixed(1)}/race`
     );
     expect(reach.moves).toBeGreaterThan(500);
@@ -107,6 +123,12 @@ describe("rules come up in play", () => {
   it("lane changes and multi-lane-change routes come up", () => {
     expect(pct(reach.laneChanges, reach.moves), "moves that change lane, %").toBeGreaterThanOrEqual(5);
     expect(reach.multiLaneChange, "go-rounds and zig-zags").toBeGreaterThan(0);
+  });
+
+  it("a move may pass two or more cars (#102), and it is not the usual move", () => {
+    // Before #102 a lane change stopped at the second car of its lane and a go-around at the second of the start lane.
+    expect(reach.passesTwoOrMore, "moves that pass 2+ cars").toBeGreaterThan(0);
+    expect(pct(reach.passesTwoOrMore, reach.moves), "moves that pass 2+ cars, %").toBeLessThanOrEqual(50);
   });
 
   it("pit stops come up in a race long enough to need one (3 laps is a sprint with no stop)", () => {

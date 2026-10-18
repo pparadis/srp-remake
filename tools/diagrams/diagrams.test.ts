@@ -49,13 +49,19 @@ describe("diagrams are kept current", () => {
 });
 
 describe("blockers diagram shows the Occupancy rules", () => {
-  const [twoCars, oneCar, wall] = BLOCKER_PANELS.map((p) => offeredFrom(positionOf(ctx, p))) as [Offers, Offers, Offers];
-  it("a lane change may pass one car in its lane, not the second", () => {
-    expect(twoCars.has("Z15_L3_00")).toBe(true); // past the first, in front of the second
-    expect(twoCars.has("Z17_L3_00")).toBe(false); // past the second
+  const [twoCars, pack, wall] = BLOCKER_PANELS.map((p) => offeredFrom(positionOf(ctx, p))) as [Offers, Offers, Offers];
+  it("a lane change may pass any number of cars in its lane: past both, at the route's price (#102)", () => {
+    expect(twoCars.has("Z15_L3_00")).toBe(true); // between the two
+    expect(twoCars.has("Z17_L3_00")).toBe(true); // past the second
+    // dearer than the same cell with the lane free: the route walks round the cars
+    const free = offeredFrom(positionOf(ctx, { start: "Z12_L2_00", cars: [] }));
+    expect(twoCars.get("Z17_L3_00")!.moveSpend!).toBeGreaterThanOrEqual(free.get("Z17_L3_00")!.moveSpend!);
   });
-  it("a lone car in the lane can be passed like the first of two", () => {
-    for (const id of ["Z15_L3_00", "Z16_L3_00", "Z17_L3_00"]) expect(oneCar.has(id)).toBe(true);
+  it("a pack in the next lane is passed by the free lane, up to the 9-point cap", () => {
+    expect(pack.get("Z22_L1_00")).toMatchObject({ distance: 8, moveSpend: 8 });
+    expect(pack.get("Z23_L1_00")).toMatchObject({ distance: 9, moveSpend: 9 });
+    expect(pack.has("Z24_L1_00")).toBe(false);
+    for (const id of ["Z18_L1_00", "Z19_L1_00", "Z20_L1_00", "Z21_L1_00"]) expect(pack.has(id)).toBe(false);
   });
   it("a full row stops everything behind it", () => {
     expect(wall.has("Z13_L2_00")).toBe(true);

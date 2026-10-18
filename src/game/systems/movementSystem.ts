@@ -129,16 +129,14 @@ const MAX_DIAGONALS = 12; // state slots per cell: more diagonal changes than th
 
 // Breadth-first over (cell, diagonal lane changes): the fewest steps per state, then the cheapest state per cell.
 // Same traversal rules as the plain search (occupied cells block, pit entry only from lane 1, pit lane only from the
-// pit lane); `allow` narrows the cells a route may use (lane, lap position ahead of the start). Results come in order of
-// first discovery. Price: every lane change costs +1 move point on top of the cells walked. A sideways change (less
+// pit lane). Results come in order of first discovery. Price: every lane change costs +1 move point on top of the cells walked. A sideways change (less
 // than DIAGONAL_MIN_GAIN of lap position) is paid by the extra cell it walks; each diagonal one adds +1 (one change +1,
 // out and back +2).
 function searchRoutes(
   trackIndex: TrackIndex,
   startCell: TrackCell,
   occupied: Set<string>,
-  maxSteps: number,
-  allow?: (laneIndex: number, ahead: number) => boolean
+  maxSteps: number
 ): Map<string, Route & { minSteps: number }> {
   const g = routeGraphOf(trackIndex);
   const { spineLen } = trackIndex;
@@ -169,7 +167,6 @@ function searchRoutes(
       for (const nxt of g.next[cur]!) {
         if (blocked[nxt]) continue;
         const lane = g.lane[nxt]!;
-        if (allow && !allow(lane, gain(start, nxt))) continue;
         const isPitLane = lane === PIT_LANE;
         if (g.pitEntry[nxt] && curLane !== INNER_MAIN_LANE) continue;
         if (isPitLane && !g.pitEntry[nxt] && curLane !== PIT_LANE) continue;
@@ -259,47 +256,6 @@ export function computeValidTargets(
   // Drafting: the car ended its last move tucked in behind a car (see draftSystem); never in the pit lane.
   const drafted = options.drafted === true && !startIsPitLane;
 
-  // The two nearest cars ahead in each lane, by lap position: unlike forwardIndex it never ties two cells of a lane (#114).
-  const blockerDeltasByLane = new Map<number, number[]>();
-  if (!startIsPitLane) {
-    for (const occId of occupied) {
-      if (occId === startCellId) continue;
-      const occ = cellMap.get(occId);
-      if (!occ || occ.laneIndex === PIT_LANE) continue;
-      const delta = lapAhead(trackIndex, startCell, occ);
-      if (delta <= 0) continue;
-      const deltas = blockerDeltasByLane.get(occ.laneIndex) ?? [];
-      deltas.push(delta);
-      deltas.sort((a, b) => a - b);
-      if (deltas.length > 2) deltas.length = 2;
-      blockerDeltasByLane.set(occ.laneIndex, deltas);
-    }
-  }
-
-  // Routes that stay in the start lane and ONE adjacent lane and, like a merge into it, pass at most one car in that
-  // adjacent lane (never its second): the ways around a blocker. Only computed when a same-lane target beyond the nearest blocker asks for it.
-  let goAround: Map<string, Route> | undefined;
-  const goAroundRoutes = (): Map<string, Route> => {
-    if (goAround) return goAround;
-    goAround = new Map();
-    for (const lane of [startCell.laneIndex - 1, startCell.laneIndex + 1]) {
-      if (lane < INNER_MAIN_LANE || lane > OUTER_MAIN_LANE) continue;
-      const limit = blockerDeltasByLane.get(lane)?.[1];
-      const found = searchRoutes(
-        trackIndex,
-        startCell,
-        occupied,
-        maxSteps,
-        (laneIndex, ahead) => laneIndex === startCell.laneIndex || (laneIndex === lane && (limit == null || ahead < limit))
-      );
-      for (const [id, r] of found) {
-        const known = goAround.get(id);
-        if (!known || r.price < known.price || (r.price === known.price && r.steps < known.steps)) goAround.set(id, r);
-      }
-    }
-    return goAround;
-  };
-
   const targets = new Map<string, TargetInfo>();
   for (const [cellId, d] of dist.entries()) {
     if (d <= 0) continue;
@@ -318,20 +274,7 @@ export function computeValidTargets(
       continue;
     const targetDelta = lapAhead(trackIndex, startCell, cell);
     // Main-lane moves are priced by their cheapest route (lane changes included); the pit lane keeps the plain walk.
-    let route: Route | undefined = !startIsPitLane && cell.laneIndex !== PIT_LANE ? routes.get(cellId) : undefined;
-    if (!startIsPitLane && cell.laneIndex !== PIT_LANE) {
-      const blockers = blockerDeltasByLane.get(cell.laneIndex) ?? [];
-      const sameLane = cell.laneIndex === startCell.laneIndex;
-      // A lane change may pass the nearest car in its lane, never the second; with only one car the lane is open beyond it.
-      const blockDelta = sameLane ? blockers[0] : blockers[1];
-      if (blockDelta != null && targetDelta > blockDelta) {
-        // Only a same-lane move may still land beyond the nearest blocker, by going around it through an adjacent
-        // lane and rejoining; like a merge it may pass one blocker, not the next.
-        if (!sameLane || (blockers[1] != null && targetDelta > blockers[1])) continue;
-        route = goAroundRoutes().get(cellId);
-        if (!route) continue;
-      }
-    }
+    const route: Route | undefined = !startIsPitLane && cell.laneIndex !== PIT_LANE ? routes.get(cellId) : undefined;
     // A lane change must advance: no sideways target, by lap position or by zone (the owner's rule, #108).
     if (
       !startIsPitLane &&
