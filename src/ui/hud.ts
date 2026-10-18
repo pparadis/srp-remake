@@ -90,7 +90,7 @@ export interface HudSnapshot {
   hover: HudHover | null;
   /** Tap to move: the target the local player picked, with Move here / Cancel. */
   selection?: HudHover | null;
-  /** The active car is boxed in: only squeeze targets exist. */
+  /** The active car is boxed in: no main-lane target, only squeeze targets (and maybe the pit entry). */
   boxedIn?: boolean;
   /** With boxedIn: the car is stuck at the pit exit (squeezes out onto lane 1). */
   pitExitBlocked?: boolean;

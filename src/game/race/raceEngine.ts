@@ -187,9 +187,9 @@ export function computeTargets(
   if (car.state !== 'ACTIVE') return normal;
   // A pit entry alone does not count as a way out: the squeeze is offered next to it (#137).
   const inPit = ctx.cellMap.get(car.cellId)?.laneIndex === PIT_LANE;
-  const wayOut = [...normal.keys()].some(
-    (id) => inPit || ctx.cellMap.get(id)?.laneIndex !== PIT_LANE
-  );
+  const wayOut = inPit
+    ? normal.size > 0
+    : [...normal.keys()].some((id) => ctx.cellMap.get(id)?.laneIndex !== PIT_LANE);
   if (wayOut) return normal;
   const squeeze = rules.computeSqueezeTargets(
     ctx.trackIndex,
