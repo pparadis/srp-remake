@@ -1,14 +1,14 @@
 // A titled panel with one position drawn on a stretch of the track: every free cell the rule is about shows what the
 // engine offers there (its move points) or a cross, with the cars and "you" on top. Shared by the diagrams that read
 // `computeTargets` (blockers, squeeze, pit).
-import type { RaceContext } from "../../src/game/race/raceEngine";
-import type { CarEdit } from "../../src/game/race/sandbox";
-import type { TargetInfo } from "../../src/game/systems/movementSystem";
-import type { TrackCell } from "../../src/game/types/track";
-import { drawBend, type Bend } from "./bend";
-import { drawCars, drawOffer, drawYou } from "./marks";
-import { offeredFrom, positionOf } from "./scenario";
-import { COLORS, panel, text } from "./svg";
+import type { RaceContext } from '../../src/game/race/raceEngine';
+import type { CarEdit } from '../../src/game/race/sandbox';
+import type { TargetInfo } from '../../src/game/systems/movementSystem';
+import type { TrackCell } from '../../src/game/types/track';
+import { drawBend, type Bend } from './bend';
+import { drawCars, drawOffer, drawYou } from './marks';
+import { offeredFrom, positionOf } from './scenario';
+import { COLORS, panel, text } from './svg';
 
 export interface StripSpec {
   title: string;
@@ -47,7 +47,12 @@ export function bendPanel(
   width: number,
   below = 36
 ): { svg: string; bend: Bend; height: number } {
-  const bend = drawBend(ctx.trackIndex, head.zones, { x: x + 20, y: y + 86, w: width - 40 }, head.lanes);
+  const bend = drawBend(
+    ctx.trackIndex,
+    head.zones,
+    { x: x + 20, y: y + 86, w: width - 40 },
+    head.lanes
+  );
   const height = 86 + bend.height + below;
   return {
     svg: [
@@ -55,13 +60,19 @@ export function bendPanel(
       text(x + 20, y + 28, head.title, { size: 14, bold: true, color: COLORS.text }),
       text(x + 20, y + 46, head.note, { size: 11 }),
       bend.svg
-    ].join("\n"),
+    ].join('\n'),
     bend,
     height
   };
 }
 
-export function drawStrip(ctx: RaceContext, spec: StripSpec, x: number, y: number, width: number): Strip {
+export function drawStrip(
+  ctx: RaceContext,
+  spec: StripSpec,
+  x: number,
+  y: number,
+  width: number
+): Strip {
   const lanes = spec.lanes ?? [3, 2, 1];
   const mark = spec.mark ?? ahead;
   const offered = offeredFrom(positionOf(ctx, spec));
@@ -74,5 +85,5 @@ export function drawStrip(ctx: RaceContext, spec: StripSpec, x: number, y: numbe
   }
   parts.push(drawCars(bend.cellPos, spec.cars));
   parts.push(drawYou(bend.cellPos, spec.start));
-  return { svg: parts.join("\n"), height, bend, offered };
+  return { svg: parts.join('\n'), height, bend, offered };
 }

@@ -1,5 +1,5 @@
-import { INNER_MAIN_LANE, PIT_LANE } from "../constants";
-import type { TrackIndex } from "./trackIndex";
+import { INNER_MAIN_LANE, PIT_LANE } from '../constants';
+import type { TrackIndex } from './trackIndex';
 
 /**
  * The cells a car drives through from `fromCellId` to `toCellId`, both included, for drawing it (a glide, a preview, a
@@ -11,7 +11,7 @@ import type { TrackIndex } from "./trackIndex";
  * line), so a caller always has something to draw.
  */
 export function movePath(
-  trackIndex: Pick<TrackIndex, "cellMap">,
+  trackIndex: Pick<TrackIndex, 'cellMap'>,
   fromCellId: string,
   toCellId: string,
   blocked: ReadonlySet<string> = new Set()
@@ -31,8 +31,14 @@ export function movePath(
     for (const nextId of cell.next) {
       const next = cellMap.get(nextId);
       if (!next || blocked.has(nextId)) continue;
-      if ((next.tags ?? []).includes("PIT_ENTRY") && cell.laneIndex !== INNER_MAIN_LANE) continue;
-      if (next.laneIndex === PIT_LANE && cell.laneIndex !== PIT_LANE && !(next.tags ?? []).includes("PIT_ENTRY")) continue;
+      if ((next.tags ?? []).includes('PIT_ENTRY') && cell.laneIndex !== INNER_MAIN_LANE) continue;
+      if (
+        next.laneIndex === PIT_LANE &&
+        cell.laneIndex !== PIT_LANE &&
+        !(next.tags ?? []).includes('PIT_ENTRY')
+      ) {
+        continue;
+      }
       const nextSteps = steps.get(id)! + 1;
       const nextChanges = changes.get(id)! + (next.laneIndex === cell.laneIndex ? 0 : 1);
       const seen = steps.get(nextId);

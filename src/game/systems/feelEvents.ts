@@ -1,18 +1,18 @@
 // Turns successive race snapshots into the moments worth a toast or a sound. Phaser-free.
-import { resourceLevel } from "../../ui/hud";
-import { DRAFT_SLINGSHOT_TURNS } from "../constants";
+import { resourceLevel } from '../../ui/hud';
+import { DRAFT_SLINGSHOT_TURNS } from '../constants';
 
 export type FeelEvent =
-  | { type: "move" }
-  | { type: "lap"; lap: number; laps: number; final: boolean }
-  | { type: "low"; resource: "tire" | "fuel" }
-  | { type: "slingshot" }
+  | { type: 'move' }
+  | { type: 'lap'; lap: number; laps: number; final: boolean }
+  | { type: 'low'; resource: 'tire' | 'fuel' }
+  | { type: 'slingshot' }
   /** The local car's move ended tucked in behind a car: its next move is in the tow. */
-  | { type: "draft" }
+  | { type: 'draft' }
   /** ... twice in a row: a lane change on its next move is free. */
-  | { type: "slingshotReady" }
-  | { type: "turn" }
-  | { type: "finish" };
+  | { type: 'slingshotReady' }
+  | { type: 'turn' }
+  | { type: 'finish' };
 
 export interface FeelView {
   /** The local player's car; lap, low-resource, slingshot and turn events are only for it. */
@@ -57,7 +57,7 @@ export function createFeelMemory(): FeelMemory {
 }
 
 function lowLevel(percent: number): number {
-  return percent <= 0 ? 2 : resourceLevel(percent) === "crit" ? 1 : 0;
+  return percent <= 0 ? 2 : resourceLevel(percent) === 'crit' ? 1 : 0;
 }
 
 /**
@@ -73,23 +73,30 @@ export function detectFeel(mem: FeelMemory, view: FeelView): FeelEvent[] {
   const draftTurns = mine?.draftTurns ?? 0;
 
   if (mem.seeded) {
-    if (view.cars.some((car) => mem.cells.get(car.carId) !== car.cellId)) events.push({ type: "move" });
+    if (view.cars.some((car) => mem.cells.get(car.carId) !== car.cellId)) {
+      events.push({ type: 'move' });
+    }
     // Crossing the line starts lap laps+1. The first crossing of a car that began behind the line
     // (-1 to 0) is silent, and so is the one that ends the race (the finish event covers it).
     if (mine && laps > mem.laps && laps >= 1 && !view.finished) {
-      events.push({ type: "lap", lap: laps + 1, laps: view.raceLaps, final: laps + 1 === view.raceLaps });
+      events.push({
+        type: 'lap',
+        lap: laps + 1,
+        laps: view.raceLaps,
+        final: laps + 1 === view.raceLaps
+      });
     }
-    if (mine && slingshots > mem.slingshots) events.push({ type: "slingshot" });
+    if (mine && slingshots > mem.slingshots) events.push({ type: 'slingshot' });
     // once per stint in the tow: entering it, and the run reaching what opens the slingshot
-    if (mine && draftTurns >= 1 && mem.draftTurns < 1) events.push({ type: "draft" });
+    if (mine && draftTurns >= 1 && mem.draftTurns < 1) events.push({ type: 'draft' });
     if (mine && draftTurns >= DRAFT_SLINGSHOT_TURNS && mem.draftTurns < DRAFT_SLINGSHOT_TURNS) {
-      events.push({ type: "slingshotReady" });
+      events.push({ type: 'slingshotReady' });
     }
-    for (const resource of ["tire", "fuel"] as const) {
-      if (low[resource] > mem.low[resource]) events.push({ type: "low", resource });
+    for (const resource of ['tire', 'fuel'] as const) {
+      if (low[resource] > mem.low[resource]) events.push({ type: 'low', resource });
     }
-    if (view.canControl && !mem.canControl) events.push({ type: "turn" });
-    if (view.finished && !mem.finished) events.push({ type: "finish" });
+    if (view.canControl && !mem.canControl) events.push({ type: 'turn' });
+    if (view.finished && !mem.finished) events.push({ type: 'finish' });
   }
 
   mem.seeded = true;

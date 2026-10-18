@@ -15,7 +15,7 @@ export function setHidpi(on: boolean): void {
 /** Canvas pixels per CSS pixel: 1 unless `?hidpi`. Scene layout in canvas pixels multiplies CSS sizes by this. */
 export function renderScale(): number {
   if (!enabled) return 1;
-  const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
   return Math.min(MAX_RENDER_SCALE, Math.max(1, dpr));
 }
 

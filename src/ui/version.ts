@@ -10,18 +10,18 @@ export interface WebVersion {
 }
 
 /** What the server said: its commit, "offline" when it could not be reached, null while waiting. */
-export type ServerVersion = { sha: string } | "offline" | null;
+export type ServerVersion = { sha: string } | 'offline' | null;
 
 function short(sha: string): string {
   return /^[0-9a-f]{8,}$/.test(sha) ? sha.slice(0, 7) : sha;
 }
 function known(sha: string): boolean {
-  return sha !== "" && sha !== "unknown";
+  return sha !== '' && sha !== 'unknown';
 }
 
 function serverLabel(server: ServerVersion, format: (sha: string) => string): string {
-  if (server === null) return "…";
-  return server === "offline" ? "offline" : format(server.sha || "unknown");
+  if (server === null) return '…';
+  return server === 'offline' ? 'offline' : format(server.sha || 'unknown');
 }
 
 export function versionText(web: WebVersion, server: ServerVersion): string {
@@ -29,14 +29,14 @@ export function versionText(web: WebVersion, server: ServerVersion): string {
 }
 
 function prTag(web: WebVersion): string {
-  return web.pr ? ` · PR #${web.pr}` : "";
+  return web.pr ? ` · PR #${web.pr}` : '';
 }
 
 /** Both commits known and different. */
 export function isStale(web: WebVersion, server: ServerVersion): boolean {
   return (
     server !== null &&
-    server !== "offline" &&
+    server !== 'offline' &&
     known(web.sha) &&
     known(server.sha) &&
     web.sha !== server.sha
@@ -51,22 +51,22 @@ export function versionReport(web: WebVersion, server: ServerVersion): string {
 export function renderVersion(el: HTMLElement, web: WebVersion, server: ServerVersion) {
   const stale = isStale(web, server);
   el.textContent = versionText(web, server);
-  el.classList.toggle("is-stale", stale);
+  el.classList.toggle('is-stale', stale);
   el.title = !stale
-    ? "Click to copy the version"
+    ? 'Click to copy the version'
     : web.pr
-      ? "A PR preview: the server runs production, so another commit is expected. Click to copy."
-      : "The server runs another commit than this page (a deploy is pending). Click to copy.";
+      ? 'A PR preview: the server runs production, so another commit is expected. Click to copy.'
+      : 'The server runs another commit than this page (a deploy is pending). Click to copy.';
 }
 
 /** Click copies the full version; the label says so for a moment. */
 export function mountVersion(el: HTMLElement, web: WebVersion, getServer: () => ServerVersion) {
   renderVersion(el, web, getServer());
-  el.addEventListener("click", () => {
+  el.addEventListener('click', () => {
     void navigator.clipboard
       ?.writeText(versionReport(web, getServer()))
       .then(() => {
-        el.textContent = "copied";
+        el.textContent = 'copied';
         setTimeout(() => renderVersion(el, web, getServer()), 1200);
       })
       .catch(() => undefined);

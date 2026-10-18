@@ -1,8 +1,8 @@
-import Phaser from "phaser";
-import type { TrackCell, TrackData } from "../../types/track";
-import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE } from "../../constants";
+import Phaser from 'phaser';
+import type { TrackCell, TrackData } from '../../types/track';
+import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE } from '../../constants';
 
-import { headingOf } from "./heading";
+import { headingOf } from './heading';
 
 type CellMap = Map<string, TrackCell>;
 
@@ -56,7 +56,11 @@ function buildLanePath(track: TrackData, cellMap: CellMap, laneIndex: number): T
   return path;
 }
 
-function smoothLanePoints(path: TrackCell[], closesLoop: boolean, iterations = 2): Phaser.Math.Vector2[] {
+function smoothLanePoints(
+  path: TrackCell[],
+  closesLoop: boolean,
+  iterations = 2
+): Phaser.Math.Vector2[] {
   let points = path.map((cell) => new Phaser.Math.Vector2(cell.pos.x, cell.pos.y));
   if (points.length < 3) return points;
 
@@ -148,7 +152,14 @@ function drawLaneRibbon(
   if (path.length < 2) return;
   const closesLoop = isClosed(path, laneIndex, cellMap);
   strokeLanePath(graphics, path, closesLoop, laneIndex === PIT_LANE ? 16 : 20, 0x0b0f14, 0.55);
-  strokeLanePath(graphics, path, closesLoop, laneIndex === PIT_LANE ? 11 : 14, laneColor(laneIndex), 0.4);
+  strokeLanePath(
+    graphics,
+    path,
+    closesLoop,
+    laneIndex === PIT_LANE ? 11 : 14,
+    laneColor(laneIndex),
+    0.4
+  );
 }
 
 function pitConnectors(track: TrackData, cellMap: CellMap): Array<[TrackCell, TrackCell]> {
@@ -159,7 +170,7 @@ function pitConnectors(track: TrackData, cellMap: CellMap): Array<[TrackCell, Tr
       const to = cellMap.get(nextId);
       if (!to || from.laneIndex === to.laneIndex) continue;
       if (from.laneIndex !== PIT_LANE && to.laneIndex !== PIT_LANE) continue;
-      const key = [from.id, to.id].sort().join("|");
+      const key = [from.id, to.id].sort().join('|');
       if (drawn.has(key)) continue;
       drawn.add(key);
       out.push([from, to]);
@@ -186,7 +197,10 @@ function strokeKerb(
       const a = pts[(i + n - 1) % n]!;
       const b = pts[(i + 1) % n]!;
       const t = new Phaser.Math.Vector2(b.x - a.x, b.y - a.y).normalize();
-      return new Phaser.Math.Vector2(p.x - t.y * side * (width / 2), p.y + t.x * side * (width / 2));
+      return new Phaser.Math.Vector2(
+        p.x - t.y * side * (width / 2),
+        p.y + t.x * side * (width / 2)
+      );
     });
     for (let i = 0; i < (closesLoop ? n : n - 1); i += 1) {
       const a = edge[i]!;
@@ -239,15 +253,23 @@ function fillQuad(
     [1, -1],
     [1, 1],
     [-1, 1]
-  ].map(([a, b]) => new Phaser.Math.Vector2(c.x + (t.x * a! * along + n.x * b! * across) / 2, c.y + (t.y * a! * along + n.y * b! * across) / 2));
+  ].map(
+    ([a, b]) =>
+      new Phaser.Math.Vector2(
+        c.x + (t.x * a! * along + n.x * b! * across) / 2,
+        c.y + (t.y * a! * along + n.y * b! * across) / 2
+      )
+  );
   if (stroke) g.strokePoints(pts, true, true);
   else g.fillPoints(pts, true);
 }
 
 function drawStartFinish(g: Phaser.GameObjects.Graphics, track: TrackData, cellMap: CellMap): void {
   const sq = 6;
-  for (const start of track.cells.filter((c) => (c.tags ?? []).includes("START_FINISH"))) {
-    const row = track.cells.filter((c) => c.zoneIndex === start.zoneIndex && c.laneIndex !== PIT_LANE);
+  for (const start of track.cells.filter((c) => (c.tags ?? []).includes('START_FINISH'))) {
+    const row = track.cells.filter(
+      (c) => c.zoneIndex === start.zoneIndex && c.laneIndex !== PIT_LANE
+    );
     const xs = row.map((c) => c.pos.x);
     const ys = row.map((c) => c.pos.y);
     const a = new Phaser.Math.Vector2(Math.min(...xs), Math.min(...ys));
@@ -286,12 +308,21 @@ interface DrawTrackParams {
 }
 
 export function drawTrack(params: DrawTrackParams): void {
-  const { graphics: g, track, cellMap, showForwardIndex, renderForwardIndexOverlay, scale = 1 } = params;
+  const {
+    graphics: g,
+    track,
+    cellMap,
+    showForwardIndex,
+    renderForwardIndexOverlay,
+    scale = 1
+  } = params;
   g.clear();
   // generateTexture ignores the Graphics' own scale, but it replays this command
   if (scale !== 1) g.scaleCanvas(scale, scale);
 
-  const paths = Array.from({ length: track.lanes }, (_path, lane) => buildLanePath(track, cellMap, lane));
+  const paths = Array.from({ length: track.lanes }, (_path, lane) =>
+    buildLanePath(track, cellMap, lane)
+  );
   const pit = paths[PIT_LANE] ?? [];
   const connectors = pitConnectors(track, cellMap);
   const mainLane = paths[MIDDLE_MAIN_LANE] ?? [];
@@ -314,7 +345,7 @@ export function drawTrack(params: DrawTrackParams): void {
   drawSeparator(g, paths[OUTER_MAIN_LANE] ?? [], paths[MIDDLE_MAIN_LANE] ?? [], mainClosed);
   drawStartFinish(g, track, cellMap);
 
-  for (const box of track.cells.filter((c) => (c.tags ?? []).includes("PIT_BOX"))) {
+  for (const box of track.cells.filter((c) => (c.tags ?? []).includes('PIT_BOX'))) {
     const t = headingOf(box, cellMap);
     g.fillStyle(0xffd23f, 0.18);
     fillQuad(g, box.pos, t, 44, PIT_WIDTH - 4);
@@ -343,4 +374,3 @@ export function drawTrack(params: DrawTrackParams): void {
 
   renderForwardIndexOverlay();
 }
-

@@ -6,7 +6,7 @@ const MAX_STACK_LINES = 6;
 
 function describe(error: unknown): string {
   if (error instanceof Error) {
-    const stack = (error.stack ?? "").split("\n").slice(0, MAX_STACK_LINES).join("\n");
+    const stack = (error.stack ?? '').split('\n').slice(0, MAX_STACK_LINES).join('\n');
     return stack.includes(error.message) ? stack : `${error.name}: ${error.message}\n${stack}`;
   }
   return String(error);
@@ -18,11 +18,15 @@ export function showUncaughtErrors(box: HTMLElement, win: Window = window): void
     box.hidden = false;
     box.textContent = box.textContent ? `${box.textContent}\n\n${text}` : text;
   };
-  win.addEventListener("error", (event) => {
-    const where = event.filename ? ` (${event.filename.split("/").pop()}:${event.lineno}:${event.colno})` : "";
+  win.addEventListener('error', (event) => {
+    const where = event.filename
+      ? ` (${event.filename.split('/').pop()}:${event.lineno}:${event.colno})`
+      : '';
     show(event.error ? describe(event.error) : `${event.message}${where}`);
   });
-  win.addEventListener("unhandledrejection", (event) => show(`Unhandled rejection: ${describe(event.reason)}`));
+  win.addEventListener('unhandledrejection', (event) =>
+    show(`Unhandled rejection: ${describe(event.reason)}`)
+  );
 }
 
 /** What the probe reads of a Phaser game (a narrow shape, so it is testable without Phaser). */
@@ -35,14 +39,20 @@ export interface ProbedGame {
 export function renderProbeText(game: ProbedGame, dpr: number): string {
   const canvas = game.canvas;
   const css = canvas?.getBoundingClientRect();
-  const size = canvas ? `canvas ${canvas.width}x${canvas.height}` : "no canvas";
-  const box = css ? ` css ${Math.round(css.width)}x${Math.round(css.height)}` : "";
-  const scenes = ["BootScene", "RaceScene"].map((key) => `${key} ${game.scene.isActive(key) ? "on" : "off"}`);
-  return `dpr ${dpr} · ${size}${box} · ${scenes.join(" · ")}`;
+  const size = canvas ? `canvas ${canvas.width}x${canvas.height}` : 'no canvas';
+  const box = css ? ` css ${Math.round(css.width)}x${Math.round(css.height)}` : '';
+  const scenes = ['BootScene', 'RaceScene'].map(
+    (key) => `${key} ${game.scene.isActive(key) ? 'on' : 'off'}`
+  );
+  return `dpr ${dpr} · ${size}${box} · ${scenes.join(' · ')}`;
 }
 
 /** Refreshes `line` with `renderProbeText` every second until the returned function is called. */
-export function startRenderProbe(line: HTMLElement, game: ProbedGame, win: Window = window): () => void {
+export function startRenderProbe(
+  line: HTMLElement,
+  game: ProbedGame,
+  win: Window = window
+): () => void {
   const update = () => {
     line.hidden = false;
     line.textContent = renderProbeText(game, win.devicePixelRatio || 1);

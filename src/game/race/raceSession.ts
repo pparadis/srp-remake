@@ -1,22 +1,22 @@
 // The race as one player's page sees it, without Phaser: the solo turn loop (the human's action, then the bots
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
-import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from "../constants";
-import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from "../rules/versions";
-import type { BotLevel, Car } from "../types/car";
-import type { TrackCell, TrackData } from "../types/track";
-import { laneWearFactors, setupFactors, type TargetInfo } from "../systems/movementSystem";
-import { buildPlanContext, type BotPlanContext } from "../systems/botPlan";
-import { rankPosition } from "../systems/trackIndex";
-import { pitAdvice, stintEstimate } from "../systems/strategy";
-import { createFeelMemory, detectFeel, type FeelEvent } from "../systems/feelEvents";
-import { computeMoveSpend, cycleBudget, getRemainingBudget } from "../systems/moveBudgetSystem";
-import { carColor } from "../systems/spawnSystem";
-import { movePath } from "../systems/movePath";
-import { hasFinishedRace, lapInProgress } from "../systems/lapProgress";
-import { sortCarsByProgress } from "../systems/orderingSystem";
-import { carsMovedInOrder, feedLines, type FeedKind, type FeedLine } from "../systems/raceFeed";
-import { PERSONALITIES, personalityOf } from "../systems/botStyle";
+import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from '../constants';
+import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
+import type { BotLevel, Car } from '../types/car';
+import type { TrackCell, TrackData } from '../types/track';
+import { laneWearFactors, setupFactors, type TargetInfo } from '../systems/movementSystem';
+import { buildPlanContext, type BotPlanContext } from '../systems/botPlan';
+import { rankPosition } from '../systems/trackIndex';
+import { pitAdvice, stintEstimate } from '../systems/strategy';
+import { createFeelMemory, detectFeel, type FeelEvent } from '../systems/feelEvents';
+import { computeMoveSpend, cycleBudget, getRemainingBudget } from '../systems/moveBudgetSystem';
+import { carColor } from '../systems/spawnSystem';
+import { movePath } from '../systems/movePath';
+import { hasFinishedRace, lapInProgress } from '../systems/lapProgress';
+import { sortCarsByProgress } from '../systems/orderingSystem';
+import { carsMovedInOrder, feedLines, type FeedKind, type FeedLine } from '../systems/raceFeed';
+import { PERSONALITIES, personalityOf } from '../systems/botStyle';
 import {
   applyAction,
   computeTargets,
@@ -27,21 +27,28 @@ import {
   type RaceContext,
   type RaceSeat,
   type RaceState
-} from "./raceEngine";
-import { budgetLeftOf, editCar, placeCar, type CarEdit, restorePosition, setActiveCar } from "./sandbox";
+} from './raceEngine';
+import {
+  budgetLeftOf,
+  editCar,
+  placeCar,
+  type CarEdit,
+  restorePosition,
+  setActiveCar
+} from './sandbox';
 import {
   appendBotDecisionEntry,
   buildBotDecisionSnapshot,
   serializeBotTargets,
   serializeBotTrace,
   type BotDecisionLogEntry
-} from "../scenes/debug/botDecisionDebug";
-import { buildGameDebugSnapshot } from "../scenes/debug/gameDebugSnapshot";
-import type { HudCar, HudHover, HudSnapshot } from "../../ui/hud";
-import type { SandboxSnapshot } from "../../ui/sandboxPanel";
-import type { PitStints } from "../scenes/ui/PitModal";
-import type { AppliedTurnSummary, PublicLobby, TurnSource } from "../../net/backendApi";
-import { toEngineRace } from "../../net/raceSync";
+} from '../scenes/debug/botDecisionDebug';
+import { buildGameDebugSnapshot } from '../scenes/debug/gameDebugSnapshot';
+import type { HudCar, HudHover, HudSnapshot } from '../../ui/hud';
+import type { SandboxSnapshot } from '../../ui/sandboxPanel';
+import type { PitStints } from '../scenes/ui/PitModal';
+import type { AppliedTurnSummary, PublicLobby, TurnSource } from '../../net/backendApi';
+import { toEngineRace } from '../../net/raceSync';
 
 export interface RaceSessionSetup {
   totalCars: number;
@@ -79,25 +86,31 @@ const LOG_LIMIT = 30;
 /** The path of the move the player is about to make, with how the board should draw it. */
 export interface MovePreview {
   cellId: string;
-  kind: "move" | "slingshot" | "squeeze" | "pit";
+  kind: 'move' | 'slingshot' | 'squeeze' | 'pit';
   cells: string[];
 }
 
 export const SERVER_WAIT_MS = 5000;
 const HUD_LABELS = {
-  noneTags: "none",
-  targetPrefix: "target:",
-  factorsPrefix: "factors:",
-  validTargetsPrefix: "valid targets:"
+  noneTags: 'none',
+  targetPrefix: 'target:',
+  factorsPrefix: 'factors:',
+  validTargetsPrefix: 'valid targets:'
 };
-const BUILD_INFO = { version: "debug-snapshot-v3", gitSha: __GIT_SHA__ };
+const BUILD_INFO = { version: 'debug-snapshot-v3', gitSha: __GIT_SHA__ };
 
 export class RaceSession {
   readonly track: TrackData;
   readonly ctx: RaceContext;
   readonly sandbox: boolean;
   // Rules and race state live in the engine; the session only drives it.
-  race: RaceState = { cars: [], turn: { order: [], index: 0 }, raceLaps: 5, winnerCarId: null, seed: 0 };
+  race: RaceState = {
+    cars: [],
+    turn: { order: [], index: 0 },
+    raceLaps: 5,
+    winnerCarId: null,
+    seed: 0
+  };
   validTargets: Map<string, TargetInfo> = new Map();
   /** Tap to move: the target cell the local player picked and has not confirmed yet. */
   private selectedCellId: string | null = null;
@@ -126,7 +139,7 @@ export class RaceSession {
     this.totalCars = setup.totalCars;
     this.humanCars = setup.humanCars;
     this.botCars = setup.botCars;
-    this.botLevel = setup.botLevel ?? "normal";
+    this.botLevel = setup.botLevel ?? 'normal';
     this.seed = setup.seed ?? 0;
     this.rulesVersion = setup.rulesVersion ?? DEFAULT_RULES_VERSION;
     this.sandbox = setup.sandbox === true;
@@ -157,7 +170,7 @@ export class RaceSession {
     return this.backendLobbyId != null;
   }
 
-  addLog(text: string, kind: FeedKind = "info") {
+  addLog(text: string, kind: FeedKind = 'info') {
     this.logLines.push({ text, kind });
     if (this.logLines.length > LOG_LIMIT) this.logLines.shift();
   }
@@ -171,20 +184,25 @@ export class RaceSession {
   }
 
   private nameOf(car: Car): string {
-    return this.carNames.get(car.carId) ?? (!this.online && !car.isBot ? "You" : `Car ${car.carId}`);
+    return (
+      this.carNames.get(car.carId) ?? (!this.online && !car.isBot ? 'You' : `Car ${car.carId}`)
+    );
   }
 
   // Local seats: humans first, then bots.
   private buildSeats(): RaceSeat[] {
     const seats: RaceSeat[] = [
-      ...Array.from({ length: this.humanCars }, (_slot, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
+      ...Array.from({ length: this.humanCars }, (_slot, i) => ({
+        isBot: false,
+        ownerId: `P${i + 1}`
+      })),
       ...Array.from({ length: this.botCars }, (_slot, i) => ({
         isBot: true,
         ownerId: `BOT${i + 1}`,
         botLevel: this.botLevel
       }))
     ];
-    return seats.length > 0 ? seats : [{ isBot: false, ownerId: "P1" }];
+    return seats.length > 0 ? seats : [{ isBot: false, ownerId: 'P1' }];
   }
 
   private startRace(raceLaps: number) {
@@ -229,7 +247,7 @@ export class RaceSession {
       !this.finished &&
       !this.editing &&
       !this.activeCar.setupLocked &&
-      this.activeCar.state === "ACTIVE" &&
+      this.activeCar.state === 'ACTIVE' &&
       this.canControlActiveCar() &&
       !this.activeCar.isBot
     );
@@ -241,7 +259,7 @@ export class RaceSession {
       !this.finished &&
       !this.editing &&
       this.validTargets.size === 0 &&
-      this.activeCar.state === "ACTIVE" &&
+      this.activeCar.state === 'ACTIVE' &&
       this.canControlActiveCar()
     );
   }
@@ -325,8 +343,8 @@ export class RaceSession {
       {
         validTargets: serializeBotTargets(decision.targets),
         action:
-          action.type === "skip" || action.type === "setup"
-            ? { type: "skip", note: decision.skipNote ?? "no-target" }
+          action.type === 'skip' || action.type === 'setup'
+            ? { type: 'skip', note: decision.skipNote ?? 'no-target' }
             : { type: action.type, targetCellId: action.targetCellId, moveSpend: result.moveSpend },
         trace: serializeBotTrace(decision.trace)
       },
@@ -374,11 +392,17 @@ export class RaceSession {
       lobby.settings.humanCars !== this.humanCars ||
       lobby.settings.botCars !== this.botCars
     ) {
-      this.respawnForComposition(lobby.settings.totalCars, lobby.settings.humanCars, lobby.settings.botCars);
+      this.respawnForComposition(
+        lobby.settings.totalCars,
+        lobby.settings.humanCars,
+        lobby.settings.botCars
+      );
       respawned = true;
     }
     const raceState = lobby.raceState;
-    if (!raceState || (lobby.status !== "IN_RACE" && lobby.status !== "FINISHED")) return { respawned, applied: false };
+    if (!raceState || (lobby.status !== 'IN_RACE' && lobby.status !== 'FINISHED')) {
+      return { respawned, applied: false };
+    }
 
     this.selectedCellId = null;
     const before = this.feelSeededOnline ? this.race : null;
@@ -405,19 +429,28 @@ export class RaceSession {
       standing.set(car.carId, car.cellId);
       if (!this.movedCars.includes(car.carId)) this.movedCars.push(car.carId);
       if (from) {
-        const blocked = new Set([...standing].filter(([id]) => id !== car.carId).map(([, cellId]) => cellId));
+        const blocked = new Set(
+          [...standing].filter(([id]) => id !== car.carId).map(([, cellId]) => cellId)
+        );
         this.lastPaths.set(car.carId, movePath(this.ctx.trackIndex, from, car.cellId, blocked));
       }
     }
   }
 
   // Remote and own turns alike arrive as events; the board itself redraws from race.state.
-  applyTurnApplied(lobbyId: string, playerId: string, _action: AppliedTurnSummary, source?: TurnSource) {
+  applyTurnApplied(
+    lobbyId: string,
+    playerId: string,
+    _action: AppliedTurnSummary,
+    source?: TurnSource
+  ) {
     if (this.backendLobbyId && lobbyId !== this.backendLobbyId) return;
     const car = this.cars.find((candidate) => candidate.ownerId === playerId);
     // what the turn did is said from the state diff (applyServerState); only the way it was played is not in the state
-    if (car && (source === "timeout" || source === "force_skip")) {
-      this.addLog(`${this.nameOf(car)} was auto-played (${source === "timeout" ? "timeout" : "host skip"})`);
+    if (car && (source === 'timeout' || source === 'force_skip')) {
+      this.addLog(
+        `${this.nameOf(car)} was auto-played (${source === 'timeout' ? 'timeout' : 'host skip'})`
+      );
     }
   }
 
@@ -450,9 +483,15 @@ export class RaceSession {
     const occupied = this.cars.map((c) => c.cellId);
     const links: Array<{ carId: number; gap: number; ready: boolean }> = [];
     for (const car of this.cars) {
-      if ((car.draftTurns ?? 0) < 1 || car.state === "DNF") continue;
+      if ((car.draftTurns ?? 0) < 1 || car.state === 'DNF') continue;
       const ahead = rulesOf(this.race).draftAhead(this.ctx.trackIndex, car.cellId, occupied);
-      if (ahead) links.push({ carId: car.carId, gap: ahead.gap, ready: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS });
+      if (ahead) {
+        links.push({
+          carId: car.carId,
+          gap: ahead.gap,
+          ready: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS
+        });
+      }
     }
     return links;
   }
@@ -475,14 +514,18 @@ export class RaceSession {
     const blocked = info.squeezePassed
       ? new Set<string>()
       : new Set(this.cars.filter((c) => c.carId !== this.activeCar.carId).map((c) => c.cellId));
-    const kind: MovePreview["kind"] = info.isPitTrigger
-      ? "pit"
+    const kind: MovePreview['kind'] = info.isPitTrigger
+      ? 'pit'
       : info.squeezePassed
-        ? "squeeze"
+        ? 'squeeze'
         : info.slingshot
-          ? "slingshot"
-          : "move";
-    return { cellId, kind, cells: movePath(this.ctx.trackIndex, this.activeCar.cellId, cellId, blocked) };
+          ? 'slingshot'
+          : 'move';
+    return {
+      cellId,
+      kind,
+      cells: movePath(this.ctx.trackIndex, this.activeCar.cellId, cellId, blocked)
+    };
   }
 
   /** The cars that moved since the last call, in the order they moved: the board glides them one after another. */
@@ -512,8 +555,8 @@ export class RaceSession {
       }))
     });
     // a lap or a finish drowns the plain move click
-    const loud = events.some((e) => e.type !== "move");
-    return events.filter((event) => !(event.type === "move" && loud));
+    const loud = events.some((e) => e.type !== 'move');
+    return events.filter((event) => !(event.type === 'move' && loud));
   }
 
   /** True once, the first time this is asked after the race finished. */
@@ -538,10 +581,11 @@ export class RaceSession {
   }
 
   // Stint after the refill (100% tire and fuel) for each compound at the wings and psi being set.
-  pitStints(setup: Car["setup"]): PitStints {
+  pitStints(setup: Car['setup']): PitStints {
     const spineLen = this.ctx.trackIndex.spineLen;
-    const at = (compound: "soft" | "hard") => stintEstimate({ tire: 100, fuel: 100, setup: { ...setup, compound } }, spineLen);
-    return { soft: at("soft"), hard: at("hard") };
+    const at = (compound: 'soft' | 'hard') =>
+      stintEstimate({ tire: 100, fuel: 100, setup: { ...setup, compound } }, spineLen);
+    return { soft: at('soft'), hard: at('hard') };
   }
 
   private plan(): BotPlanContext {
@@ -558,7 +602,11 @@ export class RaceSession {
   }
 
   /** What the HUD shows for one target: the move and the tire and fuel it leaves (hover tooltip, tap card). */
-  private targetHud(cell: TrackCell, target: TargetInfo, pos: { x: number; y: number } | null): HudHover | null {
+  private targetHud(
+    cell: TrackCell,
+    target: TargetInfo,
+    pos: { x: number; y: number } | null
+  ): HudHover | null {
     if (!pos) return null;
     return {
       ...pos,
@@ -613,11 +661,17 @@ export class RaceSession {
       color: carColor(index),
       isBot: car.isBot,
       // Bots only (a human's style is never shown); seed 0 is the neutral baseline, nothing to show.
-      ...(car.isBot && car.botLevel === "hard" ? { style: PERSONALITIES.adaptive.label } : car.isBot && this.race.seed ? { style: personalityOf(this.race.seed, car.carId).label } : {}),
+      ...(car.isBot && car.botLevel === 'hard'
+        ? { style: PERSONALITIES.adaptive.label }
+        : car.isBot && this.race.seed
+          ? { style: personalityOf(this.race.seed, car.carId).label }
+          : {}),
       lap: lapInProgress(car.lapCount, this.raceLaps),
       finished: hasFinishedRace(car.lapCount, this.raceLaps),
       // the display's own measure (lap position, as the standings): the bots keep progressOf, which they are tuned on
-      progress: (car.lapCount ?? 0) * this.ctx.trackIndex.spineLen + rankPosition(this.ctx.trackIndex, this.cellMap.get(car.cellId)!),
+      progress:
+        (car.lapCount ?? 0) * this.ctx.trackIndex.spineLen +
+        rankPosition(this.ctx.trackIndex, this.cellMap.get(car.cellId)!),
       fwd: this.cellMap.get(car.cellId)?.forwardIndex ?? -1,
       tire: car.tire,
       fuel: car.fuel,
@@ -665,16 +719,20 @@ export class RaceSession {
       activeCarId: this.activeCar.carId,
       canControl: this.localCanControl(),
       cars: ordered.map((car) => this.hudCar(car)),
-      ...(this.sandbox ? { sandbox: this.editing ? ("edit" as const) : ("play" as const) } : {}),
+      ...(this.sandbox ? { sandbox: this.editing ? ('edit' as const) : ('play' as const) } : {}),
       boxedIn: [...this.validTargets.values()].some((t) => t.squeezePassed !== undefined),
-      pitExitBlocked: this.cellMap.get(this.activeCar.cellId)?.tags?.includes("PIT_EXIT") ?? false,
+      pitExitBlocked: this.cellMap.get(this.activeCar.cellId)?.tags?.includes('PIT_EXIT') ?? false,
       hover:
         hoverCell && target && view.showCarsAndMoves
           ? this.targetHud(hoverCell, target, view.cellScreenPos(hoverCell.id))
           : null,
       selection,
       debugText: view.showForwardIndex ? this.makeHudText(hoverCell) : null,
-      log: this.logLines.map(({ text, kind, carId }) => ({ text, kind, mine: carId !== undefined && carId === mine?.carId }))
+      log: this.logLines.map(({ text, kind, carId }) => ({
+        text,
+        kind,
+        mine: carId !== undefined && carId === mine?.carId
+      }))
     };
   }
 
@@ -685,15 +743,17 @@ export class RaceSession {
         `Lap: ${lapInProgress(this.activeCar.lapCount, this.raceLaps)}/${this.raceLaps}`,
         `Tire: ${this.activeCar.tire}%`,
         `Fuel: ${this.activeCar.fuel}%`
-      ].join("\n");
-      return [activeStatus, `${HUD_LABELS.validTargetsPrefix} ${this.validTargets.size}`].join("\n");
+      ].join('\n');
+      return [activeStatus, `${HUD_LABELS.validTargetsPrefix} ${this.validTargets.size}`].join(
+        '\n'
+      );
     }
 
-    const tags = (cell.tags ?? []).join(", ") || HUD_LABELS.noneTags;
+    const tags = (cell.tags ?? []).join(', ') || HUD_LABELS.noneTags;
     const targetInfo = this.validTargets.get(cell.id);
     const factors = targetInfo ? this.computeCostFactors(cell.laneIndex) : null;
     const targetLine = targetInfo
-      ? `${HUD_LABELS.targetPrefix} d${targetInfo.distance}  tire-${targetInfo.tireCost}  fuel-${targetInfo.fuelCost}${targetInfo.isPitTrigger ? "  PIT" : ""}`
+      ? `${HUD_LABELS.targetPrefix} d${targetInfo.distance}  tire-${targetInfo.tireCost}  fuel-${targetInfo.fuelCost}${targetInfo.isPitTrigger ? '  PIT' : ''}`
       : null;
     const factorLine = factors
       ? `${HUD_LABELS.factorsPrefix} aeroT x${factors.aeroT.toFixed(2)}  aeroF x${factors.aeroF.toFixed(2)}  psi x${factors.psi.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
@@ -707,7 +767,7 @@ export class RaceSession {
       ...(targetLine ? [targetLine] : []),
       ...(factorLine ? [factorLine] : []),
       `${HUD_LABELS.validTargetsPrefix} ${this.validTargets.size}`
-    ].join("\n");
+    ].join('\n');
   }
 
   private computeCostFactors(laneIndex: number) {
@@ -759,7 +819,7 @@ export class RaceSession {
         budgetLeft: budgetLeftOf(car),
         draftTurns: car.draftTurns ?? 0,
         isBot: car.isBot,
-        botLevel: car.botLevel ?? "normal"
+        botLevel: car.botLevel ?? 'normal'
       }
     };
   }
@@ -791,7 +851,7 @@ export class RaceSession {
   setEditing(editing: boolean) {
     this.editing = editing;
     this.selectedCellId = null;
-    this.addLog(editing ? "Sandbox: editing." : "Sandbox: playing from here.");
+    this.addLog(editing ? 'Sandbox: editing.' : 'Sandbox: playing from here.');
     this.resetFeel();
   }
 
@@ -801,10 +861,10 @@ export class RaceSession {
     try {
       snapshot = JSON.parse(text);
     } catch {
-      this.addLog("Load refused: not JSON.");
+      this.addLog('Load refused: not JSON.');
       return;
     }
     const refused = restorePosition(this.ctx, this.race, snapshot);
-    this.addLog(refused ? `Load refused: ${refused}` : "Position loaded.");
+    this.addLog(refused ? `Load refused: ${refused}` : 'Position loaded.');
   }
 }

@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { trackSchema } from "./trackSchema";
+import { describe, expect, it } from 'vitest';
+import { trackSchema } from './trackSchema';
 
 const baseCell = {
-  id: "A0",
+  id: 'A0',
   zoneIndex: 1,
   laneIndex: 0,
   forwardIndex: 0,
@@ -11,14 +11,14 @@ const baseCell = {
 };
 
 const baseTrack = {
-  trackId: "test-track",
+  trackId: 'test-track',
   zones: 1,
   lanes: 1,
   cells: [baseCell]
 };
 
-describe("trackSchema forwardIndex", () => {
-  it("fails when forwardIndex is missing", () => {
+describe('trackSchema forwardIndex', () => {
+  it('fails when forwardIndex is missing', () => {
     const cell = { ...baseCell };
     // @ts-expect-error intentional omission for test
     delete cell.forwardIndex;
@@ -26,7 +26,7 @@ describe("trackSchema forwardIndex", () => {
     expect(res.success).toBe(false);
   });
 
-  it("passes when forwardIndex is present", () => {
+  it('passes when forwardIndex is present', () => {
     const res = trackSchema.safeParse(baseTrack);
     expect(res.success).toBe(true);
   });

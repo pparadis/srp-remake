@@ -1,11 +1,11 @@
 // Bot difficulty; one level applies to every bot in a race.
-export const BOT_LEVELS = ["easy", "normal", "hard"] as const;
+export const BOT_LEVELS = ['easy', 'normal', 'hard'] as const;
 export type BotLevel = (typeof BOT_LEVELS)[number];
 
-type CarState = "ACTIVE" | "PITTING" | "WAITING" | "DNF";
+type CarState = 'ACTIVE' | 'PITTING' | 'WAITING' | 'DNF';
 
 export interface CarSetup {
-  compound: "soft" | "hard";
+  compound: 'soft' | 'hard';
   psi: {
     fl: number;
     fr: number;
@@ -15,8 +15,8 @@ export interface CarSetup {
   wing: WingLevel;
 }
 
-import type { WingLevel } from "../constants";
-import type { MoveCycle } from "../systems/moveBudgetSystem";
+import type { WingLevel } from '../constants';
+import type { MoveCycle } from '../systems/moveBudgetSystem';
 
 export interface Car {
   carId: number;

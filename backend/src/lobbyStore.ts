@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from 'node:crypto';
 import {
   activeSeatIndex,
   applyAction,
@@ -7,11 +7,11 @@ import {
   getActiveCar,
   type ApplyResult,
   type BotTurnDecision
-} from "../../src/game/race/raceEngine";
-import { normalizeChatText } from "../../src/game/chatText";
-import { MAX_SEED, normalizeSeed } from "../../src/game/systems/botStyle";
-import type { BotPolicy } from "../../src/game/systems/botSystem";
-import { getRaceContext, knownTrackIds } from "./tracks.js";
+} from '../../src/game/race/raceEngine';
+import { normalizeChatText } from '../../src/game/chatText';
+import { MAX_SEED, normalizeSeed } from '../../src/game/systems/botStyle';
+import type { BotPolicy } from '../../src/game/systems/botSystem';
+import { getRaceContext, knownTrackIds } from './tracks.js';
 import type {
   ChatMessage,
   Lobby,
@@ -25,21 +25,21 @@ import type {
   LobbyTerminationReason,
   PublicLobby,
   PublicLobbyPlayer
-} from "./types.js";
-import { BOT_LEVEL_CHOICES, TURN_TIMER_CHOICES } from "./types.js";
+} from './types.js';
+import { BOT_LEVEL_CHOICES, TURN_TIMER_CHOICES } from './types.js';
 
 // Messages a lobby keeps (and a socket gets on connect), and the pause a player needs between two.
 export const CHAT_HISTORY = 50;
 const CHAT_INTERVAL_MS = 1000;
 
 const DEFAULT_SETTINGS: LobbySettings = {
-  trackId: "oval16_3lanes",
+  trackId: 'oval16_3lanes',
   totalCars: 4,
   humanCars: 1,
   botCars: 3,
   raceLaps: 5,
   turnTimerSec: 60,
-  botLevel: "normal"
+  botLevel: 'normal'
 };
 
 function clampInt(value: number, min: number, max: number): number {
@@ -52,7 +52,10 @@ function normalizeSettings(
 ): LobbySettings {
   const trackId = input?.trackId?.trim() || base.trackId;
   if (!getRaceContext(trackId)) {
-    throw new LobbyError(400, `Unknown trackId "${trackId}" (available: ${knownTrackIds().join(", ")}).`);
+    throw new LobbyError(
+      400,
+      `Unknown trackId "${trackId}" (available: ${knownTrackIds().join(', ')}).`
+    );
   }
   let humanCars = clampInt(input?.humanCars ?? base.humanCars, 0, 11);
   let botCars = clampInt(input?.botCars ?? base.botCars, 0, 11);
@@ -71,12 +74,12 @@ function normalizeSettings(
   const requestedTimer = input?.turnTimerSec ?? base.turnTimerSec;
   const turnTimerSec = TURN_TIMER_CHOICES.find((choice) => choice === requestedTimer);
   if (turnTimerSec === undefined) {
-    throw new LobbyError(400, `turnTimerSec must be one of ${TURN_TIMER_CHOICES.join(", ")}.`);
+    throw new LobbyError(400, `turnTimerSec must be one of ${TURN_TIMER_CHOICES.join(', ')}.`);
   }
   const requestedLevel = input?.botLevel ?? base.botLevel;
   const botLevel = BOT_LEVEL_CHOICES.find((choice) => choice === requestedLevel);
   if (botLevel === undefined) {
-    throw new LobbyError(400, `botLevel must be one of ${BOT_LEVEL_CHOICES.join(", ")}.`);
+    throw new LobbyError(400, `botLevel must be one of ${BOT_LEVEL_CHOICES.join(', ')}.`);
   }
   return { trackId, totalCars, humanCars, botCars, raceLaps, turnTimerSec, botLevel };
 }
@@ -95,7 +98,7 @@ function toPublicPlayer(player: LobbyPlayer): PublicLobbyPlayer {
 // BOT_SEED pins it (tests, e2e, reproducing a race).
 function newRaceSeed(): number {
   const pinned = process.env.BOT_SEED;
-  return pinned !== undefined && pinned !== "" ? normalizeSeed(pinned) : randomInt(1, MAX_SEED);
+  return pinned !== undefined && pinned !== '' ? normalizeSeed(pinned) : randomInt(1, MAX_SEED);
 }
 
 function toPublicRaceState(lobby: Lobby): RaceState | undefined {
@@ -185,7 +188,7 @@ export class LobbyStore {
     for (let seat = 0; seat < lobby.settings.humanCars; seat += 1) {
       if (!used.has(seat)) return seat;
     }
-    throw new LobbyError(409, "No human seats remaining in lobby settings.");
+    throw new LobbyError(409, 'No human seats remaining in lobby settings.');
   }
 
   private buildInitialRace(lobby: Lobby): ServerRace {
@@ -199,15 +202,18 @@ export class LobbyStore {
     }
 
     let botCounter = 0;
-    const seats = Array.from({ length: lobby.settings.totalCars }, (_seat, seatIndex): RaceSeatInfo => {
-      const player = playersBySeat.get(seatIndex);
-      if (!player) botCounter += 1;
-      return {
-        seatIndex,
-        playerId: player?.playerId ?? null,
-        name: player?.name ?? `Bot ${botCounter}`
-      };
-    });
+    const seats = Array.from(
+      { length: lobby.settings.totalCars },
+      (_seat, seatIndex): RaceSeatInfo => {
+        const player = playersBySeat.get(seatIndex);
+        if (!player) botCounter += 1;
+        return {
+          seatIndex,
+          playerId: player?.playerId ?? null,
+          name: player?.name ?? `Bot ${botCounter}`
+        };
+      }
+    );
 
     const engine = createRace(
       ctx,
@@ -236,17 +242,17 @@ export class LobbyStore {
     rawSettings?: Partial<LobbySettings>
   ): { lobby: Lobby; host: LobbyPlayer } {
     if (this.lobbies.size >= this.maxLobbies) {
-      throw new LobbyError(503, "Server is full");
+      throw new LobbyError(503, 'Server is full');
     }
     const trimmedName = hostName.trim();
     if (trimmedName.length === 0) {
-      throw new LobbyError(400, "Host name is required.");
+      throw new LobbyError(400, 'Host name is required.');
     }
 
     const now = Date.now();
     const settings = normalizeSettings(rawSettings);
     if (settings.humanCars < 1) {
-      throw new LobbyError(400, "humanCars must be >= 1 for a host seat.");
+      throw new LobbyError(400, 'humanCars must be >= 1 for a host seat.');
     }
 
     const lobbyId = randomUUID();
@@ -263,7 +269,7 @@ export class LobbyStore {
 
     const lobby: Lobby = {
       lobbyId,
-      status: "WAITING",
+      status: 'WAITING',
       hostPlayerId: host.playerId,
       createdAt: now,
       updatedAt: now,
@@ -287,7 +293,7 @@ export class LobbyStore {
     if (playerToken) {
       const existing = this.findPlayerByToken(lobby, playerToken);
       if (!existing) {
-        throw new LobbyError(401, "Invalid player token for this lobby.");
+        throw new LobbyError(401, 'Invalid player token for this lobby.');
       }
       existing.connected = true;
       if (name?.trim()) {
@@ -297,18 +303,18 @@ export class LobbyStore {
       return { lobby, player: existing, isReconnect: true };
     }
 
-    if (lobby.status !== "WAITING") {
-      throw new LobbyError(409, "New players can only join while lobby is waiting.");
+    if (lobby.status !== 'WAITING') {
+      throw new LobbyError(409, 'New players can only join while lobby is waiting.');
     }
 
-    const trimmedName = name?.trim() ?? "";
+    const trimmedName = name?.trim() ?? '';
     if (trimmedName.length === 0) {
-      throw new LobbyError(400, "Player name is required for a new join.");
+      throw new LobbyError(400, 'Player name is required for a new join.');
     }
 
     const playerCount = lobby.players.length;
     if (playerCount >= lobby.settings.humanCars) {
-      throw new LobbyError(409, "Lobby human seats are full.");
+      throw new LobbyError(409, 'Lobby human seats are full.');
     }
 
     const player: LobbyPlayer = {
@@ -335,7 +341,7 @@ export class LobbyStore {
     const lobby = this.getLobbyOrThrow(lobbyId);
     const player = this.findPlayerByToken(lobby, playerToken);
     if (!player) {
-      throw new LobbyError(401, "Invalid player token for this lobby.");
+      throw new LobbyError(401, 'Invalid player token for this lobby.');
     }
     player.connected = connected;
     lobby.updatedAt = Date.now();
@@ -348,15 +354,18 @@ export class LobbyStore {
     const lobby = this.getLobbyOrThrow(lobbyId);
     const player = this.findPlayerByToken(lobby, playerToken);
     if (!player) {
-      throw new LobbyError(401, "Invalid player token for this lobby.");
+      throw new LobbyError(401, 'Invalid player token for this lobby.');
     }
     const normalized = normalizeChatText(rawText);
     if (!normalized.ok) {
-      throw new LobbyError(400, normalized.reason === "empty" ? "Chat message is empty." : "Chat message is too long.");
+      throw new LobbyError(
+        400,
+        normalized.reason === 'empty' ? 'Chat message is empty.' : 'Chat message is too long.'
+      );
     }
     const now = Date.now();
     if (player.lastChatAt !== undefined && now - player.lastChatAt < CHAT_INTERVAL_MS) {
-      throw new LobbyError(429, "One chat message a second.");
+      throw new LobbyError(429, 'One chat message a second.');
     }
 
     player.lastChatAt = now;
@@ -375,24 +384,24 @@ export class LobbyStore {
 
   updateSettings(lobbyId: string, hostToken: string, patch: Partial<LobbySettings>): Lobby {
     const lobby = this.getLobbyOrThrow(lobbyId);
-    if (lobby.status !== "WAITING") {
-      throw new LobbyError(409, "Cannot update settings after race start.");
+    if (lobby.status !== 'WAITING') {
+      throw new LobbyError(409, 'Cannot update settings after race start.');
     }
 
     const host = this.findPlayerByToken(lobby, hostToken);
     if (!host) {
-      throw new LobbyError(401, "Invalid player token for this lobby.");
+      throw new LobbyError(401, 'Invalid player token for this lobby.');
     }
     if (!host.isHost) {
-      throw new LobbyError(403, "Only host can update lobby settings.");
+      throw new LobbyError(403, 'Only host can update lobby settings.');
     }
 
     const nextSettings = normalizeSettings(patch, lobby.settings);
     if (lobby.players.length > nextSettings.humanCars) {
-      throw new LobbyError(409, "Cannot set humanCars below current connected/joined players.");
+      throw new LobbyError(409, 'Cannot set humanCars below current connected/joined players.');
     }
     if (nextSettings.totalCars < lobby.players.length) {
-      throw new LobbyError(409, "Cannot set totalCars below current player count.");
+      throw new LobbyError(409, 'Cannot set totalCars below current player count.');
     }
 
     lobby.settings = nextSettings;
@@ -402,19 +411,19 @@ export class LobbyStore {
 
   startRace(lobbyId: string, hostToken: string): Lobby {
     const lobby = this.getLobbyOrThrow(lobbyId);
-    if (lobby.status !== "WAITING") {
-      throw new LobbyError(409, "Race already started or finished.");
+    if (lobby.status !== 'WAITING') {
+      throw new LobbyError(409, 'Race already started or finished.');
     }
 
     const host = this.findPlayerByToken(lobby, hostToken);
     if (!host) {
-      throw new LobbyError(401, "Invalid player token for this lobby.");
+      throw new LobbyError(401, 'Invalid player token for this lobby.');
     }
     if (!host.isHost) {
-      throw new LobbyError(403, "Only host can start race.");
+      throw new LobbyError(403, 'Only host can start race.');
     }
 
-    lobby.status = "IN_RACE";
+    lobby.status = 'IN_RACE';
     lobby.revision = 0;
     lobby.race = this.buildInitialRace(lobby);
     lobby.updatedAt = Date.now();
@@ -425,22 +434,22 @@ export class LobbyStore {
   // players, tokens and settings intact. A terminated lobby stays dead.
   resetLobby(lobbyId: string, hostToken: string): Lobby {
     const lobby = this.getLobbyOrThrow(lobbyId);
-    if (lobby.status === "FINISHED" && lobby.terminationReason !== "race_finished") {
-      throw new LobbyError(409, "Lobby was closed and cannot be reset.");
+    if (lobby.status === 'FINISHED' && lobby.terminationReason !== 'race_finished') {
+      throw new LobbyError(409, 'Lobby was closed and cannot be reset.');
     }
-    if (lobby.status !== "FINISHED") {
-      throw new LobbyError(409, "Only a finished race can be reset.");
+    if (lobby.status !== 'FINISHED') {
+      throw new LobbyError(409, 'Only a finished race can be reset.');
     }
 
     const host = this.findPlayerByToken(lobby, hostToken);
     if (!host) {
-      throw new LobbyError(401, "Invalid player token for this lobby.");
+      throw new LobbyError(401, 'Invalid player token for this lobby.');
     }
     if (!host.isHost) {
-      throw new LobbyError(403, "Only host can reset the lobby.");
+      throw new LobbyError(403, 'Only host can reset the lobby.');
     }
 
-    lobby.status = "WAITING";
+    lobby.status = 'WAITING';
     delete lobby.race;
     delete lobby.terminationReason;
     lobby.revision += 1;
@@ -479,17 +488,17 @@ export class LobbyStore {
     const race = lobby.race;
     const ctx = getRaceContext(lobby.settings.trackId);
     if (!race || !ctx) {
-      throw new LobbyError(409, "Race state not initialized.");
+      throw new LobbyError(409, 'Race state not initialized.');
     }
 
     const result = applyAction(ctx, race.engine, action);
     if (!result.ok) return result;
 
     // A grid setup is not a turn: the same car plays on, and the turn timer keeps running.
-    if (action.type !== "setup") race.turnIndex += 1;
+    if (action.type !== 'setup') race.turnIndex += 1;
     if (race.engine.winnerCarId !== null) {
-      lobby.status = "FINISHED";
-      lobby.terminationReason = "race_finished";
+      lobby.status = 'FINISHED';
+      lobby.terminationReason = 'race_finished';
     }
     lobby.updatedAt = Date.now();
     return result;
@@ -500,14 +509,14 @@ export class LobbyStore {
     const lobby = this.getLobbyOrThrow(lobbyId);
     const ctx = getRaceContext(lobby.settings.trackId);
     if (!lobby.race || !ctx) {
-      throw new LobbyError(409, "Race state not initialized.");
+      throw new LobbyError(409, 'Race state not initialized.');
     }
     return decideBotAction(ctx, lobby.race.engine, policy);
   }
 
   terminateLobby(lobbyId: string, reason: LobbyTerminationReason): Lobby {
     const lobby = this.getLobbyOrThrow(lobbyId);
-    lobby.status = "FINISHED";
+    lobby.status = 'FINISHED';
     lobby.terminationReason = reason;
     for (const player of lobby.players) {
       player.tokenRevoked = true;

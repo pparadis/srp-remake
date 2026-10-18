@@ -1,5 +1,5 @@
-import type Phaser from "phaser";
-import { makeButton } from "./makeButton";
+import type Phaser from 'phaser';
+import { makeButton } from './makeButton';
 
 interface DebugButtonsCallbacks {
   onCopyDebug: () => void;
@@ -12,11 +12,11 @@ export class DebugButtons {
 
   constructor(scene: Phaser.Scene, callbacks: DebugButtonsCallbacks) {
     const make = (label: string, onClick: () => void) =>
-      makeButton(scene, label, { fontSize: "14px", originX: 0, originY: 1, onClick });
+      makeButton(scene, label, { fontSize: '14px', originX: 0, originY: 1, onClick });
     this.buttons = [
-      make("Copy debug", callbacks.onCopyDebug),
-      make("Copy bot debug", callbacks.onCopyBotDebug),
-      make("Copy bot debug short", callbacks.onCopyBotDebugShort)
+      make('Copy debug', callbacks.onCopyDebug),
+      make('Copy bot debug', callbacks.onCopyBotDebug),
+      make('Copy bot debug short', callbacks.onCopyBotDebugShort)
     ];
   }
 

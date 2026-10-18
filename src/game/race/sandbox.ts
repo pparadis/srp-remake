@@ -1,8 +1,13 @@
-import { MOVE_CYCLE, WING_LEVELS, type WingLevel } from "../constants";
-import { DEFAULT_RULES_VERSION } from "../rules/versions";
-import { createMoveCycle, cycleBudget, getRemainingBudget, type MoveCycle } from "../systems/moveBudgetSystem";
-import type { BotLevel, Car } from "../types/car";
-import { computeTargets, getActiveCar, type RaceContext, type RaceState } from "./raceEngine";
+import { MOVE_CYCLE, WING_LEVELS, type WingLevel } from '../constants';
+import { DEFAULT_RULES_VERSION } from '../rules/versions';
+import {
+  createMoveCycle,
+  cycleBudget,
+  getRemainingBudget,
+  type MoveCycle
+} from '../systems/moveBudgetSystem';
+import type { BotLevel, Car } from '../types/car';
+import { computeTargets, getActiveCar, type RaceContext, type RaceState } from './raceEngine';
 
 // Sandbox (`?sandbox`): edit a race state by hand, no rules. Everything here writes state the engine already reads.
 
@@ -11,7 +16,7 @@ export interface CarEdit {
   lapCount?: number;
   tire?: number;
   fuel?: number;
-  compound?: "soft" | "hard";
+  compound?: 'soft' | 'hard';
   wing?: WingLevel;
   /** Move points left in the cycle (0..the car's cycle budget); a turn can spend at most min(9, this). */
   budgetLeft?: number;
@@ -36,7 +41,12 @@ export function cycleWithBudgetLeft(left: number, total: number = MOVE_CYCLE.bud
 }
 
 /** Applies an edit to a car. Returns why it was refused, or null when applied (nothing changes on a refusal). */
-export function editCar(ctx: RaceContext, state: RaceState, carId: number, edit: CarEdit): string | null {
+export function editCar(
+  ctx: RaceContext,
+  state: RaceState,
+  carId: number,
+  edit: CarEdit
+): string | null {
   const car = state.cars.find((c) => c.carId === carId);
   if (!car) return `No car ${carId}.`;
   if (edit.cellId !== undefined) {
@@ -51,11 +61,13 @@ export function editCar(ctx: RaceContext, state: RaceState, carId: number, edit:
   if (edit.compound !== undefined) car.setup = { ...car.setup, compound: edit.compound };
   if (edit.wing !== undefined) car.setup = { ...car.setup, wing: edit.wing };
   if (edit.draftTurns !== undefined) car.draftTurns = clamp(edit.draftTurns, 0, 9);
-  if (edit.budgetLeft !== undefined) car.moveCycle = cycleWithBudgetLeft(edit.budgetLeft, cycleBudget(car.setup));
+  if (edit.budgetLeft !== undefined) {
+    car.moveCycle = cycleWithBudgetLeft(edit.budgetLeft, cycleBudget(car.setup));
+  }
   if (edit.isBot !== undefined && edit.isBot !== car.isBot) {
     car.isBot = edit.isBot;
-    car.ownerId = `${edit.isBot ? "BOT" : "P"}${car.carId}`;
-    if (edit.isBot) car.botLevel = edit.botLevel ?? "normal";
+    car.ownerId = `${edit.isBot ? 'BOT' : 'P'}${car.carId}`;
+    if (edit.isBot) car.botLevel = edit.botLevel ?? 'normal';
     else delete car.botLevel;
   } else if (edit.botLevel !== undefined && car.isBot) {
     car.botLevel = edit.botLevel;
@@ -64,7 +76,12 @@ export function editCar(ctx: RaceContext, state: RaceState, carId: number, edit:
 }
 
 /** Drops a car on a cell: a free cell moves it there, a cell held by another car swaps their places. */
-export function placeCar(ctx: RaceContext, state: RaceState, carId: number, cellId: string): string | null {
+export function placeCar(
+  ctx: RaceContext,
+  state: RaceState,
+  carId: number,
+  cellId: string
+): string | null {
   const car = state.cars.find((c) => c.carId === carId);
   const other = state.cars.find((c) => c.carId !== carId && c.cellId === cellId);
   if (!car) return `No car ${carId}.`;
@@ -88,37 +105,51 @@ interface SnapshotCar {
   isBot: boolean;
   botLevel?: BotLevel;
   lapCount: number;
-  state: Car["state"];
+  state: Car['state'];
   tire: number;
   fuel: number;
   pitTurnsRemaining: number;
   pitExitBoost: boolean;
   pitServiced: boolean;
-  setup: Car["setup"];
+  setup: Car['setup'];
   budgetLeft?: number;
   draftTurns?: number;
 }
 
 // A position saved before the wing had levels carries two angles and no `wing`: it loads as Medium.
-export function normalizeSetup(setup: Car["setup"]): Car["setup"] {
-  const { wingFrontDeg: _front, wingRearDeg: _rear, ...rest } = setup as Car["setup"] & {
+export function normalizeSetup(setup: Car['setup']): Car['setup'] {
+  const {
+    wingFrontDeg: _front,
+    wingRearDeg: _rear,
+    ...rest
+  } = setup as Car['setup'] & {
     wingFrontDeg?: number;
     wingRearDeg?: number;
   };
-  return { ...rest, wing: WING_LEVELS.includes(rest.wing) ? rest.wing : "medium" };
+  return { ...rest, wing: WING_LEVELS.includes(rest.wing) ? rest.wing : 'medium' };
 }
 
 /**
  * Puts the cars and the active car of a "Copy debug" snapshot back. All or nothing: returns why it was refused
  * (different car count, unknown or shared cell), or null when applied.
  */
-export function restorePosition(ctx: RaceContext, state: RaceState, snapshot: unknown): string | null {
-  const snap = snapshot as { cars?: SnapshotCar[]; activeCarId?: number; rulesVersion?: string } | null;
-  if (!snap || !Array.isArray(snap.cars)) return "Not a debug snapshot (no cars).";
+export function restorePosition(
+  ctx: RaceContext,
+  state: RaceState,
+  snapshot: unknown
+): string | null {
+  const snap = snapshot as {
+    cars?: SnapshotCar[];
+    activeCarId?: number;
+    rulesVersion?: string;
+  } | null;
+  if (!snap || !Array.isArray(snap.cars)) return 'Not a debug snapshot (no cars).';
   // A snapshot without a version is from before versions existed: it plays the default.
   const snapRules = snap.rulesVersion ?? DEFAULT_RULES_VERSION;
   const raceRules = state.rulesVersion ?? DEFAULT_RULES_VERSION;
-  if (snapRules !== raceRules) return `The snapshot is from rules ${snapRules}, this race plays ${raceRules}: pick them under Rules.`;
+  if (snapRules !== raceRules) {
+    return `The snapshot is from rules ${snapRules}, this race plays ${raceRules}: pick them under Rules.`;
+  }
   if (snap.cars.length !== state.cars.length) {
     return `The snapshot has ${snap.cars.length} cars, this race has ${state.cars.length}.`;
   }
@@ -142,9 +173,15 @@ export function restorePosition(ctx: RaceContext, state: RaceState, snapshot: un
       pitServiced: sc.pitServiced,
       setup: normalizeSetup(sc.setup),
       ...(sc.draftTurns !== undefined ? { draftTurns: sc.draftTurns } : {}),
-      moveCycle: cycleWithBudgetLeft(sc.budgetLeft ?? cycleBudget(normalizeSetup(sc.setup)), cycleBudget(normalizeSetup(sc.setup)))
+      moveCycle: cycleWithBudgetLeft(
+        sc.budgetLeft ?? cycleBudget(normalizeSetup(sc.setup)),
+        cycleBudget(normalizeSetup(sc.setup))
+      )
     });
-    editCar(ctx, state, car.carId, { isBot: sc.isBot, ...(sc.botLevel ? { botLevel: sc.botLevel } : {}) });
+    editCar(ctx, state, car.carId, {
+      isBot: sc.isBot,
+      ...(sc.botLevel ? { botLevel: sc.botLevel } : {})
+    });
   }
   if (snap.activeCarId !== undefined) setActiveCar(state, snap.activeCarId);
   return null;
@@ -161,7 +198,9 @@ export function budgetLeftOf(car: Car) {
  */
 export function positionAsTest(ctx: RaceContext, state: RaceState): string {
   const car = getActiveCar(state);
-  const offered = [...computeTargets(ctx, state, car)].map(([id, t]) => `    ${JSON.stringify(id)}: ${t.moveSpend ?? t.distance},`);
+  const offered = [...computeTargets(ctx, state, car)].map(
+    ([id, t]) => `    ${JSON.stringify(id)}: ${t.moveSpend ?? t.distance},`
+  );
   const literal = JSON.stringify(state, null, 2);
   return `import { describe, expect, it } from "vitest";
 import track from "../../../public/tracks/${ctx.track.trackId}.json";
@@ -178,7 +217,7 @@ describe("sandbox position", () => {
     const offered = Object.fromEntries([...targets].map(([id, t]) => [id, t.moveSpend ?? t.distance]));
     // Edit the entry you believe is wrong: that is the failing test.
     expect(offered).toEqual({
-${offered.join("\n")}
+${offered.join('\n')}
     });
   });
 });

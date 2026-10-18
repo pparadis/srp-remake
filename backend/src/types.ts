@@ -1,11 +1,15 @@
-import type { RaceAction, RaceState as EngineRaceState, RejectReason } from "../../src/game/race/raceEngine";
-import { BOT_LEVELS, type BotLevel, type Car } from "../../src/game/types/car";
+import type {
+  RaceAction,
+  RaceState as EngineRaceState,
+  RejectReason
+} from '../../src/game/race/raceEngine';
+import { BOT_LEVELS, type BotLevel, type Car } from '../../src/game/types/car';
 
 export const TURN_TIMER_CHOICES = [0, 30, 60, 120] as const;
 export type TurnTimerSec = (typeof TURN_TIMER_CHOICES)[number];
 
-type LobbyStatus = "WAITING" | "IN_RACE" | "FINISHED";
-export type LobbyTerminationReason = "host_disconnected" | "race_finished";
+type LobbyStatus = 'WAITING' | 'IN_RACE' | 'FINISHED';
+export type LobbyTerminationReason = 'host_disconnected' | 'race_finished';
 
 // A car as the server reports it: the engine's Car plus who drives it.
 export interface RaceSeatInfo {
@@ -131,7 +135,7 @@ export type TurnCommandResult =
       playerId: string;
       clientCommandId: string;
       revision: number;
-      error: "stale_revision" | "lobby_not_in_race" | "not_active_player" | "invalid_action";
+      error: 'stale_revision' | 'lobby_not_in_race' | 'not_active_player' | 'invalid_action';
       // Why the race engine refused an `invalid_action`.
       reason?: RejectReason;
     };

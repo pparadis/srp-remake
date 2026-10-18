@@ -1,5 +1,5 @@
-import { execSync } from "node:child_process";
-import { z } from "zod";
+import { execSync } from 'node:child_process';
+import { z } from 'zod';
 
 export const DEFAULT_HOST_GRACE_SECONDS = 45;
 export const DEFAULT_LOBBY_IDLE_SECONDS = 3600;
@@ -8,15 +8,15 @@ export const DEFAULT_MAX_LOBBIES = 1000;
 // "true" | "false" | a hop count, as Fastify's `trustProxy` takes it.
 const trustProxy = z
   .string()
-  .regex(/^(true|false|\d+)$/, "TRUST_PROXY must be true, false or a hop count")
+  .regex(/^(true|false|\d+)$/, 'TRUST_PROXY must be true, false or a hop count')
   .transform((value): boolean | number =>
-    value === "true" ? true : value === "false" ? false : Number(value)
+    value === 'true' ? true : value === 'false' ? false : Number(value)
   );
 
 const configSchema = z.object({
-  HOST: z.string().default("0.0.0.0"),
+  HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(3001),
-  CORS_ALLOWED_ORIGINS: z.string().default("*"),
+  CORS_ALLOWED_ORIGINS: z.string().default('*'),
   PLAYER_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
   // How long a lobby survives its host's last socket closing (a page reload) before it ends.
   HOST_GRACE_SECONDS: z.coerce.number().positive().default(DEFAULT_HOST_GRACE_SECONDS),
@@ -29,9 +29,9 @@ const configSchema = z.object({
   TRUST_PROXY: trustProxy.default(false),
   // Per-IP rate limit. Tests switch it off; a partial test config (field absent) is also off.
   RATE_LIMIT_ENABLED: z
-    .enum(["true", "false"])
-    .default("true")
-    .transform((value) => value === "true"),
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   // Test-only: multiplies turn-timer lengths (0.05 makes "30 s" last 1.5 s).
   TURN_TIMER_TIME_SCALE: z.coerce.number().positive().default(1),
   // The commit this server runs, reported by /health (the web page shows it next to its own).
@@ -47,9 +47,11 @@ function currentCommit(env: ProcessEnv): string {
   const fromEnv = env.GIT_SHA || env.RENDER_GIT_COMMIT;
   if (fromEnv) return fromEnv;
   try {
-    return execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
   } catch {
-    return "unknown";
+    return 'unknown';
   }
 }
 

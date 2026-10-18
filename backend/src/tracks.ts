@@ -1,6 +1,6 @@
-import oval16 from "../../public/tracks/oval16_3lanes.json";
-import { createRaceContext, type RaceContext } from "../../src/game/race/raceEngine";
-import type { TrackData } from "../../src/game/types/track";
+import oval16 from '../../public/tracks/oval16_3lanes.json';
+import { createRaceContext, type RaceContext } from '../../src/game/race/raceEngine';
+import type { TrackData } from '../../src/game/types/track';
 
 // Tracks the server can race on, keyed by lobby `settings.trackId`.
 const TRACKS: Record<string, TrackData> = {

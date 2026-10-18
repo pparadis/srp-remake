@@ -1,6 +1,6 @@
-import type Phaser from "phaser";
-import { describe, expect, it, vi } from "vitest";
-import { applyCarsMovesVisibility } from "./carsMovesVisibility";
+import type Phaser from 'phaser';
+import { describe, expect, it, vi } from 'vitest';
+import { applyCarsMovesVisibility } from './carsMovesVisibility';
 
 function makeToken(setVisible: ReturnType<typeof vi.fn>): Phaser.GameObjects.Container {
   return {
@@ -14,8 +14,8 @@ function makeHalo(setVisible: ReturnType<typeof vi.fn>): Phaser.GameObjects.Elli
   } as unknown as Phaser.GameObjects.Ellipse;
 }
 
-describe("applyCarsMovesVisibility", () => {
-  it("hides cars and move markers when toggle is off", () => {
+describe('applyCarsMovesVisibility', () => {
+  it('hides cars and move markers when toggle is off', () => {
     const stop = vi.fn();
     const clearTargets = vi.fn();
     const setActiveHaloTween = vi.fn();
@@ -62,7 +62,7 @@ describe("applyCarsMovesVisibility", () => {
     expect(drawTargets).not.toHaveBeenCalled();
   });
 
-  it("shows cars and redraws targets when toggle is on", () => {
+  it('shows cars and redraws targets when toggle is on', () => {
     const clearTargets = vi.fn();
     const tokenAVisible = vi.fn();
     const tokenBVisible = vi.fn();

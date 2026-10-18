@@ -1,13 +1,13 @@
-import type { Car } from "../../types/car";
-import type { TargetInfo } from "../../systems/movementSystem";
-import type { BotDecisionTrace } from "../../systems/botSystem";
+import type { Car } from '../../types/car';
+import type { TargetInfo } from '../../systems/movementSystem';
+import type { BotDecisionTrace } from '../../systems/botSystem';
 
 export interface BotDecisionLogEntry {
   seq: number;
   turnIndex: number;
   carId: number;
   fromCellId: string;
-  state: Car["state"];
+  state: Car['state'];
   tire: number;
   fuel: number;
   pitServiced: boolean;
@@ -21,7 +21,7 @@ export interface BotDecisionLogEntry {
     laneChanges?: number;
   }>;
   action: {
-    type: "skip" | "pit" | "move";
+    type: 'skip' | 'pit' | 'move';
     targetCellId?: string;
     moveSpend?: number;
     note?: string;
@@ -41,10 +41,10 @@ export interface BotDecisionLogEntry {
   } | null;
 }
 
-type BotDecisionShortLogEntry = Omit<BotDecisionLogEntry, "validTargets" | "trace">;
+type BotDecisionShortLogEntry = Omit<BotDecisionLogEntry, 'validTargets' | 'trace'>;
 type BotDecisionAppendEntry = Omit<
   BotDecisionLogEntry,
-  "seq" | "turnIndex" | "carId" | "fromCellId" | "state" | "tire" | "fuel" | "pitServiced"
+  'seq' | 'turnIndex' | 'carId' | 'fromCellId' | 'state' | 'tire' | 'fuel' | 'pitServiced'
 >;
 
 interface BotDecisionSnapshot {
@@ -56,7 +56,9 @@ interface BotDecisionSnapshot {
   botDecisions: Array<BotDecisionLogEntry | BotDecisionShortLogEntry>;
 }
 
-export function serializeBotTargets(targets: Map<string, TargetInfo>): BotDecisionLogEntry["validTargets"] {
+export function serializeBotTargets(
+  targets: Map<string, TargetInfo>
+): BotDecisionLogEntry['validTargets'] {
   return Array.from(targets.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([cellId, info]) => ({
@@ -70,7 +72,7 @@ export function serializeBotTargets(targets: Map<string, TargetInfo>): BotDecisi
     }));
 }
 
-export function serializeBotTrace(trace: BotDecisionTrace | null): BotDecisionLogEntry["trace"] {
+export function serializeBotTrace(trace: BotDecisionTrace | null): BotDecisionLogEntry['trace'] {
   if (!trace) return null;
   return {
     lowResources: trace.lowResources,
@@ -92,7 +94,7 @@ export function appendBotDecisionEntry(
   logLimit: number,
   seq: number,
   turnIndex: number,
-  activeCar: Pick<Car, "carId" | "cellId" | "state" | "tire" | "fuel" | "pitServiced">,
+  activeCar: Pick<Car, 'carId' | 'cellId' | 'state' | 'tire' | 'fuel' | 'pitServiced'>,
   entry: BotDecisionAppendEntry,
   fromCellId?: string
 ): number {

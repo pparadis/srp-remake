@@ -1,13 +1,13 @@
-export const REG_TOTAL_CARS = "totalCars";
-export const REG_HUMAN_CARS = "humanCars";
-export const REG_BOT_CARS = "botCars";
-export const REG_RACE_LAPS = "raceLaps";
-export const REG_BOT_LEVEL = "botLevel";
-export const REG_SEED = "seed";
-export const REG_RULES_VERSION = "rulesVersion";
-export const REG_SANDBOX = "sandbox";
-export const REG_POSITION = "position";
-export const REG_ANIMATE = "animate";
+export const REG_TOTAL_CARS = 'totalCars';
+export const REG_HUMAN_CARS = 'humanCars';
+export const REG_BOT_CARS = 'botCars';
+export const REG_RACE_LAPS = 'raceLaps';
+export const REG_BOT_LEVEL = 'botLevel';
+export const REG_SEED = 'seed';
+export const REG_RULES_VERSION = 'rulesVersion';
+export const REG_SANDBOX = 'sandbox';
+export const REG_POSITION = 'position';
+export const REG_ANIMATE = 'animate';
 export const PIT_LANE = 0;
 export const MAIN_LANES = [1, 2, 3] as const;
 export const INNER_MAIN_LANE = MAIN_LANES[0];
@@ -32,7 +32,7 @@ export const SETUP_LIMITS = {
 export const MOVE_CYCLE = { moves: 5, budget: 40 } as const;
 // Downforce is a trade: Low is faster and wears the tires and the tank, High is slower and saves them.
 // `pace` is added to the cycle budget; `tire` / `fuel` multiply the per-cell wear (Medium = 1).
-export const WING_LEVELS = ["low", "medium", "high"] as const;
+export const WING_LEVELS = ['low', 'medium', 'high'] as const;
 export type WingLevel = (typeof WING_LEVELS)[number];
 export const WING_EFFECTS: Record<WingLevel, { pace: number; tire: number; fuel: number }> = {
   low: { pace: 1, tire: 1.6, fuel: 1.05 },

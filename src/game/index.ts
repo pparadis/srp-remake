@@ -1,10 +1,10 @@
-import Phaser from "phaser";
-import { BootScene } from "./scenes/BootScene";
-import { RaceScene } from "./scenes/RaceScene";
-import { keepCanvasBoundsFresh } from "./canvasBounds";
-import { keepGameSizeInSync } from "./gameSize";
-import { FRAME_RATES, TEST_FPS } from "./frameGovernor";
-import { renderScale, setHidpi } from "./hidpi";
+import Phaser from 'phaser';
+import { BootScene } from './scenes/BootScene';
+import { RaceScene } from './scenes/RaceScene';
+import { keepCanvasBoundsFresh } from './canvasBounds';
+import { keepGameSizeInSync } from './gameSize';
+import { FRAME_RATES, TEST_FPS } from './frameGovernor';
+import { renderScale, setHidpi } from './hidpi';
 import {
   REG_BOT_CARS,
   REG_ANIMATE,
@@ -16,9 +16,9 @@ import {
   REG_RULES_VERSION,
   REG_SEED,
   REG_TOTAL_CARS
-} from "./constants";
-import { DEFAULT_RULES_VERSION, type RulesVersion } from "./rules/versions";
-import type { BotLevel } from "./types/car";
+} from './constants';
+import { DEFAULT_RULES_VERSION, type RulesVersion } from './rules/versions';
+import type { BotLevel } from './types/car';
 
 interface GameOptions {
   totalCars: number;
@@ -39,7 +39,7 @@ interface GameOptions {
   animate?: boolean;
 }
 
-const isTestBuild = import.meta.env.MODE === "test";
+const isTestBuild = import.meta.env.MODE === 'test';
 
 export function startGame(parent: HTMLElement, options: GameOptions) {
   setHidpi(options.hidpi ?? false);
@@ -57,7 +57,11 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
     transparent: true,
     scene: [BootScene, RaceScene],
     ...(scale === 1
-      ? { width: 1600, height: 900, scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH } }
+      ? {
+          width: 1600,
+          height: 900,
+          scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH }
+        }
       : {
           // `?hidpi` (hidpi.ts): the canvas has `scale` times the container's pixels and is shown at its size
           width: Math.floor(box.width * scale) || 1600,
@@ -73,7 +77,7 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   game.registry.set(REG_HUMAN_CARS, options.humanCars);
   game.registry.set(REG_BOT_CARS, options.botCars);
   game.registry.set(REG_RACE_LAPS, options.raceLaps);
-  game.registry.set(REG_BOT_LEVEL, options.botLevel ?? "normal");
+  game.registry.set(REG_BOT_LEVEL, options.botLevel ?? 'normal');
   game.registry.set(REG_SEED, options.seed ?? 0);
   game.registry.set(REG_RULES_VERSION, options.rulesVersion ?? DEFAULT_RULES_VERSION);
   game.registry.set(REG_SANDBOX, options.sandbox ?? false);

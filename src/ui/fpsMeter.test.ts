@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fpsText, startFpsMeter, type FpsStats } from "./fpsMeter";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fpsText, startFpsMeter, type FpsStats } from './fpsMeter';
 
 // A game whose emitter just keeps the listeners, so a test can fire frames by hand.
 function fakeGame() {
@@ -7,16 +7,17 @@ function fakeGame() {
   return {
     game: {
       events: {
-        on: (event: string, fn: () => void) => (listeners.get(event) ?? listeners.set(event, new Set()).get(event)!).add(fn),
+        on: (event: string, fn: () => void) =>
+          (listeners.get(event) ?? listeners.set(event, new Set()).get(event)!).add(fn),
         off: (event: string, fn: () => void) => listeners.get(event)?.delete(fn)
       }
     },
-    frame: () => listeners.get("postrender")?.forEach((fn) => fn()),
-    count: () => listeners.get("postrender")?.size ?? 0
+    frame: () => listeners.get('postrender')?.forEach((fn) => fn()),
+    count: () => listeners.get('postrender')?.size ?? 0
   };
 }
 
-describe("fps meter", () => {
+describe('fps meter', () => {
   let clock = 0;
   const now = () => clock;
   // moves the fake clock and the fake timers together, so a one-second tick sees the time it fires at
@@ -31,7 +32,7 @@ describe("fps meter", () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it("reports the frames drawn in the last second and the longest gap between two", () => {
+  it('reports the frames drawn in the last second and the longest gap between two', () => {
     const { game, frame } = fakeGame();
     const stats: FpsStats[] = [];
     startFpsMeter((s) => stats.push(s), game, window, now);
@@ -44,10 +45,10 @@ describe("fps meter", () => {
     }
     to(1000);
     expect(stats).toEqual([{ fps: 58, worstMs: 40 }]);
-    expect(fpsText(stats[0]!)).toBe("fps 58 \u00b7 worst frame 40 ms");
+    expect(fpsText(stats[0]!)).toBe('fps 58 \u00b7 worst frame 40 ms');
   });
 
-  it("starts each second afresh, and counts the gap that spans two seconds", () => {
+  it('starts each second afresh, and counts the gap that spans two seconds', () => {
     const { game, frame } = fakeGame();
     const stats: FpsStats[] = [];
     startFpsMeter((s) => stats.push(s), game, window, now);
@@ -63,7 +64,7 @@ describe("fps meter", () => {
     ]);
   });
 
-  it("says how long a stall has lasted when no frame came at all", () => {
+  it('says how long a stall has lasted when no frame came at all', () => {
     const { game, frame } = fakeGame();
     const stats: FpsStats[] = [];
     startFpsMeter((s) => stats.push(s), game, window, now);
@@ -74,7 +75,7 @@ describe("fps meter", () => {
     expect(stats[1]).toEqual({ fps: 0, worstMs: 1500 });
   });
 
-  it("stops listening and ticking", () => {
+  it('stops listening and ticking', () => {
     const { game, count } = fakeGame();
     const stats: FpsStats[] = [];
     const stop = startFpsMeter((s) => stats.push(s), game, window, now);

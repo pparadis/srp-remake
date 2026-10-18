@@ -1,5 +1,5 @@
-import { MOVE_CYCLE, PIT_LANE, SOFT_PACE_BONUS, WING_EFFECTS } from "../constants";
-import type { CarSetup } from "../types/car";
+import { MOVE_CYCLE, PIT_LANE, SOFT_PACE_BONUS, WING_EFFECTS } from '../constants';
+import type { CarSetup } from '../types/car';
 
 export interface MoveCycle {
   index: number;
@@ -22,8 +22,12 @@ export function recordMove(cycle: MoveCycle, distance: number) {
 }
 
 // The distance budget a move cycle holds for this setup: Low wing and the soft compound add, High wing takes.
-export function cycleBudget(setup: Pick<CarSetup, "compound" | "wing">): number {
-  return MOVE_CYCLE.budget + WING_EFFECTS[setup.wing].pace + (setup.compound === "soft" ? SOFT_PACE_BONUS : 0);
+export function cycleBudget(setup: Pick<CarSetup, 'compound' | 'wing'>): number {
+  return (
+    MOVE_CYCLE.budget +
+    WING_EFFECTS[setup.wing].pace +
+    (setup.compound === 'soft' ? SOFT_PACE_BONUS : 0)
+  );
 }
 
 export function getRemainingBudget(cycle: MoveCycle, total: number = MOVE_CYCLE.budget) {
@@ -36,8 +40,13 @@ function isMainLane(laneIndex: number) {
 }
 
 /** A move without its route (pit moves, squeezes): the cells, +1 for a change between main lanes. */
-export function computeMoveSpend(distance: number, startLaneIndex: number, targetLaneIndex: number) {
+export function computeMoveSpend(
+  distance: number,
+  startLaneIndex: number,
+  targetLaneIndex: number
+) {
   if (targetLaneIndex === PIT_LANE) return 1;
-  const laneChangeSurcharge = isMainLane(startLaneIndex) && startLaneIndex !== targetLaneIndex ? 1 : 0;
+  const laneChangeSurcharge =
+    isMainLane(startLaneIndex) && startLaneIndex !== targetLaneIndex ? 1 : 0;
   return distance + laneChangeSurcharge;
 }

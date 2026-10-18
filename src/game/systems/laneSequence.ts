@@ -1,4 +1,4 @@
-import type { TrackCell, TrackTag } from "../types/track";
+import type { TrackCell, TrackTag } from '../types/track';
 
 interface BuildLaneSequenceOptions {
   startTagPriority?: TrackTag[];
@@ -25,7 +25,7 @@ export function buildLaneSequence(
   const laneCells = cells.filter((c) => c.laneIndex === laneIndex);
   if (laneCells.length === 0) return [];
 
-  const startTagPriority = options.startTagPriority ?? ["START_FINISH", "PIT_ENTRY"];
+  const startTagPriority = options.startTagPriority ?? ['START_FINISH', 'PIT_ENTRY'];
   const start = pickLaneStart(laneCells, startTagPriority);
 
   const seq: TrackCell[] = [];

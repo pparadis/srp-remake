@@ -61,7 +61,7 @@ Suggested server entity:
 ```ts
 type Lobby = {
   lobbyId: string;
-  status: "WAITING" | "IN_RACE" | "FINISHED";
+  status: 'WAITING' | 'IN_RACE' | 'FINISHED';
   hostPlayerId: string;
   createdAt: number;
   updatedAt: number;
@@ -72,7 +72,7 @@ type Lobby = {
     botCars: number;
     raceLaps: number;
     turnTimerSec: 0 | 30 | 60 | 120; // 0 = no limit, default 60
-    botLevel: "easy" | "normal" | "hard"; // one level for every bot in the race, default "normal"
+    botLevel: 'easy' | 'normal' | 'hard'; // one level for every bot in the race, default "normal"
   };
   players: Array<{
     playerId: string;

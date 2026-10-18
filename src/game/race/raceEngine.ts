@@ -1,24 +1,40 @@
 // Phaser-free race engine: the one place the turn rules live.
 // Single-player (RaceScene) and the multiplayer server both drive a race through
 // `applyAction`, so the rules can't drift between them.
-import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES, SETUP_LIMITS, WING_LEVELS } from "../constants";
-import { hasFinishedRace } from "../systems/lapProgress";
-import type { BotLevel, Car, CarSetup } from "../types/car";
-import type { TrackCell, TrackData } from "../types/track";
-import { bestSetup, buildPlanContext, pitSetupFor, type BotPlanContext } from "../systems/botPlan";
-import { turnOrderOf, personalityFor, personalityOf, PERSONALITIES, type PersonalityKey } from "../systems/botStyle";
-import { trackFwd } from "../systems/trackIndex";
-import { decideBotActionWithTrace, type BotDecisionTrace, type BotPolicy } from "../systems/botSystem";
-import { decideHardBotAction } from "./botHard";
-import { applyMove, crossesStartLine } from "../systems/moveCommitSystem";
-import { cycleBudget, getRemainingBudget, recordMove } from "../systems/moveBudgetSystem";
-import { validateMoveAttempt } from "../systems/moveValidationSystem";
-import type { TargetInfo } from "../systems/movementSystem";
-import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from "../rules/versions";
-import { advancePitPenalty, applyPitStop } from "../systems/pitSystem";
-import { spawnCars } from "../systems/spawnSystem";
-import { buildTrackIndex, type TrackIndex } from "../systems/trackIndex";
-import { advanceTurn, getCurrentCarId, type TurnState } from "../systems/turnSystem";
+import {
+  DRAFT_SLINGSHOT_TURNS,
+  MOVE_BUDGET,
+  MOVE_RATES,
+  SETUP_LIMITS,
+  WING_LEVELS
+} from '../constants';
+import { hasFinishedRace } from '../systems/lapProgress';
+import type { BotLevel, Car, CarSetup } from '../types/car';
+import type { TrackCell, TrackData } from '../types/track';
+import { bestSetup, buildPlanContext, pitSetupFor, type BotPlanContext } from '../systems/botPlan';
+import {
+  turnOrderOf,
+  personalityFor,
+  personalityOf,
+  PERSONALITIES,
+  type PersonalityKey
+} from '../systems/botStyle';
+import { trackFwd } from '../systems/trackIndex';
+import {
+  decideBotActionWithTrace,
+  type BotDecisionTrace,
+  type BotPolicy
+} from '../systems/botSystem';
+import { decideHardBotAction } from './botHard';
+import { applyMove, crossesStartLine } from '../systems/moveCommitSystem';
+import { cycleBudget, getRemainingBudget, recordMove } from '../systems/moveBudgetSystem';
+import { validateMoveAttempt } from '../systems/moveValidationSystem';
+import type { TargetInfo } from '../systems/movementSystem';
+import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
+import { advancePitPenalty, applyPitStop } from '../systems/pitSystem';
+import { spawnCars } from '../systems/spawnSystem';
+import { buildTrackIndex, type TrackIndex } from '../systems/trackIndex';
+import { advanceTurn, getCurrentCarId, type TurnState } from '../systems/turnSystem';
 
 export interface RaceContext {
   track: TrackData;
@@ -49,21 +65,21 @@ export interface RaceState {
 }
 
 export type RaceAction =
-  | { type: "move"; targetCellId: string }
-  | { type: "pit"; targetCellId: string; setup: CarSetup }
+  | { type: 'move'; targetCellId: string }
+  | { type: 'pit'; targetCellId: string; setup: CarSetup }
   // Grid setup: compound, pressures and wing, free, before the car's first turn is played. Does not end the turn.
-  | { type: "setup"; setup: CarSetup }
-  | { type: "skip" };
+  | { type: 'setup'; setup: CarSetup }
+  | { type: 'skip' };
 
 export type RejectReason =
-  | "race_finished"
-  | "invalid_target"
-  | "inactive_car"
-  | "not_pit_box"
-  | "use_pit_action"
-  | "invalid_setup"
-  | "setup_locked"
-  | "moves_available";
+  | 'race_finished'
+  | 'invalid_target'
+  | 'inactive_car'
+  | 'not_pit_box'
+  | 'use_pit_action'
+  | 'invalid_setup'
+  | 'setup_locked'
+  | 'moves_available';
 
 export type ApplyResult =
   | { ok: true; carId: number; fromCellId: string; moveSpend: number }
@@ -75,7 +91,7 @@ export interface BotTurnDecision {
   trace: BotDecisionTrace | null;
   targets: Map<string, TargetInfo>;
   // Why the bot skipped, for debug logs.
-  skipNote?: "inactive" | "no-target";
+  skipNote?: 'inactive' | 'no-target';
 }
 
 export function createRaceContext(track: TrackData): RaceContext {
@@ -90,11 +106,15 @@ export function createRace(
   seed = 0,
   rulesVersion: RulesVersion = DEFAULT_RULES_VERSION
 ): RaceState {
-  const { cars } = spawnCars(ctx.track, {
-    totalCars: seats.length,
-    humanCount: seats.length,
-    botCount: 0
-  }, seed);
+  const { cars } = spawnCars(
+    ctx.track,
+    {
+      totalCars: seats.length,
+      humanCount: seats.length,
+      botCount: 0
+    },
+    seed
+  );
   if (cars.length !== seats.length) {
     throw new Error(`Track has room for ${cars.length} cars, ${seats.length} requested.`);
   }
@@ -102,16 +122,23 @@ export function createRace(
     const seat = seats[i]!;
     car.isBot = seat.isBot;
     car.ownerId = seat.ownerId;
-    if (seat.isBot) car.botLevel = seat.botLevel ?? "normal";
+    if (seat.isBot) car.botLevel = seat.botLevel ?? 'normal';
     if (seat.isBot && seat.style) car.style = seat.style;
   });
   // Bots set up on the grid for the distance they must cover (Easy keeps the default setup it is dealt).
   const plan = buildPlanContext(ctx.trackIndex, raceLaps);
   for (const car of cars) {
-    if (!car.isBot || car.botLevel === "easy") continue;
+    if (!car.isBot || car.botLevel === 'easy') continue;
     car.setup = bestSetup(raceLaps * plan.spineLen);
   }
-  return { cars, turn: { order: turnOrderOf(seed, cars.length), index: 0 }, raceLaps, winnerCarId: null, seed, rulesVersion };
+  return {
+    cars,
+    turn: { order: turnOrderOf(seed, cars.length), index: 0 },
+    raceLaps,
+    winnerCarId: null,
+    seed,
+    rulesVersion
+  };
 }
 
 // Seat (carId - 1) of the car to play; the play order is the grid order, not the car order.
@@ -122,16 +149,23 @@ export function activeSeatIndex(state: RaceState): number {
 export function getActiveCar(state: RaceState): Car {
   const currentId = getCurrentCarId(state.turn);
   const car = state.cars.find((c) => c.carId === currentId) ?? state.cars[0];
-  if (!car) throw new Error("No cars available.");
+  if (!car) throw new Error('No cars available.');
   return car;
 }
 
-export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Map<string, TargetInfo> {
+export function computeTargets(
+  ctx: RaceContext,
+  state: RaceState,
+  car: Car
+): Map<string, TargetInfo> {
   const occupied = new Set(state.cars.map((c) => c.cellId));
   const baseMaxSteps =
     car.tire === 0 || car.fuel === 0 ? MOVE_BUDGET.zeroResourceMax : MOVE_BUDGET.baseMax;
-  const maxSteps = Math.min(baseMaxSteps, Math.max(0, getRemainingBudget(car.moveCycle, cycleBudget(car.setup))));
-  const tireRate = car.setup.compound === "soft" ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
+  const maxSteps = Math.min(
+    baseMaxSteps,
+    Math.max(0, getRemainingBudget(car.moveCycle, cycleBudget(car.setup)))
+  );
+  const tireRate = car.setup.compound === 'soft' ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
   const costs = { tireRate, fuelRate: MOVE_RATES.fuel, setup: car.setup };
   const rules = rulesOf(state);
   const normal = rules.computeValidTargets(
@@ -149,14 +183,20 @@ export function computeTargets(ctx: RaceContext, state: RaceState, car: Car): Ma
     },
     costs
   );
-  if (normal.size > 0 || car.state !== "ACTIVE") return normal;
+  if (normal.size > 0 || car.state !== 'ACTIVE') return normal;
   return rules.computeSqueezeTargets(ctx.trackIndex, car.cellId, occupied, maxSteps, costs);
 }
 
 // True when the car stands tucked in right now: another car 1 to DRAFT_RANGE cells ahead in its own lane. The rule
 // reads it at the end of a move (applyAction): at the start of a turn every car has moved away from where it was.
 export function isDrafting(ctx: RaceContext, state: RaceState, car: Car): boolean {
-  return rulesOf(state).draftAhead(ctx.trackIndex, car.cellId, state.cars.map((c) => c.cellId)) !== null;
+  return (
+    rulesOf(state).draftAhead(
+      ctx.trackIndex,
+      car.cellId,
+      state.cars.map((c) => c.cellId)
+    ) !== null
+  );
 }
 
 export function isValidSetup(setup: CarSetup): boolean {
@@ -165,7 +205,7 @@ export function isValidSetup(setup: CarSetup): boolean {
     (v) => Number.isInteger(v) && v >= psi.min && v <= psi.max
   );
   const wingOk = WING_LEVELS.includes(setup.wing);
-  return (setup.compound === "soft" || setup.compound === "hard") && psiOk && wingOk;
+  return (setup.compound === 'soft' || setup.compound === 'hard') && psiOk && wingOk;
 }
 
 function findWinner(state: RaceState): Car | null {
@@ -190,44 +230,55 @@ function selectNextPlayable(state: RaceState) {
 
 // Validates and applies one action for the active car. On rejection the state is untouched.
 export function applyAction(ctx: RaceContext, state: RaceState, action: RaceAction): ApplyResult {
-  if (state.winnerCarId !== null) return { ok: false, reason: "race_finished" };
+  if (state.winnerCarId !== null) return { ok: false, reason: 'race_finished' };
 
   const car = getActiveCar(state);
   const fromCell = ctx.cellMap.get(car.cellId) ?? null;
   const fromCellId = car.cellId;
   let moveSpend = 0;
 
-  if (action.type === "setup") {
-    if (car.setupLocked) return { ok: false, reason: "setup_locked" };
-    if (!isValidSetup(action.setup)) return { ok: false, reason: "invalid_setup" };
+  if (action.type === 'setup') {
+    if (car.setupLocked) return { ok: false, reason: 'setup_locked' };
+    if (!isValidSetup(action.setup)) return { ok: false, reason: 'invalid_setup' };
     car.setup = structuredClone(action.setup);
     // Not a turn: the same car still plays, and the race cannot end on it.
     return { ok: true, carId: car.carId, fromCellId, moveSpend: 0 };
   }
 
-  if (action.type === "skip") {
-    if (car.state === "ACTIVE" && computeTargets(ctx, state, car).size > 0) {
-      return { ok: false, reason: "moves_available" };
+  if (action.type === 'skip') {
+    if (car.state === 'ACTIVE' && computeTargets(ctx, state, car).size > 0) {
+      return { ok: false, reason: 'moves_available' };
     }
     car.setupLocked = true;
     recordMove(car.moveCycle, 0);
   } else {
     const targetCell = ctx.cellMap.get(action.targetCellId) ?? null;
-    const check = validateMoveAttempt(car, fromCell, targetCell, computeTargets(ctx, state, car), true);
+    const check = validateMoveAttempt(
+      car,
+      fromCell,
+      targetCell,
+      computeTargets(ctx, state, car),
+      true
+    );
     if (!check.ok || !check.info || !targetCell || !fromCell || check.moveSpend == null) {
-      return { ok: false, reason: check.reason === "inactive-car" ? "inactive_car" : "invalid_target" };
+      return {
+        ok: false,
+        reason: check.reason === 'inactive-car' ? 'inactive_car' : 'invalid_target'
+      };
     }
-    if (action.type === "move") {
-      if (check.isPitStop) return { ok: false, reason: "use_pit_action" };
+    if (action.type === 'move') {
+      if (check.isPitStop) return { ok: false, reason: 'use_pit_action' };
       applyMove(car, fromCell, targetCell, check.info, check.moveSpend, ctx.trackIndex.pitLineFwd);
       car.setupLocked = true;
       moveSpend = check.moveSpend;
       if (check.info.slingshot) car.slingshots = (car.slingshots ?? 0) + 1;
     } else {
-      if (!check.isPitStop) return { ok: false, reason: "not_pit_box" };
-      if (!isValidSetup(action.setup)) return { ok: false, reason: "invalid_setup" };
+      if (!check.isPitStop) return { ok: false, reason: 'not_pit_box' };
+      if (!isValidSetup(action.setup)) return { ok: false, reason: 'invalid_setup' };
       // A jump from the entry to a box can pass the pit line cell: that is a lap crossing too.
-      if (crossesStartLine(fromCell, targetCell, ctx.trackIndex.pitLineFwd)) car.lapCount = (car.lapCount ?? 0) + 1;
+      if (crossesStartLine(fromCell, targetCell, ctx.trackIndex.pitLineFwd)) {
+        car.lapCount = (car.lapCount ?? 0) + 1;
+      }
       applyPitStop(car, targetCell.id, structuredClone(action.setup));
       car.setupLocked = true;
       recordMove(car.moveCycle, check.moveSpend);
@@ -237,7 +288,8 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
 
   // A setup returned above (it is not a turn). Here the turn was played: a move that ends tucked in behind a car adds
   // to the run (it carries to the car's next move); a move that ends elsewhere, a skip or a pit stop breaks it.
-  car.draftTurns = action.type === "move" && isDrafting(ctx, state, car) ? (car.draftTurns ?? 0) + 1 : 0;
+  car.draftTurns =
+    action.type === 'move' && isDrafting(ctx, state, car) ? (car.draftTurns ?? 0) + 1 : 0;
 
   const winner = findWinner(state);
   if (winner) {
@@ -258,20 +310,23 @@ export function decideBotAction(
   policy?: BotPolicy
 ): BotTurnDecision {
   const car = getActiveCar(state);
-  if (car.state !== "ACTIVE") {
-    return { action: { type: "skip" }, trace: null, targets: new Map(), skipNote: "inactive" };
+  if (car.state !== 'ACTIVE') {
+    return { action: { type: 'skip' }, trace: null, targets: new Map(), skipNote: 'inactive' };
   }
-  const level: BotPolicy = policy ?? car.botLevel ?? "normal";
+  const level: BotPolicy = policy ?? car.botLevel ?? 'normal';
   const targets = computeTargets(ctx, state, car);
   const plan: BotPlanContext = {
     ...buildPlanContext(ctx.trackIndex, state.raceLaps),
     // Humans (and the autopilot standing in for one) have no style; bots draw theirs from the race seed.
-    style: level === "hard" ? PERSONALITIES.adaptive : !car.isBot
-      ? PERSONALITIES.balanced
-      : car.style
-        ? personalityFor(car.style as PersonalityKey, state.seed, car.carId)
-        : personalityOf(state.seed, car.carId),
-    adapt: level === "hard",
+    style:
+      level === 'hard'
+        ? PERSONALITIES.adaptive
+        : !car.isBot
+          ? PERSONALITIES.balanced
+          : car.style
+            ? personalityFor(car.style as PersonalityKey, state.seed, car.carId)
+            : personalityOf(state.seed, car.carId),
+    adapt: level === 'hard',
     seed: state.seed,
     rivals: state.cars
       .filter((c) => c.carId !== car.carId)
@@ -282,19 +337,23 @@ export function decideBotAction(
   };
   const { action, trace } = decideBotActionWithTrace(targets, car, ctx.cellMap, level, plan);
   let decision: BotTurnDecision;
-  if (action.type === "skip") {
-    return { action: { type: "skip" }, trace, targets, skipNote: "no-target" };
+  if (action.type === 'skip') {
+    return { action: { type: 'skip' }, trace, targets, skipNote: 'no-target' };
   }
-  if (action.type === "pit") {
+  if (action.type === 'pit') {
     // Easy keeps whatever setup it has; Normal and Hard service with the cheapest-to-run one.
-    const setup = level === "easy" ? car.setup : pitSetupFor(car, action.target, plan);
-    decision = { action: { type: "pit", targetCellId: action.target.id, setup: structuredClone(setup) }, trace, targets };
+    const setup = level === 'easy' ? car.setup : pitSetupFor(car, action.target, plan);
+    decision = {
+      action: { type: 'pit', targetCellId: action.target.id, setup: structuredClone(setup) },
+      trace,
+      targets
+    };
   } else {
-    decision = { action: { type: "move", targetCellId: action.target.id }, trace, targets };
+    decision = { action: { type: 'move', targetCellId: action.target.id }, trace, targets };
   }
-  if (level !== "hard") return decision;
+  if (level !== 'hard') return decision;
   return decideHardBotAction(ctx, state, car, decision, {
     applyAction,
-    decideNormal: (c, s) => decideBotAction(c, s, "normal")
+    decideNormal: (c, s) => decideBotAction(c, s, 'normal')
   });
 }

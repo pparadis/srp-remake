@@ -1,11 +1,18 @@
 // A scenario is a race position: the cars where the picture puts them, built with the engine's own tools
 // (createRace, the sandbox's placeCar / editCar), and read with the same entry point the game and the server use
 // (computeTargets). So squeeze, pit and draft options come from the engine, and a wrong example throws.
-import { applyAction, createRace, computeTargets, createRaceContext, type RaceContext, type RaceState } from "../../src/game/race/raceEngine";
-import { editCar, placeCar, setActiveCar, type CarEdit } from "../../src/game/race/sandbox";
-import type { TargetInfo } from "../../src/game/systems/movementSystem";
-import type { Car } from "../../src/game/types/car";
-import type { TrackData } from "../../src/game/types/track";
+import {
+  applyAction,
+  createRace,
+  computeTargets,
+  createRaceContext,
+  type RaceContext,
+  type RaceState
+} from '../../src/game/race/raceEngine';
+import { editCar, placeCar, setActiveCar, type CarEdit } from '../../src/game/race/sandbox';
+import type { TargetInfo } from '../../src/game/systems/movementSystem';
+import type { Car } from '../../src/game/types/car';
+import type { TrackData } from '../../src/game/types/track';
 
 export interface Scenario {
   /** the car to play ("you") */
@@ -31,7 +38,10 @@ export function contextOf(track: TrackData): RaceContext {
 }
 
 /** Car 1 on `start` to play, one more car per entry of `cars`, all humans, seed 0. */
-export function positionOf(ctx: RaceContext, s: Pick<Scenario, "start" | "cars" | "edit">): Position {
+export function positionOf(
+  ctx: RaceContext,
+  s: Pick<Scenario, 'start' | 'cars' | 'edit'>
+): Position {
   const cells = [s.start, ...s.cars];
   const state = createRace(
     ctx,
@@ -47,7 +57,7 @@ export function positionOf(ctx: RaceContext, s: Pick<Scenario, "start" | "cars" 
     const refused = editCar(ctx, state, 1, s.edit);
     if (refused) throw new Error(refused);
   }
-  if (!setActiveCar(state, 1)) throw new Error("car 1 is not in the play order");
+  if (!setActiveCar(state, 1)) throw new Error('car 1 is not in the play order');
   return { ctx, state, car: state.cars.find((c) => c.carId === 1)! };
 }
 
@@ -57,8 +67,14 @@ export function positionOf(ctx: RaceContext, s: Pick<Scenario, "start" | "cars" 
  */
 export function playMoves(p: Position, targets: string[]): number[] {
   return targets.map((id) => {
-    const isBox = (p.ctx.cellMap.get(id)!.tags ?? []).includes("PIT_BOX");
-    const r = applyAction(p.ctx, p.state, isBox ? { type: "pit", targetCellId: id, setup: p.car.setup } : { type: "move", targetCellId: id });
+    const isBox = (p.ctx.cellMap.get(id)!.tags ?? []).includes('PIT_BOX');
+    const r = applyAction(
+      p.ctx,
+      p.state,
+      isBox
+        ? { type: 'pit', targetCellId: id, setup: p.car.setup }
+        : { type: 'move', targetCellId: id }
+    );
     if (!r.ok) throw new Error(`${id} was refused: ${r.reason}`);
     return p.car.lapCount ?? 0;
   });
@@ -70,7 +86,7 @@ export function offeredFrom(p: Position): Map<string, TargetInfo> {
 }
 
 /** The engine's entry for the scenario's target; throws when it is not offered (a wrong example). */
-export function targetOf(p: Position, s: Pick<Scenario, "start" | "target">): TargetInfo {
+export function targetOf(p: Position, s: Pick<Scenario, 'start' | 'target'>): TargetInfo {
   const info = offeredFrom(p).get(s.target);
   if (!info) throw new Error(`${s.target} is not a target from ${s.start}`);
   return info;

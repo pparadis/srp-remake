@@ -1,5 +1,5 @@
-import type Phaser from "phaser";
-import { isTypingTarget } from "../../../ui/typing";
+import type Phaser from 'phaser';
+import { isTypingTarget } from '../../../ui/typing';
 
 /**
  * `keyboard.on("keydown-X", handler)`, but the handler runs once per key press.

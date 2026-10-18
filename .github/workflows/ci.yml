@@ -19,12 +19,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
-          cache: "npm"
+          node-version: '24'
+          cache: 'npm'
       - name: Install
         run: npm ci
       - name: Install Backend
         run: npm --prefix backend ci
+      - name: Format
+        run: npm run format:check
       - name: Lint
         run: npm run lint
       - name: Test Coverage
@@ -41,15 +43,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ["1/2", "2/2"]
+        shard: ['1/2', '2/2']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
-          cache: "npm"
+          node-version: '24'
+          cache: 'npm'
       - name: Install
         run: npm ci
       - name: Install Backend

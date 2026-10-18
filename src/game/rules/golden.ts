@@ -1,7 +1,14 @@
 // What a golden file records of a rules version (#118), shared by the generator (tools/rulesGolden.ts) and the test
 // that replays it (rulesGolden.test.ts).
-import { applyAction, computeTargets, getActiveCar, type RaceAction, type RaceContext, type RaceState } from "../race/raceEngine";
-import type { RulesVersion } from "./versions";
+import {
+  applyAction,
+  computeTargets,
+  getActiveCar,
+  type RaceAction,
+  type RaceContext,
+  type RaceState
+} from '../race/raceEngine';
+import type { RulesVersion } from './versions';
 
 export interface GoldenSample {
   name: string;
@@ -40,11 +47,17 @@ export function carAfter(state: RaceState, carId: number) {
 }
 
 export function targetsOf(ctx: RaceContext, state: RaceState): [string, unknown][] {
-  return [...computeTargets(ctx, state, getActiveCar(state)).entries()].sort(([a], [b]) => a.localeCompare(b));
+  return [...computeTargets(ctx, state, getActiveCar(state)).entries()].sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
 }
 
 /** What the rules answer for a sample's position now: its targets, and the car after the recorded action. */
-export function replay(ctx: RaceContext, sample: GoldenSample, rulesVersion: RulesVersion): Pick<GoldenSample, "targets" | "after"> {
+export function replay(
+  ctx: RaceContext,
+  sample: GoldenSample,
+  rulesVersion: RulesVersion
+): Pick<GoldenSample, 'targets' | 'after'> {
   // v1's file was made before states carried a version: the version under test is set on every sample
   const state = { ...plain(sample.state), rulesVersion };
   const targets = targetsOf(ctx, state);

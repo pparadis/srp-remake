@@ -1,4 +1,4 @@
-import type { Car } from "../types/car";
+import type { Car } from '../types/car';
 
 export interface TurnState {
   order: number[];

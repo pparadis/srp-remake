@@ -1,5 +1,5 @@
-import type { TrackCell, TrackData } from "../types/track";
-import { PIT_LANE } from "../constants";
+import type { TrackCell, TrackData } from '../types/track';
+import { PIT_LANE } from '../constants';
 
 export interface TrackIndex {
   track: TrackData;
@@ -23,7 +23,9 @@ export function lane1FwdByZoneOf(cellMap: Map<string, TrackCell>): Map<number, n
   let byZone = lane1Cache.get(cellMap);
   if (!byZone) {
     byZone = new Map();
-    for (const cell of cellMap.values()) if (cell.laneIndex === 1) byZone.set(cell.zoneIndex, cell.forwardIndex);
+    for (const cell of cellMap.values()) {
+      if (cell.laneIndex === 1) byZone.set(cell.zoneIndex, cell.forwardIndex);
+    }
     lane1Cache.set(cellMap, byZone);
   }
   return byZone;
@@ -35,7 +37,9 @@ export function lane1FwdByZoneOf(cellMap: Map<string, TrackCell>): Map<number, n
  * the entry stands beside the last cell before the line (27), the pit line cell beside the line (0).
  */
 export function trackFwd(cell: TrackCell, lane1FwdByZone: Map<number, number>): number {
-  return cell.laneIndex === PIT_LANE ? (lane1FwdByZone.get(cell.zoneIndex) ?? cell.forwardIndex) : cell.forwardIndex;
+  return cell.laneIndex === PIT_LANE
+    ? (lane1FwdByZone.get(cell.zoneIndex) ?? cell.forwardIndex)
+    : cell.forwardIndex;
 }
 
 export function buildTrackIndex(track: TrackData): TrackIndex {
@@ -50,17 +54,21 @@ export function buildTrackIndex(track: TrackData): TrackIndex {
   const pitLaneByZone = new Map<number, string>();
   let pitLineFwd: number | null = null;
   for (const cell of track.cells) {
-    if (cell.laneIndex === PIT_LANE && (cell.tags ?? []).includes("PIT_LINE")) pitLineFwd = cell.forwardIndex;
+    if (cell.laneIndex === PIT_LANE && (cell.tags ?? []).includes('PIT_LINE')) {
+      pitLineFwd = cell.forwardIndex;
+    }
     if (cell.laneIndex === PIT_LANE) {
       pitLaneByZone.set(cell.zoneIndex, cell.id);
     }
-    if ((cell.tags ?? []).includes("PIT_BOX") && cell.laneIndex === PIT_LANE) {
+    if ((cell.tags ?? []).includes('PIT_BOX') && cell.laneIndex === PIT_LANE) {
       if (pitBoxMaxZone == null || cell.zoneIndex > pitBoxMaxZone) pitBoxMaxZone = cell.zoneIndex;
     }
   }
 
   const laneLength = new Map<number, number>();
-  for (const cell of track.cells) laneLength.set(cell.laneIndex, (laneLength.get(cell.laneIndex) ?? 0) + 1);
+  for (const cell of track.cells) {
+    laneLength.set(cell.laneIndex, (laneLength.get(cell.laneIndex) ?? 0) + 1);
+  }
 
   return {
     track,
@@ -91,7 +99,10 @@ function lapPositions(track: TrackData, spineCells: TrackCell[]): Map<string, nu
       const b = spine[(i + 1) % n]!.pos;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const u = Math.max(0, Math.min(1, ((cell.pos.x - a.x) * dx + (cell.pos.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      const u = Math.max(
+        0,
+        Math.min(1, ((cell.pos.x - a.x) * dx + (cell.pos.y - a.y) * dy) / (dx * dx + dy * dy || 1))
+      );
       const d = Math.hypot(a.x + u * dx - cell.pos.x, a.y + u * dy - cell.pos.y);
       if (d < best.d) best = { d, at: i + u };
     }
@@ -99,7 +110,10 @@ function lapPositions(track: TrackData, spineCells: TrackCell[]): Map<string, nu
   };
   const usable = n >= 3 && spine.every((c) => c.pos);
   return new Map(
-    track.cells.map((c) => [c.id, usable && c.laneIndex !== PIT_LANE && c.pos ? project(c) : c.forwardIndex])
+    track.cells.map((c) => [
+      c.id,
+      usable && c.laneIndex !== PIT_LANE && c.pos ? project(c) : c.forwardIndex
+    ])
   );
 }
 
