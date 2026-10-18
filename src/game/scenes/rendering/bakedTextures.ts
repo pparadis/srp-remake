@@ -123,10 +123,13 @@ export function badgeTexture(scene: Phaser.Scene, carId: number): string {
     ctx.fill();
     ctx.globalAlpha = 1;
     ctx.fillStyle = "#ffffff";
-    ctx.font = "9px monospace";
+    const text = String(carId);
+    // Two digits (cars 10 and 11) are wider than the disc at 9px: a smaller font, and a width cap so the digits stay
+    // inside whatever monospace font the device has (fillText squeezes the text to fit).
+    ctx.font = text.length > 1 ? "8px monospace" : "9px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(String(carId), BADGE / 2, BADGE / 2);
+    ctx.fillText(text, BADGE / 2, BADGE / 2, text.length > 1 ? 8.2 : undefined);
   });
 }
 
