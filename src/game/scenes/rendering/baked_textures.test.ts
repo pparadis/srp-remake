@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { badgeTexture } from './bakedTextures';
+import { badgeTexture } from './baked_textures';
 
 // The number badge is a 12-unit texture with an 11-unit disc: a two-digit number (cars 10 and 11) at the one-digit font
 // ran over the disc's edge onto the car's windscreen. A fake canvas context records what is drawn.

@@ -5,9 +5,9 @@ import {
   cycleBudget,
   getRemainingBudget,
   type MoveCycle
-} from '../systems/moveBudgetSystem';
+} from '../systems/move_budget_system';
 import type { BotLevel, Car } from '../types/car';
-import { computeTargets, getActiveCar, type RaceContext, type RaceState } from './raceEngine';
+import { computeTargets, getActiveCar, type RaceContext, type RaceState } from './race_engine';
 
 // Sandbox (`?sandbox`): edit a race state by hand, no rules. Everything here writes state the engine already reads.
 
@@ -205,7 +205,7 @@ export function positionAsTest(ctx: RaceContext, state: RaceState): string {
   return `import { describe, expect, it } from "vitest";
 import track from "../../../public/tracks/${ctx.track.trackId}.json";
 import type { TrackData } from "../types/track";
-import { computeTargets, createRaceContext, getActiveCar, type RaceState } from "./raceEngine";
+import { computeTargets, createRaceContext, getActiveCar, type RaceState } from "./race_engine";
 
 // Position copied from the sandbox: car ${car.carId} on ${car.cellId} to play (seed ${state.seed}).
 const ctx = createRaceContext(track as unknown as TrackData);

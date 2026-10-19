@@ -1,7 +1,7 @@
 import { PIT_LANE } from '../../constants';
 import { DEFAULT_RULES_VERSION } from '../../rules/versions';
-import { cycleBudget, getRemainingBudget } from '../../systems/moveBudgetSystem';
-import type { TargetInfo } from '../../systems/movementSystem';
+import { cycleBudget, getRemainingBudget } from '../../systems/move_budget_system';
+import type { TargetInfo } from '../../systems/movement_system';
 import type { Car } from '../../types/car';
 import type { TrackCell, TrackData } from '../../types/track';
 

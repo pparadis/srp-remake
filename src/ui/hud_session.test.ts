@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import indexHtml from '../../index.html?raw';
 import track from '../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../game/types/track';
-import { RaceSession } from '../game/race/raceSession';
+import { RaceSession } from '../game/race/race_session';
 import { mountHud, renderHud, renderResults } from './hud';
 
 const TRACK = track as unknown as TrackData;

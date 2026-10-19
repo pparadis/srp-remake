@@ -8,9 +8,9 @@ import {
   createRaceContext,
   type RaceContext,
   type RaceState
-} from '../../src/game/race/raceEngine';
+} from '../../src/game/race/race_engine';
 import { editCar, placeCar, setActiveCar, type CarEdit } from '../../src/game/race/sandbox';
-import type { TargetInfo } from '../../src/game/systems/movementSystem';
+import type { TargetInfo } from '../../src/game/systems/movement_system';
 import type { Car } from '../../src/game/types/car';
 import type { TrackData } from '../../src/game/types/track';
 

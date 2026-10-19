@@ -5,9 +5,9 @@ import {
   getActiveCar,
   type RaceAction,
   type RaceState as EngineRaceState
-} from '../../src/game/race/raceEngine';
+} from '../../src/game/race/race_engine';
 import type { TrackData } from '../../src/game/types/track';
-import { toEngineRace } from '../../src/net/raceSync';
+import { toEngineRace } from '../../src/net/race_sync';
 import type { RaceState } from '../src/types.js';
 
 const ctx = createRaceContext(track as unknown as TrackData);

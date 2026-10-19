@@ -1,7 +1,7 @@
 # Movement Spec (v0)
 
-This doc summarizes the current movement rules implemented in `src/game/systems/movementSystem.ts`.
-The turn flow around them (validate, apply, pit penalty, laps, winner) lives in `src/game/race/raceEngine.ts`
+This doc summarizes the current movement rules implemented in `src/game/systems/movement_system.ts`.
+The turn flow around them (validate, apply, pit penalty, laps, winner) lives in `src/game/race/race_engine.ts`
 and is shared by single-player and the multiplayer server.
 
 ## Core Model
@@ -9,7 +9,7 @@ and is shared by single-player and the multiplayer server.
 - Track movement uses the directed graph defined by each cell’s `next[]`.
 - Valid targets are computed with BFS from the car’s current cell.
 - `forwardIndex` is **not** used for movement; it is for ordering/progress only. Movement compares cells by **lap
-  position** (`lapPos`/`lapAhead` in `trackIndex.ts`: the cell's `pos` projected onto the lane-1 line, not rounded), so
+  position** (`lapPos`/`lapAhead` in `track_index.ts`: the cell's `pos` projected onto the lane-1 line, not rounded), so
   two cells of one lane never tie and side-by-side cells read level (#114).
 
 ## Step Budget
@@ -87,7 +87,7 @@ never forced into the pit (#137). When any main-lane target exists, squeeze is n
 - BFS over `next[]` up to `maxSteps` ignores occupancy for traversal, but the target cell must be free.
 - Main lanes only (never PIT_ENTRY, pit lane or PIT_BOX), at most 1 lane change, at least `DIAGONAL_MIN_GAIN` ahead by lap position and a later zone than the start (no backwards or pure sideways).
 - `passed` = occupied main-lane cells in the start lane or the target lane (a lane counts once) that stand ahead of the
-  start and behind the target by **lap position** (`lapAhead` in `trackIndex.ts`). A squeeze target must have
+  start and behind the target by **lap position** (`lapAhead` in `track_index.ts`). A squeeze target must have
   `passed >= 1`. Lap position, not `forwardIndex`: it compares cars in two lanes, and the outer lanes' `forwardIndex`
   repeats on the bends, so a car one cell ahead could read as level (#113, #114).
 - `moveSpend = cells walked + diagonal changes (priced as a route) + SQUEEZE_SURCHARGE_PER_CAR (2) * passed`, and must be `<= maxSteps`
@@ -181,14 +181,14 @@ nothing is served after the line.)
 ## Notes
 
 - Movement targets are computed independently each turn.
-- Any change to rules should include a unit test in `src/game/systems/movementSystem.test.ts`.
+- Any change to rules should include a unit test in `src/game/systems/movement_system.test.ts`.
 
 ## Drafting (slipstream, issues #55 and #98)
 
 A car is **tucked in** when it is in a main lane and another car (any owner) stands in the **same lane**, 1 to
 `DRAFT_RANGE` (2) cells directly ahead, counted in cells along that lane (wrapping at the lane's own length: 28, 30 or
 32 cells), not by `forwardIndex`, which repeats on the outer lanes' bends (#113, #114). Adjacent lanes and the pit lane
-(entry and exit included) never count. `draftAhead` in `src/game/systems/draftSystem.ts` is the only definition.
+(entry and exit included) never count. `draftAhead` in `src/game/systems/draft_system.ts` is the only definition.
 
 **When it is judged: at the end of the car's move, not at the start of its turn.** Every car has moved about 8 cells
 between the end of one move and the start of the next turn, so a leader is never within 2 cells then (measured: 0 of

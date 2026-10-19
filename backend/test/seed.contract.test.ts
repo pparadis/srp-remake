@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gridSlots, turnOrderOf } from '../../src/game/systems/botStyle.js';
+import { gridSlots, turnOrderOf } from '../../src/game/systems/bot_style.js';
 import type { BackendConfig } from '../src/config.js';
 import { createApp } from '../src/server.js';
 import type { PublicLobby } from '../src/types.js';

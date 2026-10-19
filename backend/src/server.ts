@@ -11,9 +11,9 @@ import {
   loadConfig,
   type BackendConfig
 } from './config.js';
-import { LobbyError, LobbyStore, toPublicLobby } from './lobbyStore.js';
-import { activeSeatIndex } from '../../src/game/race/raceEngine';
-import type { BotPolicy } from '../../src/game/systems/botSystem';
+import { LobbyError, LobbyStore, toPublicLobby } from './lobby_store.js';
+import { activeSeatIndex } from '../../src/game/race/race_engine';
+import type { BotPolicy } from '../../src/game/systems/bot_system';
 import {
   BOT_LEVEL_CHOICES,
   type Lobby,

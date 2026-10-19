@@ -1,4 +1,4 @@
-// Hard bot: one round of lookahead with an opponent model (and the `adaptive` style, see botStyle.ts).
+// Hard bot: one round of lookahead with an opponent model (and the `adaptive` style, see bot_style.ts).
 // For the best few candidates (by the Normal score) it plays the move on a copy of the race, lets
 // every other car answer with the Normal policy until it is this car's turn again, and scores the
 // position it finds itself in. No runtime import of raceEngine (it passes its functions in), so
@@ -12,10 +12,10 @@ import {
   PIT_LANE_CELLS,
   progressOf,
   type BotPlanContext
-} from '../systems/botPlan';
-import type { BotDecisionTrace } from '../systems/botSystem';
-import type { TargetInfo } from '../systems/movementSystem';
-import { getCurrentCarId } from '../systems/turnSystem';
+} from '../systems/bot_plan';
+import type { BotDecisionTrace } from '../systems/bot_system';
+import type { TargetInfo } from '../systems/movement_system';
+import { getCurrentCarId } from '../systems/turn_system';
 import type { Car } from '../types/car';
 import type {
   ApplyResult,
@@ -23,7 +23,7 @@ import type {
   RaceAction,
   RaceContext,
   RaceState
-} from './raceEngine';
+} from './race_engine';
 
 export const HARD_CANDIDATES = 8;
 

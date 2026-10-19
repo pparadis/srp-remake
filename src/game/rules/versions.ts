@@ -3,12 +3,12 @@
 // blockers, squeeze) and the draft test. Everything else (next[] connectivity, pit, laps, wear, bots) is shared.
 //
 // A frozen version never changes behavior: its code is never edited and its golden file
-// (src/game/rules/golden/<version>.json, made by tools/rulesGolden.ts) fails rulesGolden.test.ts if it moves.
+// (src/game/rules/golden/<version>.json, made by tools/rules_golden.ts) fails rules_golden.test.ts if it moves.
 // Changing a frozen version's behavior means a new version. A draft version changes freely.
-import { computeSqueezeTargets, computeValidTargets } from '../systems/movementSystem';
-import { draftAhead } from '../systems/draftSystem';
-import * as v1Movement from './v1/movementSystem';
-import * as v1Draft from './v1/draftSystem';
+import { computeSqueezeTargets, computeValidTargets } from '../systems/movement_system';
+import { draftAhead } from '../systems/draft_system';
+import * as v1Movement from './v1/movement_system';
+import * as v1Draft from './v1/draft_system';
 import { DEFAULT_RULES_VERSION, type RulesVersion } from './ids';
 
 export { DEFAULT_RULES_VERSION, isRulesVersion, RULES_VERSIONS, type RulesVersion } from './ids';

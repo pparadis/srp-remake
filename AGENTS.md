@@ -5,10 +5,10 @@ Project guide for Codex and other automation.
 ## Repo Overview
 
 - Game prototype in `src/` (Phaser).
-- Race engine in `src/game/race/raceEngine.ts` (no Phaser): validates and applies a turn, bots, pit penalties,
+- Race engine in `src/game/race/race_engine.ts` (no Phaser): validates and applies a turn, bots, pit penalties,
   laps and winner. Single-player (`RaceScene`) and the multiplayer server (`backend/`) both run it, so a rule
   change goes in `src/game/systems/*` or the engine, with tests, and applies to both.
-- Race session in `src/game/race/raceSession.ts` (no Phaser): one page's view of the race. The solo turn loop (the
+- Race session in `src/game/race/race_session.ts` (no Phaser): one page's view of the race. The solo turn loop (the
   player's action, then the bots), the online server state and its input hold, who controls the active car, the HUD
   snapshot, feel events, the finish and the sandbox edits. `RaceScene` owns one and only draws it (tokens, targets,
   tweens, pit modal, confetti, sounds); logic the scene needs goes in the session, with tests.
@@ -36,39 +36,39 @@ Project guide for Codex and other automation.
 - Rules versions (#118): a race plays one movement-rules version (`RaceState.rulesVersion`, set by `createRace`, default
   `v2`). The registry is `src/game/rules/versions.ts`: what differs between versions (target search, squeeze, draft
   test) goes through `rulesOf(state)`, never a direct import of `computeValidTargets` / `draftAhead` in engine code.
-  Both versions are **frozen**: `rulesGolden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
-  `tools/rulesGolden.ts`) and fails if a version's targets, prices or the car after the recorded move change, whether
+  Both versions are **frozen**: `rules_golden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
+  `tools/rules_golden.ts`) and fails if a version's targets, prices or the car after the recorded move change, whether
   through its own code or shared code (constants, track, pit, wear). `v1` (before #114, tag `rules-v1`) has its own copy
   of the rule code in `src/game/rules/v1/` and is kept for reference, not online. `v2` (#114 and #102, tag `rules-v2`)
-  is the live code in `src/game/systems/` (`movementSystem.ts`, `draftSystem.ts`, `trackIndex.ts`): the rules below are
+  is the live code in `src/game/systems/` (`movement_system.ts`, `draft_system.ts`, `track_index.ts`): the rules below are
   v2's. **To change the rules, make a v3**: copy v2's rule code to `src/game/rules/v2/` first (as v1's was), point v2 at
   the copy, then change the live code, add `v3` to `src/game/rules/ids.ts` and `versions.ts` (a `draft` while it is
-  tried), and generate its golden file when you freeze it (`npx tsx tools/rulesGolden.ts src/game/rules/golden/v3.json
-v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCompare.ts [--rules v1,v2]` (the bots'
+  tried), and generate its golden file when you freeze it (`npx tsx tools/rules_golden.ts src/game/rules/golden/v3.json
+v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rules_compare.ts [--rules v1,v2]` (the bots'
   ordering, overtakes, race length, how often tows, slingshots, squeezes and lane changes come up, lane use).
   In solo the version is chosen in the Quick race card (`lobbyRules`, hidden online: v1 is not offered there;
   `?rules=v1` only seeds that select, and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
   page loads it eagerly), the rules in `versions.ts` (lazy, with the game). "Copy debug" records `rulesVersion`, and a
   sandbox "Load position" from other rules is refused.
-- Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `trackIndex.ts`), never by
+- Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `track_index.ts`), never by
   `forwardIndex`, which repeats on the outer lanes' bends (#114). Laps use `forwardIndex`.
 - No sideways lane changes: a lane-change target must be `DIAGONAL_MIN_GAIN` (0.5) ahead by lap position AND in a later
   zone than the start (except `PIT_ENTRY`); a route may still walk a sideways edge on the way (#108).
 - Price = cells walked + diagonal lane changes (a change gaining 0.5 lap position or more; a sideways one is paid by
-  its cell): one change +1, out and back +2. The search is by price (`searchRoutes` in `movementSystem.ts`); see
+  its cell): one change +1, out and back +2. The search is by price (`searchRoutes` in `movement_system.ts`); see
   `docs/movement-spec.md`.
 - A main-lane target is legal when a route over free cells reaches it within the move cap (#102); its price, cells and
   wear are that route's. No cap on how many cars a move passes: they are obstacles the route goes round, paid by its
   lane changes. The target lane is still at most one lane from the start lane. Squeeze applies only when nothing is
   reachable.
 - Occupied cells are non-traversable for movement target search (except the start cell).
-- Drafting (#55, #98): a move that ENDS 1-2 cells behind another car in the same lane (`draftAhead` in `draftSystem.ts`,
+- Drafting (#55, #98): a move that ENDS 1-2 cells behind another car in the same lane (`draftAhead` in `draft_system.ts`,
   judged in `applyAction` after the move) puts the car in the tow: its next move wears less (fuel x0.8, tire x0.9), and
   after 2 such moves in a row (`Car.draftTurns`) a lane change skips the +1 surcharge (`TargetInfo.slingshot`). It is
   judged at the end of the move because every car has moved away by the start of the next turn (a start-of-turn rule
   never fired in a real race). Always on; see `docs/movement-spec.md`. The HUD (#83, #93): a draft chip in the phone
   bar, tows drawn on the board, a blue dashed ring on moves that keep the tow, gold on slingshot targets, toasts from
-  `feelEvents.ts` (`docs/strategy-and-feel.md`).
+  `feel_events.ts` (`docs/strategy-and-feel.md`).
 - Squeeze: only when a car has no normal target, `computeTargets` offers targets that pass cars (free target cell, main lanes, +2 move points per car passed); also from the `PIT_EXIT` cell onto lane 1 (max 3 cells); see `docs/movement-spec.md`.
 - Pit lane rules:
   - Entry only via `PIT_ENTRY` from lane 1 (inner race lane).
@@ -82,16 +82,16 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
   in ANY lane (the line spans the pit lane too, as in F1). No `START_FINISH` landing requirement.
   - Main lanes: `forwardIndex` wraps (from higher to lower) between two non-pit cells.
   - Pit lane: a move along the pit lane that starts before the `PIT_LINE` cell and lands on or beyond it
-    (`crossesStartLine` in `moveCommitSystem.ts`; the cell is `Z01_L0_00`, under `Z01_L1_00`). The step from lane 1
+    (`crossesStartLine` in `move_commit_system.ts`; the cell is `Z01_L0_00`, under `Z01_L1_00`). The step from lane 1
     onto `PIT_ENTRY`, moves from `PIT_LINE` onward and the pit exit onto lane 1 never credit, so a stop credits one lap.
   - A pit-lane crossing can be the race-finishing one (first car to `raceLaps` wins, in order of crossing).
 - Everyone covers the same distance from the start line. The front row starts on the line (`lapCount` 0, already in
   lap 1); cars in the rows behind the line (`forwardIndex` > 0) start at `-1`, and their first crossing (-1 to 0)
-  only begins lap 1: silent (no toast, sound or feed line). `lapCountAtSpawn` in `src/game/systems/lapProgress.ts`
+  only begins lap 1: silent (no toast, sound or feed line). `lapCountAtSpawn` in `src/game/systems/lap_progress.ts`
   sets it; the winner is the first car with `lapCount >= raceLaps`, so the rear row needs 1-3 cells more.
-- Display uses the lap in progress (`lapInProgress`, `hasStartedLap`, `hasFinishedRace` in `lapProgress.ts`): "Lap 1 / 5"
+- Display uses the lap in progress (`lapInProgress`, `hasStartedLap`, `hasFinishedRace` in `lap_progress.ts`): "Lap 1 / 5"
   for pole, "Lap 0 / 5" plus a hint behind the line, "Finished" after the last crossing. Never show a negative lap.
-- Standings rank by `lapCount`, then further along the lap by lap position (`rankPosition` in `trackIndex.ts`: unrounded,
+- Standings rank by `lapCount`, then further along the lap by lap position (`rankPosition` in `track_index.ts`: unrounded,
   so two cells of one lane never tie, #114); the HUD gap is that difference in whole cells from the line, `+NL` only
   from a full lap. Pit cells have their own `forwardIndex` scale, so ranking and gaps use the lane-1 cell of the same
   zone: the pit entry counts as 27 (before the line), `PIT_LINE` as 0. The bots keep `progressOf` (`forwardIndex`).
@@ -101,7 +101,7 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
 - The game uses Phaser's Canvas renderer on purpose (`type: Phaser.CANVAS` in `src/game/index.ts`): it is a turn-based
   board, and software WebGL cost about 14x the CPU (`npm run probe:cpu`). Do not add WebGL-only features (tint, FX,
   pipelines, shaders, masks, blend modes, particles). `e2e/smoke.spec.ts` asserts the canvas has a 2D context.
-- Idle frame rate (#82): the game starts with an fps limit and `FrameGovernor` (`src/game/frameGovernor.ts`, created by
+- Idle frame rate (#82): the game starts with an fps limit and `FrameGovernor` (`src/game/frame_governor.ts`, created by
   `RaceScene`) moves Phaser's `_limitRate` between full speed and 15 fps (`FRAME_RATES`). Full speed on any pointer, key,
   wheel or `srp:` event of the page (`watch`) and while `RaceScene.isAnimating()` says a glide, the camera tween, confetti
   or the pit modal moves, then 600 ms after. The halo pulse and a trail's fade do not count (they look stepped at the
@@ -124,8 +124,8 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
   console).
 - What repeats is baked once, never drawn or rasterised per frame (#88): the track at `renderScale()` pixels per unit
   (`drawTrack`: `generateTexture` replays `scaleCanvas`, shown at `1 / k`, so `?hidpi` is sharp), and the target rings,
-  car bodies, number badges and confetti swatches as canvas textures (`rendering/bakedTextures.ts`, at `renderScale()`
-  times 2 so a 3x pinch stays sharp). Target rings and costs are pooled (`ui/TargetMarkers.ts`); a new marker kind is a
+  car bodies, number badges and confetti swatches as canvas textures (`rendering/baked_textures.ts`, at `renderScale()`
+  times 2 so a 3x pinch stays sharp). Target rings and costs are pooled (`ui/target_markers.ts`); a new marker kind is a
   layer in `targetLayers`, not a Graphics call.
 - The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
   `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceSession.hudSnapshot()` builds (`RaceScene.emitHud()`
@@ -133,7 +133,7 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
 - Phones (issue #49): the page is sized with `100dvh` (`body` in `style.css`; `100vh` is only the fallback): on iOS
   Safari `100vh` is the screen without the browser bars, and `overflow: hidden` would cut off the bottom of the race
   screen while they show. Phaser can stay at the old size after a phone rotation (its `orientationchange` handler eats
-  the size change), so `keepGameSizeInSync` (`src/game/gameSize.ts`) re-applies the container's size to the game. The
+  the size change), so `keepGameSizeInSync` (`src/game/game_size.ts`) re-applies the container's size to the game. The
   race screen is landscape-only (portrait shows `hud-rotate`). Under `(max-height: 500px)`
   (`COMPACT_HUD_QUERY` in `src/ui/layout.ts`, same query in `style.css`) the car card is a top bar, standings and the
   feed sit in a drawer (`hud-drawer-toggle`) and the canvas hides its debug buttons. Each HUD panel says where it takes
@@ -147,13 +147,13 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
 - Downforce (#48): `CarSetup.wing` is `low | medium | high` (`WING_EFFECTS`, `SOFT_PACE_BONUS` in `constants.ts`); the cycle
   budget is `cycleBudget(setup)` (40, +1 Low, -1 High, +1 soft), never `MOVE_CYCLE.budget` for a car. The `setup` action
   (grid setup, before the first move, not a turn) sets it; bots set up in `createRace` with `bestSetup`. A change to the
-  numbers must keep `npx tsx tools/botBench.ts --setups` passing the gate (`docs/bot-system.md`).
-- Race feed (#92): `src/game/systems/raceFeed.ts` (`feedLines(ctx, before, after, name)`, pure) turns the difference between
+  numbers must keep `npx tsx tools/bot_bench.ts --setups` passing the gate (`docs/bot-system.md`).
+- Race feed (#92): `src/game/systems/race_feed.ts` (`feedLines(ctx, before, after, name)`, pure) turns the difference between
   two race states into `{ text, kind, carId }` lines (move, pass, lap, pit, warn, finish, info). Solo calls it after each
   action (`RaceSession.addFeed`, with a clone of the state before) and online after each server state, so both say the same.
   The engine has no log of its own; `HudSnapshot.log` carries `{ text, kind, mine }` and `hud.ts` styles by kind. The feed
   starts open except in the compact (phone) layout. A rule or resource that should be said goes in `feedLines`, with a case in
-  `raceFeed.test.ts`.
+  `race_feed.test.ts`.
 - Follow a car (#135): a click on its standings row (`srp:hud-command` `follow-car`) or a tap on its token
   (`RaceScene.tapBoard`: a target in reach wins, and the token the player may drag is never followed) calls
   `RaceSession.followCar` (again: stop; "All cars" too). The session keeps 500 feed lines and shows the last 30, only the
@@ -163,37 +163,37 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
   `spineLen` cells of the car; `HudSnapshot.follow` lists them and `RaceScene.drawFollowedCar()` draws them (a faint white
   line, dots, a ring round the car; `C` hides it). Page-only: an online reload starts it empty. Sandbox edits clear it.
 - Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
-  `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
+  `src/game/systems/strategy.ts`, which reuses the bots' wear math in `bot_plan.ts`: do not write a second copy.
 - Cars glide to their cells (#85): `RaceSession.drainMoves()` gives the cars that moved, in order, and
-  `RaceScene.syncTokens()`/`glideTo` animate them along `movePath` (`src/game/systems/movePath.ts`, visual only: never
+  `RaceScene.syncTokens()`/`glideTo` animate them along `movePath` (`src/game/systems/move_path.ts`, visual only: never
   feeds rules). Instant in the e2e build (`?anim` turns it on) and under `prefers-reduced-motion`; a spec that reads
   token positions right after a turn relies on that. A dragged car turns with the road under the finger (`easeAngle`,
   #110), a dropped drag glides from the drop point and a refused one glides back. Details: `docs/strategy-and-feel.md`.
-- Camera (#87): the fit (`centerTrack`) plus the player's zoom 1 to 3 and pan (`rendering/cameraView.ts`, pure and
-  tested); pinch, pan, wheel, double tap and the `Fit` button in `input/registerCameraGestures.ts`; the camera follows
+- Camera (#87): the fit (`centerTrack`) plus the player's zoom 1 to 3 and pan (`rendering/camera_view.ts`, pure and
+  tested); pinch, pan, wheel, double tap and the `Fit` button in `input/register_camera_gestures.ts`; the camera follows
   the player's car after its move while zoomed. The camera's matrix is refreshed at once (`cam.preRender()`) so a tap
   right after a pinch lands right. Details: `docs/strategy-and-feel.md`.
 - Move preview and trail (#86): `RaceSession.previewFor()` (the path of the picked or hovered target) and
   `lastMovePath()` (each car's last move) feed `RaceScene.drawPreview()`/`showTrail()`; both reuse `movePath`.
-- Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feelEvents.ts` through
+- Feel: lap toast, finish confetti and sounds are driven by `src/game/systems/feel_events.ts` through
   `RaceSession.drainFeel()` (`RaceScene.reactToRace()` plays them); the first snapshot must never fire. Sound is `src/ui/sound.ts` (WebAudio, muted in
   test builds); `M` or the HUD button mutes, stored in `localStorage["srp:muted"]`. Details: `docs/strategy-and-feel.md`.
 
 ## Online Sessions
 
 - Turn timer: lobby setting `turnTimerSec` (0|30|60|120, default 60). On expiry the server plays the stuck
-  human's turn with the `"autopilot"` bot policy (`src/game/systems/botSystem.ts`, deliberately mediocre; it is also the weakest rung of the benchmark); the
+  human's turn with the `"autopilot"` bot policy (`src/game/systems/bot_system.ts`, deliberately mediocre; it is also the weakest rung of the benchmark); the
   host can force it with `POST /lobbies/:id/force-skip`. A plain skip is illegal while moves exist.
 - A new lobby setting must be threaded through every site: `backend/src/types.ts`, the zod patch schema AND
-  `toSettingsPatch` in `server.ts`, `DEFAULT_SETTINGS` + `normalizeSettings` in `lobbyStore.ts`, the client type
-  in `src/net/backendApi.ts`, `index.html`, `src/main.ts`, and tests that assert on settings.
+  `toSettingsPatch` in `server.ts`, `DEFAULT_SETTINGS` + `normalizeSettings` in `lobby_store.ts`, the client type
+  in `src/net/backend_api.ts`, `index.html`, `src/main.ts`, and tests that assert on settings.
 - Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player.
 - Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).
   A reused local backend with real clocks breaks `e2e/afk.spec.ts`: use `E2E_BACKEND_PORT`.
 
 - Chat (#70): `POST /lobbies/:id/chat` (1 message/s per player, last 50 kept per lobby, `chat.message` and
-  `chat.history` on the socket, never inside `PublicLobby`). The text rule is `src/game/chatText.ts` (100 graphemes,
+  `chat.history` on the socket, never inside `PublicLobby`). The text rule is `src/game/chat_text.ts` (100 graphemes,
   400 UTF-16 units), shared by the client and the server. The panel is `src/ui/chat.ts`: one element that `main.ts`
   moves between the lobby card and the race HUD; messages go in with `textContent` only. Keys typed in any form field
   are skipped by `onKeyDown` and the C/M handler (`isTypingTarget`). Solo has no chat.
@@ -206,19 +206,19 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
 ## Bots
 
 - Levels (`Car.botLevel`, lobby/solo setting `botLevel`: easy | normal | hard, default normal) plus the server's
-  AFK `"autopilot"`; `decideBotAction(ctx, state, policy?)` in `src/game/race/raceEngine.ts` reads the active car's
+  AFK `"autopilot"`; `decideBotAction(ctx, state, policy?)` in `src/game/race/race_engine.ts` reads the active car's
   level when no policy is passed. Details, numbers and the personality table: `docs/bot-system.md`.
 - The engine is deterministic: no `Math.random` in `src/game` or the backend (Easy's noise is seeded by car state).
 - Every race has an integer `seed` (`RaceState.seed`), created only at the boundary (server at race start, `BOT_SEED`
   env pins it; solo in `src/main.ts`, `?seed=N` pins it; 0 = neutral). It decides each bot's personality
   (`personalityOf`), every car's grid slot (`gridSlots`) and the play order (`turnOrderOf`, pole sitter first).
-  `src/game/systems/botStyle.ts` is the one place for these.
+  `src/game/systems/bot_style.ts` is the one place for these.
 - Specs that assume car 1 on pole use seed 0 (`?seed=0` solo, `BOT_SEED=0` backend: set in `playwright.config.ts` and
   the `backend:test` script).
-- Benchmark: `npx tsx tools/botBench.ts [--laps 5,8,12] [--lineup hard,normal,easy,autopilot]`; the ordering
-  Hard < Normal < Easy < Autopilot (average finishing position) is asserted by `src/game/race/botLevels.test.ts`, and
-  `botPersonalities.test.ts` guards that no personality dominates. Run it after touching `botSystem.ts`, `botPlan.ts`
-  or `botHard.ts`.
+- Benchmark: `npx tsx tools/bot_bench.ts [--laps 5,8,12] [--lineup hard,normal,easy,autopilot]`; the ordering
+  Hard < Normal < Easy < Autopilot (average finishing position) is asserted by `src/game/race/bot_levels.test.ts`, and
+  `bot_personalities.test.ts` guards that no personality dominates. Run it after touching `bot_system.ts`, `bot_plan.ts`
+  or `bot_hard.ts`.
 
 ## Debugging Tools
 
@@ -231,7 +231,7 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
   cell, lap, tire, fuel, compound, driver and move points in the panel; targets recompute live. `E` again plays on with
   the normal rules. "Copy as test" copies the position as a vitest case (offered targets as the expectation: edit the
   wrong entry and it is the failing test), "Copy link" a `?sandbox&pos=` URL, "Load position" takes a "Copy debug"
-  snapshot (same car count only). Phaser-free logic in `src/game/race/sandbox.ts`, panel in `src/ui/sandboxPanel.ts`,
+  snapshot (same car count only). Phaser-free logic in `src/game/race/sandbox.ts`, panel in `src/ui/sandbox_panel.ts`,
   the e2e spec is `e2e/sandbox.spec.ts`. Plan and decisions: issue #38.
 - The build version is shown bottom right on the home and lobby screens, not in a race (it sat over the board, on a phone over the bottom kerb), since a home-screen app can run an older copy than the browser (`src/ui/version.ts`): `web <sha> · <build day> ·
 server <sha>`, amber when the server runs another commit (a deploy is pending); a click copies the full commits.
@@ -239,7 +239,7 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 - Frame-rate readout (issue #79): press `P` during a race (or add `?fps` to the URL; a small `FPS` button shows on touch
   screens, in the right column or the phone drawer) for a line at the bottom left, out of the layout flow so it never
   moves the track it measures: `fps 58 · worst frame 34 ms`. `fps` is the frames the game rendered in the
-  last second (Phaser's `postrender`, `src/ui/fpsMeter.ts`, so a frame-rate cap shows up in it); `worst frame` is the
+  last second (Phaser's `postrender`, `src/ui/fps_meter.ts`, so a frame-rate cap shows up in it); `worst frame` is the
   longest gap between two renders in that second (a saturated main thread shows there first). Works in solo and online.
   Use it to compare before and after a rendering change, on the machine where it feels slow.
 - Snapshot includes `version` + `gitSha` and the race `seed` for reproducibility (`?seed=N`).
@@ -259,15 +259,15 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
   `npm run backend:build`, plus ONLY the e2e specs the change touches, one chain at a time. Never the full e2e suite,
   the CI shards or repeat loops.
 - Test layers, lowest first; put a check in the lowest one that can see the behavior:
-  1. engine and systems (`src/game/race/raceEngine.test.ts`, `src/game/systems/*.test.ts`): rules;
-  2. race session (`src/game/race/raceSession.test.ts`, `src/ui/hudSession.test.ts`): the turn loop, HUD data, feel
+  1. engine and systems (`src/game/race/race_engine.test.ts`, `src/game/systems/*.test.ts`): rules;
+  2. race session (`src/game/race/race_session.test.ts`, `src/ui/hud_session.test.ts`): the turn loop, HUD data, feel
      events, online state and hold, played through a real race on the real track;
   3. page controller (`src/main.test.ts`, `src/main.multiplayer.test.ts`, the real `index.html` in jsdom with a
      `FakeWebSocket`): routing, lobby screens, mute, turn timer, host skip, disconnects;
   4. backend contract (`backend/test/*`, Fastify `inject`): the API, WebSocket sync, rules, AFK, bots;
   5. e2e (Playwright): whole journeys across pages or sockets, real pointer input, pixels and layout.
 - A rule with an effect the player can see needs a reachability check, not only a test on a position you build:
-  `src/game/race/featureReach.test.ts` plays seeded bot-only races (nobody placing cars) and asserts how often each
+  `src/game/race/feature_reach.test.ts` plays seeded bot-only races (nobody placing cars) and asserts how often each
   rule comes up, in wide bands, and prints the numbers. A new such rule gets a line there. Drafting passed every
   constructed-position test while it fired on 0 of 498 real turns (#98).
 - A new e2e test must justify that it needs a real browser (a journey across pages or sockets, real pointer input, or
@@ -310,8 +310,10 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 - Single quotes (#74) and the rest of the layout are Prettier's (`.prettierrc.json`): lint-staged runs it on every
   staged file and CI runs `npm run format:check`. The one-off reformat commit is in `.git-blame-ignore-revs`
   (`git config blame.ignoreRevsFile .git-blame-ignore-revs`).
-- Not done yet, tracked separately: snake_case file names (#75), JSDoc on every top-level export (#76), `!` and `as`
-  assertions (#77).
+- File names are snake_case (`race_engine.ts`, `race_scene.ts`, `race_engine.test.ts`), even a class's file (#75);
+  `tools/file_names.test.ts` fails on a capital letter in a tracked `.ts` name. The `.mjs` scripts in `tools/` and the
+  hyphenated e2e specs keep their names.
+- Not done yet, tracked separately: JSDoc on every top-level export (#76), `!` and `as` assertions (#77).
 
 ## Conventions
 

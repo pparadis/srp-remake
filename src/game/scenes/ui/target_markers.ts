@@ -6,7 +6,7 @@ import {
   SELECTED_RING,
   targetLayers,
   type TargetRing
-} from '../rendering/bakedTextures';
+} from '../rendering/baked_textures';
 
 export interface TargetMarker {
   x: number;

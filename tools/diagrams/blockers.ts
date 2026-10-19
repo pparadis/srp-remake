@@ -1,6 +1,6 @@
 // Diagram: which cells the engine offers around other cars (docs/movement-spec.md, "Occupancy"). Every free cell ahead
 // of "you" shows the move points the engine charges for it, or a cross when it is not offered at all.
-import type { RaceContext } from '../../src/game/race/raceEngine';
+import type { RaceContext } from '../../src/game/race/race_engine';
 import { zoneRange } from './bend';
 import { drawStrip, type StripSpec } from './strip';
 import { COLORS, document, text } from './svg';

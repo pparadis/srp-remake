@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CAR_SPRITES } from '../systems/spawnSystem';
+import { CAR_SPRITES } from '../systems/spawn_system';
 
 export class BootScene extends Phaser.Scene {
   constructor() {

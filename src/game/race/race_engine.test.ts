@@ -12,7 +12,7 @@ import {
   isValidSetup,
   type RaceSeat,
   type RaceState
-} from './raceEngine';
+} from './race_engine';
 import type { BotLevel, Car } from '../types/car';
 
 const ctx = createRaceContext(track as unknown as TrackData);

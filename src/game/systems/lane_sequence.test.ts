@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TrackCell } from '../types/track';
-import { buildLaneSequence } from './laneSequence';
+import { buildLaneSequence } from './lane_sequence';
 
 function makeCell(
   id: string,

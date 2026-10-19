@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import { MOVE_BUDGET, MOVE_RATES } from '../constants';
-import { buildGameDebugSnapshot } from '../scenes/debug/gameDebugSnapshot';
+import { buildGameDebugSnapshot } from '../scenes/debug/game_debug_snapshot';
 import type { TrackData } from '../types/track';
 import {
   computeTargets,
@@ -9,7 +9,7 @@ import {
   createRaceContext,
   getActiveCar,
   type RaceState
-} from './raceEngine';
+} from './race_engine';
 import {
   budgetLeftOf,
   editCar,

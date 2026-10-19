@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../types/track';
-import type { PublicLobby } from '../../net/backendApi';
+import type { PublicLobby } from '../../net/backend_api';
 import type { Car } from '../types/car';
 import { stintEstimate } from '../systems/strategy';
 import {
@@ -12,8 +12,8 @@ import {
   type RaceAction,
   type RaceSeat,
   type RaceState
-} from './raceEngine';
-import { RaceSession, SERVER_WAIT_MS, type HudView, type RaceSessionSetup } from './raceSession';
+} from './race_engine';
+import { RaceSession, SERVER_WAIT_MS, type HudView, type RaceSessionSetup } from './race_session';
 
 const TRACK = track as unknown as TrackData;
 const AT = { x: 120, y: 340 };

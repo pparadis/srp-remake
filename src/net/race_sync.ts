@@ -1,6 +1,6 @@
-import { turnOrderOf } from '../game/systems/botStyle';
-import type { RaceState } from '../game/race/raceEngine';
-import type { PublicRaceState } from './backendApi';
+import { turnOrderOf } from '../game/systems/bot_style';
+import type { RaceState } from '../game/race/race_engine';
+import type { PublicRaceState } from './backend_api';
 
 // Turns the server's race snapshot into the engine state the scene renders.
 // carId = seatIndex + 1; the play order follows the seed's grid, and activeSeatIndex is the active car's seat.

@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { Car } from '../types/car';
 import type { TrackCell, TrackData, TrackTag } from '../types/track';
 import track from '../../../public/tracks/oval16_3lanes.json';
-import { createRaceContext } from '../race/raceEngine';
+import { createRaceContext } from '../race/race_engine';
 import {
   buildProgressMap,
   computeCarSortKey,
   getCellForwardIndex,
   sortCarsByProgress
-} from './orderingSystem';
+} from './ordering_system';
 
 function makeCell(id: string, forwardIndex: number): TrackCell {
   return {

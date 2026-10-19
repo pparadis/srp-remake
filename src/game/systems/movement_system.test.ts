@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeSqueezeTargets, computeValidTargets } from './movementSystem';
-import { buildTrackIndex } from './trackIndex';
+import { computeSqueezeTargets, computeValidTargets } from './movement_system';
+import { buildTrackIndex } from './track_index';
 import type { TrackData } from '../types/track';
 import track from '../../../public/tracks/oval16_3lanes.json';
 

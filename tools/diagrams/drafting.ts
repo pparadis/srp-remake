@@ -1,12 +1,12 @@
 // Diagram: drafting (docs/movement-spec.md, "Drafting"). Where a car is tucked in (from `draftAhead`), and what the run
 // of moves ended tucked in buys on the next move (from `computeTargets` with `Car.draftTurns` 0, 1, 2).
-import type { RaceContext } from '../../src/game/race/raceEngine';
+import type { RaceContext } from '../../src/game/race/race_engine';
 import { DRAFT_RANGE, DRAFT_SLINGSHOT_TURNS } from '../../src/game/constants';
-import { draftAhead } from '../../src/game/systems/draftSystem';
-import type { TargetInfo } from '../../src/game/systems/movementSystem';
+import { draftAhead } from '../../src/game/systems/draft_system';
+import type { TargetInfo } from '../../src/game/systems/movement_system';
 import { zoneRange } from './bend';
 import { drawCars, drawTuck } from './marks';
-import { priceBar, SEGMENT_COLORS } from './priceBar';
+import { priceBar, SEGMENT_COLORS } from './price_bar';
 import { offeredFrom, positionOf } from './scenario';
 import { bendPanel } from './strip';
 import { COLORS, document, panel, text } from './svg';

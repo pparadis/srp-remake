@@ -1,6 +1,6 @@
 import type { TrackCell } from '../types/track';
 import type { CarSetup } from '../types/car';
-import { DIAGONAL_MIN_GAIN, lapAhead, type TrackIndex } from './trackIndex';
+import { DIAGONAL_MIN_GAIN, lapAhead, type TrackIndex } from './track_index';
 import {
   INNER_MAIN_LANE,
   MIDDLE_MAIN_LANE,
@@ -11,7 +11,7 @@ import {
   SQUEEZE_SURCHARGE_PER_CAR,
   WING_EFFECTS
 } from '../constants';
-import { computeMoveSpend } from './moveBudgetSystem';
+import { computeMoveSpend } from './move_budget_system';
 
 export interface TargetInfo {
   distance: number;

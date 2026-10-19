@@ -7,7 +7,12 @@ export default defineConfig({
     __PREVIEW_PR__: JSON.stringify('')
   },
   test: {
-    include: ['src/**/*.test.ts', 'tools/diagrams/**/*.test.ts', 'tools/make404.test.ts'],
+    include: [
+      'src/**/*.test.ts',
+      'tools/diagrams/**/*.test.ts',
+      'tools/make404.test.ts',
+      'tools/file_names.test.ts'
+    ],
     environment: 'jsdom',
     // CSS is not processed in tests, except when a test reads the stylesheet's text (`style.css?raw`)
     css: { include: [/style\.css\?raw/] },

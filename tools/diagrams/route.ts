@@ -1,6 +1,6 @@
 // A route over a bend: each step has a kind, and the same kinds drive the drawing, the legend and the price.
 import { PIT_LANE } from '../../src/game/constants';
-import { DIAGONAL_MIN_GAIN, lapAhead, type TrackIndex } from '../../src/game/systems/trackIndex';
+import { DIAGONAL_MIN_GAIN, lapAhead, type TrackIndex } from '../../src/game/systems/track_index';
 import type { TrackCell } from '../../src/game/types/track';
 import type { Point } from './bend';
 import { badge, COLORS, text } from './svg';

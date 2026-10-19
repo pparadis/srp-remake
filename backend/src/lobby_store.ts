@@ -7,10 +7,10 @@ import {
   getActiveCar,
   type ApplyResult,
   type BotTurnDecision
-} from '../../src/game/race/raceEngine';
-import { normalizeChatText } from '../../src/game/chatText';
-import { MAX_SEED, normalizeSeed } from '../../src/game/systems/botStyle';
-import type { BotPolicy } from '../../src/game/systems/botSystem';
+} from '../../src/game/race/race_engine';
+import { normalizeChatText } from '../../src/game/chat_text';
+import { MAX_SEED, normalizeSeed } from '../../src/game/systems/bot_style';
+import type { BotPolicy } from '../../src/game/systems/bot_system';
 import { getRaceContext, knownTrackIds } from './tracks.js';
 import type {
   ChatMessage,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyMove } from './moveCommitSystem';
+import { applyMove } from './move_commit_system';
 import type { Car } from '../types/car';
 import type { TrackCell } from '../types/track';
 import { PIT_LANE } from '../constants';

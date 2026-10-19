@@ -2,7 +2,7 @@
 // (`animateMotion`, no JS loop, no canvas) and one of them diving into the pit lane every other lap. Phaser-free.
 import track from '../../public/tracks/oval16_3lanes.json';
 import { MAIN_LANES, PIT_LANE } from '../game/constants';
-import { CAR_SPRITES } from '../game/systems/spawnSystem';
+import { CAR_SPRITES } from '../game/systems/spawn_system';
 import type { TrackCell, TrackData } from '../game/types/track';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

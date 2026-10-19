@@ -1,6 +1,6 @@
 import type { Car } from '../../types/car';
-import type { TargetInfo } from '../../systems/movementSystem';
-import type { BotDecisionTrace } from '../../systems/botSystem';
+import type { TargetInfo } from '../../systems/movement_system';
+import type { BotDecisionTrace } from '../../systems/bot_system';
 
 export interface BotDecisionLogEntry {
   seq: number;

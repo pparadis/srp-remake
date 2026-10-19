@@ -1,8 +1,8 @@
-// Frozen: rules v1, copied from a97293a (src/game/systems/movementSystem.ts) with only the import paths changed. Never edit:
+// Frozen: rules v1, copied from a97293a (src/game/systems/movement_system.ts) with only the import paths changed. Never edit:
 // a change in behavior is a new rules version, and src/game/rules/golden/v1.json fails the test if v1 moves (#118).
 import type { TrackCell } from '../../types/track';
 import type { CarSetup } from '../../types/car';
-import type { TrackIndex } from '../../systems/trackIndex';
+import type { TrackIndex } from '../../systems/track_index';
 import {
   INNER_MAIN_LANE,
   MIDDLE_MAIN_LANE,
@@ -13,7 +13,7 @@ import {
   SQUEEZE_SURCHARGE_PER_CAR,
   WING_EFFECTS
 } from '../../constants';
-import { computeMoveSpend } from './moveSpend';
+import { computeMoveSpend } from './move_spend';
 
 export interface TargetInfo {
   distance: number;

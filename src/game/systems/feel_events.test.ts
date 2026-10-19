@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createFeelMemory, detectFeel, type FeelView } from './feelEvents';
+import { createFeelMemory, detectFeel, type FeelView } from './feel_events';
 
 const view = (
   over: Partial<FeelView> = {},

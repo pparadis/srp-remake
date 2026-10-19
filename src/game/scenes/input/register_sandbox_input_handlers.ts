@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import type { TrackCell } from '../../types/track';
 import { isTypingTarget } from '../../../ui/typing';
-import { onKeyDown } from './onKeyDown';
+import { onKeyDown } from './on_key_down';
 
 interface RegisterSandboxInputHandlersParams {
   scene: Phaser.Scene;

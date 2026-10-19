@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { keepGameSizeInSync, type SizedGame } from './gameSize';
+import { keepGameSizeInSync, type SizedGame } from './game_size';
 
 // A ResizeObserver the test fires by hand.
 class FakeResizeObserver {

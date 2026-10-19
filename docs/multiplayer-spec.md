@@ -153,7 +153,7 @@ REST:
   turn for the active human seat. `401` bad token, `403` non-host, `404` unknown lobby, `409` unless the race
   is `IN_RACE` with a human seat to play (or `revision` is stale).
 - `POST /lobbies/:lobbyId/chat` `{ playerToken, text }` (`201` with the `message`). Any lobby status. `401` bad
-  token, `400` when `normalizeChatText` (`src/game/chatText.ts`) refuses the text (empty, over 100 graphemes or 400
+  token, `400` when `normalizeChatText` (`src/game/chat_text.ts`) refuses the text (empty, over 100 graphemes or 400
   UTF-16 units), `429` for a second message within 1 s of the player's last (plus the per-IP limit).
 - `POST /lobbies/:lobbyId/turns` `{ playerToken, clientCommandId, revision, action }` where `action` is
   `{ type: "move", targetCellId }`, `{ type: "pit", targetCellId, setup }`, `{ type: "skip" }` or

@@ -1,10 +1,10 @@
 import type { Car } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
-import { createMoveCycle } from './moveBudgetSystem';
+import { createMoveCycle } from './move_budget_system';
 import { MAIN_LANES, PIT_LANE } from '../constants';
-import { buildLaneSequence } from './laneSequence';
-import { gridSlots } from './botStyle';
-import { lapCountAtSpawn } from './lapProgress';
+import { buildLaneSequence } from './lane_sequence';
+import { gridSlots } from './bot_style';
+import { lapCountAtSpawn } from './lap_progress';
 
 interface SpawnOptions {
   totalCars?: number;

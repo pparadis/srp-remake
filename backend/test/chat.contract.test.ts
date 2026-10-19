@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 import type { BackendConfig } from '../src/config.js';
-import { LobbyStore } from '../src/lobbyStore.js';
+import { LobbyStore } from '../src/lobby_store.js';
 import { createApp } from '../src/server.js';
 import type { ChatMessage } from '../src/types.js';
 import { playRaceToEnd } from './helpers.js';

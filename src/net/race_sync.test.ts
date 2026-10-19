@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { PublicRaceCar, PublicRaceState } from './backendApi';
-import { turnOrderOf } from '../game/systems/botStyle';
-import { toEngineRace } from './raceSync';
+import type { PublicRaceCar, PublicRaceState } from './backend_api';
+import { turnOrderOf } from '../game/systems/bot_style';
+import { toEngineRace } from './race_sync';
 
 function car(carId: number, overrides: Partial<PublicRaceCar> = {}): PublicRaceCar {
   return {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { trackSchema } from './trackSchema';
+import { trackSchema } from './track_schema';
 
 const baseCell = {
   id: 'A0',

@@ -1,9 +1,9 @@
 // Compare movement-rules versions on the same deterministic races (#118):
-//   npx tsx tools/rulesCompare.ts [--rules v1,v2] [--seeds 12] [--laps 5]
+//   npx tsx tools/rules_compare.ts [--rules v1,v2] [--seeds 12] [--laps 5]
 // Per version: the bot benchmark (the bots' ordering, overtakes, race length in turns) and, from bot-only races of 6, 12
 // and 16 cars, how often each rule comes up (tows, slingshots, squeezes, lane changes) and which lanes the cars drive.
 import { readFileSync } from 'node:fs';
-import { runBench, type BenchPolicy } from '../src/game/race/botBench';
+import { runBench, type BenchPolicy } from '../src/game/race/bot_bench';
 import {
   applyAction,
   computeTargets,
@@ -11,7 +11,7 @@ import {
   createRaceContext,
   decideBotAction,
   getActiveCar
-} from '../src/game/race/raceEngine';
+} from '../src/game/race/race_engine';
 import { isRulesVersion, RULES, type RulesVersion } from '../src/game/rules/versions';
 import type { TrackData } from '../src/game/types/track';
 

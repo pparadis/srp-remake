@@ -1,9 +1,9 @@
 // A titled panel with one position drawn on a stretch of the track: every free cell the rule is about shows what the
 // engine offers there (its move points) or a cross, with the cars and "you" on top. Shared by the diagrams that read
 // `computeTargets` (blockers, squeeze, pit).
-import type { RaceContext } from '../../src/game/race/raceEngine';
+import type { RaceContext } from '../../src/game/race/race_engine';
 import type { CarEdit } from '../../src/game/race/sandbox';
-import type { TargetInfo } from '../../src/game/systems/movementSystem';
+import type { TargetInfo } from '../../src/game/systems/movement_system';
 import type { TrackCell } from '../../src/game/types/track';
 import { drawBend, type Bend } from './bend';
 import { drawCars, drawOffer, drawYou } from './marks';

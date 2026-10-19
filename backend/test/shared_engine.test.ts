@@ -6,7 +6,7 @@ import {
   createRace,
   createRaceContext,
   decideBotAction
-} from '../../src/game/race/raceEngine';
+} from '../../src/game/race/race_engine';
 import type { TrackData } from '../../src/game/types/track';
 
 // The backend runs the same race engine as the browser; this proves the shared

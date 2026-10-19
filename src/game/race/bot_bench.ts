@@ -1,14 +1,19 @@
-// Headless, deterministic bot races used by tools/botBench.ts and the bot tests.
+// Headless, deterministic bot races used by tools/bot_bench.ts and the bot tests.
 // One policy per grid slot; rotating the line-up gives every policy every grid slot (and every
 // starting tire), so pole position and the default setups are not a bias. Each race has a seed
 // (it decides the bots' personalities); results can be cut by policy, personality or grid slot.
-import { SETUP_CHOICES } from '../systems/botPlan';
-import { trackFwd } from '../systems/trackIndex';
+import { SETUP_CHOICES } from '../systems/bot_plan';
+import { trackFwd } from '../systems/track_index';
 import type { CarSetup } from '../types/car';
-import { cycleBudget, getRemainingBudget } from '../systems/moveBudgetSystem';
+import { cycleBudget, getRemainingBudget } from '../systems/move_budget_system';
 import type { RulesVersion } from '../rules/versions';
-import type { BotPolicy } from '../systems/botSystem';
-import { gridSlots, personalityFor, personalityOf, type PersonalityKey } from '../systems/botStyle';
+import type { BotPolicy } from '../systems/bot_system';
+import {
+  gridSlots,
+  personalityFor,
+  personalityOf,
+  type PersonalityKey
+} from '../systems/bot_style';
 import {
   applyAction,
   computeTargets,
@@ -18,7 +23,7 @@ import {
   type RaceAction,
   type RaceContext,
   type RaceState
-} from './raceEngine';
+} from './race_engine';
 
 // Scripted drivers standing in for a human who found a fixed strategy: always the inner lane,
 // and either the even spend 9-8-8-8-7 or the biggest move it can make ("greedy").

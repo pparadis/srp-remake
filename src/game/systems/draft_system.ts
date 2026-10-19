@@ -1,5 +1,5 @@
 import { DRAFT_RANGE, INNER_MAIN_LANE, OUTER_MAIN_LANE } from '../constants';
-import { cellsAlongLane, type TrackIndex } from './trackIndex';
+import { cellsAlongLane, type TrackIndex } from './track_index';
 
 // Drafting (issue #55, rules in docs/movement-spec.md): pure position logic, no costs here.
 

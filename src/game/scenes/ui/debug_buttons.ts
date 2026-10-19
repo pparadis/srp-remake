@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { makeButton } from './makeButton';
+import { makeButton } from './make_button';
 
 interface DebugButtonsCallbacks {
   onCopyDebug: () => void;

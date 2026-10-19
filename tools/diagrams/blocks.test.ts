@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildTrackIndex } from '../../src/game/systems/trackIndex';
+import { buildTrackIndex } from '../../src/game/systems/track_index';
 import type { TrackCell } from '../../src/game/types/track';
 import { drawBend } from './bend';
-import { priceBar } from './priceBar';
+import { priceBar } from './price_bar';
 import { drawRoute, stepsOf } from './route';
 import { esc, text } from './svg';
 

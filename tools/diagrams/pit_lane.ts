@@ -1,6 +1,6 @@
 // Diagrams: the pit rules (docs/movement-spec.md, "Pit Rules"): where you may enter, how far you move in the pit lane,
 // the jump to a box, and the exit. Each cell the rule is about shows what `computeTargets` offers there, or a cross.
-import type { RaceContext } from '../../src/game/race/raceEngine';
+import type { RaceContext } from '../../src/game/race/race_engine';
 import type { TrackCell } from '../../src/game/types/track';
 import { drawStrip, type StripSpec } from './strip';
 import { COLORS, document, text } from './svg';

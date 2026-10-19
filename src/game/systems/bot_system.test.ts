@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Car } from '../types/car';
-import type { TargetInfo } from './movementSystem';
+import type { TargetInfo } from './movement_system';
 import {
   decideBotAction,
   decideBotActionWithTrace,
@@ -9,7 +9,7 @@ import {
   evaluateEasyTargets,
   evaluateNormalTargets,
   pickBotMove
-} from './botSystem';
+} from './bot_system';
 import type { TrackCell } from '../types/track';
 
 function makeCar(overrides: Partial<Car> = {}): Car {

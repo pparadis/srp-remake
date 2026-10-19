@@ -31,11 +31,11 @@ vi.mock('phaser', () => {
   };
 });
 
-vi.mock('./scenes/BootScene', () => ({
+vi.mock('./scenes/boot_scene', () => ({
   BootScene: class BootSceneMock {}
 }));
 
-vi.mock('./scenes/RaceScene', () => ({
+vi.mock('./scenes/race_scene', () => ({
   RaceScene: class RaceSceneMock {}
 }));
 

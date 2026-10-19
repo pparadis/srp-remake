@@ -1,7 +1,7 @@
 import type { Car } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
-import { buildLaneSequence } from './laneSequence';
-import { lane1FwdByZoneOf, rankPosition, trackFwd, type TrackIndex } from './trackIndex';
+import { buildLaneSequence } from './lane_sequence';
+import { lane1FwdByZoneOf, rankPosition, trackFwd, type TrackIndex } from './track_index';
 
 interface CarSortKey {
   lapCount: number;

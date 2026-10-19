@@ -1,4 +1,4 @@
-// Bot benchmark: `npx tsx tools/botBench.ts [--laps 3,5,8] [--lineup hard,normal,easy,autopilot] [--seeds 4]`
+// Bot benchmark: `npx tsx tools/bot_bench.ts [--laps 3,5,8] [--lineup hard,normal,easy,autopilot] [--seeds 4]`
 // Plays deterministic headless races (every rotation of the line-up on every lap count and seed) and
 // prints win rate, average finishing position (lower is better) and mean decision time per policy,
 // then per personality and per grid slot. `--strategist` instead runs the scripted human baseline
@@ -14,10 +14,10 @@ import {
   setupSweepGate,
   statsBy,
   type BenchPolicy
-} from '../src/game/race/botBench';
-import { createRaceContext } from '../src/game/race/raceEngine';
-import { SETUP_CHOICES } from '../src/game/systems/botPlan';
-import type { PersonalityKey } from '../src/game/systems/botStyle';
+} from '../src/game/race/bot_bench';
+import { createRaceContext } from '../src/game/race/race_engine';
+import { SETUP_CHOICES } from '../src/game/systems/bot_plan';
+import type { PersonalityKey } from '../src/game/systems/bot_style';
 import type { TrackData } from '../src/game/types/track';
 
 function arg(name: string, fallback: string): string {

@@ -6,7 +6,7 @@ import {
   SEEDED_STYLES,
   turnOrderOf,
   unit
-} from './botStyle';
+} from './bot_style';
 
 describe('personalityOf', () => {
   it('is a pure function of seed and car; seed 0 is the neutral baseline', () => {

@@ -1,7 +1,7 @@
-// Frozen: rules v1, copied from a97293a (src/game/systems/draftSystem.ts) with only the import paths changed. Never edit:
+// Frozen: rules v1, copied from a97293a (src/game/systems/draft_system.ts) with only the import paths changed. Never edit:
 // a change in behavior is a new rules version, and src/game/rules/golden/v1.json fails the test if v1 moves (#118).
 import { DRAFT_RANGE, INNER_MAIN_LANE, OUTER_MAIN_LANE } from '../../constants';
-import type { TrackIndex } from '../../systems/trackIndex';
+import type { TrackIndex } from '../../systems/track_index';
 
 // Drafting (issue #55, rules in docs/movement-spec.md): pure position logic, no costs here.
 

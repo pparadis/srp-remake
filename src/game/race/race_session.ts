@@ -5,18 +5,18 @@ import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from '../constants';
 import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
 import type { BotLevel, Car } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
-import { laneWearFactors, setupFactors, type TargetInfo } from '../systems/movementSystem';
-import { buildPlanContext, type BotPlanContext } from '../systems/botPlan';
-import { rankPosition } from '../systems/trackIndex';
+import { laneWearFactors, setupFactors, type TargetInfo } from '../systems/movement_system';
+import { buildPlanContext, type BotPlanContext } from '../systems/bot_plan';
+import { rankPosition } from '../systems/track_index';
 import { pitAdvice, stintEstimate } from '../systems/strategy';
-import { createFeelMemory, detectFeel, type FeelEvent } from '../systems/feelEvents';
-import { computeMoveSpend, cycleBudget, getRemainingBudget } from '../systems/moveBudgetSystem';
-import { carColor } from '../systems/spawnSystem';
-import { movePath } from '../systems/movePath';
-import { hasFinishedRace, lapInProgress } from '../systems/lapProgress';
-import { sortCarsByProgress } from '../systems/orderingSystem';
-import { carsMovedInOrder, feedLines, type FeedKind, type FeedLine } from '../systems/raceFeed';
-import { PERSONALITIES, personalityOf } from '../systems/botStyle';
+import { createFeelMemory, detectFeel, type FeelEvent } from '../systems/feel_events';
+import { computeMoveSpend, cycleBudget, getRemainingBudget } from '../systems/move_budget_system';
+import { carColor } from '../systems/spawn_system';
+import { movePath } from '../systems/move_path';
+import { hasFinishedRace, lapInProgress } from '../systems/lap_progress';
+import { sortCarsByProgress } from '../systems/ordering_system';
+import { carsMovedInOrder, feedLines, type FeedKind, type FeedLine } from '../systems/race_feed';
+import { PERSONALITIES, personalityOf } from '../systems/bot_style';
 import {
   applyAction,
   computeTargets,
@@ -27,7 +27,7 @@ import {
   type RaceContext,
   type RaceSeat,
   type RaceState
-} from './raceEngine';
+} from './race_engine';
 import {
   budgetLeftOf,
   editCar,
@@ -42,13 +42,13 @@ import {
   serializeBotTargets,
   serializeBotTrace,
   type BotDecisionLogEntry
-} from '../scenes/debug/botDecisionDebug';
-import { buildGameDebugSnapshot } from '../scenes/debug/gameDebugSnapshot';
+} from '../scenes/debug/bot_decision_debug';
+import { buildGameDebugSnapshot } from '../scenes/debug/game_debug_snapshot';
 import type { HudCar, HudHover, HudMove, HudSnapshot } from '../../ui/hud';
-import type { SandboxSnapshot } from '../../ui/sandboxPanel';
-import type { PitStints } from '../scenes/ui/PitModal';
-import type { AppliedTurnSummary, PublicLobby, TurnSource } from '../../net/backendApi';
-import { toEngineRace } from '../../net/raceSync';
+import type { SandboxSnapshot } from '../../ui/sandbox_panel';
+import type { PitStints } from '../scenes/ui/pit_modal';
+import type { AppliedTurnSummary, PublicLobby, TurnSource } from '../../net/backend_api';
+import { toEngineRace } from '../../net/race_sync';
 
 export interface RaceSessionSetup {
   totalCars: number;

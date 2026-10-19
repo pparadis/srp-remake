@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { type MoveValidationResult } from '../../systems/moveValidationSystem';
+import { type MoveValidationResult } from '../../systems/move_validation_system';
 import type { Car } from '../../types/car';
 import type { TrackCell } from '../../types/track';
 

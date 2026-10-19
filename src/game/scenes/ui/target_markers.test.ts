@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import { describe, expect, it } from 'vitest';
-import { targetLayers, type TargetRing } from '../rendering/bakedTextures';
-import { TargetMarkers, type TargetMarker } from './TargetMarkers';
+import { targetLayers, type TargetRing } from '../rendering/baked_textures';
+import { TargetMarkers, type TargetMarker } from './target_markers';
 
 const plain: TargetRing = {
   color: 0x3aa0ff,

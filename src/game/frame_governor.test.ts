@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FrameGovernor } from './frameGovernor';
+import { FrameGovernor } from './frame_governor';
 
 function setup() {
   const limit = { _limitRate: 1000 / 15 };

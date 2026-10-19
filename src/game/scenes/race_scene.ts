@@ -1,9 +1,9 @@
 import { renderScale, textResolution } from '../hidpi';
-import { FrameGovernor, type FrameLimit } from '../frameGovernor';
+import { FrameGovernor, type FrameLimit } from '../frame_governor';
 import Phaser from 'phaser';
 import type { TrackData, TrackCell } from '../types/track';
 import type { BotLevel, Car } from '../types/car';
-import { trackSchema } from '../../validation/trackSchema';
+import { trackSchema } from '../../validation/track_schema';
 import {
   REG_ANIMATE,
   REG_BOT_CARS,
@@ -16,27 +16,27 @@ import {
   REG_SEED,
   REG_TOTAL_CARS
 } from '../constants';
-import type { TargetInfo } from '../systems/movementSystem';
-import type { FeelEvent } from '../systems/feelEvents';
+import type { TargetInfo } from '../systems/movement_system';
+import type { FeelEvent } from '../systems/feel_events';
 import { play } from '../../ui/sound';
-import { Confetti } from './ui/Confetti';
-import { carSprite } from '../systems/spawnSystem';
-import type { RaceAction } from '../race/raceEngine';
+import { Confetti } from './ui/confetti';
+import { carSprite } from '../systems/spawn_system';
+import type { RaceAction } from '../race/race_engine';
 import { DEFAULT_RULES_VERSION, type RulesVersion } from '../rules/versions';
-import { RaceSession, SERVER_WAIT_MS, type MovePreview } from '../race/raceSession';
+import { RaceSession, SERVER_WAIT_MS, type MovePreview } from '../race/race_session';
 import { positionAsTest, type CarEdit } from '../race/sandbox';
-import type { SandboxCommand } from '../../ui/sandboxPanel';
-import { validateTrack } from '../../validation/trackValidation';
-import { PIT_PANEL, PitModal } from './ui/PitModal';
-import { DebugButtons } from './ui/DebugButtons';
-import { makeButton } from './ui/makeButton';
-import { applyCarsMovesVisibility } from './ui/carsMovesVisibility';
-import { TargetMarkers, type TargetMarker } from './ui/TargetMarkers';
-import { badgeTexture, carBodyTexture } from './rendering/bakedTextures';
-import { drawTrack as drawTrackGraphics, laneColor } from './rendering/trackRenderer';
+import type { SandboxCommand } from '../../ui/sandbox_panel';
+import { validateTrack } from '../../validation/track_validation';
+import { PIT_PANEL, PitModal } from './ui/pit_modal';
+import { DebugButtons } from './ui/debug_buttons';
+import { makeButton } from './ui/make_button';
+import { applyCarsMovesVisibility } from './ui/cars_moves_visibility';
+import { TargetMarkers, type TargetMarker } from './ui/target_markers';
+import { badgeTexture, carBodyTexture } from './rendering/baked_textures';
+import { drawTrack as drawTrackGraphics, laneColor } from './rendering/track_renderer';
 import { easeAngle, headingOf, spriteRotation } from './rendering/heading';
 import { GLIDE, glideCap, glideDuration } from './rendering/glide';
-import { roadPath } from './rendering/roadPath';
+import { roadPath } from './rendering/road_path';
 import {
   centerOn,
   FITTED,
@@ -46,23 +46,23 @@ import {
   wheelTo,
   type Fit,
   type UserView
-} from './rendering/cameraView';
-import { registerCameraGestures } from './input/registerCameraGestures';
-import { carColor } from '../systems/spawnSystem';
-import { movePath } from '../systems/movePath';
-import { registerRaceSceneInputHandlers } from './input/registerRaceSceneInputHandlers';
-import { registerSandboxInputHandlers } from './input/registerSandboxInputHandlers';
+} from './rendering/camera_view';
+import { registerCameraGestures } from './input/register_camera_gestures';
+import { carColor } from '../systems/spawn_system';
+import { movePath } from '../systems/move_path';
+import { registerRaceSceneInputHandlers } from './input/register_race_scene_input_handlers';
+import { registerSandboxInputHandlers } from './input/register_sandbox_input_handlers';
 import { hudGutters, isCompactHud } from '../../ui/layout';
 import type { HudCommand } from '../../ui/hud';
-import { validateMoveAttempt } from '../systems/moveValidationSystem';
-import { resolvePlayerDragDrop } from './turns/resolvePlayerDragDrop';
-import type { buildGameDebugSnapshot } from './debug/gameDebugSnapshot';
+import { validateMoveAttempt } from '../systems/move_validation_system';
+import { resolvePlayerDragDrop } from './turns/resolve_player_drag_drop';
+import type { buildGameDebugSnapshot } from './debug/game_debug_snapshot';
 import type {
   AppliedTurnSummary,
   BackendTurnAction,
   PublicLobby,
   TurnSource
-} from '../../net/backendApi';
+} from '../../net/backend_api';
 
 declare global {
   interface Window {
@@ -364,7 +364,7 @@ export class RaceScene extends Phaser.Scene {
       hoverMaxDist: RaceScene.HUD.hoverMaxDist,
       dragSnapDist: 18
     });
-    // Zoom and pan: pinch, a drag on the empty board, the wheel, a double tap to fit again (cameraView.ts).
+    // Zoom and pan: pinch, a drag on the empty board, the wheel, a double tap to fit again (camera_view.ts).
     registerCameraGestures({
       scene: this,
       enabled: () => !this.editing && !this.pitModal.isActive(),
@@ -544,7 +544,7 @@ export class RaceScene extends Phaser.Scene {
     this.activeHalos.set(car.carId, halo);
 
     // Kenney cars point up; the sprite alone is rotated so the badge stays upright.
-    // Both pictures are baked once (bakedTextures.ts): nothing is rescaled or rasterised per frame.
+    // Both pictures are baked once (baked_textures.ts): nothing is rescaled or rasterised per frame.
     const body = this.add
       .image(0, 0, carBodyTexture(this, spriteKey, 15, 28))
       .setDisplaySize(15, 28);
@@ -1131,7 +1131,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   // Fit the track between the DOM HUD panels (columns on a desktop, a top bar on a phone) and above the bottom buttons;
-  // the player's zoom and pan (pinch, drag on the empty board, wheel) sit on top of that fit (cameraView.ts).
+  // the player's zoom and pan (pinch, drag on the empty board, wheel) sit on top of that fit (camera_view.ts).
   private centerTrack() {
     const xs = this.track.cells.map((c) => c.pos.x);
     const ys = this.track.cells.map((c) => c.pos.y);

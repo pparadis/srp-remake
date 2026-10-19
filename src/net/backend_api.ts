@@ -1,4 +1,4 @@
-import type { RaceAction, RejectReason } from '../game/race/raceEngine';
+import type { RaceAction, RejectReason } from '../game/race/race_engine';
 import type { BotLevel, Car } from '../game/types/car';
 
 // What a client submits for its turn; identical to the race engine's action.
