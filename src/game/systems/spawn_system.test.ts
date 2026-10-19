@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TrackCell, TrackData } from '../types/track';
-import { buildSpawnSlots, spawnCars } from './spawnSystem';
+import { buildSpawnSlots, spawnCars } from './spawn_system';
 
 function makeCell(
   id: string,

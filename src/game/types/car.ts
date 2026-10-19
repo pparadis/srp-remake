@@ -16,7 +16,7 @@ export interface CarSetup {
 }
 
 import type { WingLevel } from '../constants';
-import type { MoveCycle } from '../systems/moveBudgetSystem';
+import type { MoveCycle } from '../systems/move_budget_system';
 
 export interface Car {
   carId: number;

@@ -1105,7 +1105,7 @@ body[data-screen='race'] .version {
   font-size: 11px;
 }
 
-/* Frame-rate readout (src/ui/fpsMeter.ts): out of the layout flow (it must not move the track it measures), bottom
+/* Frame-rate readout (src/ui/fps_meter.ts): out of the layout flow (it must not move the track it measures), bottom
    left above the canvas debug buttons and the phone's turn banner. The button, in the right column or the phone
    drawer, is for touch; desktop uses the P key. */
 #hud .hud-fps {

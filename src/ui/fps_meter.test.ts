@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fpsText, startFpsMeter, type FpsStats } from './fpsMeter';
+import { fpsText, startFpsMeter, type FpsStats } from './fps_meter';
 
 // A game whose emitter just keeps the listeners, so a test can fire frames by hand.
 function fakeGame() {

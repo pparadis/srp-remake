@@ -2,10 +2,10 @@ import { textResolution } from '../../hidpi';
 import type Phaser from 'phaser';
 import type { Car } from '../../types/car';
 import { SETUP_LIMITS, WING_LEVELS } from '../../constants';
-import { cycleBudget } from '../../systems/moveBudgetSystem';
+import { cycleBudget } from '../../systems/move_budget_system';
 import { formatStint } from '../../../ui/hud';
 import type { StintEstimate } from '../../systems/strategy';
-import { makeButton } from './makeButton';
+import { makeButton } from './make_button';
 
 export interface PitStints {
   soft: StintEstimate;

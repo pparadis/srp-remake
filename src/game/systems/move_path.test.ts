@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../types/track';
-import { computeValidTargets } from './movementSystem';
-import { movePath } from './movePath';
-import { buildTrackIndex } from './trackIndex';
+import { computeValidTargets } from './movement_system';
+import { movePath } from './move_path';
+import { buildTrackIndex } from './track_index';
 
 const idx = buildTrackIndex(track as unknown as TrackData);
 const lane = (id: string) => idx.cellMap.get(id)!.laneIndex;

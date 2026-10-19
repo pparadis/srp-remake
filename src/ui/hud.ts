@@ -6,7 +6,7 @@ import {
   type WingLevel
 } from '../game/constants';
 import type { PitAdvice, StintEstimate } from '../game/systems/strategy';
-import type { FeedKind } from '../game/systems/raceFeed';
+import type { FeedKind } from '../game/systems/race_feed';
 import { isCompactHud } from './layout';
 
 export interface HudCar {

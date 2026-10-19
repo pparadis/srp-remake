@@ -7,10 +7,10 @@ import {
   createRaceContext,
   decideBotAction,
   getActiveCar
-} from '../race/raceEngine';
+} from '../race/race_engine';
 import type { TrackData } from '../types/track';
-import { computeValidTargets, type TargetInfo } from './movementSystem';
-import { buildTrackIndex } from './trackIndex';
+import { computeValidTargets, type TargetInfo } from './movement_system';
+import { buildTrackIndex } from './track_index';
 
 const trackIndex = buildTrackIndex(track as unknown as TrackData);
 const ctx = createRaceContext(track as unknown as TrackData);

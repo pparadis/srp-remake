@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
-import type { BotPolicy } from '../systems/botSystem';
+import type { BotPolicy } from '../systems/bot_system';
 import type { TrackData } from '../types/track';
-import { playBenchRace, runBench, setupSweep, setupSweepGate } from './botBench';
+import { playBenchRace, runBench, setupSweep, setupSweepGate } from './bot_bench';
 import {
   applyAction,
   createRace,
   createRaceContext,
   decideBotAction,
   getActiveCar
-} from './raceEngine';
+} from './race_engine';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 
 // The acceptance test of the bot levels: the same deterministic races, every policy on every grid
-// slot, and the average finishing position must follow the difficulty. `npx tsx tools/botBench.ts`
+// slot, and the average finishing position must follow the difficulty. `npx tsx tools/bot_bench.ts`
 // prints the same numbers for more races (see docs/bot-system.md).
 describe('bot levels benchmark', () => {
   const lineup: BotPolicy[] = ['hard', 'normal', 'easy', 'autopilot'];
@@ -90,7 +90,7 @@ describe('bot levels benchmark', () => {
   });
 });
 
-// The balance gate of the wing (issue #48): `npx tsx tools/botBench.ts --setups` prints the whole table.
+// The balance gate of the wing (issue #48): `npx tsx tools/bot_bench.ts --setups` prints the whole table.
 describe('setup sweep', () => {
   const rows = setupSweep(ctx, { laps: [3, 4, 5, 6, 7, 8, 9, 10], seeds: [1, 2] });
   const gate = setupSweepGate(rows);

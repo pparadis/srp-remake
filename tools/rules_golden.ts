@@ -4,9 +4,9 @@
 // and the move it then played with the car's state after it (draft run, wear, lap). The action is recorded, not
 // re-decided, so a later bot change cannot move the file.
 //
-//   npx tsx tools/rulesGolden.ts <out.json> <version>
+//   npx tsx tools/rules_golden.ts <out.json> <version>
 //
-// Freezing a version: generate its file into src/game/rules/golden/, register it in rulesGolden.test.ts and set the
+// Freezing a version: generate its file into src/game/rules/golden/, register it in rules_golden.test.ts and set the
 // version's status to "frozen" in src/game/rules/versions.ts. v1 was generated in a checkout of a97293a (the rules
 // before #114, tag rules-v1), from an earlier copy of this file with the same samples.
 import { writeFileSync } from 'node:fs';
@@ -22,7 +22,7 @@ import {
   type RaceAction,
   type RaceContext,
   type RaceState
-} from '../src/game/race/raceEngine';
+} from '../src/game/race/race_engine';
 import { editCar, placeCar, setActiveCar, type CarEdit } from '../src/game/race/sandbox';
 import { carAfter, targetsOf, type Golden, type GoldenSample } from '../src/game/rules/golden';
 import { isRulesVersion, type RulesVersion } from '../src/game/rules/versions';

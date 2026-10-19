@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { onCi, quickRace } from './support/game';
 
 // Pixels and layout only: what the HUD shows is checked without a browser, from a real race
-// (src/game/race/raceSession.test.ts, src/ui/hudSession.test.ts).
+// (src/game/race/race_session.test.ts, src/ui/hud_session.test.ts).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 test.setTimeout(90_000);

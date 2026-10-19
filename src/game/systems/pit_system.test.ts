@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advancePitPenalty, applyPitStop, shouldOpenPitModal } from './pitSystem';
+import { advancePitPenalty, applyPitStop, shouldOpenPitModal } from './pit_system';
 import type { Car } from '../types/car';
 import type { TrackCell, TrackTag } from '../types/track';
 

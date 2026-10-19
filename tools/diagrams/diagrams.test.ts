@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../public/tracks/oval16_3lanes.json';
 import lock from '../../docs/img/diagrams.lock.json';
-import { createRaceContext } from '../../src/game/race/raceEngine';
+import { createRaceContext } from '../../src/game/race/race_engine';
 import type { TrackData } from '../../src/game/types/track';
 import { BLOCKER_PANELS } from './blockers';
 import {
@@ -14,10 +14,10 @@ import {
 } from './drafting';
 import { allDiagrams } from './index';
 import { LAP_PANELS, lapsOf } from './laps';
-import { LANE_CHANGE_SCENARIO, laneChangePriceSvg, priceScenario } from './laneChangePrice';
+import { LANE_CHANGE_SCENARIO, laneChangePriceSvg, priceScenario } from './lane_change_price';
 import { hashText } from './lock';
-import { PASS_AND_RETURN_SCENARIO } from './passAndReturn';
-import { PIT_ENTRY_PANELS, PIT_LANE_PANELS } from './pitLane';
+import { PASS_AND_RETURN_SCENARIO } from './pass_and_return';
+import { PIT_ENTRY_PANELS, PIT_LANE_PANELS } from './pit_lane';
 import { offeredFrom, positionOf, targetOf } from './scenario';
 import { PIT_EXIT_CASES, SQUEEZE_SPEC, squeezeParts } from './squeeze';
 import type { StripSpec } from './strip';

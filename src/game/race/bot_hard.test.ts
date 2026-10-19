@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../types/track';
-import { HARD_CANDIDATES } from './botHard';
+import { HARD_CANDIDATES } from './bot_hard';
 import {
   applyAction,
   computeTargets,
@@ -10,7 +10,7 @@ import {
   decideBotAction,
   getActiveCar,
   type RaceState
-} from './raceEngine';
+} from './race_engine';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 

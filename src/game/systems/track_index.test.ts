@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import realTrack from '../../../public/tracks/oval16_3lanes.json';
 import type { TrackCell, TrackData } from '../types/track';
-import { buildTrackIndex, cellsAlongLane, lapAhead, rankPosition } from './trackIndex';
+import { buildTrackIndex, cellsAlongLane, lapAhead, rankPosition } from './track_index';
 
 function makeCell(
   id: string,

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
-import { createRace, createRaceContext, type RaceState } from '../race/raceEngine';
+import { createRace, createRaceContext, type RaceState } from '../race/race_engine';
 import type { Car } from '../types/car';
 import type { TrackData } from '../types/track';
-import { feedLines } from './raceFeed';
+import { feedLines } from './race_feed';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const seats = [1, 2, 3].map((n) => ({ isBot: false, ownerId: `P${n}` }));

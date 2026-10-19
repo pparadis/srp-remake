@@ -3,7 +3,7 @@
 // lane (the outer lanes have more cells), so cells are placed where they are, never in zone columns (#114).
 import { PIT_LANE } from '../../src/game/constants';
 import type { TrackCell } from '../../src/game/types/track';
-import type { TrackIndex } from '../../src/game/systems/trackIndex';
+import type { TrackIndex } from '../../src/game/systems/track_index';
 import { circle, COLORS, text } from './svg';
 
 export interface Point {

@@ -1,7 +1,7 @@
 # Bot System
 
 Bots for the turn-based race: three player-selectable levels (Easy, Normal, Hard) and the server's AFK
-"autopilot". `decideBotAction(ctx, state, policy?)` in `src/game/race/raceEngine.ts` is the one entry point; it plays
+"autopilot". `decideBotAction(ctx, state, policy?)` in `src/game/race/race_engine.ts` is the one entry point; it plays
 the active car at `policy`, or at the car's own `botLevel` (default Normal) when none is passed.
 
 ## Seed, personalities and the grid
@@ -15,7 +15,7 @@ the boundary, never inside the engine (no `Math.random` in `src/game` or the bac
   (`?seed=0` = neutral) so a race can be reproduced;
 - it travels in the public race state (`raceState.seed`), in `toEngineRace` and in the "Copy debug" snapshot.
 
-The seed decides three things, all pure functions in `src/game/systems/botStyle.ts`:
+The seed decides three things, all pure functions in `src/game/systems/bot_style.ts`:
 
 1. **Personality of each bot**: `personalityOf(seed, carId)`. A shuffled deck of the five styles per block of five
    cars, so the bots of a race differ (cars 1-5 get all five styles, car 6 starts the next deck) and each car's style
@@ -98,7 +98,7 @@ pass `"autopilot"` explicitly.
 | Normal    | The base score, but progress is the `forwardIndex` gain (outer lanes have cells that share an index, so cells walked over-count), plus the plan below and its personality.                                                                                                                                                                                 |
 | Hard      | One round of lookahead with an opponent model on top of Normal, below.                                                                                                                                                                                                                                                                                     |
 
-### Normal: budget, wear and pit plan (`botPlan.ts`, `evaluateNormalTargets`)
+### Normal: budget, wear and pit plan (`bot_plan.ts`, `evaluateNormalTargets`)
 
 - **Move cycle** (40 points per 5 moves): a spend that leaves budget no later move can use (more than 9 per
   remaining move) is penalised 10 points per wasted cell, and a spend above the even share of the remaining
@@ -115,17 +115,17 @@ pass `"autopilot"` explicitly.
   reachable only from lane 1 at one cell (the "feeder" cell, `forwardIndex` 26 on `oval16_3lanes`), so a due stop
   drifts to lane 1 and lands exactly on it; in the pit lane it takes a box.
 - **Setup (on the grid and at a stop)**: 32 psi, and the compound and wing level from `bestSetup(cells)` in
-  `botPlan.ts`: for each of the six pairs it projects the moves to cover the distance still to go (`projectedMoves`:
+  `bot_plan.ts`: for each of the six pairs it projects the moves to cover the distance still to go (`projectedMoves`:
   the cycle budget gives the pace, `cellsUntilEmpty` the stint, then either crawl the rest at 4 a move or stop, a stop
   costing `PIT_STOP_MOVES` = 8 turns, measured) and takes the fastest. In practice: soft and Low wing for a sprint
   (1 to 4 laps), hard and Low for 5 to 7, High for the stint-length races (8 to 12), Medium or Low beyond.
   Normal and Hard set up on the grid in `createRace` (the setup cannot change after the first move) and service with
   the same choice at a stop; Easy keeps the setup it is dealt (also at a stop). The model is
-  a projection, not a race: `npx tsx tools/botBench.ts --setups` plays the real thing (below).
+  a projection, not a race: `npx tsx tools/bot_bench.ts --setups` plays the real thing (below).
 - **Final lap**: never enters the pit lane. A pit-lane crossing could now finish the race, but the lane is a one-step
   crawl and the lap is not lost either way, so the rule is kept.
 
-### Hard: lookahead with an opponent model (`botHard.ts`)
+### Hard: lookahead with an opponent model (`bot_hard.ts`)
 
 For the top 8 candidates by the Normal score (with Hard's `adaptive` style and `HARD_ADAPT` field terms):
 `structuredClone` the race, apply the candidate with `applyAction`, play every other car with the Normal policy
@@ -203,10 +203,10 @@ if isPitTrigger:
 
 ## Testing
 
-Tests: `botStyle.test.ts` (`personalityOf`, grid and play-order functions: pure, distribution), `botStyleScore.test.ts`
-(what each parameter does to the scorer, Easy, Hard passing), `botSystem.test.ts` (scoring per level), `botPlan.test.ts`
-(plan maths), `raceEngine.test.ts` (levels, pit planning), `botHard.test.ts`, `botLevels.test.ts` (ordering, time
-guard), `botPersonalities.test.ts` (no personality dominates, the scripted strategist, seeded determinism) and the
+Tests: `bot_style.test.ts` (`personalityOf`, grid and play-order functions: pure, distribution), `bot_style_score.test.ts`
+(what each parameter does to the scorer, Easy, Hard passing), `bot_system.test.ts` (scoring per level), `bot_plan.test.ts`
+(plan maths), `race_engine.test.ts` (levels, pit planning), `bot_hard.test.ts`, `bot_levels.test.ts` (ordering, time
+guard), `bot_personalities.test.ts` (no personality dominates, the scripted strategist, seeded determinism) and the
 backend `seed.contract.test.ts`. The base behaviours that still hold:
 
 - Bot selects the furthest target when resources are healthy.
@@ -217,11 +217,11 @@ backend `seed.contract.test.ts`. The base behaviours that still hold:
 ## Benchmark
 
 ```
-npx tsx tools/botBench.ts [--laps 3,5,8] [--seeds 4] [--lineup hard,normal,easy,autopilot] [--styles pusher,steady,...]
-npx tsx tools/botBench.ts --strategist [--laps 3,5,8] [--seeds 60] [--level normal|hard]
+npx tsx tools/bot_bench.ts [--laps 3,5,8] [--seeds 4] [--lineup hard,normal,easy,autopilot] [--styles pusher,steady,...]
+npx tsx tools/bot_bench.ts --strategist [--laps 3,5,8] [--seeds 60] [--level normal|hard]
 ```
 
-`src/game/race/botBench.ts` plays deterministic headless races: every rotation of the line-up on every lap count and
+`src/game/race/bot_bench.ts` plays deterministic headless races: every rotation of the line-up on every lap count and
 seed (the seed shuffles the grid and deals the personalities; `--styles` forces one per line-up entry instead). Cars
 play until all have crossed the line. It prints per policy, per personality and per grid slot (1 = pole) win rate and
 average finish (lower is better). Line-up entries `scripted` / `greedy` are the human baseline of the strategy report
@@ -247,7 +247,7 @@ heads-up criterion was dropped.
 
 Personalities, five Normal cars with one style each rotated through all seats (210 races, laps 3/4/5/6/8/10/12, 6 seeds,
 the seed shuffles the grid): strategist 2.84, defender 3.01, pusher 3.04, racer 3.04, steady 3.07 average finish
-(spread 0.23), win rates 17-25 % against a fair 20 %. `botPersonalities.test.ts` bounds the spread at 0.45 places
+(spread 0.23), win rates 17-25 % against a fair 20 %. `bot_personalities.test.ts` bounds the spread at 0.45 places
 (twice the measurement) and the win rate at 30 %. The styles change how a car races (spend pattern, lanes, passes,
 stops) far more than where it finishes: equal pace and the grid decide most races.
 
@@ -267,7 +267,7 @@ of this file.
 
 ## Future Improvements
 
-- Per-track tuning of the pit-stop cost (`PIT_LANE_CELLS` in `botPlan.ts`).
+- Per-track tuning of the pit-stop cost (`PIT_LANE_CELLS` in `bot_plan.ts`).
 - Lobby setting to pick a personality (the seed decides for now).
 
 ## Implementation Checklist
@@ -282,10 +282,10 @@ of this file.
 
 ## Setup sweep (the wing's balance gate, issue #48)
 
-`npx tsx tools/botBench.ts --setups [--laps 3,5,8] [--seeds N]` plays car 1 on each of the six compound and wing
+`npx tsx tools/bot_bench.ts --setups [--laps 3,5,8] [--seeds N]` plays car 1 on each of the six compound and wing
 pairs against three Normal bots at each race length and prints its turns to finish (a fraction: the part of the last
 turn it did not need is subtracted, so a 2.5% pace gap shows in an 11-turn race). The gate: every wing level is the
-fastest at some length, and no single setup is fastest at every length. `botLevels.test.ts` asserts it on a smaller
+fastest at some length, and no single setup is fastest at every length. `bot_levels.test.ts` asserts it on a smaller
 sweep. With the shipped numbers (Low: budget +1, tire x1.6, fuel x1.05; High: -1, x0.8, x0.9; soft +1) the fastest is:
 
 | laps    | 3-4      | 5        | 6-7    | 8-12      | 15        |
@@ -299,7 +299,7 @@ High x0.7) passed the gate too, but Medium won a single length; x1.6 and x0.8 gi
 
 Bots see the draft through the targets' `tireCost`, `fuelCost` and `moveSpend` (the slingshot is just a cheaper
 pass); there is no separate "tuck in" term yet. `wearPerCell` and `bestSetup` do not price the discount, which is small.
-`tools/botBench.ts` prints **overtakes per race** (position swaps in the standings) to watch for trains.
+`tools/bot_bench.ts` prints **overtakes per race** (position swaps in the standings) to watch for trains.
 
 Since #98 the tow is judged at the END of a move (see `docs/movement-spec.md`), so bots get it constantly without
 trying: they end about 60% of their moves 1-2 cells behind a car, and a conga line of bots runs with `draftTurns` in

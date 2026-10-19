@@ -1,9 +1,9 @@
 // Diagram: where a lap is counted (docs/movement-spec.md, "Laps"). The start line spans every lane, the pit lane too:
 // each panel plays a few moves with the engine's applyAction and prints the completed laps after each, so a move that
 // credits a lap (or one that must not) is read off the engine, not typed.
-import type { RaceContext } from '../../src/game/race/raceEngine';
-import { lapCountAtSpawn } from '../../src/game/systems/lapProgress';
-import { movePath } from '../../src/game/systems/movePath';
+import type { RaceContext } from '../../src/game/race/race_engine';
+import { lapCountAtSpawn } from '../../src/game/systems/lap_progress';
+import { movePath } from '../../src/game/systems/move_path';
 import { drawRoute, stepsOf } from './route';
 import { drawYou } from './marks';
 import { playMoves, positionOf } from './scenario';

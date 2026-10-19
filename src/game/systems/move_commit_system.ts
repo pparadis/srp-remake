@@ -1,7 +1,7 @@
 import type { Car } from '../types/car';
 import type { TrackCell } from '../types/track';
-import type { TargetInfo } from './movementSystem';
-import { recordMove } from './moveBudgetSystem';
+import type { TargetInfo } from './movement_system';
+import { recordMove } from './move_budget_system';
 import { PIT_LANE } from '../constants';
 
 function clamp01to100(value: number) {

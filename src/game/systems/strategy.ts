@@ -10,7 +10,7 @@ import {
   isFinalLap,
   projectShortfall,
   stopIsDue
-} from './botPlan';
+} from './bot_plan';
 
 export interface StintEstimate {
   /** Cells of racing until tire or fuel reaches 0 (middle lane, no safety margin). */

@@ -2,10 +2,10 @@
 import { MOVE_BUDGET, MOVE_CYCLE, MOVE_RATES, PIT_LANE } from '../constants';
 import type { Car, CarSetup } from '../types/car';
 import type { TrackCell } from '../types/track';
-import { cycleBudget } from './moveBudgetSystem';
-import { setupFactors } from './movementSystem';
-import type { Personality } from './botStyle';
-import { trackFwd, type TrackIndex } from './trackIndex';
+import { cycleBudget } from './move_budget_system';
+import { setupFactors } from './movement_system';
+import type { Personality } from './bot_style';
+import { trackFwd, type TrackIndex } from './track_index';
 
 // 32 psi everywhere costs nothing extra; compound and wing are the real choice (see bestSetup).
 const NEUTRAL_PSI = { fl: 32, fr: 32, rl: 32, rr: 32 } as const;
@@ -93,7 +93,7 @@ export function cellsUntilEmpty(
   return Math.min(tire / wear.tire, fuel / wear.fuel) * safety;
 }
 
-// What a stop costs a car in turns, measured on the setup sweep (`npx tsx tools/botBench.ts --setups`): the lost
+// What a stop costs a car in turns, measured on the setup sweep (`npx tsx tools/bot_bench.ts --setups`): the lost
 // turn, the single-step pit lane and the laps' worth of rhythm. PIT_LANE_CELLS (about 5 turns of racing) is what
 // the stop timing is weighed with; this is what a whole race on a setup is projected with.
 const PIT_STOP_MOVES = 8;

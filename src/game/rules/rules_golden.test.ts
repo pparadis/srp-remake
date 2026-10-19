@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
-import { createRace, createRaceContext } from '../race/raceEngine';
+import { createRace, createRaceContext } from '../race/race_engine';
 import type { TrackData } from '../types/track';
 import { replay, type Golden } from './golden';
 import v1 from './golden/v1.json';

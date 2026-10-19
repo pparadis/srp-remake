@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import { describe, expect, it, vi } from 'vitest';
-import { applyCarsMovesVisibility } from './carsMovesVisibility';
+import { applyCarsMovesVisibility } from './cars_moves_visibility';
 
 function makeToken(setVisible: ReturnType<typeof vi.fn>): Phaser.GameObjects.Container {
   return {

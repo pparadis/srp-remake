@@ -1,8 +1,8 @@
 import type { Car } from '../types/car';
 import type { TrackCell } from '../types/track';
-import type { TargetInfo } from './movementSystem';
-import { computeMoveSpend } from './moveBudgetSystem';
-import { shouldOpenPitModal } from './pitSystem';
+import type { TargetInfo } from './movement_system';
+import { computeMoveSpend } from './move_budget_system';
+import { shouldOpenPitModal } from './pit_system';
 
 export interface MoveValidationResult {
   ok: boolean;

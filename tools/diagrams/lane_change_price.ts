@@ -1,10 +1,10 @@
 // Diagram: what one route costs by the written rule (docs/movement-spec.md, "Price of a lane change") and what the
 // engine charges. Every number comes from the route (movePath) and from computeValidTargets; the rule is computed
 // from the route's steps, so a disagreement shows as two different bars and an agreement as one.
-import type { RaceContext } from '../../src/game/race/raceEngine';
-import { movePath } from '../../src/game/systems/movePath';
+import type { RaceContext } from '../../src/game/race/race_engine';
+import { movePath } from '../../src/game/systems/move_path';
 import { drawBend, zoneRange } from './bend';
-import { priceBar, SEGMENT_COLORS, type Segment } from './priceBar';
+import { priceBar, SEGMENT_COLORS, type Segment } from './price_bar';
 import { drawRoute, drawStepList, stepsOf, type Step } from './route';
 import { positionOf, targetOf, type Scenario } from './scenario';
 import { drawCars, drawTarget, drawYou } from './marks';

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mountSandboxPanel, type SandboxCommand, type SandboxSnapshot } from './sandboxPanel';
+import { mountSandboxPanel, type SandboxCommand, type SandboxSnapshot } from './sandbox_panel';
 
 const snapshot = (over: Partial<SandboxSnapshot> = {}): SandboxSnapshot => ({
   editing: true,

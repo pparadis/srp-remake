@@ -1,6 +1,6 @@
 // What stands on the bend besides the cells: cars, "you", the target, and what the engine offers (a price) or does not
 // (a cross) on each free cell.
-import type { TargetInfo } from '../../src/game/systems/movementSystem';
+import type { TargetInfo } from '../../src/game/systems/movement_system';
 import type { Point } from './bend';
 import { circle, COLORS, rect, text } from './svg';
 

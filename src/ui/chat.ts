@@ -1,7 +1,7 @@
 // The online chat panel: one element, built once. main.ts owns the socket and the lobby, and moves this element to
 // the lobby card or the race HUD. Phaser-free; messages are shown with textContent only.
-import { CHAT_MAX_GRAPHEMES, chatLength, normalizeChatText } from '../game/chatText';
-import type { ChatMessage } from '../net/backendApi';
+import { CHAT_MAX_GRAPHEMES, chatLength, normalizeChatText } from '../game/chat_text';
+import type { ChatMessage } from '../net/backend_api';
 
 /** Messages kept (and drawn): the server keeps 50 per lobby too. */
 const KEEP = 50;

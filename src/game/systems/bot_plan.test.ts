@@ -1,7 +1,7 @@
-import { bestSetup } from './botPlan';
+import { bestSetup } from './bot_plan';
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
-import { createRaceContext } from '../race/raceEngine';
+import { createRaceContext } from '../race/race_engine';
 import type { Car } from '../types/car';
 import type { TrackData } from '../types/track';
 import {
@@ -14,7 +14,7 @@ import {
   resourceWeights,
   stopIsDue,
   wearPerCell
-} from './botPlan';
+} from './bot_plan';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const cell = (id: string) => ctx.cellMap.get(id)!;

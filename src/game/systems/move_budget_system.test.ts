@@ -4,7 +4,7 @@ import {
   createMoveCycle,
   getRemainingBudget,
   recordMove
-} from './moveBudgetSystem';
+} from './move_budget_system';
 
 describe('moveBudgetSystem', () => {
   it('creates a 5-slot cycle by default', () => {

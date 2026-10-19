@@ -3,10 +3,10 @@
 import type { TrackData } from '../../src/game/types/track';
 import { blockersSvg } from './blockers';
 import { draftingSvg } from './drafting';
-import { laneChangePriceSvg } from './laneChangePrice';
+import { laneChangePriceSvg } from './lane_change_price';
 import { lapsSvg } from './laps';
-import { passAndReturnSvg } from './passAndReturn';
-import { pitEntrySvg, pitLaneSvg } from './pitLane';
+import { passAndReturnSvg } from './pass_and_return';
+import { pitEntrySvg, pitLaneSvg } from './pit_lane';
 import { contextOf } from './scenario';
 import { pitExitSqueezeSvg, squeezeSvg } from './squeeze';
 

@@ -9,33 +9,33 @@ import {
   SETUP_LIMITS,
   WING_LEVELS
 } from '../constants';
-import { hasFinishedRace } from '../systems/lapProgress';
+import { hasFinishedRace } from '../systems/lap_progress';
 import type { BotLevel, Car, CarSetup } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
-import { bestSetup, buildPlanContext, pitSetupFor, type BotPlanContext } from '../systems/botPlan';
+import { bestSetup, buildPlanContext, pitSetupFor, type BotPlanContext } from '../systems/bot_plan';
 import {
   turnOrderOf,
   personalityFor,
   personalityOf,
   PERSONALITIES,
   type PersonalityKey
-} from '../systems/botStyle';
-import { trackFwd } from '../systems/trackIndex';
+} from '../systems/bot_style';
+import { trackFwd } from '../systems/track_index';
 import {
   decideBotActionWithTrace,
   type BotDecisionTrace,
   type BotPolicy
-} from '../systems/botSystem';
-import { decideHardBotAction } from './botHard';
-import { applyMove, crossesStartLine } from '../systems/moveCommitSystem';
-import { cycleBudget, getRemainingBudget, recordMove } from '../systems/moveBudgetSystem';
-import { validateMoveAttempt } from '../systems/moveValidationSystem';
-import type { TargetInfo } from '../systems/movementSystem';
+} from '../systems/bot_system';
+import { decideHardBotAction } from './bot_hard';
+import { applyMove, crossesStartLine } from '../systems/move_commit_system';
+import { cycleBudget, getRemainingBudget, recordMove } from '../systems/move_budget_system';
+import { validateMoveAttempt } from '../systems/move_validation_system';
+import type { TargetInfo } from '../systems/movement_system';
 import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
-import { advancePitPenalty, applyPitStop } from '../systems/pitSystem';
-import { spawnCars } from '../systems/spawnSystem';
-import { buildTrackIndex, type TrackIndex } from '../systems/trackIndex';
-import { advanceTurn, getCurrentCarId, type TurnState } from '../systems/turnSystem';
+import { advancePitPenalty, applyPitStop } from '../systems/pit_system';
+import { spawnCars } from '../systems/spawn_system';
+import { buildTrackIndex, type TrackIndex } from '../systems/track_index';
+import { advanceTurn, getCurrentCarId, type TurnState } from '../systems/turn_system';
 
 export interface RaceContext {
   track: TrackData;

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import type { CarSetup } from '../types/car';
 import type { TrackData } from '../types/track';
-import { createFeelMemory, detectFeel } from '../systems/feelEvents';
-import { crossesStartLine } from '../systems/moveCommitSystem';
+import { createFeelMemory, detectFeel } from '../systems/feel_events';
+import { crossesStartLine } from '../systems/move_commit_system';
 import {
   applyAction,
   computeTargets,
@@ -11,7 +11,7 @@ import {
   createRaceContext,
   getActiveCar,
   type RaceState
-} from './raceEngine';
+} from './race_engine';
 
 // The start line crosses the pit lane too (F1: a lap is credited whatever lane crosses the Line).
 // Real track: lane-1 feeder Z27_L1_00 -> PIT_ENTRY Z28_L0_00 -> Z01_L0_00 (PIT_LINE, under the

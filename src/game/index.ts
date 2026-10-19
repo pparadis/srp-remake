@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { BootScene } from './scenes/BootScene';
-import { RaceScene } from './scenes/RaceScene';
-import { keepCanvasBoundsFresh } from './canvasBounds';
-import { keepGameSizeInSync } from './gameSize';
-import { FRAME_RATES, TEST_FPS } from './frameGovernor';
+import { BootScene } from './scenes/boot_scene';
+import { RaceScene } from './scenes/race_scene';
+import { keepCanvasBoundsFresh } from './canvas_bounds';
+import { keepGameSizeInSync } from './game_size';
+import { FRAME_RATES, TEST_FPS } from './frame_governor';
 import { renderScale, setHidpi } from './hidpi';
 import {
   REG_BOT_CARS,

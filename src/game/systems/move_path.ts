@@ -1,5 +1,5 @@
 import { INNER_MAIN_LANE, PIT_LANE } from '../constants';
-import type { TrackIndex } from './trackIndex';
+import type { TrackIndex } from './track_index';
 
 /**
  * The cells a car drives through from `fromCellId` to `toCellId`, both included, for drawing it (a glide, a preview, a

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
-import { personalityOf, SEEDED_STYLES, type PersonalityKey } from '../systems/botStyle';
+import { personalityOf, SEEDED_STYLES, type PersonalityKey } from '../systems/bot_style';
 import type { TrackData } from '../types/track';
-import { playBenchRace, runBench, statsBy } from './botBench';
-import { createRace, createRaceContext, decideBotAction, applyAction } from './raceEngine';
+import { playBenchRace, runBench, statsBy } from './bot_bench';
+import { createRace, createRaceContext, decideBotAction, applyAction } from './race_engine';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 
 // The seed decides the personalities, the grid and the play order. These are the acceptance tests of
-// the personalities (numbers: docs/bot-system.md, `npx tsx tools/botBench.ts --styles ...`).
+// the personalities (numbers: docs/bot-system.md, `npx tsx tools/bot_bench.ts --styles ...`).
 describe('personalities do not dominate', () => {
   // Five Normal cars, one personality each, rotated through all five seats; the seed shuffles the grid,
   // so every personality also starts from every grid slot.

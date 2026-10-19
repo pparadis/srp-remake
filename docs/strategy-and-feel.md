@@ -5,13 +5,13 @@
 - `stintEstimate(car, spineLen)`: cells, laps and moves until tire or fuel reaches 0 at the car's compound,
   wing and PSI (middle lane, no safety margin). One move is taken as 8 cells (`MOVE_CYCLE`: 40 per 5 moves, plus
   the wing and compound pace: `cycleBudget(setup)`).
-  The wear math is `wearPerCell` in `botPlan.ts`, which uses `setupFactors` from `movementSystem.ts`: there is
+  The wear math is `wearPerCell` in `bot_plan.ts`, which uses `setupFactors` from `movement_system.ts`: there is
   one copy of it, shared by the engine costs, the bots, the HUD and the pit modal.
 - `cellsToPitEntry(cell, plan)`: cells until the car stands on the lane-1 cell next to `PIT_ENTRY` (the only
   place a stop can start).
 - `pitAdvice(car, cell, plan)`: `no-need` (serviced, final lap, or the car can finish as it is), `ok`,
   `pit-soon` ("Pit this lap") or `pit-now` (the entry is within one move). It is built on `stopIsDue` from
-  `botPlan.ts`, the Normal bot's own stop timing, so the chip and the bot agree (a unit test sweeps both).
+  `bot_plan.ts`, the Normal bot's own stop timing, so the chip and the bot agree (a unit test sweeps both).
   It never advises a stop on the final lap (the pit lane is slow and the entry would have to be taken on the last lap).
 
 ## Race HUD additions
@@ -25,7 +25,7 @@
 
 ## Feel
 
-- `feelEvents.ts` diffs successive race snapshots into move, lap, low-resource, your-turn and finish events.
+- `feel_events.ts` diffs successive race snapshots into move, lap, low-resource, your-turn and finish events.
   The first snapshot only seeds it (also the first server state when joining or rejoining online), so a
   reload never fires a toast or a sound. Lap toasts, low-resource beeps and the your-turn ping are for the
   local player's car only; the finish (confetti and fanfare) is for everyone.
@@ -41,7 +41,7 @@
 - The start line crosses the pit lane: a lap crossed there counts, as in F1, so a stop only costs the lost turn and the
   slow one-step pit lane (about 40 cells; the pit advice and the bots plan for that). A pit-lane crossing can end the
   race like any other.
-- Confetti is a pool of Images of baked colour swatches (`Confetti.ts`) and removes itself after about 3.5 s.
+- Confetti is a pool of Images of baked colour swatches (`confetti.ts`) and removes itself after about 3.5 s.
   `__srp.freezeAnimations()` also stops it, for screenshots.
 - Sound (`src/ui/sound.ts`) is a WebAudio synth without asset files. It stays silent until the first click
   or key press (autoplay policy), while muted, and in test builds. The "Sound: on/off" button in the HUD and
@@ -71,12 +71,12 @@ On the board:
   rings still say you are in the tow): blue while counting, gold when the slingshot is open
   (`RaceSession.draftLinks()`, `RaceScene.drawTow()`; redrawn on a turn change and hidden while cars glide).
 - **Targets:** a move that ends 1-2 behind a car in its lane has a blue dashed ring (`RaceSession.endsTucked`, the
-  `tuck` layer in `bakedTextures.ts`); a slingshot target has a gold ring, doubled when only the slingshot puts it in
+  `tuck` layer in `baked_textures.ts`); a slingshot target has a gold ring, doubled when only the slingshot puts it in
   reach (`TargetInfo.slingshotOnly`).
 - **Tooltip and tap card:** "Draft: less wear", "Ends in the tow: less wear next move", "Slingshot: the lane change is
   free" or "Slingshot: only in reach thanks to the draft".
 
-Moments (`feelEvents.ts`, the local car only, never on the first snapshot): "In the tow: less wear" (a blue toast and a
+Moments (`feel_events.ts`, the local car only, never on the first snapshot): "In the tow: less wear" (a blue toast and a
 soft sound) when a move ends tucked in, "Slingshot ready" when the run reaches 2, and "Slingshot!" when one is played
 (`Car.slingshots` going up). The feed says "Car N slingshots." (the engine log solo; online the session reads it from
 the counter in the server state). The data comes from `RaceSession.hudSnapshot()` (`drafting`, `draftTurns`).
@@ -107,10 +107,10 @@ several turns), so the scene animates the difference:
 ### Camera: zoom, pan, follow (issue #87)
 
 - The fit (`centerTrack`: the track between the HUD panels) is unchanged and stays the default. The player's view sits on
-  top of it (`src/game/scenes/rendering/cameraView.ts`, Phaser-free, tested): a zoom factor from 1 (fitted) to 3, capped
+  top of it (`src/game/scenes/rendering/camera_view.ts`, Phaser-free, tested): a zoom factor from 1 (fitted) to 3, capped
   at 3x on a dense screen, and a pan in world units that may not take the free area's edges past the track's box plus a
   margin (none at the fit: the fitted track does not move).
-- Input (`registerCameraGestures.ts`): two fingers pinch (the world point under them stays under them), one finger on the
+- Input (`register_camera_gestures.ts`): two fingers pinch (the world point under them stays under them), one finger on the
   empty board pans once it has moved past the tap slop (a press on a car or a button never pans, and a tap still selects a
   target at any zoom), the wheel zooms about the pointer, a double tap on the empty board fits again, and so does the
   `Fit` button (a canvas button next to Skip, shown only while zoomed in).

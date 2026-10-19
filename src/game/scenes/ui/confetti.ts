@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { renderScale } from '../../hidpi';
-import { swatchTexture } from '../rendering/bakedTextures';
+import { swatchTexture } from '../rendering/baked_textures';
 
 interface Piece {
   img: Phaser.GameObjects.Image;

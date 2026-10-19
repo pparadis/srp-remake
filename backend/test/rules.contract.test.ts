@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { BackendConfig } from '../src/config.js';
-import { LobbyStore } from '../src/lobbyStore.js';
+import { LobbyStore } from '../src/lobby_store.js';
 import { createApp } from '../src/server.js';
 import type { RaceState } from '../src/types.js';
 import { legalMove, playRaceToEnd, readLobby } from './helpers.js';

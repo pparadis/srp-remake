@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import type { Car } from '../types/car';
 import type { TrackData } from '../types/track';
-import { createRaceContext } from '../race/raceEngine';
-import { applyMove } from './moveCommitSystem';
-import { hasFinishedRace, hasStartedLap, lapCountAtSpawn, lapInProgress } from './lapProgress';
-import { spawnCars } from './spawnSystem';
+import { createRaceContext } from '../race/race_engine';
+import { applyMove } from './move_commit_system';
+import { hasFinishedRace, hasStartedLap, lapCountAtSpawn, lapInProgress } from './lap_progress';
+import { spawnCars } from './spawn_system';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const INFO = { distance: 1, tireCost: 0, fuelCost: 0, isPitTrigger: false };

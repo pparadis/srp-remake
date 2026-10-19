@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BackendApiClient, BackendApiError, resolveBackendWsBaseUrl } from './backendApi';
+import { BackendApiClient, BackendApiError, resolveBackendWsBaseUrl } from './backend_api';
 
 function stubFetch(status: number, body: string) {
   const fetchMock = vi.fn(async () => new Response(body, { status }));

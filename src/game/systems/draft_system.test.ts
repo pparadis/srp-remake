@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../types/track';
-import { draftAhead } from './draftSystem';
-import { buildTrackIndex } from './trackIndex';
+import { draftAhead } from './draft_system';
+import { buildTrackIndex } from './track_index';
 
 const index = buildTrackIndex(track as unknown as TrackData);
 const at = (from: string, ...others: string[]) => draftAhead(index, from, [from, ...others]);

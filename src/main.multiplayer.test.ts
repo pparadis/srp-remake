@@ -27,7 +27,7 @@ class MockBackendApiError extends Error {
   }
 }
 
-vi.mock('./net/backendApi', () => ({
+vi.mock('./net/backend_api', () => ({
   BackendApiClient: class BackendApiClient {
     createLobby(...args: unknown[]) {
       return createLobbyMock(...args);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHAT_MAX_GRAPHEMES, chatLength, normalizeChatText } from './chatText';
+import { CHAT_MAX_GRAPHEMES, chatLength, normalizeChatText } from './chat_text';
 
 describe('chatLength', () => {
   it('counts what the player sees, not code units', () => {

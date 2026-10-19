@@ -1,10 +1,10 @@
 // The race feed (#92): what the cars did between two race states, as lines for the HUD. Pure, no Phaser; solo calls
 // it after each action and online after each server state, so both say the same things. It reads the difference
 // between the states, so a state that carries several turns is said once, as one change.
-import { computeTargets, type RaceContext, type RaceState } from '../race/raceEngine';
+import { computeTargets, type RaceContext, type RaceState } from '../race/race_engine';
 import type { Car } from '../types/car';
-import { lapInProgress } from './lapProgress';
-import { rankPosition } from './trackIndex';
+import { lapInProgress } from './lap_progress';
+import { rankPosition } from './track_index';
 
 export type FeedKind = 'move' | 'pass' | 'lap' | 'pit' | 'warn' | 'finish' | 'info';
 
@@ -84,7 +84,7 @@ export function feedLines(
       );
     }
 
-    // The rear row's first crossing (-1 to 0) only begins lap 1: silent, as everywhere (lapProgress.ts).
+    // The rear row's first crossing (-1 to 0) only begins lap 1: silent, as everywhere (lap_progress.ts).
     const done = car.lapCount ?? 0;
     if (done > (prev.lapCount ?? 0) && done >= 1 && done < after.raceLaps) {
       const lap = lapInProgress(done, after.raceLaps);

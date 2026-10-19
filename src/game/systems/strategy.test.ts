@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import { MOVE_RATES } from '../constants';
-import { createRaceContext } from '../race/raceEngine';
+import { createRaceContext } from '../race/race_engine';
 import type { Car } from '../types/car';
 import type { TrackData } from '../types/track';
-import { buildPlanContext, SETUP_CHOICES, stopIsDue } from './botPlan';
-import { computeValidTargets } from './movementSystem';
+import { buildPlanContext, SETUP_CHOICES, stopIsDue } from './bot_plan';
+import { computeValidTargets } from './movement_system';
 import { cellsToPitEntry, pitAdvice, stintEstimate } from './strategy';
 
 const ctx = createRaceContext(track as unknown as TrackData);

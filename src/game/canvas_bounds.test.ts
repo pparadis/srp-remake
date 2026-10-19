@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { keepCanvasBoundsFresh, type BoundsGame } from './canvasBounds';
+import { keepCanvasBoundsFresh, type BoundsGame } from './canvas_bounds';
 
 // A game whose canvas sits at `rect` while Phaser still caches `cached`.
 function fakeGame(rect: { x: number; y: number }, cached: { x: number; y: number }) {

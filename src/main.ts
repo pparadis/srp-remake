@@ -10,16 +10,16 @@ import {
   type HudSnapshot,
   type ToastKind
 } from './ui/hud';
-import { fpsText, startFpsMeter } from './ui/fpsMeter';
+import { fpsText, startFpsMeter } from './ui/fps_meter';
 import { currentlyMuted, initSound, setMuted } from './ui/sound';
-import { mountSandboxPanel } from './ui/sandboxPanel';
+import { mountSandboxPanel } from './ui/sandbox_panel';
 import { createChat, isChatMessage } from './ui/chat';
 import { isCompactHud } from './ui/layout';
 import { isTypingTarget } from './ui/typing';
-import { renderHomeTrack, setHomeTrackRunning } from './ui/homeTrack';
+import { renderHomeTrack, setHomeTrackRunning } from './ui/home_track';
 import { mountVersion, renderVersion, type ServerVersion } from './ui/version';
 import { showUncaughtErrors, startRenderProbe } from './ui/diagnostics';
-import { MAX_SEED, normalizeSeed } from './game/systems/botStyle';
+import { MAX_SEED, normalizeSeed } from './game/systems/bot_style';
 import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from './game/rules/ids';
 import {
   BackendApiClient,
@@ -32,7 +32,7 @@ import {
   type BotLevel,
   type TurnSource,
   type TurnTimerSec
-} from './net/backendApi';
+} from './net/backend_api';
 import {
   currentRoute,
   navigate,

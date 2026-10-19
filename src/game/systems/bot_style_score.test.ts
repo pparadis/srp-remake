@@ -6,10 +6,10 @@ import {
   createRaceContext,
   decideBotAction,
   type RaceState
-} from '../race/raceEngine';
+} from '../race/race_engine';
 import type { TrackData } from '../types/track';
-import { buildPlanContext, stopIsDue } from './botPlan';
-import { PERSONALITIES, personalityFor, type PersonalityKey } from './botStyle';
+import { buildPlanContext, stopIsDue } from './bot_plan';
+import { PERSONALITIES, personalityFor, type PersonalityKey } from './bot_style';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../game/types/track';
-import { validateTrack } from './trackValidation';
+import { validateTrack } from './track_validation';
 
 function cloneTrack(): TrackData {
   return JSON.parse(JSON.stringify(track)) as TrackData;

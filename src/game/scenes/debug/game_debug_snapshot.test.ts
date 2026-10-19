@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Car } from '../../types/car';
 import type { TrackCell, TrackData } from '../../types/track';
-import type { TargetInfo } from '../../systems/movementSystem';
-import { buildGameDebugSnapshot } from './gameDebugSnapshot';
+import type { TargetInfo } from '../../systems/movement_system';
+import { buildGameDebugSnapshot } from './game_debug_snapshot';
 
 function makeCell(
   id: string,

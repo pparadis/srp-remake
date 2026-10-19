@@ -1,11 +1,11 @@
 // Diagrams: squeeze (docs/movement-spec.md, "Squeeze (boxed in)" and "Pit exit squeeze"). A car with no normal target may
 // drive through cars to a free cell beyond them, +2 move points per car passed. Positions and prices come from
 // `computeTargets`; the bars split each price into cells walked, lane change and cars passed.
-import type { RaceContext } from '../../src/game/race/raceEngine';
+import type { RaceContext } from '../../src/game/race/race_engine';
 import { SQUEEZE_SURCHARGE_PER_CAR } from '../../src/game/constants';
-import type { TargetInfo } from '../../src/game/systems/movementSystem';
+import type { TargetInfo } from '../../src/game/systems/movement_system';
 import { zoneRange } from './bend';
-import { priceBar, SEGMENT_COLORS, type Segment } from './priceBar';
+import { priceBar, SEGMENT_COLORS, type Segment } from './price_bar';
 import { drawStrip, type StripSpec } from './strip';
 import { COLORS, document, panel, text } from './svg';
 

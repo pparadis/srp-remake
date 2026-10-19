@@ -1,12 +1,12 @@
 import type Phaser from 'phaser';
-import { validateMoveAttempt } from '../../systems/moveValidationSystem';
-import type { TargetInfo } from '../../systems/movementSystem';
+import { validateMoveAttempt } from '../../systems/move_validation_system';
+import type { TargetInfo } from '../../systems/movement_system';
 import type { Car } from '../../types/car';
 import type { TrackCell } from '../../types/track';
-import type { PitModal } from '../ui/PitModal';
-import { resolvePlayerDragDrop } from '../turns/resolvePlayerDragDrop';
+import type { PitModal } from '../ui/pit_modal';
+import { resolvePlayerDragDrop } from '../turns/resolve_player_drag_drop';
 import { easeAngle, spriteRotation } from '../rendering/heading';
-import { onKeyDown } from './onKeyDown';
+import { onKeyDown } from './on_key_down';
 
 /** How far a pointer may travel between press and release and still count as a tap, in screen pixels. */
 const TAP_SLOP_PX = 10;

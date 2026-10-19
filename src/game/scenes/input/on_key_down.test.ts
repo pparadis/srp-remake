@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type Phaser from 'phaser';
-import { onKeyDown } from './onKeyDown';
+import { onKeyDown } from './on_key_down';
 
 // A scene whose keyboard just keeps the handlers, so a test can replay what Phaser emits.
 function fakeScene() {

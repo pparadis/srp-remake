@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../types/track';
-import { lapAhead } from '../systems/trackIndex';
+import { lapAhead } from '../systems/track_index';
 import {
   applyAction,
   computeTargets,
@@ -9,7 +9,7 @@ import {
   createRaceContext,
   decideBotAction,
   getActiveCar
-} from './raceEngine';
+} from './race_engine';
 
 // Reachability: a rule that is never exercised in play passes every test that builds its own position, and the player
 // never sees it (drafting did exactly that, issue #98: 0 of 498 turns began in a draft). So these play whole races with

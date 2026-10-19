@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Car } from '../types/car';
-import { createMoveCycle } from './moveBudgetSystem';
-import { advanceTurn, createTurnState, getCurrentCarId } from './turnSystem';
+import { createMoveCycle } from './move_budget_system';
+import { advanceTurn, createTurnState, getCurrentCarId } from './turn_system';
 
 function makeCar(id: number): Car {
   return {

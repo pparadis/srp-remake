@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Car } from '../../types/car';
-import type { BotDecisionTrace } from '../../systems/botSystem';
-import type { TargetInfo } from '../../systems/movementSystem';
+import type { BotDecisionTrace } from '../../systems/bot_system';
+import type { TargetInfo } from '../../systems/movement_system';
 import {
   appendBotDecisionEntry,
   buildBotDecisionSnapshot,
   type BotDecisionLogEntry,
   serializeBotTargets,
   serializeBotTrace
-} from './botDecisionDebug';
+} from './bot_decision_debug';
 
 function makeCar(overrides: Partial<Car> = {}): Car {
   return {

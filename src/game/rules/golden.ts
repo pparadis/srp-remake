@@ -1,5 +1,5 @@
-// What a golden file records of a rules version (#118), shared by the generator (tools/rulesGolden.ts) and the test
-// that replays it (rulesGolden.test.ts).
+// What a golden file records of a rules version (#118), shared by the generator (tools/rules_golden.ts) and the test
+// that replays it (rules_golden.test.ts).
 import {
   applyAction,
   computeTargets,
@@ -7,7 +7,7 @@ import {
   type RaceAction,
   type RaceContext,
   type RaceState
-} from '../race/raceEngine';
+} from '../race/race_engine';
 import type { RulesVersion } from './versions';
 
 export interface GoldenSample {

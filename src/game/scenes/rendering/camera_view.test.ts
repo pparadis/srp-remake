@@ -9,7 +9,7 @@ import {
   viewOf,
   wheelTo,
   type Fit
-} from './cameraView';
+} from './camera_view';
 
 // A 1000 x 600 canvas, the HUD taking 180 px left and 190 px right, 60 px at the top, 50 below; a 900 x 360 track, so
 // the fit zoom is the free width over the box width: 630 / 900.

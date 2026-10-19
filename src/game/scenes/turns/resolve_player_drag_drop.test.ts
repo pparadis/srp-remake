@@ -2,9 +2,9 @@ import type Phaser from 'phaser';
 import { describe, expect, it, vi } from 'vitest';
 import type { Car } from '../../types/car';
 import type { TrackCell } from '../../types/track';
-import type { MoveValidationResult } from '../../systems/moveValidationSystem';
+import type { MoveValidationResult } from '../../systems/move_validation_system';
 import { PIT_LANE } from '../../constants';
-import { resolvePlayerDragDrop } from './resolvePlayerDragDrop';
+import { resolvePlayerDragDrop } from './resolve_player_drag_drop';
 
 function makeCell(id: string, laneIndex: number, x: number, y: number): TrackCell {
   return {

@@ -9,7 +9,7 @@ import {
   stopIsDue,
   wearPerCell,
   type BotPlanContext
-} from './botPlan';
+} from './bot_plan';
 import {
   BLOCK_RANGE,
   EASY_IGNORE_STYLE,
@@ -18,10 +18,10 @@ import {
   LANE_SPAN,
   PERSONALITIES,
   QUEUE_RANGE
-} from './botStyle';
-import type { TargetInfo } from './movementSystem';
-import { computeMoveSpend, cycleBudget, getRemainingBudget } from './moveBudgetSystem';
-import { shouldOpenPitModal } from './pitSystem';
+} from './bot_style';
+import type { TargetInfo } from './movement_system';
+import { computeMoveSpend, cycleBudget, getRemainingBudget } from './move_budget_system';
+import { shouldOpenPitModal } from './pit_system';
 
 export type { BotLevel };
 

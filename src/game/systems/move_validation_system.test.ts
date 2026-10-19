@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateMoveAttempt } from './moveValidationSystem';
+import { validateMoveAttempt } from './move_validation_system';
 import type { Car } from '../types/car';
 import type { TrackCell, TrackTag } from '../types/track';
 

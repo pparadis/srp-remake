@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import track from '../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../game/types/track';
-import { laneCells, pitLapPoints, renderHomeTrack, setHomeTrackRunning } from './homeTrack';
+import { laneCells, pitLapPoints, renderHomeTrack, setHomeTrackRunning } from './home_track';
 
 const TRACK = track as unknown as TrackData;
 let svg: SVGSVGElement;
