@@ -88,6 +88,39 @@ test('phone: tap a target, then Move here (Cancel drops the pick)', async ({ pag
   expect(errors).toEqual([]);
 });
 
+// Real touch on Phaser's hit test of a car token (the 40x30 touch area): a tap on a rival follows it (#135).
+test("phone: tap a rival's car to follow it, tap it again to stop", async ({ page }) => {
+  const errors = collectErrors(page);
+  await quickRace(page, { bots: 2, laps: 2 });
+  await playMyTurn(page);
+  // the bot whose token is the furthest from any of my targets: the tap cannot pick a target instead
+  const rival = await page.evaluate(() => {
+    const srp = window.__srp!;
+    const targets = srp.state().movement.validTargets.map((t) => srp.cellScreenPos(t.cellId)!);
+    return [2, 3]
+      .map((carId) => {
+        const pos = srp.tokenScreenPos(carId)!;
+        const near = Math.min(...targets.map((t) => Math.hypot(t.x - pos.x, t.y - pos.y)));
+        return { carId, pos, near };
+      })
+      .sort((a, b) => b.near - a.near)[0]!;
+  });
+
+  await page.touchscreen.tap(rival.pos.x, rival.pos.y);
+  await expect(tid(page, 'hud-select')).toBeHidden();
+  await expect(tid(page, 'hud-drawer-toggle')).toHaveClass(/is-following/);
+  await tid(page, 'hud-drawer-toggle').tap();
+  await expect(tid(page, 'hud-follow')).toBeVisible();
+  await expect(tid(page, 'hud-follow-name')).toHaveText(`Car ${rival.carId}`);
+  await expect(tid(page, 'hud-follow-row')).not.toHaveCount(0);
+  await tid(page, 'hud-drawer-toggle').tap();
+
+  await page.touchscreen.tap(rival.pos.x, rival.pos.y);
+  await expect(tid(page, 'hud-drawer-toggle')).not.toHaveClass(/is-following/);
+  await expect(tid(page, 'hud-follow')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test('phone: the draft shows as a chip in the top bar without making it taller, down to an iPhone SE', async ({
   page
 }) => {

@@ -154,6 +154,14 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
   The engine has no log of its own; `HudSnapshot.log` carries `{ text, kind, mine }` and `hud.ts` styles by kind. The feed
   starts open except in the compact (phone) layout. A rule or resource that should be said goes in `feedLines`, with a case in
   `raceFeed.test.ts`.
+- Follow a car (#135): a click on its standings row (`srp:hud-command` `follow-car`) or a tap on its token
+  (`RaceScene.tapBoard`: a target in reach wins, and the token the player may drag is never followed) calls
+  `RaceSession.followCar` (again: stop; "All cars" too). The session keeps 500 feed lines and shows the last 30, only the
+  followed car's (`carId`) while one is followed. It also keeps each car's last 24 moves (`CarMove`: cells, move points,
+  tire/fuel used, pit, the `movePath`), recorded where `lastPaths` is (solo and online alike, from the state diff; online the
+  move points come from the car's move cycle, `-` when it rolled over). `lastLapMoves` keeps those that ended within
+  `spineLen` cells of the car; `HudSnapshot.follow` lists them and `RaceScene.drawFollowedCar()` draws them (a faint white
+  line, dots, a ring round the car; `C` hides it). Page-only: an online reload starts it empty. Sandbox edits clear it.
 - Strategy readouts (stint estimate, pit chip, result-aware tooltip, pit-modal stints) come from
   `src/game/systems/strategy.ts`, which reuses the bots' wear math in `botPlan.ts`: do not write a second copy.
 - Cars glide to their cells (#85): `RaceSession.drainMoves()` gives the cars that moved, in order, and

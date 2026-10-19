@@ -30,8 +30,9 @@ interface RegisterRaceSceneInputHandlersParams {
   drawTargets: () => void;
   setHoverCell: (cell: TrackCell | null) => void;
   copyCellId: (cellId: string) => void;
-  /** A press and release on the board without a drag, in world coordinates. */
-  onTap?: (x: number, y: number) => void;
+  /** A press and release on the board without a drag, in world coordinates, and the car whose token is under it. */
+  onTap?: (x: number, y: number, carId: number | null) => void;
+  carIdOfToken?: (obj: Phaser.GameObjects.GameObject) => number | null;
   toggleForwardIndexOverlay: () => void;
   openPitModal: (cell: TrackCell, origin: { x: number; y: number }) => void;
   onMove: (targetCellId: string) => void;
@@ -63,6 +64,7 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     setHoverCell,
     copyCellId,
     onTap,
+    carIdOfToken,
     toggleForwardIndexOverlay,
     openPitModal,
     onMove,
@@ -172,11 +174,13 @@ export function registerRaceSceneInputHandlers(params: RegisterRaceSceneInputHan
     drawTargets();
   });
 
-  // A tap (no drag between press and release) picks a target to confirm: the way to move on a touchscreen.
+  // A tap (no drag between press and release) picks a target to confirm, the way to move on a touchscreen, or
+  // follows the car tapped (after the finish too: there is nothing left to move, but the race can be looked back on).
   scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
     if (!onTap || pointer.getDistance() > TAP_SLOP_PX) return;
-    if (isSuspended?.() || isRaceFinished() || pitModal.isActive()) return;
-    onTap(pointer.worldX, pointer.worldY);
+    if (isSuspended?.() || pitModal.isActive()) return;
+    const top = scene.input.hitTestPointer(pointer)[0];
+    onTap(pointer.worldX, pointer.worldY, top && carIdOfToken ? carIdOfToken(top) : null);
   });
 
   onKeyDown(scene, 'F', () => {

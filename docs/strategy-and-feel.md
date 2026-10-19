@@ -132,6 +132,10 @@ several turns), so the scene animates the difference:
   of two server states, round the cars as they stood). Drawn faint and without a fade under `prefers-reduced-motion`,
   and not at all in the e2e build (screenshots) unless `?anim`. The `C` key hides both with the targets.
 - `window.__srp.overlays()` (test hook) returns the preview and the trails as drawn.
+- **Following a car (issue #135):** click a car's row in the standings, or tap its car on the board, to follow it: the
+  race feed shows only its lines ("Race feed · Car 3"), a panel lists its moves over its last lap (lap, cells, move
+  points, tire and fuel used, pit stops) and the board draws that lap as a faint white line with a dot where each move
+  ended. Click or tap it again, or "All cars", to stop. A tap near one of your own targets still picks the target.
 
 The grid setup is the `setup` action (compound, pressures, wing; free, once, before the car's
 first move; it does not end the turn; `setup_locked` after that). Positions saved with two wing angles load as

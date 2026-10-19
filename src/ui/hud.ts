@@ -98,8 +98,24 @@ export interface HudSnapshot {
   sandbox?: 'edit' | 'play';
   /** Full cell debug, only while the F overlay is on. */
   debugText: string | null;
-  /** The race feed, oldest first. `mine`: the line is about the local player's car. */
+  /** The race feed, oldest first (only the followed car's lines while one is). `mine`: about the local player's car. */
   log: Array<{ text: string; kind: FeedKind; mine: boolean }>;
+  /** The car the player follows (a standings row or its token clicked, #135) and its moves over its last lap. */
+  follow?: { carId: number; moves: HudMove[] } | null;
+}
+
+/** One move of a followed car. */
+export interface HudMove {
+  /** The lap it ended in (as HudCar.lap). */
+  lap: number;
+  /** Cells gained (lap position, as the standings). */
+  cells: number;
+  /** Move points spent; null when not known (online, the car's move cycle rolled over on that move). */
+  moveSpend: number | null;
+  tireUsed: number;
+  fuelUsed: number;
+  /** A pit stop: tire and fuel refilled. */
+  pit: boolean;
 }
 
 const HEAD =
@@ -138,7 +154,12 @@ const TEMPLATE = `
 <button type="button" class="hud-drawer-toggle" data-testid="hud-drawer-toggle" aria-expanded="false">Standings<span class="hud-drawer-dot" data-testid="hud-drawer-dot" aria-label="Unread chat" hidden></span></button>
 <div class="hud-right">
   <table class="hud-standings" data-testid="hud-standings">${HEAD}<tbody></tbody></table>
-  <details class="hud-feed" data-testid="hud-feed"><summary>Race feed</summary><ol data-testid="hud-feed-list"></ol></details>
+  <section class="hud-follow" data-testid="hud-follow" hidden>
+    <div class="hud-follow-head"><span class="hud-chip" data-testid="hud-follow-chip"></span><span class="hud-follow-name" data-testid="hud-follow-name"></span><span class="hud-follow-sub">last lap</span>
+      <button type="button" class="hud-follow-clear" data-testid="hud-follow-clear">All cars</button></div>
+    <div class="hud-follow-scroll"><table class="hud-follow-moves" data-testid="hud-follow-moves"><thead><tr><th>Lap</th><th>Cells</th><th>Pts</th><th>Tire</th><th>Fuel</th></tr></thead><tbody></tbody></table></div>
+  </section>
+  <details class="hud-feed" data-testid="hud-feed"><summary>Race feed<span data-testid="hud-feed-filter"></span></summary><ol data-testid="hud-feed-list"></ol></details>
   <details class="hud-chat" data-testid="hud-chat" hidden>
     <summary>Chat<span class="hud-chat-unread" data-testid="hud-chat-unread" hidden></span></summary>
     <div class="hud-chat-body" data-testid="hud-chat-body"></div>
@@ -169,17 +190,26 @@ export function mountHud(root: HTMLElement) {
     const open = root.classList.toggle('is-drawer-open');
     toggle.setAttribute('aria-expanded', String(open));
   });
+  const send = (detail: HudCommand) =>
+    window.dispatchEvent(new CustomEvent<HudCommand>('srp:hud-command', { detail }));
   // Tap to move: the picked target's card asks the scene to play it, or to drop the pick.
-  const command = (type: HudCommand['type']) => () =>
-    window.dispatchEvent(new CustomEvent<HudCommand>('srp:hud-command', { detail: { type } }));
-  q(root, 'hud-select-confirm').addEventListener('click', command('confirm-move'));
-  q(root, 'hud-select-cancel').addEventListener('click', command('cancel-move'));
+  q(root, 'hud-select-confirm').addEventListener('click', () => send({ type: 'confirm-move' }));
+  q(root, 'hud-select-cancel').addEventListener('click', () => send({ type: 'cancel-move' }));
+  // Follow a car (#135): a click on its standings row (the rows are rebuilt on every render), All cars to stop.
+  q(root, 'hud-standings').addEventListener('click', (event) => {
+    const row = (event.target as Element).closest<HTMLElement>('tr[data-car-id]');
+    if (row) send({ type: 'follow-car', carId: Number(row.dataset.carId) });
+  });
+  q(root, 'hud-follow-clear').addEventListener('click', () =>
+    send({ type: 'follow-car', carId: null })
+  );
 }
 
 /** What the HUD asks the race scene to do (`srp:hud-command` on window). */
-export interface HudCommand {
-  type: 'confirm-move' | 'cancel-move';
-}
+export type HudCommand =
+  | { type: 'confirm-move' | 'cancel-move' }
+  /** Follow this car (the one already followed: stop), null: follow nobody. */
+  | { type: 'follow-car'; carId: number | null };
 
 function q(root: Element, id: string): HTMLElement {
   return root.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
@@ -370,6 +400,7 @@ function fillStandings(tbody: Element, cars: HudCar[], s: HudSnapshot, rowId: st
       tr.dataset.testid = rowId;
       tr.dataset.carId = String(car.carId);
       tr.classList.toggle('is-me', car.carId === s.myCarId);
+      tr.classList.toggle('is-followed', car.carId === s.follow?.carId);
       tr.classList.toggle('is-active', !s.finished && car.carId === s.activeCarId);
       const chip = document.createElement('span');
       chip.className = 'hud-chip';
@@ -472,6 +503,7 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     })
   );
   feed.scrollTop = feed.scrollHeight; // newest line at the bottom, in view
+  renderFollow(root, s);
 
   const tip = q(root, 'hud-tooltip');
   tip.hidden = !s.hover;
@@ -487,12 +519,50 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
   dbg.textContent = s.debugText ?? '';
 }
 
+/** The followed car's panel: its moves over its last lap, newest first; the feed's title says whose lines it shows. */
+function renderFollow(root: HTMLElement, s: HudSnapshot) {
+  const car = s.follow ? s.cars.find((c) => c.carId === s.follow!.carId) : undefined;
+  const panel = q(root, 'hud-follow');
+  panel.hidden = !car;
+  q(root, 'hud-feed-filter').textContent = car ? ` · ${car.name}` : '';
+  q(root, 'hud-drawer-toggle').classList.toggle('is-following', car !== undefined);
+  if (!car || !s.follow) return;
+  q(root, 'hud-follow-chip').style.background = car.color;
+  q(root, 'hud-follow-name').textContent = car.name;
+  const row = (...cells: Array<string | [string, number]>) => {
+    const tr = document.createElement('tr');
+    tr.dataset.testid = 'hud-follow-row';
+    for (const cell of cells) {
+      const td = document.createElement('td');
+      const [text, span] = typeof cell === 'string' ? [cell, 1] : cell;
+      td.textContent = text;
+      td.colSpan = span;
+      tr.append(td);
+    }
+    return tr;
+  };
+  const used = (percent: number) => `-${Math.round(percent)}%`;
+  const rows = [...s.follow.moves]
+    .reverse()
+    .map((m) =>
+      row(
+        String(m.lap),
+        `+${m.cells}`,
+        m.moveSpend === null ? '-' : String(m.moveSpend),
+        ...(m.pit ? [['Pit stop', 2] as [string, number]] : [used(m.tireUsed), used(m.fuelUsed)])
+      )
+    );
+  q(root, 'hud-follow-moves')
+    .querySelector('tbody')!
+    .replaceChildren(...(rows.length > 0 ? rows : [row(['No moves yet', 5])]));
+}
+
 /** Final standings for the results overlay. */
 export function renderResults(root: HTMLElement, s: HudSnapshot) {
   fillStandings(
     q(root, 'results-standings').querySelector('tbody')!,
     s.cars,
-    { ...s, finished: true },
+    { ...s, finished: true, follow: null },
     'results-row'
   );
 }

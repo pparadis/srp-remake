@@ -44,7 +44,7 @@ import {
   type BotDecisionLogEntry
 } from '../scenes/debug/botDecisionDebug';
 import { buildGameDebugSnapshot } from '../scenes/debug/gameDebugSnapshot';
-import type { HudCar, HudHover, HudSnapshot } from '../../ui/hud';
+import type { HudCar, HudHover, HudMove, HudSnapshot } from '../../ui/hud';
 import type { SandboxSnapshot } from '../../ui/sandboxPanel';
 import type { PitStints } from '../scenes/ui/PitModal';
 import type { AppliedTurnSummary, PublicLobby, TurnSource } from '../../net/backendApi';
@@ -80,8 +80,28 @@ export interface ServerStateResult {
   applied: boolean;
 }
 
+/** One move of a car, kept to show the followed car's last lap (#135). */
+export interface CarMove extends HudMove {
+  /** The cells it drove through, first cell included (movePath): the board's trail. */
+  path: string[];
+  /** Where it ended, in cells from the start line (as HudCar.progress). */
+  progress: number;
+}
+
+/** The move points a move spent, from the car's move cycle; null when the cycle rolled over and cleared them. */
+function spentOn(prev: Car, car: Car): number | null {
+  const cycle = car.moveCycle;
+  return cycle.index === prev.moveCycle.index + 1
+    ? (cycle.spent[prev.moveCycle.index] ?? null)
+    : null;
+}
+
 const BOT_LOG_LIMIT = 1000;
 const LOG_LIMIT = 30;
+/** Feed lines kept, so a followed car still has LOG_LIMIT lines of its own among the others'. */
+const FEED_LIMIT = 500;
+/** Moves kept per car: a lap is about 7 moves, more with pit stops and short moves on empty tires. */
+const MOVES_PER_CAR = 24;
 /** Online: input stays locked this long after sending a turn, unless the server answers first. */
 /** The path of the move the player is about to make, with how the board should draw it. */
 export interface MovePreview {
@@ -115,7 +135,7 @@ export class RaceSession {
   /** Tap to move: the target cell the local player picked and has not confirmed yet. */
   private selectedCellId: string | null = null;
   editing: boolean;
-  readonly logLines: FeedLine[] = [];
+  private readonly feed: FeedLine[] = [];
   readonly botDecisionLog: BotDecisionLogEntry[] = [];
   private botDecisionSeq = 1;
   private carNames = new Map<number, string>();
@@ -170,16 +190,28 @@ export class RaceSession {
     return this.backendLobbyId != null;
   }
 
+  /** The race feed as shown, oldest first: the last LOG_LIMIT lines, only the followed car's while one is (#135). */
+  get logLines(): FeedLine[] {
+    const lines =
+      this.followedCarId === null
+        ? this.feed
+        : this.feed.filter((line) => line.carId === this.followedCarId);
+    return lines.slice(-LOG_LIMIT);
+  }
+
   addLog(text: string, kind: FeedKind = 'info') {
-    this.logLines.push({ text, kind });
-    if (this.logLines.length > LOG_LIMIT) this.logLines.shift();
+    this.pushFeed({ text, kind });
+  }
+
+  private pushFeed(line: FeedLine) {
+    this.feed.push(line);
+    if (this.feed.length > FEED_LIMIT) this.feed.shift();
   }
 
   // What the cars did between two states, as the feed says it (the same lines solo and online, #92).
   private addFeed(before: RaceState) {
     for (const line of feedLines(this.ctx, before, this.race, (car) => this.nameOf(car))) {
-      this.logLines.push(line);
-      if (this.logLines.length > LOG_LIMIT) this.logLines.shift();
+      this.pushFeed(line);
     }
   }
 
@@ -215,6 +247,8 @@ export class RaceSession {
     this.botCars = Math.max(0, Math.min(this.totalCars - this.humanCars, Math.trunc(botCars)));
     this.startRace(this.race.raceLaps);
     this.validTargets = new Map();
+    this.carMoves.clear();
+    this.followedCarId = null;
   }
 
   // ---- control ---------------------------------------------------------------------------------------------------
@@ -292,7 +326,7 @@ export class RaceSession {
       return false;
     }
     this.addFeed(before);
-    this.noteMoved(result.carId, result.fromCellId);
+    this.noteMoved(before, result.carId, result.moveSpend);
     return true;
   }
 
@@ -351,7 +385,7 @@ export class RaceSession {
       result.fromCellId
     );
     this.addFeed(before);
-    this.noteMoved(result.carId, result.fromCellId);
+    this.noteMoved(before, result.carId, result.moveSpend);
     return true;
   }
 
@@ -432,7 +466,10 @@ export class RaceSession {
         const blocked = new Set(
           [...standing].filter(([id]) => id !== car.carId).map(([, cellId]) => cellId)
         );
-        this.lastPaths.set(car.carId, movePath(this.ctx.trackIndex, from, car.cellId, blocked));
+        const path = movePath(this.ctx.trackIndex, from, car.cellId, blocked);
+        this.lastPaths.set(car.carId, path);
+        const prev = before.cars.find((c) => c.carId === car.carId);
+        if (prev) this.recordMove(prev, car, path, spentOn(prev, car));
       }
     }
   }
@@ -463,14 +500,71 @@ export class RaceSession {
   // board's trail, and "what happened while I waited". A car keeps its trail until it moves again.
   private readonly lastPaths = new Map<number, string[]>();
 
-  private noteMoved(carId: number, fromCellId: string | null) {
+  private noteMoved(before: RaceState, carId: number, moveSpend: number) {
     const car = this.cars.find((c) => c.carId === carId);
-    if (!car || car.cellId === fromCellId) return;
+    const prev = before.cars.find((c) => c.carId === carId);
+    if (!car || !prev || car.cellId === prev.cellId) return;
     if (!this.movedCars.includes(carId)) this.movedCars.push(carId);
-    if (fromCellId) {
-      const blocked = new Set(this.cars.filter((c) => c.carId !== carId).map((c) => c.cellId));
-      this.lastPaths.set(carId, movePath(this.ctx.trackIndex, fromCellId, car.cellId, blocked));
-    }
+    const blocked = new Set(this.cars.filter((c) => c.carId !== carId).map((c) => c.cellId));
+    const path = movePath(this.ctx.trackIndex, prev.cellId, car.cellId, blocked);
+    this.lastPaths.set(carId, path);
+    this.recordMove(prev, car, path, moveSpend);
+  }
+
+  // ---- following one car (#135) ----------------------------------------------------------------------------------
+
+  // Each car's recent moves, oldest first (at most MOVES_PER_CAR): the followed car's last lap, listed and drawn.
+  private readonly carMoves = new Map<number, CarMove[]>();
+  private followedCarId: number | null = null;
+
+  /** Cells from the start line, as the standings and the feed measure them (laps * spineLen + lap position). */
+  private cellsFromStart(car: Car): number {
+    return (
+      (car.lapCount ?? 0) * this.ctx.trackIndex.spineLen +
+      rankPosition(this.ctx.trackIndex, this.cellMap.get(car.cellId)!)
+    );
+  }
+
+  private recordMove(prev: Car, car: Car, path: string[], moveSpend: number | null) {
+    const pit = car.tire > prev.tire || car.fuel > prev.fuel;
+    const progress = this.cellsFromStart(car);
+    const moves = this.carMoves.get(car.carId) ?? [];
+    moves.push({
+      lap: lapInProgress(car.lapCount, this.raceLaps),
+      cells: Math.round(progress - this.cellsFromStart(prev)),
+      moveSpend,
+      tireUsed: pit ? 0 : Math.max(0, prev.tire - car.tire),
+      fuelUsed: pit ? 0 : Math.max(0, prev.fuel - car.fuel),
+      pit,
+      path,
+      progress
+    });
+    if (moves.length > MOVES_PER_CAR) moves.shift();
+    this.carMoves.set(car.carId, moves);
+  }
+
+  /** Follows `carId` (null, the car already followed or an unknown car: follows nobody). Returns who is followed. */
+  followCar(carId: number | null): number | null {
+    const known = carId !== null && this.cars.some((car) => car.carId === carId);
+    this.followedCarId = known && carId !== this.followedCarId ? carId : null;
+    return this.followedCarId;
+  }
+
+  get followed(): number | null {
+    return this.followedCarId;
+  }
+
+  /** The moves `carId` made over its last lap: those that ended less than a lap behind where it is now. */
+  lastLapMoves(carId: number): CarMove[] {
+    const car = this.cars.find((c) => c.carId === carId);
+    if (!car) return [];
+    const since = this.cellsFromStart(car) - this.ctx.trackIndex.spineLen;
+    return (this.carMoves.get(carId) ?? []).filter((move) => move.progress > since);
+  }
+
+  /** The followed car's last-lap moves; empty while nobody is followed. */
+  followedMoves(): CarMove[] {
+    return this.followedCarId === null ? [] : this.lastLapMoves(this.followedCarId);
   }
 
   /**
@@ -669,9 +763,7 @@ export class RaceSession {
       lap: lapInProgress(car.lapCount, this.raceLaps),
       finished: hasFinishedRace(car.lapCount, this.raceLaps),
       // the display's own measure (lap position, as the standings): the bots keep progressOf, which they are tuned on
-      progress:
-        (car.lapCount ?? 0) * this.ctx.trackIndex.spineLen +
-        rankPosition(this.ctx.trackIndex, this.cellMap.get(car.cellId)!),
+      progress: this.cellsFromStart(car),
       fwd: this.cellMap.get(car.cellId)?.forwardIndex ?? -1,
       tire: car.tire,
       fuel: car.fuel,
@@ -732,7 +824,23 @@ export class RaceSession {
         text,
         kind,
         mine: carId !== undefined && carId === mine?.carId
-      }))
+      })),
+      follow:
+        this.followedCarId === null
+          ? null
+          : {
+              carId: this.followedCarId,
+              moves: this.followedMoves().map(
+                ({ lap, cells, moveSpend, tireUsed, fuelUsed, pit }): HudMove => ({
+                  lap,
+                  cells,
+                  moveSpend,
+                  tireUsed,
+                  fuelUsed,
+                  pit
+                })
+              )
+            }
     };
   }
 
@@ -832,6 +940,7 @@ export class RaceSession {
     const refused = editCar(this.ctx, this.race, carId, edit);
     if (refused) this.addLog(refused);
     this.resetFeel();
+    this.carMoves.clear(); // a teleport is no move: the history starts over from the edited position
   }
 
   // A drop on a free cell moves the car, on another car swaps them; away from any cell the car goes back.
@@ -839,6 +948,7 @@ export class RaceSession {
     const refused = cellId ? placeCar(this.ctx, this.race, carId, cellId) : null;
     if (refused) this.addLog(refused);
     this.resetFeel();
+    this.carMoves.clear();
   }
 
   /** False when nothing changed (already active, or no such car). */
@@ -865,6 +975,7 @@ export class RaceSession {
       return;
     }
     const refused = restorePosition(this.ctx, this.race, snapshot);
+    if (!refused) this.carMoves.clear();
     this.addLog(refused ? `Load refused: ${refused}` : 'Position loaded.');
   }
 }
