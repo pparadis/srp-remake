@@ -343,14 +343,18 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const seat = lobbyStore.getActiveRaceSeat(lobbyId);
     if (!seat || seat.isBot) return;
     const delayMs = Math.max(1, Math.round(lobby.settings.turnTimerSec * 1000 * timeScale));
-    const revision = lobby.revision;
+    const turnIndex = lobby.race?.turnIndex;
     lobbyStore.setTurnDeadline(lobbyId, Date.now() + delayMs);
     const timer = setTimeout(() => {
       turnTimers.delete(lobbyId);
       const current = lobbyStore.getLobby(lobbyId);
-      // Anything that moved the race on since arming already re-armed (or cleared) the timer.
-      if (!current || current.status !== 'IN_RACE' || current.revision !== revision) return;
-      logMultiplayer('turn.timeout', { lobbyId, revision, seatIndex: seat.seatIndex });
+      // A turn played since arming already re-armed (or cleared) the timer. A grid setup is not a turn.
+      if (!current || current.status !== 'IN_RACE' || current.race?.turnIndex !== turnIndex) return;
+      logMultiplayer('turn.timeout', {
+        lobbyId,
+        revision: current.revision,
+        seatIndex: seat.seatIndex
+      });
       playBotTurnFor(lobbyId, 'autopilot', 'timeout');
       void runPendingBotTurns(lobbyId);
     }, delayMs);
@@ -393,7 +397,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   // After an applied turn: tell everyone, and close the race when someone won.
   function announceTurn(lobby: Lobby, event: AppliedTurnEvent) {
-    armTurnTimer(lobby.lobbyId);
+    // A grid setup does not end the turn: the same player plays on, and their timer keeps running (#141).
+    if (event.applied.type !== 'setup') armTurnTimer(lobby.lobbyId);
     broadcast(lobby.lobbyId, 'turn.applied', event);
     broadcast(lobby.lobbyId, 'race.state', toPublicLobby(lobby));
     const winnerCarId = lobby.race?.engine.winnerCarId ?? null;

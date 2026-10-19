@@ -183,6 +183,35 @@ test('turn timer: a human move re-arms it and the stale timer does not play the 
   host.ws.close();
 });
 
+test('turn timer: a grid setup is not a turn, so it does not restart the timer (#141)', async (t) => {
+  // 1.5 s timer; the host sets up at ~0.9 s. A restarted timer would fire at ~2.4 s, so by 1.8 s it must have fired.
+  const { app, lobbyId, hostToken } = await setup(
+    t,
+    { TURN_TIMER_TIME_SCALE: 0.05 },
+    { ...HUMANS, turnTimerSec: 30 }
+  );
+  const host = connect(app, lobbyId, hostToken);
+  await host.open;
+  await delay(900);
+  const lobby = await readLobby(app, lobbyId, hostToken);
+  const res = await post(app, lobbyId, 'turns', {
+    playerToken: hostToken,
+    clientCommandId: 's1',
+    revision: lobby.revision,
+    action: {
+      type: 'setup',
+      setup: { compound: 'hard', psi: { fl: 23, fr: 23, rl: 21, rr: 21 }, wing: 'medium' }
+    }
+  });
+  assert.equal(res.statusCode, 200);
+  await delay(900);
+  assert.ok(
+    host.events.some((e) => e.payload?.source === 'timeout' && e.payload.seatIndex === 0),
+    'the host was auto-played on the original deadline'
+  );
+  host.ws.close();
+});
+
 test('force-skip: 401 bad token, 403 non-host, 409 not in race / bot active / stale revision, 200 plays an autopilot turn', async (t) => {
   const { app, lobbyId, hostToken, guestToken } = await setup(
     t,
