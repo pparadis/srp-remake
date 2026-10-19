@@ -424,7 +424,6 @@ export class LobbyStore {
     }
 
     lobby.status = 'IN_RACE';
-    lobby.revision = 0;
     lobby.race = this.buildInitialRace(lobby);
     lobby.updatedAt = Date.now();
     return lobby;

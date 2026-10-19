@@ -504,7 +504,11 @@ test('reset returns a finished lobby to waiting for everyone, and it can race ag
   // Settings are kept; the same players race again to a finish.
   const restart = await app.inject({ method: 'POST', url: url('start'), payload: hostBody });
   assert.equal(restart.statusCode, 200);
-  assert.equal((restart.json() as { lobby: { status: string } }).lobby.status, 'IN_RACE');
+  const restarted = (restart.json() as { lobby: { status: string; revision: number } }).lobby;
+  assert.equal(restarted.status, 'IN_RACE');
+  // The revision keeps counting up across races (#142): a client that missed the reset is never ahead of it.
+  assert.ok(restarted.revision >= (reset.json() as { lobby: { revision: number } }).lobby.revision);
+  assert.ok(restarted.revision > 0);
   for (let i = 0; i < 600; i += 1) {
     const lobby = (await app.inject({ method: 'GET', url: readUrl })).json() as {
       lobby: { status: string; revision: number; raceState: RaceState };

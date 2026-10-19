@@ -678,11 +678,7 @@ function syncOnlineScreen() {
 function applyLobbyState(lobby: PublicLobby, source: string) {
   if (!backendSession) return;
   if (lobby.lobbyId !== backendSession.lobbyId) return;
-  // A new race restarts the server's revision at 0, so do not keep the old race's count.
-  const newRace = lobby.status === 'IN_RACE' && lastLobby?.status !== 'IN_RACE';
-  backendSession.revision = newRace
-    ? lobby.revision
-    : Math.max(backendSession.revision, lobby.revision);
+  backendSession.revision = Math.max(backendSession.revision, lobby.revision);
   backendSession.isHost = lobby.hostPlayerId === backendSession.playerId;
   lastLobby = lobby;
   const remainingMs = lobby.status === 'IN_RACE' ? lobby.raceState?.turnRemainingMs : undefined;
