@@ -198,24 +198,19 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rulesCo
 ## Bots
 
 - Levels (`Car.botLevel`, lobby/solo setting `botLevel`: easy | normal | hard, default normal) plus the server's
-  AFK `"autopilot"`; `decideBotAction(ctx, state, policy?)` reads the active car's level when no policy is passed.
-  Details and benchmark numbers: `docs/bot-system.md`.
+  AFK `"autopilot"`; `decideBotAction(ctx, state, policy?)` in `src/game/race/raceEngine.ts` reads the active car's
+  level when no policy is passed. Details, numbers and the personality table: `docs/bot-system.md`.
 - The engine is deterministic: no `Math.random` in `src/game` or the backend (Easy's noise is seeded by car state).
-- Benchmark: `npx tsx tools/botBench.ts [--laps 5,8,12] [--lineup hard,normal,easy,autopilot]`; the ordering
-  Hard < Normal < Easy < Autopilot (average finishing position) is asserted by `src/game/race/botLevels.test.ts`.
-  Run it after touching `botSystem.ts`, `botPlan.ts` or `botHard.ts`.
-
-## Bots
-
-- `decideBotAction(ctx, state, policy?)` in `src/game/race/raceEngine.ts`; levels easy / normal / hard and the AFK
-  `autopilot` (unchanged). Details, numbers and the personality table: `docs/bot-system.md`.
 - Every race has an integer `seed` (`RaceState.seed`), created only at the boundary (server at race start, `BOT_SEED`
   env pins it; solo in `src/main.ts`, `?seed=N` pins it; 0 = neutral). It decides each bot's personality
   (`personalityOf`), every car's grid slot (`gridSlots`) and the play order (`turnOrderOf`, pole sitter first).
-  `src/game/systems/botStyle.ts` is the one place for these; no `Math.random` in `src/game` or the backend race code.
+  `src/game/systems/botStyle.ts` is the one place for these.
 - Specs that assume car 1 on pole use seed 0 (`?seed=0` solo, `BOT_SEED=0` backend: set in `playwright.config.ts` and
   the `backend:test` script).
-- Benchmark: `npx tsx tools/botBench.ts` (see the doc); `botPersonalities.test.ts` guards that no personality dominates.
+- Benchmark: `npx tsx tools/botBench.ts [--laps 5,8,12] [--lineup hard,normal,easy,autopilot]`; the ordering
+  Hard < Normal < Easy < Autopilot (average finishing position) is asserted by `src/game/race/botLevels.test.ts`, and
+  `botPersonalities.test.ts` guards that no personality dominates. Run it after touching `botSystem.ts`, `botPlan.ts`
+  or `botHard.ts`.
 
 ## Debugging Tools
 
