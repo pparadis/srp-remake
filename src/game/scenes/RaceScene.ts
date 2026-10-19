@@ -159,6 +159,8 @@ export class RaceScene extends Phaser.Scene {
   // The preview of the move the player is about to make, and the last move of each car (docs/strategy-and-feel.md).
   private gPreview!: Phaser.GameObjects.Graphics;
   private gTow!: Phaser.GameObjects.Graphics;
+  /** The followed car's last lap (#135): above the track, under the target rings, the tows and the trails. */
+  private gFollowed!: Phaser.GameObjects.Graphics;
   private previewShown: MovePreview | null = null;
   private readonly trails = new Map<number, Phaser.GameObjects.Graphics>();
   // Gliding cars: stop() jumps the token to the end of its glide.
@@ -188,11 +190,15 @@ export class RaceScene extends Phaser.Scene {
     this.applyCarsAndMovesVisibility();
   };
   private readonly onHudCommand = (event: Event) => {
-    const type = (event as CustomEvent<HudCommand>).detail?.type;
-    if (type === 'confirm-move') this.confirmSelectedTarget();
-    else if (type === 'cancel-move') {
+    const command = (event as CustomEvent<HudCommand>).detail;
+    if (command?.type === 'confirm-move') this.confirmSelectedTarget();
+    else if (command?.type === 'cancel-move') {
       this.session.clearSelection();
       this.drawTargets();
+      this.emitHud();
+    } else if (command?.type === 'follow-car') {
+      this.session.followCar(command.carId);
+      this.drawFollowedCar();
       this.emitHud();
     }
   };
@@ -260,6 +266,7 @@ export class RaceScene extends Phaser.Scene {
     // The grass is the CSS background of #app behind this transparent canvas (style.css): a 4000x3000 tileSprite
     // was redrawn every frame and took Firefox down to 9 fps (issue #79).
     this.gTrack = this.add.graphics();
+    this.gFollowed = this.add.graphics();
     this.targetMarkers = new TargetMarkers(this);
     // above the track, the trails and the target rings; under the cost labels and the cars
     this.gPreview = this.add.graphics().setDepth(8);
@@ -341,7 +348,8 @@ export class RaceScene extends Phaser.Scene {
         // a developer aid: with the F overlay on (on a phone every tap would copy and log otherwise)
         if (this.showForwardIndex) void this.copyCellId(cellId);
       },
-      onTap: (x, y) => this.tapBoard(x, y),
+      onTap: (x, y, carId) => this.tapBoard(x, y, carId),
+      carIdOfToken: (obj) => this.carIdOfToken(obj),
       toggleForwardIndexOverlay: () => this.toggleForwardIndexOverlay(),
       openPitModal: (cell, origin) => this.openPitModal(cell, origin),
       onMove: (targetCellId) => {
@@ -389,7 +397,7 @@ export class RaceScene extends Phaser.Scene {
       registerSandboxInputHandlers({
         scene: this,
         isEditing: () => this.editing,
-        carIdOfToken: (obj) => [...this.carTokens].find(([, token]) => token === obj)?.[0] ?? null,
+        carIdOfToken: (obj) => this.carIdOfToken(obj),
         moveToken: (carId, x, y) => {
           this.carTokens.get(carId)?.setPosition(x, y);
           this.activeHalos.get(carId)?.setPosition(x, y);
@@ -442,10 +450,8 @@ export class RaceScene extends Phaser.Scene {
           const token = this.carTokens.get(this.activeCar.carId);
           const bounds = this.scale.canvasBounds;
           const dom = this.game.canvas.getBoundingClientRect();
-          const carIdOf = (obj: Phaser.GameObjects.GameObject) =>
-            [...this.carTokens].find(([, token]) => token === obj)?.[0] ?? null;
           return {
-            topCarId: hits[0] ? carIdOf(hits[0]) : null,
+            topCarId: hits[0] ? this.carIdOfToken(hits[0]) : null,
             hits: hits.length,
             draggableCarIds: [...this.carTokens]
               .filter(([, token]) => token.input?.draggable)
@@ -480,6 +486,10 @@ export class RaceScene extends Phaser.Scene {
     window.dispatchEvent(new Event('srp:scene-ready'));
   }
 
+  private carIdOfToken(obj: Phaser.GameObjects.GameObject): number | null {
+    return [...this.carTokens].find(([, token]) => token === obj)?.[0] ?? null;
+  }
+
   private spawnCarTokens() {
     this.cars.forEach((car, i) => this.spawnCarToken(car, carSprite(i)));
   }
@@ -489,6 +499,7 @@ export class RaceScene extends Phaser.Scene {
     this.tokenCell.clear();
     for (const trail of this.trails.values()) trail.destroy();
     this.trails.clear();
+    this.drawFollowedCar();
     for (const token of this.carTokens.values()) {
       token.destroy();
     }
@@ -785,6 +796,34 @@ export class RaceScene extends Phaser.Scene {
     for (const carId of order) {
       if (!moving.some((car) => car.carId === carId)) this.showTrail(carId);
     }
+    this.drawFollowedCar();
+  }
+
+  // The followed car's last lap (#135): the road it drove as a faint white line (a car colour can be as dark as the
+  // asphalt), a dot in its colour where each move ended (a yellow ring at a pit stop), and a ring round the car.
+  private drawFollowedCar() {
+    const g = this.gFollowed;
+    g.clear();
+    const carId = this.session.followed;
+    const car = this.cars.find((c) => c.carId === carId);
+    if (!car || !this.showCarsAndMoves) return;
+    const moves = this.session.followedMoves();
+    const pos = (cellId: string) => this.cellMap.get(cellId)!.pos;
+    g.lineStyle(3, 0xffffff, 0.35);
+    for (const move of moves) {
+      if (move.path.length >= 2) roadPath(move.path.map(pos)).draw(g, 64);
+    }
+    const color = Phaser.Display.Color.HexStringToColor(carColor(this.cars.indexOf(car))).color;
+    for (const move of moves) {
+      const end = pos(move.path[move.path.length - 1]!);
+      g.fillStyle(color, 0.9);
+      g.fillCircle(end.x, end.y, 3.5);
+      g.lineStyle(move.pit ? 2 : 1, move.pit ? 0xffe066 : 0x0b0f14, 0.9);
+      g.strokeCircle(end.x, end.y, move.pit ? 6 : 3.5);
+    }
+    const at = pos(car.cellId);
+    g.lineStyle(2, 0xffffff, 0.8);
+    g.strokeCircle(at.x, at.y, 17);
   }
 
   private processBotsUntilHuman() {
@@ -1004,25 +1043,28 @@ export class RaceScene extends Phaser.Scene {
     this.tweens.add({ targets: trail, alpha: 0.22, duration: 4500, ease: 'Quad.easeOut' });
   }
 
-  /** A tap on the board (a press and release without a drag) picks the nearest target in reach, or drops the pick. */
-  private tapBoard(x: number, y: number) {
-    if (
-      this.editing ||
-      this.pitModal.isActive() ||
-      !this.showCarsAndMoves ||
-      !this.session.localCanControl()
-    ) {
-      return;
-    }
+  /**
+   * A tap on the board (a press and release without a drag) picks the nearest target in reach, or drops the pick. With
+   * no target in reach, a tap on a car follows it, or stops following it (#135): not the car the player may drag now.
+   */
+  private tapBoard(x: number, y: number, tappedCarId: number | null) {
+    if (this.editing || this.pitModal.isActive() || !this.showCarsAndMoves) return;
+    const canMove = this.session.localCanControl();
     let best: { id: string; d: number } | null = null;
-    for (const cellId of this.validTargets.keys()) {
+    for (const cellId of canMove ? this.validTargets.keys() : []) {
       const cell = this.cellMap.get(cellId);
       if (!cell) continue;
       const d = Math.hypot(cell.pos.x - x, cell.pos.y - y);
       if (d <= RaceScene.HUD.tapMaxDist && (!best || d < best.d)) best = { id: cellId, d };
     }
     if (best) this.session.selectTarget(best.id);
-    else this.session.clearSelection();
+    else {
+      this.session.clearSelection();
+      if (tappedCarId !== null && !(canMove && tappedCarId === this.activeCar.carId)) {
+        this.session.followCar(tappedCarId);
+        this.drawFollowedCar();
+      }
+    }
     this.drawTargets();
     this.emitHud();
   }
@@ -1385,6 +1427,7 @@ export class RaceScene extends Phaser.Scene {
 
   private applyCarsAndMovesVisibility() {
     for (const trail of this.trails.values()) trail.setVisible(this.showCarsAndMoves);
+    this.drawFollowedCar();
     applyCarsMovesVisibility({
       showCarsAndMoves: this.showCarsAndMoves,
       activeHaloTween: this.activeHaloTween,

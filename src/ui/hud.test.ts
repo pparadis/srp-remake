@@ -399,6 +399,69 @@ describe('hud', () => {
     vi.unstubAllGlobals();
   });
 
+  it('follows a car: its last-lap moves newest first, its row marked, the feed titled with its name (#135)', () => {
+    const panel = () => root.querySelector<HTMLElement>('[data-testid="hud-follow"]')!;
+    const rows = () =>
+      [...root.querySelectorAll('[data-testid="hud-follow-row"]')].map((tr) =>
+        [...tr.children].map((td) => td.textContent)
+      );
+    const followed = () =>
+      [...root.querySelectorAll('[data-testid="hud-standing-row"].is-followed')].map(
+        (tr) => (tr as HTMLElement).dataset.carId
+      );
+    renderHud(root, snap());
+    expect(panel().hidden).toBe(true);
+    expect(root.querySelector('.hud-feed summary')!.textContent).toBe('Race feed');
+    expect(followed()).toEqual([]);
+
+    const move = { lap: 1, cells: 5, moveSpend: 6, tireUsed: 3.6, fuelUsed: 2.2, pit: false };
+    renderHud(
+      root,
+      snap({
+        follow: {
+          carId: 3,
+          moves: [
+            move,
+            { ...move, cells: 1, moveSpend: null, tireUsed: 0, fuelUsed: 0, pit: true },
+            { ...move, lap: 2, cells: 4 }
+          ]
+        }
+      })
+    );
+    expect(panel().hidden).toBe(false);
+    expect(text(root, 'hud-follow-name')).toBe('Car 3');
+    expect(rows()).toEqual([
+      ['2', '+4', '6', '-4%', '-2%'],
+      ['1', '+1', '-', 'Pit stop'],
+      ['1', '+5', '6', '-4%', '-2%']
+    ]);
+    expect(followed()).toEqual(['3']);
+    expect(root.querySelector('.hud-feed summary')!.textContent).toBe('Race feed · Car 3');
+    expect(root.querySelector('[data-testid="hud-drawer-toggle"]')!.classList).toContain(
+      'is-following'
+    );
+
+    renderHud(root, snap({ follow: { carId: 1, moves: [] } }));
+    expect(rows()).toEqual([['No moves yet']]);
+  });
+
+  it('a click on a standings row asks the scene to follow that car, All cars to follow none', () => {
+    const commands: unknown[] = [];
+    const listener = (event: Event) => commands.push((event as CustomEvent).detail);
+    window.addEventListener('srp:hud-command', listener);
+    renderHud(root, snap());
+    renderHud(root, snap()); // the rows are new on every render: the click still reaches the HUD
+    root
+      .querySelector<HTMLElement>('[data-testid="hud-standing-row"][data-car-id="3"] td')!
+      .click();
+    root.querySelector<HTMLButtonElement>('[data-testid="hud-follow-clear"]')!.click();
+    window.removeEventListener('srp:hud-command', listener);
+    expect(commands).toEqual([
+      { type: 'follow-car', carId: 3 },
+      { type: 'follow-car', carId: null }
+    ]);
+  });
+
   it('the Standings button opens and closes the drawer of the compact layout', () => {
     const toggle = root.querySelector<HTMLButtonElement>('[data-testid="hud-drawer-toggle"]')!;
     toggle.click();
@@ -464,6 +527,8 @@ describe('hud', () => {
     const rows = document.querySelectorAll('[data-testid="results-row"]');
     expect(rows).toHaveLength(3);
     expect(rows[0]!.textContent).toContain('Car 1');
+    renderResults(document.body, snap({ finished: true, follow: { carId: 1, moves: [] } }));
+    expect(document.querySelectorAll('[data-testid="results-row"].is-followed')).toHaveLength(0);
   });
 });
 

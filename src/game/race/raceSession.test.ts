@@ -938,3 +938,101 @@ describe('RaceSession: tap to move', () => {
     expect(session.selectTarget(cellId)).toBe(false);
   });
 });
+
+describe('RaceSession: following a car (#135)', () => {
+  it('follows a known car, the same car again or null stops, an unknown car is nobody', () => {
+    const session = solo();
+    expect(session.followCar(2)).toBe(2);
+    expect(session.followed).toBe(2);
+    expect(session.followCar(3)).toBe(3);
+    expect(session.followCar(3)).toBeNull();
+    expect(session.followCar(99)).toBeNull();
+    session.followCar(2);
+    expect(session.followCar(null)).toBeNull();
+    expect(hud(session).follow).toBeNull();
+  });
+
+  it("shows only the followed car's lines, from a feed that keeps more than the 30 on screen", () => {
+    const session = solo({ raceLaps: 5 });
+    for (let i = 0; i < 12; i += 1) playMyTurn(session);
+    session.addLog('Sandbox: editing.'); // about no car
+    const all = session.logLines;
+    expect(all).toHaveLength(30);
+    session.followCar(2);
+    const mine = session.logLines;
+    expect(mine.every((line) => line.carId === 2)).toBe(true);
+    // car 2 played 12 turns: its own lines go back further than the last 30 of everyone's
+    expect(mine.length).toBeGreaterThan(all.filter((line) => line.carId === 2).length);
+    expect(hud(session).log.map((l) => l.text)).toEqual(mine.map((l) => l.text));
+    session.followCar(null);
+    expect(session.logLines.at(-1)?.text).toBe('Sandbox: editing.');
+  });
+
+  it('records what each move did, the player and the bots alike', () => {
+    const session = solo();
+    const before = structuredClone(session.cars);
+    playMyTurn(session);
+    for (const prev of before) {
+      const car = session.cars.find((c) => c.carId === prev.carId)!;
+      const [move, ...more] = session.lastLapMoves(prev.carId);
+      expect(more).toEqual([]);
+      expect(move!.path[0]).toBe(prev.cellId);
+      expect(move!.path.at(-1)).toBe(car.cellId);
+      expect(move!.moveSpend).toBe(car.moveCycle.spent[0]);
+      expect(move!.cells).toBeGreaterThan(0);
+      expect(move!.tireUsed).toBeCloseTo(prev.tire - car.tire);
+      expect(move!.fuelUsed).toBeCloseTo(prev.fuel - car.fuel);
+      expect(move!).toMatchObject({ lap: 1, pit: false });
+    }
+    session.followCar(2);
+    const { path: _path, progress: _progress, ...shown } = session.lastLapMoves(2)[0]!;
+    expect(hud(session).follow).toEqual({ carId: 2, moves: [shown] });
+  });
+
+  it('keeps the moves of the last lap: those that ended less than a lap behind the car', () => {
+    const session = solo({ botCars: 1 });
+    let turns = 0;
+    while ((session.cars[0]!.lapCount ?? 0) < 1 && !session.finished) {
+      playMyTurn(session);
+      turns += 1;
+    }
+    playMyTurn(session);
+    turns += 1;
+    const now = hud(session).cars.find((c) => c.carId === 1)!.progress;
+    const moves = session.lastLapMoves(1);
+    expect(moves.length).toBeGreaterThan(0);
+    expect(moves.length).toBeLessThan(turns);
+    expect(moves.every((m) => m.progress > now - session.ctx.trackIndex.spineLen)).toBe(true);
+    // the path joins up: each move starts where the one before it ended
+    for (let i = 1; i < moves.length; i += 1) {
+      expect(moves[i]!.path[0]).toBe(moves[i - 1]!.path.at(-1));
+    }
+  });
+
+  it("online, records a server move from the state, with the move points of the car's cycle", () => {
+    const { session: guest, server } = online('guest');
+    serverMove(server);
+    guest.applyServerState(lobbyOf(server.race), 'guest');
+    const host = server.race.cars[0]!;
+    expect(guest.lastLapMoves(1)).toEqual([
+      expect.objectContaining({ moveSpend: host.moveCycle.spent[0], lap: 1, pit: false })
+    ]);
+    expect(guest.lastLapMoves(1)[0]!.path.at(-1)).toBe(host.cellId);
+    expect(guest.lastLapMoves(2)).toEqual([]);
+  });
+
+  it('a sandbox edit starts the history over; a new car composition forgets the followed car', () => {
+    const session = solo({ sandbox: true });
+    session.setEditing(false);
+    playMyTurn(session);
+    session.followCar(2);
+    expect(session.followedMoves()).toHaveLength(1);
+    session.sandboxEdit(1, { lapCount: 0 });
+    expect(session.followedMoves()).toEqual([]);
+    expect(session.followed).toBe(2);
+
+    const waiting = lobbyOf(createRace(session.ctx, SEATS, 2, 0), { status: 'WAITING' });
+    session.applyServerState(waiting, 'host');
+    expect(session.followed).toBeNull();
+  });
+});

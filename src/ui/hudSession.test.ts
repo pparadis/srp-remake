@@ -78,6 +78,21 @@ describe('race session -> HUD', () => {
     expect(tid('hud-feed-list').children.length).toBeGreaterThan(1);
   });
 
+  it('following a bot shows its moves and only its feed lines (#135)', () => {
+    const session = newSession(2, 2);
+    session.followCar(2);
+    playMyTurn(session);
+    playMyTurn(session);
+    render(session);
+    expect(tid('hud-follow').hidden).toBe(false);
+    expect(tid('hud-follow-name').textContent).toBe('Car 2');
+    expect(all('hud-follow-row')).toHaveLength(session.followedMoves().length);
+    expect(session.followedMoves()).toHaveLength(2);
+    const lines = [...tid('hud-feed-list').children].map((li) => li.textContent);
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.every((line) => line!.startsWith('Car 2'))).toBe(true);
+  });
+
   it('a car behind the line reads lap 0/N in the standings, pole 1/N', () => {
     const session = newSession(3, 2);
     render(session);
