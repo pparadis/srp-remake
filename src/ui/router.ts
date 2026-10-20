@@ -1,4 +1,6 @@
 // Tiny History API router. Paths are relative to Vite's BASE_URL (GitHub Pages serves under /<repo>/).
+import { must } from '../game/must';
+
 export type Route =
   | { name: 'home' }
   | { name: 'solo' }
@@ -22,7 +24,7 @@ export function parseRoute(pathname: string, base = DEFAULT_BASE): Route {
   if (path === '/solo/race') return { name: 'soloRace' };
   const match = /^\/lobby\/([^/]+)(\/race)?$/.exec(path);
   if (match) {
-    const id = decodeURIComponent(match[1]!);
+    const id = decodeURIComponent(must(match[1], 'lobby id in the path'));
     return match[2] ? { name: 'lobbyRace', id } : { name: 'lobby', id };
   }
   return { name: 'home' };

@@ -1,3 +1,4 @@
+import { must } from '../must';
 import type { TrackCell, TrackTag } from '../types/track';
 
 interface BuildLaneSequenceOptions {
@@ -9,7 +10,7 @@ function pickLaneStart(cells: TrackCell[], startTagPriority: TrackTag[]): TrackC
     const tagged = cells.find((c) => (c.tags ?? []).includes(tag));
     if (tagged) return tagged;
   }
-  let best = cells[0]!;
+  let best = must(cells[0], 'first cell');
   for (const cell of cells) {
     if (cell.forwardIndex < best.forwardIndex) best = cell;
   }

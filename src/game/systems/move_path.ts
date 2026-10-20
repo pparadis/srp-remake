@@ -1,4 +1,5 @@
 import { INNER_MAIN_LANE, PIT_LANE } from '../constants';
+import { must } from '../must';
 import type { TrackIndex } from './track_index';
 
 /**
@@ -25,9 +26,9 @@ export function movePath(
   const parent = new Map<string, string>();
   const queue = [fromCellId];
   for (let head = 0; head < queue.length; head += 1) {
-    const id = queue[head]!;
+    const id = must(queue[head], 'queued cell id');
     if (id === toCellId) break;
-    const cell = cellMap.get(id)!;
+    const cell = must(cellMap.get(id), 'queued cell');
     for (const nextId of cell.next) {
       const next = cellMap.get(nextId);
       if (!next || blocked.has(nextId)) continue;
@@ -39,15 +40,17 @@ export function movePath(
       ) {
         continue;
       }
-      const nextSteps = steps.get(id)! + 1;
-      const nextChanges = changes.get(id)! + (next.laneIndex === cell.laneIndex ? 0 : 1);
+      const nextSteps = must(steps.get(id), 'steps of a queued cell') + 1;
+      const nextChanges =
+        must(changes.get(id), 'lane changes of a queued cell') +
+        (next.laneIndex === cell.laneIndex ? 0 : 1);
       const seen = steps.get(nextId);
       if (seen === undefined) {
         steps.set(nextId, nextSteps);
         changes.set(nextId, nextChanges);
         parent.set(nextId, id);
         queue.push(nextId);
-      } else if (seen === nextSteps && nextChanges < changes.get(nextId)!) {
+      } else if (seen === nextSteps && nextChanges < must(changes.get(nextId), 'lane changes')) {
         // another shortest walk with fewer lane changes (its cell is still queued, so its own successors follow it)
         changes.set(nextId, nextChanges);
         parent.set(nextId, id);
@@ -58,7 +61,7 @@ export function movePath(
 
   const path = [toCellId];
   for (let id = toCellId; id !== fromCellId; ) {
-    id = parent.get(id)!;
+    id = must(parent.get(id), 'parent on the path');
     path.push(id);
   }
   return path.reverse();

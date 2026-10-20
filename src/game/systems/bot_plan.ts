@@ -1,5 +1,6 @@
 // Race-level planning shared by the Normal and Hard bots: wear projection and pit-stop timing.
 import { MOVE_BUDGET, MOVE_CYCLE, MOVE_RATES, PIT_LANE } from '../constants';
+import { must } from '../must';
 import type { Car, CarSetup } from '../types/car';
 import type { TrackCell } from '../types/track';
 import { cycleBudget } from './move_budget_system';
@@ -114,7 +115,7 @@ export function projectedMoves(setup: CarSetup, cells: number): number {
 // The compound and wing level that finish `cells` of racing soonest from fresh tires and a full tank.
 // Short races want soft and Low wing, a stint that just fits wants High wing to skip a stop.
 export function bestSetup(cells: number): CarSetup {
-  let best = SETUP_CHOICES[0]!;
+  let best = must(SETUP_CHOICES[0], 'setup choice');
   let bestMoves = projectedMoves(best, cells);
   for (const choice of SETUP_CHOICES.slice(1)) {
     const moves = projectedMoves(choice, cells);

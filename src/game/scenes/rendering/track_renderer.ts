@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { TrackCell, TrackData } from '../../types/track';
 import { INNER_MAIN_LANE, MIDDLE_MAIN_LANE, OUTER_MAIN_LANE, PIT_LANE } from '../../constants';
+import { must } from '../../must';
 
 import { headingOf } from './heading';
 
@@ -31,7 +32,10 @@ function buildLanePath(track: TrackData, cellMap: CellMap, laneIndex: number): T
 
   let start = laneCells.find((c) => (incoming.get(c.id) ?? 0) === 0);
   if (!start) {
-    start = laneCells.reduce((best, c) => (c.zoneIndex < best.zoneIndex ? c : best), laneCells[0]!);
+    start = laneCells.reduce(
+      (best, c) => (c.zoneIndex < best.zoneIndex ? c : best),
+      must(laneCells[0], 'first lane cell')
+    );
   }
 
   const path: TrackCell[] = [];
@@ -57,7 +61,7 @@ function buildLanePath(track: TrackData, cellMap: CellMap, laneIndex: number): T
 }
 
 function smoothLanePoints(
-  path: TrackCell[],
+  path: ReadonlyArray<Pick<TrackCell, 'pos'>>,
   closesLoop: boolean,
   iterations = 2
 ): Phaser.Math.Vector2[] {
@@ -194,8 +198,8 @@ function strokeKerb(
   const n = pts.length;
   for (const side of [-1, 1]) {
     const edge = pts.map((p, i) => {
-      const a = pts[(i + n - 1) % n]!;
-      const b = pts[(i + 1) % n]!;
+      const a = must(pts[(i + n - 1) % n], 'previous lane point');
+      const b = must(pts[(i + 1) % n], 'next lane point');
       const t = new Phaser.Math.Vector2(b.x - a.x, b.y - a.y).normalize();
       return new Phaser.Math.Vector2(
         p.x - t.y * side * (width / 2),
@@ -203,8 +207,8 @@ function strokeKerb(
       );
     });
     for (let i = 0; i < (closesLoop ? n : n - 1); i += 1) {
-      const a = edge[i]!;
-      const b = edge[(i + 1) % n]!;
+      const a = must(edge[i], 'kerb point');
+      const b = must(edge[(i + 1) % n], 'kerb point');
       graphics.lineStyle(7, i % 2 === 0 ? 0xd62828 : 0xf5f5f5, 1);
       graphics.lineBetween(a.x, a.y, b.x, b.y);
     }
@@ -220,7 +224,7 @@ function drawSeparator(
 ): void {
   if (upper.length < 3 || lower.length === 0) return;
   const mids = upper.map((c) => {
-    let best = lower[0]!;
+    let best = must(lower[0], 'cell of the lower lane');
     let bestD = Infinity;
     for (const o of lower) {
       const d = (o.pos.x - c.pos.x) ** 2 + (o.pos.y - c.pos.y) ** 2;
@@ -229,12 +233,14 @@ function drawSeparator(
         best = o;
       }
     }
-    return { pos: { x: (c.pos.x + best.pos.x) / 2, y: (c.pos.y + best.pos.y) / 2 } } as TrackCell;
+    return { pos: { x: (c.pos.x + best.pos.x) / 2, y: (c.pos.y + best.pos.y) / 2 } };
   });
   const pts = smoothLanePoints(mids, closesLoop, 2);
   graphics.lineStyle(2, 0xffffff, 0.75);
   for (let i = 0; i + 1 < pts.length; i += 2) {
-    graphics.lineBetween(pts[i]!.x, pts[i]!.y, pts[i + 1]!.x, pts[i + 1]!.y);
+    const a = must(pts[i], 'dash start');
+    const b = must(pts[i + 1], 'dash end');
+    graphics.lineBetween(a.x, a.y, b.x, b.y);
   }
 }
 
@@ -248,16 +254,17 @@ function fillQuad(
   stroke = false
 ): void {
   const n = new Phaser.Math.Vector2(-t.y, t.x);
-  const pts = [
+  const corners: Array<[number, number]> = [
     [-1, -1],
     [1, -1],
     [1, 1],
     [-1, 1]
-  ].map(
+  ];
+  const pts = corners.map(
     ([a, b]) =>
       new Phaser.Math.Vector2(
-        c.x + (t.x * a! * along + n.x * b! * across) / 2,
-        c.y + (t.y * a! * along + n.y * b! * across) / 2
+        c.x + (t.x * a * along + n.x * b * across) / 2,
+        c.y + (t.y * a * along + n.y * b * across) / 2
       )
   );
   if (stroke) g.strokePoints(pts, true, true);
@@ -355,7 +362,8 @@ export function drawTrack(params: DrawTrackParams): void {
 
   if (showForwardIndex) {
     for (const lane of paths) {
-      if (lane.length > 0) drawLaneRibbon(g, lane, lane[0]!.laneIndex, cellMap);
+      const first = lane[0];
+      if (first) drawLaneRibbon(g, lane, first.laneIndex, cellMap);
     }
     for (const cell of track.cells) {
       g.fillStyle(laneColor(cell.laneIndex), 1);

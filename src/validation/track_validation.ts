@@ -1,5 +1,6 @@
 import type { TrackData } from '../game/types/track';
 import { MAIN_LANES, PIT_LANE } from '../game/constants';
+import { must } from '../game/must';
 
 export function validateTrack(track: TrackData): string[] {
   const errors: string[] = [];
@@ -39,7 +40,7 @@ export function validateTrack(track: TrackData): string[] {
     const laneCells = byLane.get(lane) ?? [];
     const zones = laneCells.map((c) => c.zoneIndex).sort((a, b) => a - b);
     if (zones.length === 0) continue;
-    const base = zones[0]!;
+    const base = must(zones[0], 'first zone');
     for (let i = 0; i < zones.length; i += 1) {
       const expected = base + i;
       if (zones[i] !== expected) {
@@ -141,8 +142,8 @@ export function validateTrack(track: TrackData): string[] {
 
   // Pit lane length and connectivity (entry -> exit).
   if (pitEntry.length === 1 && pitExit.length === 1) {
-    const entryId = pitEntry[0]!.id;
-    const exitId = pitExit[0]!.id;
+    const entryId = must(pitEntry[0], 'pit entry').id;
+    const exitId = must(pitExit[0], 'pit exit').id;
     const visited = new Set<string>();
     let current = entryId;
     let steps = 0;

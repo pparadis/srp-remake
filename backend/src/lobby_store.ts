@@ -9,6 +9,7 @@ import {
   type BotTurnDecision
 } from '../../src/game/race/race_engine';
 import { normalizeChatText } from '../../src/game/chat_text';
+import { must } from '../../src/game/must';
 import { MAX_SEED, normalizeSeed } from '../../src/game/systems/bot_style';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
 import { getRaceContext, knownTrackIds } from './tracks.js';
@@ -112,7 +113,7 @@ function toPublicRaceState(lobby: Lobby): RaceState | undefined {
     activeSeatIndex: activeSeatIndex(engine),
     winnerCarId: engine.winnerCarId,
     seed: engine.seed,
-    cars: engine.cars.map((car, i): RaceCarState => ({ ...car, ...seats[i]! })),
+    cars: engine.cars.map((car, i): RaceCarState => ({ ...car, ...must(seats[i], 'race seat') })),
     ...(race.turnDeadlineAt !== undefined
       ? { turnRemainingMs: Math.max(0, race.turnDeadlineAt - Date.now()) }
       : {})

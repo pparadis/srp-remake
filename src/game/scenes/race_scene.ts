@@ -1,5 +1,7 @@
 import { renderScale, textResolution } from '../hidpi';
-import { FrameGovernor, type FrameLimit } from '../frame_governor';
+import { FrameGovernor, isFrameLimit } from '../frame_governor';
+import { must } from '../must';
+import { pinToScreen } from './ui/pin_to_screen';
 import Phaser from 'phaser';
 import type { TrackData, TrackCell } from '../types/track';
 import type { BotLevel, Car } from '../types/car';
@@ -311,7 +313,9 @@ export class RaceScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, removeWindowListeners);
     this.events.once(Phaser.Scenes.Events.DESTROY, removeWindowListeners);
     // Idle frame rate (#82): full speed while a glide, the camera, confetti or the pit modal moves, or the player acts.
-    const governor = new FrameGovernor(this.game.loop as unknown as FrameLimit);
+    const loop = this.game.loop;
+    if (!isFrameLimit(loop)) throw new Error('Phaser loop has no _limitRate (#82).');
+    const governor = new FrameGovernor(loop);
     const stopWatching = governor.watch(window);
     const onUpdate = () => governor.tick(this.isAnimating());
     this.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
@@ -484,6 +488,10 @@ export class RaceScene extends Phaser.Scene {
     }
     // main.ts replays the latest lobby state now that the scene listens for it.
     window.dispatchEvent(new Event('srp:scene-ready'));
+  }
+
+  private posOf(cellId: string) {
+    return must(this.cellMap.get(cellId), 'cell to draw').pos;
   }
 
   private carIdOfToken(obj: Phaser.GameObjects.GameObject): number | null {
@@ -712,7 +720,7 @@ export class RaceScene extends Phaser.Scene {
     }
     const points =
       ids.length >= 2
-        ? ids.map((id) => this.cellMap.get(id)!.pos)
+        ? ids.map((id) => this.posOf(id))
         : [
             { x: token.x, y: token.y },
             { x: cell.pos.x, y: cell.pos.y }
@@ -808,20 +816,19 @@ export class RaceScene extends Phaser.Scene {
     const car = this.cars.find((c) => c.carId === carId);
     if (!car || !this.showCarsAndMoves) return;
     const moves = this.session.followedMoves();
-    const pos = (cellId: string) => this.cellMap.get(cellId)!.pos;
     g.lineStyle(3, 0xffffff, 0.35);
     for (const move of moves) {
-      if (move.path.length >= 2) roadPath(move.path.map(pos)).draw(g, 64);
+      if (move.path.length >= 2) roadPath(move.path.map((id) => this.posOf(id))).draw(g, 64);
     }
     const color = Phaser.Display.Color.HexStringToColor(carColor(this.cars.indexOf(car))).color;
     for (const move of moves) {
-      const end = pos(move.path[move.path.length - 1]!);
+      const end = this.posOf(must(move.path.at(-1), 'last cell of a move'));
       g.fillStyle(color, 0.9);
       g.fillCircle(end.x, end.y, 3.5);
       g.lineStyle(move.pit ? 2 : 1, move.pit ? 0xffe066 : 0x0b0f14, 0.9);
       g.strokeCircle(end.x, end.y, move.pit ? 6 : 3.5);
     }
-    const at = pos(car.cellId);
+    const at = this.posOf(car.cellId);
     g.lineStyle(2, 0xffffff, 0.8);
     g.strokeCircle(at.x, at.y, 17);
   }
@@ -986,7 +993,7 @@ export class RaceScene extends Phaser.Scene {
           : preview.kind === 'squeeze'
             ? 0xffb020
             : laneColor(target.laneIndex);
-    const path = roadPath(preview.cells.map((id) => this.cellMap.get(id)!.pos));
+    const path = roadPath(preview.cells.map((id) => this.posOf(id)));
     this.gPreview.lineStyle(7, 0x0b0f14, 0.35); // a dark edge, so it reads on the asphalt and on the kerbs
     path.draw(this.gPreview, 64);
     this.gPreview.lineStyle(4, color, 0.9);
@@ -1030,7 +1037,7 @@ export class RaceScene extends Phaser.Scene {
     );
     trail.clear();
     trail.lineStyle(3, Phaser.Display.Color.HexStringToColor(carColor(index)).color, 1);
-    roadPath(cells.map((id) => this.cellMap.get(id)!.pos)).draw(trail, 64);
+    roadPath(cells.map((id) => this.posOf(id))).draw(trail, 64);
     trail.setVisible(this.showCarsAndMoves);
     const reduced =
       typeof window.matchMedia === 'function' &&
@@ -1114,16 +1121,7 @@ export class RaceScene extends Phaser.Scene {
     const fixed = [this.gFrame, this.skipButton, this.setupButton, this.fitButton].filter(Boolean);
     // zoomed in, a car can pass under the buttons: they stay on top of the board (the pit modal is above them, 100)
     for (const button of [this.skipButton, this.setupButton, this.fitButton]) button?.setDepth(80);
-    for (const obj of fixed) {
-      if (
-        typeof (obj as { setScrollFactor?: (x: number, y?: number) => unknown }).setScrollFactor ===
-        'function'
-      ) {
-        (obj as unknown as { setScrollFactor: (x: number, y?: number) => unknown }).setScrollFactor(
-          0
-        );
-      }
-    }
+    for (const obj of fixed) pinToScreen(obj);
     if (this.pitModal) {
       this.pitModal.setFixed();
     }

@@ -1,4 +1,5 @@
 import { textResolution } from '../../hidpi';
+import { must } from '../../must';
 import type Phaser from 'phaser';
 import type { Car } from '../../types/car';
 import { SETUP_LIMITS, WING_LEVELS } from '../../constants';
@@ -6,6 +7,7 @@ import { cycleBudget } from '../../systems/move_budget_system';
 import { formatStint } from '../../../ui/hud';
 import type { StintEstimate } from '../../systems/strategy';
 import { makeButton } from './make_button';
+import { pinToScreen } from './pin_to_screen';
 
 export interface PitStints {
   soft: StintEstimate;
@@ -239,24 +241,8 @@ export class PitModal {
   }
 
   setFixed() {
-    if (
-      typeof (this.modal as { setScrollFactor?: (x: number, y?: number) => unknown })
-        .setScrollFactor === 'function'
-    ) {
-      (
-        this.modal as unknown as { setScrollFactor: (x: number, y?: number) => unknown }
-      ).setScrollFactor(0);
-    }
-    for (const child of this.modal.list) {
-      if (
-        typeof (child as { setScrollFactor?: (x: number, y?: number) => unknown })
-          .setScrollFactor === 'function'
-      ) {
-        (
-          child as unknown as { setScrollFactor: (x: number, y?: number) => unknown }
-        ).setScrollFactor(0);
-      }
-    }
+    pinToScreen(this.modal);
+    for (const child of this.modal.list) pinToScreen(child);
   }
 
   private createModalButton(x: number, y: number, label: string): Phaser.GameObjects.Text {
@@ -298,7 +284,10 @@ export class PitModal {
   private adjustWing(delta: number) {
     if (!this.modalSetup) return;
     const index = WING_LEVELS.indexOf(this.modalSetup.wing) + delta;
-    this.modalSetup.wing = WING_LEVELS[Math.max(0, Math.min(WING_LEVELS.length - 1, index))]!;
+    this.modalSetup.wing = must(
+      WING_LEVELS[Math.max(0, Math.min(WING_LEVELS.length - 1, index))],
+      'wing level'
+    );
     this.refreshModalValues();
   }
 }

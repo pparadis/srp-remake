@@ -1,4 +1,5 @@
 import { MOVE_CYCLE, WING_LEVELS, type WingLevel } from '../constants';
+import { must } from '../must';
 import { DEFAULT_RULES_VERSION } from '../rules/versions';
 import {
   createMoveCycle,
@@ -161,7 +162,10 @@ export function restorePosition(
     seen.add(sc.cellId);
   }
   for (const sc of snap.cars) {
-    const car = state.cars.find((c) => c.carId === sc.carId)!;
+    const car = must(
+      state.cars.find((c) => c.carId === sc.carId),
+      'car of the snapshot'
+    );
     Object.assign(car, {
       cellId: sc.cellId,
       lapCount: sc.lapCount,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { trackSchema } from './track_schema';
+import track from '../../public/tracks/oval16_3lanes.json';
+import { parseTrack, trackSchema } from './track_schema';
 
 const baseCell = {
   id: 'A0',
@@ -29,5 +30,15 @@ describe('trackSchema forwardIndex', () => {
   it('passes when forwardIndex is present', () => {
     const res = trackSchema.safeParse(baseTrack);
     expect(res.success).toBe(true);
+  });
+});
+
+describe('parseTrack', () => {
+  it('returns the real track unchanged', () => {
+    expect(parseTrack(track)).toEqual(track);
+  });
+
+  it('throws on data that is not a track', () => {
+    expect(() => parseTrack({ trackId: 'x' })).toThrow();
   });
 });

@@ -2,8 +2,10 @@
 // (`animateMotion`, no JS loop, no canvas) and one of them diving into the pit lane every other lap. Phaser-free.
 import track from '../../public/tracks/oval16_3lanes.json';
 import { MAIN_LANES, PIT_LANE } from '../game/constants';
+import { must } from '../game/must';
 import { CAR_SPRITES } from '../game/systems/spawn_system';
 import type { TrackCell, TrackData } from '../game/types/track';
+import { parseTrack } from '../validation/track_schema';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const PAD = 40; // room for the curbs and the cars
@@ -59,8 +61,8 @@ export function pitLapPoints(data: TrackData): Point[] | null {
 
 /** Which way a car faces at `pts[i]` (degrees, 0 = to the right). */
 function headingAt(pts: Point[], i: number): number {
-  const a = pts[i]!;
-  const b = pts[(i + 1) % pts.length]!;
+  const a = must(pts[i], 'point of the heading');
+  const b = must(pts[(i + 1) % pts.length], 'next point of the heading');
   return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 }
 
@@ -83,7 +85,7 @@ export interface HomeTrackOptions {
 
 export function renderHomeTrack(
   svg: SVGSVGElement,
-  data: TrackData = track as unknown as TrackData,
+  data: TrackData = parseTrack(track),
   options: HomeTrackOptions = {}
 ) {
   const xs = data.cells.map((c) => c.pos.x);
@@ -159,21 +161,21 @@ export function renderHomeTrack(
     const lanePts = points(laneCells(data, lane));
     if (lanePts.length === 0) return;
     const g = svgEl('g', { class: 'home-car', 'data-lane': lane });
-    const seconds = LAP_SECONDS[i % LAP_SECONDS.length]!;
+    const seconds = must(LAP_SECONDS[i % LAP_SECONDS.length], 'lap time');
     let pathId = `home-lane-${lane}`;
     let heading = headingAt(lanePts, 0);
-    let at = lanePts[0]!;
+    let at = must(lanePts[0], 'start of the lane');
 
     if (i === 0 && pitLap) {
       // normal lap from the rejoin cell, then the pit lap, which ends where this one starts
-      const startAt = pitLap[0]!;
+      const startAt = must(pitLap[0], 'start of the pit lap');
       const from = lanePts.findIndex((p) => p.x === startAt.x && p.y === startAt.y);
       const around = from < 0 ? lanePts : [...lanePts.slice(from), ...lanePts.slice(0, from)];
       const lap = [...around, ...pitLap];
       defs.append(svgEl('path', { id: 'home-pit-lap', d: pathData(lap, true) }));
       pathId = 'home-pit-lap';
       heading = headingAt(lap, 0);
-      at = lap[0]!;
+      at = must(lap[0], 'start of the lap');
     }
 
     if (options.reducedMotion) {

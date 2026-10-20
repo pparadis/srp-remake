@@ -158,6 +158,20 @@ export default [
     }
   },
   {
+    // No `!` and no object-literal `as` in the app and the server (#77): a lookup that cannot miss goes through
+    // `must` (src/game/must.ts), which throws a clear error. Not tests (they assert what they know about a
+    // fixture), not tools/ (dev scripts), not v1 (a frozen copy of the old rules, kept as it was written).
+    files: ['src/**/*.ts', 'backend/src/**/*.ts'],
+    ignores: ['**/*.test.ts', 'src/game/rules/v1/**'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'error',
+      '@typescript-eslint/consistent-type-assertions': [
+        'error',
+        { assertionStyle: 'as', objectLiteralTypeAssertions: 'never' }
+      ]
+    }
+  },
+  {
     // Ambient names come from vite `define` (vite.config.ts).
     files: ['**/*.d.ts'],
     rules: { '@typescript-eslint/naming-convention': 'off' }

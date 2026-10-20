@@ -7,7 +7,8 @@ import Phaser from 'phaser';
 export function roadPath(points: ReadonlyArray<{ x: number; y: number }>): Phaser.Curves.Path {
   const first = points[0] ?? { x: 0, y: 0 };
   const path = new Phaser.Curves.Path(first.x, first.y);
-  if (points.length === 2) path.lineTo(points[1]!.x, points[1]!.y);
+  const second = points[1];
+  if (points.length === 2 && second) path.lineTo(second.x, second.y);
   else if (points.length > 2) {
     path.splineTo(points.slice(1).map((p) => new Phaser.Math.Vector2(p.x, p.y)));
   }
