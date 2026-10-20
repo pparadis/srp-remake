@@ -7,7 +7,7 @@ import { SETUP_CHOICES } from '../systems/bot_plan';
 import { trackFwd } from '../systems/track_index';
 import type { CarSetup } from '../types/car';
 import { getRemainingBudget } from '../systems/move_budget_system';
-import { rulesOf, type RulesVersion } from '../rules/versions';
+import { resourcesOf, type RulesVersion } from '../rules/versions';
 import type { BotPolicy } from '../systems/bot_system';
 import {
   gridSlots,
@@ -78,7 +78,7 @@ function scriptedAction(ctx: RaceContext, state: RaceState, policy: ScriptedPoli
       ? 99
       : Math.min(
           SCRIPT[car.moveCycle.index] ?? 7,
-          getRemainingBudget(car.moveCycle, rulesOf(state).resources.cycleBudget(car.setup))
+          getRemainingBudget(car.moveCycle, resourcesOf(state, ctx.trackIndex).cycleBudget(car))
         );
   let best: { id: string; score: number } | null = null;
   for (const [id, info] of computeTargets(ctx, state, car)) {

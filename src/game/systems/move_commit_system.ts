@@ -3,6 +3,7 @@ import type { TrackCell } from '../types/track';
 import type { TargetInfo } from './movement_system';
 import { recordMove } from './move_budget_system';
 import { PIT_LANE } from '../constants';
+import { roundWear } from './resource_system';
 
 function clamp01to100(value: number) {
   if (value < 0) return 0;
@@ -47,7 +48,8 @@ export function applyMove(
   if (targetCell.laneIndex !== PIT_LANE) {
     car.pitServiced = false;
   }
-  car.tire = clamp01to100(car.tire - info.tireCost);
-  car.fuel = clamp01to100(car.fuel - info.fuelCost);
+  // Costs are whole numbers in v1 and v2 and tenths in v3: rounding keeps the subtraction free of float dust.
+  car.tire = clamp01to100(roundWear(car.tire - info.tireCost));
+  car.fuel = clamp01to100(roundWear(car.fuel - info.fuelCost));
   recordMove(car.moveCycle, moveSpend);
 }

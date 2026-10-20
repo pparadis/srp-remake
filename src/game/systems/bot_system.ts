@@ -288,7 +288,7 @@ export function evaluateNormalTargets(
     car.tire <= heuristics.lowResourceThreshold || car.fuel <= heuristics.lowResourceThreshold;
   const from = cellMap.get(car.cellId);
   const inPitLane = from?.laneIndex === PIT_LANE;
-  const budget = getRemainingBudget(car.moveCycle, resources.cycleBudget(car.setup));
+  const budget = getRemainingBudget(car.moveCycle, resources.cycleBudget(car));
   const movesLeft = car.moveCycle.spent.length - car.moveCycle.index;
   const finalLap = plan ? isFinalLap(car, plan) : false;
   const stopDue = plan && from && !inPitLane ? stopIsDue(car, from, plan) : false;

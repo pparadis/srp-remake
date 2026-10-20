@@ -39,8 +39,31 @@ export const WING_EFFECTS: Record<WingLevel, { pace: number; tire: number; fuel:
   medium: { pace: 0, tire: 1, fuel: 1 },
   high: { pace: -1, tire: 0.8, fuel: 0.9 }
 };
-// The soft compound grips better: it adds this to the cycle budget (and wears faster, see MOVE_RATES).
-export const SOFT_PACE_BONUS = 1;
+
+// v3 resources (#148). A tank and a tire set are sized for one stint of at most STINT_LAPS laps; a full tank (100)
+// covers FUEL_MARGIN times that stint's cells at the normal pace (8 move points a move).
+export const STINT_LAPS = 6;
+export const FUEL_MARGIN = 1.1;
+export const COMPOUNDS = ['hard', 'medium', 'soft'] as const;
+export type Compound = (typeof COMPOUNDS)[number];
+// `cap`: most move points one move may spend. `budget`: the 5-move cycle at Medium wing (clamped to cap x 5).
+// `tireLife`: stints (of capacity cells) a set lasts at the normal pace.
+export const COMPOUND_TABLE: Record<Compound, { cap: number; budget: number; tireLife: number }> = {
+  hard: { cap: 8, budget: 36, tireLife: 1.4 },
+  medium: { cap: 8, budget: 39, tireLife: 1.1 },
+  soft: { cap: 9, budget: 42, tireLife: 0.95 }
+};
+// Wear multiplier by the move points a move spends: 7 or less is conservative, 8 normal, 9 high consumption.
+export const MOVE_FACTOR = {
+  conservative: { fuel: 0.85, tire: 0.9 },
+  normal: { fuel: 1, tire: 1 },
+  high: { fuel: 1.2, tire: 1.1 }
+} as const;
+export const NORMAL_MOVE_POINTS = 8;
+// Fuel weighs: the cycle budget is 1 lower while the tank holds more than HEAVY_FUEL.
+export const HEAVY_FUEL = 70;
+export const FUEL_LOAD_MIN = 40;
+export const FUEL_LOAD_STEP = 5;
 
 // Drafting (issue #55): a car in a main lane with another car 1 to DRAFT_RANGE cells directly ahead in its own lane
 // runs in its slipstream. A move that starts there wears less; after DRAFT_SLINGSHOT_TURNS consecutive turns begun in

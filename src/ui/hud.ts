@@ -3,6 +3,7 @@ import {
   DRAFT_SLINGSHOT_TURNS,
   MOVE_BUDGET,
   SQUEEZE_SURCHARGE_PER_CAR,
+  type Compound,
   type WingLevel
 } from '../game/constants';
 import { must } from '../game/must';
@@ -28,7 +29,7 @@ export interface HudCar {
   fwd: number;
   tire: number;
   fuel: number;
-  compound: 'soft' | 'hard';
+  compound: Compound;
   wing: WingLevel;
   state: 'ACTIVE' | 'PITTING' | 'WAITING' | 'DNF';
   pitTurns: number;

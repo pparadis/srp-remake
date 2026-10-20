@@ -2,8 +2,7 @@
 // changes systems/resource_system.ts. A cap of 9 (4 when a tire or the tank is empty), a cycle budget of 40 plus the
 // wing plus 1 for soft, a full refill at every stop, soft and hard only.
 import { SETUP_LIMITS, WING_EFFECTS, WING_LEVELS } from '../../constants';
-import type { CarSetup } from '../../types/car';
-import type { ResourceRules } from '../resource_rules';
+import type { ResourceRules, ResourceRulesFor } from '../resource_rules';
 
 const MOVE_RATES = { softTire: 0.5, hardTire: 0.35, fuel: 0.45 } as const;
 const MOVE_CAP = { base: 9, empty: 4 } as const;
@@ -17,12 +16,15 @@ export const resources: ResourceRules = {
       (v) => Number.isInteger(v) && v >= psi.min && v <= psi.max
     );
     const compoundOk = setup.compound === 'soft' || setup.compound === 'hard';
-    return compoundOk && psiOk && WING_LEVELS.includes(setup.wing);
+    return compoundOk && setup.fuelLoad === undefined && psiOk && WING_LEVELS.includes(setup.wing);
   },
   moveCap(car) {
     return car.tire === 0 || car.fuel === 0 ? MOVE_CAP.empty : MOVE_CAP.base;
   },
-  cycleBudget(setup: CarSetup) {
+  defaultSetup(dealt) {
+    return dealt;
+  },
+  cycleBudget({ setup }) {
     return (
       CYCLE_BUDGET +
       WING_EFFECTS[setup.wing].pace +
@@ -43,3 +45,6 @@ export const resources: ResourceRules = {
   },
   features: { medium: false, fuelLoad: false }
 };
+
+/** v1 and v2 size nothing to the race. */
+export const resourcesFor: ResourceRulesFor = () => resources;

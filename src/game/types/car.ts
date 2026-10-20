@@ -5,7 +5,10 @@ export type BotLevel = (typeof BOT_LEVELS)[number];
 type CarState = 'ACTIVE' | 'PITTING' | 'WAITING' | 'DNF';
 
 export interface CarSetup {
-  compound: 'soft' | 'hard';
+  // 'medium' and `fuelLoad` exist from rules v3 on; v1 and v2 refuse them.
+  compound: Compound;
+  // Fuel at the grid, an integer percent (a multiple of 5, 40 to 100). Missing means a full tank.
+  fuelLoad?: number;
   psi: {
     fl: number;
     fr: number;
@@ -15,7 +18,7 @@ export interface CarSetup {
   wing: WingLevel;
 }
 
-import type { WingLevel } from '../constants';
+import type { Compound, WingLevel } from '../constants';
 import type { MoveCycle } from '../systems/move_budget_system';
 
 export interface Car {

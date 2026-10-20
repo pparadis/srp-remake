@@ -114,7 +114,7 @@ const PIT_STOP_MOVES = 8;
 // empty-resource speed, or stops (as often as it takes) and loses PIT_STOP_MOVES per stop.
 export function projectedMoves(setup: CarSetup, cells: number, resources: ResourceRules): number {
   const pace = Math.min(
-    resources.cycleBudget(setup) / MOVE_CYCLE.moves,
+    resources.cycleBudget({ tire: 100, fuel: 100, setup }) / MOVE_CYCLE.moves,
     resources.moveCap({ tire: 100, fuel: 100, setup })
   );
   const untilEmpty = cellsUntilEmpty(100, 100, setup, resources);

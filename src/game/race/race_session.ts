@@ -3,7 +3,7 @@
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
 import { DRAFT_SLINGSHOT_TURNS } from '../constants';
 import { must } from '../must';
-import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
+import { DEFAULT_RULES_VERSION, resourcesOf, rulesOf, type RulesVersion } from '../rules/versions';
 import type { BotLevel, Car } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
 import { laneWearFactors, setupFactors, type TargetInfo } from '../systems/movement_system';
@@ -689,11 +689,11 @@ export class RaceSession {
 
   /** The move points a cycle holds for this setup (the pit modal shows it as pace). */
   paceOf(setup: Car['setup']): number {
-    return this.resources().cycleBudget(setup);
+    return this.resources().cycleBudget({ ...this.activeCar, setup });
   }
 
   private resources() {
-    return rulesOf(this.race).resources;
+    return resourcesOf(this.race, this.ctx.trackIndex);
   }
 
   private plan(): BotPlanContext {
@@ -787,8 +787,8 @@ export class RaceSession {
       pitTurns: car.pitTurnsRemaining,
       cycle: [...car.moveCycle.spent],
       cycleIndex: car.moveCycle.index,
-      remaining: getRemainingBudget(car.moveCycle, this.resources().cycleBudget(car.setup)),
-      budget: this.resources().cycleBudget(car.setup),
+      remaining: getRemainingBudget(car.moveCycle, this.resources().cycleBudget(car)),
+      budget: this.resources().cycleBudget(car),
       pitServiced: car.pitServiced,
       // tucked in: the car ended its last move behind a car, so its next move is in the tow (the leader may be gone)
       drafting: (car.draftTurns ?? 0) >= 1,
