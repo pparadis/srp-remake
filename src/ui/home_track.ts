@@ -4,8 +4,7 @@ import track from '../../public/tracks/oval16_3lanes.json';
 import { MAIN_LANES, PIT_LANE } from '../game/constants';
 import { must } from '../game/must';
 import { CAR_SPRITES } from '../game/systems/spawn_system';
-import type { TrackCell, TrackData } from '../game/types/track';
-import { parseTrack } from '../validation/track_schema';
+import { trackOfJson, type TrackCell, type TrackData } from '../game/types/track';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const PAD = 40; // room for the curbs and the cars
@@ -85,7 +84,7 @@ export interface HomeTrackOptions {
 
 export function renderHomeTrack(
   svg: SVGSVGElement,
-  data: TrackData = parseTrack(track),
+  data: TrackData = trackOfJson(track),
   options: HomeTrackOptions = {}
 ) {
   const xs = data.cells.map((c) => c.pos.x);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FrameGovernor } from './frame_governor';
+import { FrameGovernor, isFrameLimit } from './frame_governor';
 
 function setup() {
   const limit = { _limitRate: 1000 / 15 };
@@ -61,5 +61,14 @@ describe('FrameGovernor', () => {
     stop();
     window.dispatchEvent(new Event('pointermove'));
     expect(limit._limitRate).toBeGreaterThan(0);
+  });
+});
+
+describe('isFrameLimit', () => {
+  it('accepts a loop with a numeric _limitRate (0 is no limit) and refuses the rest', () => {
+    expect(isFrameLimit({ _limitRate: 0 })).toBe(true);
+    expect(isFrameLimit({ _limitRate: 1000 / 15 })).toBe(true);
+    expect(isFrameLimit({})).toBe(false);
+    expect(isFrameLimit({ _limitRate: '66' })).toBe(false);
   });
 });
