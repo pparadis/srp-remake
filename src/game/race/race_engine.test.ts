@@ -9,11 +9,13 @@ import {
   createRaceContext,
   decideBotAction,
   getActiveCar,
-  isValidSetup,
   type RaceSeat,
   type RaceState
 } from './race_engine';
+import { resources } from '../rules/v2/resources';
 import type { BotLevel, Car } from '../types/car';
+
+const { isValidSetup } = resources;
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const SEATS: RaceSeat[] = [

@@ -1,5 +1,6 @@
-import { MOVE_BUDGET, OUTER_MAIN_LANE, PIT_LANE } from '../constants';
+import { OUTER_MAIN_LANE, PIT_LANE } from '../constants';
 import { must } from '../must';
+import type { ResourceRules } from '../rules/resource_rules';
 import type { BotLevel, Car } from '../types/car';
 import type { TrackCell } from '../types/track';
 import {
@@ -21,7 +22,7 @@ import {
   QUEUE_RANGE
 } from './bot_style';
 import type { TargetInfo } from './movement_system';
-import { computeMoveSpend, cycleBudget, getRemainingBudget } from './move_budget_system';
+import { computeMoveSpend, getRemainingBudget } from './move_budget_system';
 import { shouldOpenPitModal } from './pit_system';
 
 export type { BotLevel };
@@ -277,21 +278,24 @@ export function evaluateNormalTargets(
   targets: Map<string, TargetInfo>,
   car: Car,
   cellMap: Map<string, TrackCell>,
+  resources: ResourceRules,
   plan?: BotPlanContext
 ): BotDecisionTrace {
   const heuristics = { ...DEFAULTS };
+  // The most one move may spend on a healthy car, not the empty-tire crawl cap.
+  const fullCap = resources.moveCap({ tire: 100, fuel: 100, setup: car.setup });
   const lowResources =
     car.tire <= heuristics.lowResourceThreshold || car.fuel <= heuristics.lowResourceThreshold;
   const from = cellMap.get(car.cellId);
   const inPitLane = from?.laneIndex === PIT_LANE;
-  const budget = getRemainingBudget(car.moveCycle, cycleBudget(car.setup));
+  const budget = getRemainingBudget(car.moveCycle, resources.cycleBudget(car.setup));
   const movesLeft = car.moveCycle.spent.length - car.moveCycle.index;
   const finalLap = plan ? isFinalLap(car, plan) : false;
   const stopDue = plan && from && !inPitLane ? stopIsDue(car, from, plan) : false;
   const toFeeder = plan && from && !inPitLane ? cellsToFeeder(from, plan) : null;
   const weights =
     plan && from && !inPitLane ? resourceWeights(car, from, plan) : { tire: 1, fuel: 1 };
-  const wear = wearPerCell(car.setup);
+  const wear = wearPerCell(car.setup, resources);
   const style = plan?.style ?? PERSONALITIES.balanced;
 
   let selectedCellId: string | null = null;
@@ -317,7 +321,7 @@ export function evaluateNormalTargets(
       const spend = info.moveSpend ?? info.distance;
       const left = budget - spend;
       const laterMoves = movesLeft - 1;
-      score -= Math.max(0, left - MOVE_BUDGET.baseMax * laterMoves) * NORMAL.wasteWeight;
+      score -= Math.max(0, left - fullCap * laterMoves) * NORMAL.wasteWeight;
       const evenShare = budget / movesLeft;
       const laterShare = left / laterMoves;
       if (laterShare < evenShare) score -= (evenShare - laterShare) * style.shareWeight;
@@ -333,7 +337,7 @@ export function evaluateNormalTargets(
       } else if (stopDue && from && cell.laneIndex !== PIT_LANE) {
         // Steer for the one cell a stop can start from: lane 1, landing exactly on it.
         if (cell.laneIndex === 1) score += NORMAL.innerLaneBonus;
-        if (toFeeder !== null && toFeeder > 0 && toFeeder <= MOVE_BUDGET.baseMax) {
+        if (toFeeder !== null && toFeeder > 0 && toFeeder <= fullCap) {
           const delta = (cell.forwardIndex - from.forwardIndex + plan.spineLen) % plan.spineLen;
           if (delta === toFeeder && cell.laneIndex === 1) score += NORMAL.landOnFeederBonus;
           else if (delta > toFeeder) score -= NORMAL.overshootFeederPenalty;
@@ -368,6 +372,7 @@ export function decideBotActionWithTrace(
   targets: Map<string, TargetInfo>,
   car: Car,
   cellMap: Map<string, TrackCell>,
+  resources: ResourceRules,
   policy: BotPolicy = 'normal',
   plan?: BotPlanContext
 ): BotDecisionResult {
@@ -377,7 +382,7 @@ export function decideBotActionWithTrace(
       ? evaluateAutopilotTargets(targets, car, cellMap)
       : policy === 'easy'
         ? evaluateEasyTargets(targets, car, cellMap, plan)
-        : evaluateNormalTargets(targets, car, cellMap, plan);
+        : evaluateNormalTargets(targets, car, cellMap, resources, plan);
   if (!trace.selectedCellId) return { action: { type: 'skip' }, trace };
   const selected = trace.candidates.find((candidate) => candidate.cellId === trace.selectedCellId);
   if (!selected) return { action: { type: 'skip' }, trace };
@@ -399,8 +404,9 @@ export function decideBotAction(
   targets: Map<string, TargetInfo>,
   car: Car,
   cellMap: Map<string, TrackCell>,
+  resources: ResourceRules,
   policy: BotPolicy = 'normal',
   plan?: BotPlanContext
 ): BotAction {
-  return decideBotActionWithTrace(targets, car, cellMap, policy, plan).action;
+  return decideBotActionWithTrace(targets, car, cellMap, resources, policy, plan).action;
 }

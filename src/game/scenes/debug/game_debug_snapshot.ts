@@ -1,20 +1,10 @@
 import { PIT_LANE } from '../../constants';
+import type { ResourceRules } from '../../rules/resource_rules';
 import { DEFAULT_RULES_VERSION } from '../../rules/versions';
-import { cycleBudget, getRemainingBudget } from '../../systems/move_budget_system';
+import { getRemainingBudget } from '../../systems/move_budget_system';
 import type { TargetInfo } from '../../systems/movement_system';
 import type { Car } from '../../types/car';
 import type { TrackCell, TrackData } from '../../types/track';
-
-interface MoveBudgetConfig {
-  baseMax: number;
-  zeroResourceMax: number;
-}
-
-interface MoveRatesConfig {
-  softTire: number;
-  hardTire: number;
-  fuel: number;
-}
 
 interface BuildInfo {
   version: string;
@@ -29,8 +19,8 @@ interface BuildGameDebugSnapshotParams {
   activeCar: Car;
   validTargets: Map<string, TargetInfo>;
   botDecisionCount: number;
-  moveBudget: MoveBudgetConfig;
-  moveRates: MoveRatesConfig;
+  // The race's tire, fuel and move-size rules.
+  resources: ResourceRules;
   disallowPitBoxTargets: boolean;
   spineLane?: number;
   // Race seed: with it the bots' personalities and the grid can be reproduced (`?seed=N`).
@@ -48,8 +38,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
     activeCar,
     validTargets,
     botDecisionCount,
-    moveBudget,
-    moveRates,
+    resources,
     disallowPitBoxTargets,
     spineLane = 1
   } = params;
@@ -75,7 +64,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
         pitExitBoost: car.pitExitBoost,
         pitServiced: car.pitServiced,
         setup: car.setup,
-        budgetLeft: getRemainingBudget(car.moveCycle, cycleBudget(car.setup)),
+        budgetLeft: getRemainingBudget(car.moveCycle, resources.cycleBudget(car.setup)),
         draftTurns: car.draftTurns ?? 0,
         cell: cell
           ? {
@@ -91,12 +80,12 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
 
   const activeCell = cellMap.get(activeCar.cellId);
   const occupied = new Set(cars.map((c) => c.cellId));
-  const baseMaxSteps =
-    activeCar.tire === 0 || activeCar.fuel === 0 ? moveBudget.zeroResourceMax : moveBudget.baseMax;
-  const remainingBudget = getRemainingBudget(activeCar.moveCycle, cycleBudget(activeCar.setup));
-  const maxSteps = Math.min(baseMaxSteps, Math.max(0, remainingBudget));
-  const tireRate = activeCar.setup.compound === 'soft' ? moveRates.softTire : moveRates.hardTire;
-  const fuelRate = moveRates.fuel;
+  const remainingBudget = getRemainingBudget(
+    activeCar.moveCycle,
+    resources.cycleBudget(activeCar.setup)
+  );
+  const maxSteps = Math.min(resources.moveCap(activeCar), Math.max(0, remainingBudget));
+  const { tireRate, fuelRate } = resources.wearRates(activeCar.setup);
   const inPitLane = activeCell?.laneIndex === PIT_LANE;
   const serializedTargets = Array.from(validTargets.entries()).map(([cellId, info]) => ({
     cellId,

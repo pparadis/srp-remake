@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resources } from '../../rules/v2/resources';
 import type { Car } from '../../types/car';
 import type { TrackCell, TrackData } from '../../types/track';
 import type { TargetInfo } from '../../systems/movement_system';
@@ -71,8 +72,7 @@ describe('buildGameDebugSnapshot', () => {
       activeCar,
       validTargets,
       botDecisionCount: 3,
-      moveBudget: { baseMax: 9, zeroResourceMax: 4 },
-      moveRates: { softTire: 0.5, hardTire: 0.35, fuel: 0.45 },
+      resources,
       disallowPitBoxTargets: false
     });
 
@@ -107,8 +107,7 @@ describe('buildGameDebugSnapshot', () => {
       activeCar,
       validTargets: new Map(),
       botDecisionCount: 0,
-      moveBudget: { baseMax: 9, zeroResourceMax: 4 },
-      moveRates: { softTire: 0.5, hardTire: 0.35, fuel: 0.45 },
+      resources,
       disallowPitBoxTargets: true
     });
 

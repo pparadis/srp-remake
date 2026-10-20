@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advancePitPenalty, applyPitStop, shouldOpenPitModal } from './pit_system';
+import { resources } from '../rules/v2/resources';
 import type { Car } from '../types/car';
 import type { TrackCell, TrackTag } from '../types/track';
 
@@ -55,7 +56,7 @@ describe('pitSystem', () => {
   it('applies pit stop and sets service state', () => {
     const car = makeCar();
     const cell = pitCell(['PIT_BOX']);
-    applyPitStop(car, cell.id, { ...car.setup, compound: 'hard' });
+    applyPitStop(car, cell.id, { ...car.setup, compound: 'hard' }, resources);
     expect(car.cellId).toBe(cell.id);
     expect(car.tire).toBe(100);
     expect(car.fuel).toBe(100);
@@ -68,7 +69,7 @@ describe('pitSystem', () => {
   it('keeps current setup when pit stop setup is null', () => {
     const car = makeCar();
     const originalSetup = structuredClone(car.setup);
-    applyPitStop(car, 'Z03_L3_00', null);
+    applyPitStop(car, 'Z03_L3_00', null, resources);
     expect(car.setup).toEqual(originalSetup);
   });
 

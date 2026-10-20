@@ -1,7 +1,7 @@
 // The race as one player's page sees it, without Phaser: the solo turn loop (the human's action, then the bots
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
-import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from '../constants';
+import { DRAFT_SLINGSHOT_TURNS } from '../constants';
 import { must } from '../must';
 import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
 import type { BotLevel, Car } from '../types/car';
@@ -11,7 +11,7 @@ import { buildPlanContext, type BotPlanContext } from '../systems/bot_plan';
 import { rankPosition } from '../systems/track_index';
 import { pitAdvice, stintEstimate } from '../systems/strategy';
 import { createFeelMemory, detectFeel, type FeelEvent } from '../systems/feel_events';
-import { computeMoveSpend, cycleBudget, getRemainingBudget } from '../systems/move_budget_system';
+import { computeMoveSpend, getRemainingBudget } from '../systems/move_budget_system';
 import { carColor } from '../systems/spawn_system';
 import { movePath } from '../systems/move_path';
 import { hasFinishedRace, lapInProgress } from '../systems/lap_progress';
@@ -679,12 +679,25 @@ export class RaceSession {
   pitStints(setup: Car['setup']): PitStints {
     const spineLen = this.ctx.trackIndex.spineLen;
     const at = (compound: 'soft' | 'hard') =>
-      stintEstimate({ tire: 100, fuel: 100, setup: { ...setup, compound } }, spineLen);
+      stintEstimate(
+        { tire: 100, fuel: 100, setup: { ...setup, compound } },
+        spineLen,
+        this.resources()
+      );
     return { soft: at('soft'), hard: at('hard') };
   }
 
+  /** The move points a cycle holds for this setup (the pit modal shows it as pace). */
+  paceOf(setup: Car['setup']): number {
+    return this.resources().cycleBudget(setup);
+  }
+
+  private resources() {
+    return rulesOf(this.race).resources;
+  }
+
   private plan(): BotPlanContext {
-    return buildPlanContext(this.ctx.trackIndex, this.raceLaps);
+    return buildPlanContext(this.ctx.trackIndex, this.raceLaps, this.resources());
   }
 
   /**
@@ -774,13 +787,13 @@ export class RaceSession {
       pitTurns: car.pitTurnsRemaining,
       cycle: [...car.moveCycle.spent],
       cycleIndex: car.moveCycle.index,
-      remaining: getRemainingBudget(car.moveCycle, cycleBudget(car.setup)),
-      budget: cycleBudget(car.setup),
+      remaining: getRemainingBudget(car.moveCycle, this.resources().cycleBudget(car.setup)),
+      budget: this.resources().cycleBudget(car.setup),
       pitServiced: car.pitServiced,
       // tucked in: the car ended its last move behind a car, so its next move is in the tow (the leader may be gone)
       drafting: (car.draftTurns ?? 0) >= 1,
       draftTurns: car.draftTurns ?? 0,
-      stint: stintEstimate(car, this.ctx.trackIndex.spineLen),
+      stint: stintEstimate(car, this.ctx.trackIndex.spineLen, this.resources()),
       advice: pitAdvice(car, must(this.cellMap.get(car.cellId), 'cell of a car'), this.plan())
     };
   }
@@ -896,8 +909,7 @@ export class RaceSession {
       activeCar: this.activeCar,
       validTargets: this.validTargets,
       botDecisionCount: this.botDecisionLog.length,
-      moveBudget: MOVE_BUDGET,
-      moveRates: MOVE_RATES,
+      resources: this.resources(),
       disallowPitBoxTargets: this.activeCar.pitServiced,
       seed: this.race.seed,
       rulesVersion: this.race.rulesVersion ?? DEFAULT_RULES_VERSION
@@ -925,7 +937,7 @@ export class RaceSession {
         fuel: car.fuel,
         compound: car.setup.compound,
         wing: car.setup.wing,
-        budgetLeft: budgetLeftOf(car),
+        budgetLeft: budgetLeftOf(car, this.resources()),
         draftTurns: car.draftTurns ?? 0,
         isBot: car.isBot,
         botLevel: car.botLevel ?? 'normal'

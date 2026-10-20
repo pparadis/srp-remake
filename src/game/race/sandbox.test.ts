@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
-import { MOVE_BUDGET, MOVE_RATES } from '../constants';
+import { MOVE_BUDGET } from '../constants';
+import { resources } from '../rules/v2/resources';
 import { buildGameDebugSnapshot } from '../scenes/debug/game_debug_snapshot';
 import type { TrackData } from '../types/track';
 import {
@@ -66,7 +67,7 @@ describe('sandbox edits', () => {
     const state = newRace(1);
     const car = state.cars[0]!;
     editCar(ctx, state, 1, { cellId: 'Z10_L1_00', budgetLeft: 3 });
-    expect(budgetLeftOf(car)).toBe(3);
+    expect(budgetLeftOf(car, resources)).toBe(3);
     const max = Math.max(...[...targetsOf(state).values()].map((t) => t.moveSpend ?? t.distance));
     expect(max).toBeLessThanOrEqual(3);
     editCar(ctx, state, 1, { budgetLeft: 40 });
@@ -105,8 +106,7 @@ describe('sandbox positions', () => {
           activeCar: getActiveCar(state),
           validTargets: targetsOf(state),
           botDecisionCount: 0,
-          moveBudget: MOVE_BUDGET,
-          moveRates: MOVE_RATES,
+          resources,
           disallowPitBoxTargets: false,
           seed: state.seed
         })

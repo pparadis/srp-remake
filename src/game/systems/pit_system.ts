@@ -1,3 +1,4 @@
+import type { ResourceRules } from '../rules/resource_rules';
 import type { Car, CarSetup } from '../types/car';
 import type { TrackCell } from '../types/track';
 
@@ -5,13 +6,14 @@ export function shouldOpenPitModal(car: Car, cell: TrackCell) {
   return (cell.tags ?? []).includes('PIT_BOX') && !car.pitServiced;
 }
 
-export function applyPitStop(car: Car, cellId: string, setup: CarSetup | null) {
+export function applyPitStop(
+  car: Car,
+  cellId: string,
+  setup: CarSetup | null,
+  resources: ResourceRules
+) {
   car.cellId = cellId;
-  car.tire = 100;
-  car.fuel = 100;
-  if (setup) {
-    car.setup = setup;
-  }
+  resources.pitService(car, setup);
   car.state = 'PITTING';
   car.pitTurnsRemaining = 1;
   car.pitExitBoost = false;

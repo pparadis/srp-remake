@@ -1,10 +1,11 @@
-import { bestSetup } from './bot_plan';
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import { createRaceContext } from '../race/race_engine';
-import type { Car } from '../types/car';
+import { resources } from '../rules/v2/resources';
+import type { Car, CarSetup } from '../types/car';
 import type { TrackData } from '../types/track';
 import {
+  bestSetup as bestSetupFor,
   buildPlanContext,
   cellsToFeeder,
   forwardGain,
@@ -13,12 +14,14 @@ import {
   progressOf,
   resourceWeights,
   stopIsDue,
-  wearPerCell
+  wearPerCell as wearPerCellFor
 } from './bot_plan';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const cell = (id: string) => ctx.cellMap.get(id)!;
-const plan = (laps: number) => buildPlanContext(ctx.trackIndex, laps);
+const plan = (laps: number) => buildPlanContext(ctx.trackIndex, laps, resources);
+const bestSetup = (cells: number) => bestSetupFor(cells, resources);
+const wearPerCell = (setup: CarSetup) => wearPerCellFor(setup, resources);
 
 function car(overrides: Partial<Car> = {}): Car {
   return {

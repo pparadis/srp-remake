@@ -1,16 +1,38 @@
 import { describe, expect, it } from 'vitest';
+import { resources } from '../rules/v2/resources';
 import type { Car } from '../types/car';
 import type { TargetInfo } from './movement_system';
 import {
-  decideBotAction,
-  decideBotActionWithTrace,
+  decideBotAction as decideBotActionOf,
+  decideBotActionWithTrace as decideBotActionWithTraceOf,
   evaluateAutopilotTargets,
   evaluateBotTargets,
   evaluateEasyTargets,
-  evaluateNormalTargets,
+  evaluateNormalTargets as evaluateNormalTargetsOf,
   pickBotMove
 } from './bot_system';
+import type { BotPlanContext } from './bot_plan';
 import type { TrackCell } from '../types/track';
+
+// The tests play on v2's resource rules.
+const decideBotAction = (
+  targets: Parameters<typeof decideBotActionOf>[0],
+  car: Car,
+  cellMap: Map<string, TrackCell>,
+  ...rest: [policy?: Parameters<typeof decideBotActionOf>[4], plan?: BotPlanContext]
+) => decideBotActionOf(targets, car, cellMap, resources, ...rest);
+const decideBotActionWithTrace = (
+  targets: Parameters<typeof decideBotActionOf>[0],
+  car: Car,
+  cellMap: Map<string, TrackCell>,
+  ...rest: [policy?: Parameters<typeof decideBotActionOf>[4], plan?: BotPlanContext]
+) => decideBotActionWithTraceOf(targets, car, cellMap, resources, ...rest);
+const evaluateNormalTargets = (
+  targets: Parameters<typeof decideBotActionOf>[0],
+  car: Car,
+  cellMap: Map<string, TrackCell>,
+  plan?: BotPlanContext
+) => evaluateNormalTargetsOf(targets, car, cellMap, resources, plan);
 
 function makeCar(overrides: Partial<Car> = {}): Car {
   return {
@@ -362,7 +384,7 @@ describe('normal policy scoring', () => {
       ['A', t(9)],
       ['B', t(8)]
     ]);
-    const plan = { raceLaps: 5, spineLen: 28, lane1FwdByZone: new Map(), feederFwd: 26 };
+    const plan = { raceLaps: 5, resources, spineLen: 28, lane1FwdByZone: new Map(), feederFwd: 26 };
     const map = new Map([from, outer, inner].map((c) => [c.id, c]));
     expect(evaluateNormalTargets(targets, makeCar(), map, plan).selectedCellId).toBe('B');
     // Without the plan it only knows distance.
