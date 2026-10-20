@@ -1,6 +1,7 @@
 // The online chat panel: one element, built once. main.ts owns the socket and the lobby, and moves this element to
 // the lobby card or the race HUD. Phaser-free; messages are shown with textContent only.
 import { CHAT_MAX_GRAPHEMES, chatLength, normalizeChatText } from '../game/chat_text';
+import { must } from '../game/must';
 import type { ChatMessage } from '../net/backend_api';
 
 /** Messages kept (and drawn): the server keeps 50 per lobby too. */
@@ -64,7 +65,7 @@ export function createChat(options: ChatOptions) {
   element.dataset.testid = 'chat';
   element.innerHTML = TEMPLATE;
   const q = <T extends HTMLElement>(id: string) =>
-    element.querySelector<T>(`[data-testid="${id}"]`)!;
+    must(element.querySelector<T>(`[data-testid="${id}"]`), `chat element ${id}`);
   const list = q('chat-list');
   const mutedBar = q('chat-muted');
   const form = q<HTMLFormElement>('chat-form');

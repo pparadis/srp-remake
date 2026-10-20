@@ -2,6 +2,7 @@
 // One policy per grid slot; rotating the line-up gives every policy every grid slot (and every
 // starting tire), so pole position and the default setups are not a bias. Each race has a seed
 // (it decides the bots' personalities); results can be cut by policy, personality or grid slot.
+import { must } from '../must';
 import { SETUP_CHOICES } from '../systems/bot_plan';
 import { trackFwd } from '../systems/track_index';
 import type { CarSetup } from '../types/car';
@@ -84,7 +85,7 @@ function scriptedAction(ctx: RaceContext, state: RaceState, policy: ScriptedPoli
     if (info.isPitTrigger) continue;
     const spend = info.moveSpend ?? info.distance;
     // inwards is better: 50 for lane 1, 25 for lane 2 (so it works its way in from the outer lane)
-    const inner = Math.max(0, 4 - ctx.cellMap.get(id)!.laneIndex) * 25 - 25;
+    const inner = Math.max(0, 4 - must(ctx.cellMap.get(id), 'target cell').laneIndex) * 25 - 25;
     const score =
       (policy === 'greedy' ? spend * 10 : -Math.abs(Math.min(want, 9) - spend) * 10) +
       inner +
@@ -95,7 +96,11 @@ function scriptedAction(ctx: RaceContext, state: RaceState, policy: ScriptedPoli
   // Only pit boxes reachable (it never plans a stop, but a skip would be rejected): take the box.
   const [id] = computeTargets(ctx, state, car).keys();
   return id
-    ? { type: 'pit', targetCellId: id, setup: structuredClone(SETUP_CHOICES[0]!) }
+    ? {
+        type: 'pit',
+        targetCellId: id,
+        setup: structuredClone(must(SETUP_CHOICES[0], 'setup choice'))
+      }
     : { type: 'skip' };
 }
 
@@ -126,7 +131,7 @@ export function playBenchRace(
     rulesVersion
   );
   setups?.forEach((setup, slot) => {
-    if (setup) state.cars[slot]!.setup = structuredClone(setup);
+    if (setup) must(state.cars[slot], 'car in the slot').setup = structuredClone(setup);
   });
   const turnsPlayed = new Map<number, number>();
   const decisionMs: BenchRaceResult['decisionMs'] = {};
@@ -140,7 +145,7 @@ export function playBenchRace(
         id: c.carId,
         progress:
           (c.lapCount ?? 0) * spineLen +
-          trackFwd(ctx.cellMap.get(c.cellId)!, ctx.trackIndex.lane1FwdByZone)
+          trackFwd(must(ctx.cellMap.get(c.cellId), 'cell of a car'), ctx.trackIndex.lane1FwdByZone)
       }))
       .sort((a, b) => b.progress - a.progress || a.id - b.id)
       .map((c) => c.id);
@@ -148,7 +153,7 @@ export function playBenchRace(
   const maxTurns = laps * 400 * policies.length;
   for (let turn = 0; turn < maxTurns && state.cars.length > 0; turn += 1) {
     const car = getActiveCar(state);
-    const policy = policies[car.carId - 1]!;
+    const policy = must(policies[car.carId - 1], 'policy of the active car');
     const t0 = performance.now();
     const action = isScripted(policy)
       ? scriptedAction(ctx, state, policy as ScriptedPolicy)
@@ -164,8 +169,8 @@ export function playBenchRace(
       const rank = new Map(after.map((id, i) => [id, i]));
       for (let i = 0; i < before.length; i += 1) {
         for (let j = i + 1; j < before.length; j += 1) {
-          const a = rank.get(before[i]!);
-          const b = rank.get(before[j]!);
+          const a = rank.get(must(before[i], 'car id'));
+          const b = rank.get(must(before[j], 'car id'));
           if (a !== undefined && b !== undefined && a > b) overtakes += 1;
         }
       }
@@ -178,12 +183,12 @@ export function playBenchRace(
     }
     if (state.winnerCarId !== null) {
       const finished = state.winnerCarId;
-      const p = policies[finished - 1]!;
+      const p = must(policies[finished - 1], 'policy of the winner');
       const forced = styles?.[finished - 1];
       finishers.push({
         policy: p,
         slot: finished - 1,
-        grid: gridSlots(seed, policies.length)[finished - 1]!,
+        grid: must(gridSlots(seed, policies.length)[finished - 1], 'grid slot of the winner'),
         style:
           isScripted(p) || p === 'autopilot'
             ? null
@@ -208,8 +213,11 @@ export function playBenchRace(
 }
 
 function overshootOf(ctx: RaceContext, state: RaceState, carId: number, moveSpend: number): number {
-  const car = state.cars.find((c) => c.carId === carId)!;
-  const cell = ctx.cellMap.get(car.cellId)!;
+  const car = must(
+    state.cars.find((c) => c.carId === carId),
+    'car'
+  );
+  const cell = must(ctx.cellMap.get(car.cellId), 'cell of the car');
   // Cells past the line when the last turn ended; a rear-row start (negative) or a pit-lane cell reads 0.
   const past = Math.max(0, trackFwd(cell, ctx.trackIndex.lane1FwdByZone));
   return moveSpend > 0 ? Math.min(1, past / moveSpend) : 0;
@@ -264,7 +272,7 @@ export function runBench(
         results.push(
           playBenchRace(
             ctx,
-            lineup.map((_policy, slot) => lineup[at(slot)]!),
+            lineup.map((_policy, slot) => must(lineup[at(slot)], 'policy in the line-up')),
             lapCount,
             seed,
             styles && lineup.map((_policy, slot) => styles[at(slot)]),
@@ -290,7 +298,7 @@ export function runBench(
     results.reduce((sum, r) => sum + r.overtakes, 0) / Math.max(1, results.length);
   const stats = new Map<BenchPolicy, PolicyStats>();
   for (const [policy, s] of statsBy(results, (f) => f.policy)) {
-    const t = timing.get(policy as BenchPolicy)!;
+    const t = must(timing.get(policy as BenchPolicy), 'timing of a policy');
     stats.set(policy as BenchPolicy, {
       ...s,
       avgMoves: t.count / s.races,
@@ -328,13 +336,16 @@ export function setupSweep(
           undefined,
           [choice]
         );
-        total += result.finishers.find((f) => f.slot === 0)!.moves;
+        total += must(
+          result.finishers.find((f) => f.slot === 0),
+          'finisher in slot 0'
+        ).moves;
       }
       return total / seeds.length;
     });
     let best = 0;
     moves.forEach((m, i) => {
-      if (m < moves[best]! - 1e-9) best = i;
+      if (m < must(moves[best], 'moves of the best setup') - 1e-9) best = i;
     });
     return { laps: lapCount, moves, best };
   });
@@ -343,10 +354,11 @@ export function setupSweep(
 // The gate on a sweep: which wing levels win somewhere, and whether one setup wins everywhere.
 export function setupSweepGate(rows: SetupSweepRow[]) {
   const winners = new Set(rows.map((r) => r.best));
-  const wings = new Set([...winners].map((i) => SETUP_CHOICES[i]!.wing));
+  const choiceOf = (i: number) => must(SETUP_CHOICES[i], 'setup choice');
+  const wings = new Set([...winners].map((i) => choiceOf(i).wing));
   return {
     everyWingWinsSomewhere: wings.size === 3,
     noSetupDominates: winners.size > 1,
-    winners: [...winners].map((i) => `${SETUP_CHOICES[i]!.compound}/${SETUP_CHOICES[i]!.wing}`)
+    winners: [...winners].map((i) => `${choiceOf(i).compound}/${choiceOf(i).wing}`)
   };
 }

@@ -11,6 +11,7 @@ import {
   SQUEEZE_SURCHARGE_PER_CAR,
   WING_EFFECTS
 } from '../constants';
+import { must } from '../must';
 import { computeMoveSpend } from './move_budget_system';
 
 export interface TargetInfo {
@@ -129,7 +130,12 @@ function routeGraphOf(trackIndex: TrackIndex): RouteGraph {
   graph = {
     ids: cells.map((c) => c.id),
     index,
-    next: cells.map((c) => c.next.flatMap((id) => (index.has(id) ? [index.get(id)!] : []))),
+    next: cells.map((c) =>
+      c.next.flatMap((id) => {
+        const i = index.get(id);
+        return i === undefined ? [] : [i];
+      })
+    ),
     lane: cells.map((c) => c.laneIndex),
     lap: cells.map((c) => trackIndex.lapPos.get(c.id) ?? c.forwardIndex),
     pitEntry: cells.map((c) => (c.tags ?? []).includes('PIT_ENTRY'))
@@ -153,10 +159,14 @@ function searchRoutes(
 ): Map<string, Route & { minSteps: number }> {
   const g = routeGraphOf(trackIndex);
   const { spineLen } = trackIndex;
-  const start = g.index.get(startCell.id)!;
+  const start = must(g.index.get(startCell.id), 'start cell in the route graph');
   // lap position gained from cell a to cell b, as lapAhead does it
   const gain = (a: number, b: number) =>
-    Math.round(((((g.lap[b]! - g.lap[a]!) % spineLen) + spineLen) % spineLen) * 10) / 10;
+    Math.round(
+      ((((must(g.lap[b], 'lap position') - must(g.lap[a], 'lap position')) % spineLen) + spineLen) %
+        spineLen) *
+        10
+    ) / 10;
   const blocked = new Uint8Array(g.ids.length);
   for (const id of occupied) {
     const i = g.index.get(id);
@@ -174,13 +184,13 @@ function searchRoutes(
   for (let step = 0; step < maxSteps && frontier.length > 0; step += 1) {
     const nextFrontier: number[] = [];
     for (let f = 0; f < frontier.length; f += 3) {
-      const cur = frontier[f]!;
-      const diagonals = frontier[f + 1]!;
-      const laneChanges = frontier[f + 2]!;
-      const curLane = g.lane[cur]!;
-      for (const nxt of g.next[cur]!) {
+      const cur = must(frontier[f], 'frontier cell');
+      const diagonals = must(frontier[f + 1], 'frontier diagonals');
+      const laneChanges = must(frontier[f + 2], 'frontier lane changes');
+      const curLane = must(g.lane[cur], 'lane');
+      for (const nxt of must(g.next[cur], 'next cells')) {
         if (blocked[nxt]) continue;
-        const lane = g.lane[nxt]!;
+        const lane = must(g.lane[nxt], 'lane');
         const isPitLane = lane === PIT_LANE;
         if (g.pitEntry[nxt] && curLane !== INNER_MAIN_LANE) continue;
         if (isPitLane && !g.pitEntry[nxt] && curLane !== PIT_LANE) continue;
@@ -195,12 +205,13 @@ function searchRoutes(
         const nextChanges = laneChanges + (changesLane ? 1 : 0);
         nextFrontier.push(nxt, nextDiagonals, nextChanges);
         const p = step + 1 + nextDiagonals;
-        if (price[nxt] === 32767) {
+        const known = must(price[nxt], 'price');
+        if (known === 32767) {
           order.push(nxt);
           minSteps[nxt] = step + 1;
         }
         // frontiers go by steps, so the first visit has the fewest; later visits can only win on price.
-        if (p < price[nxt]!) {
+        if (p < known) {
           price[nxt] = p;
           steps[nxt] = step + 1;
           changes[nxt] = nextChanges;
@@ -211,11 +222,11 @@ function searchRoutes(
   }
   const best = new Map<string, Route & { minSteps: number }>();
   for (const i of order) {
-    best.set(g.ids[i]!, {
-      steps: steps[i]!,
-      price: price[i]!,
-      laneChanges: changes[i]!,
-      minSteps: minSteps[i]!
+    best.set(must(g.ids[i], 'cell id'), {
+      steps: must(steps[i], 'steps'),
+      price: must(price[i], 'price'),
+      laneChanges: must(changes[i], 'lane changes'),
+      minSteps: must(minSteps[i], 'minimum steps')
     });
   }
   return best;
@@ -403,20 +414,22 @@ export function computeSqueezeTargets(
   const diagonals = new Map<string, number>([[startCellId, 0]]);
   const queue = [startCellId];
   for (let i = 0; i < queue.length; i += 1) {
-    const id = queue[i]!;
-    const d = dist.get(id)!;
+    const id = must(queue[i], 'queued cell id');
+    const d = must(dist.get(id), 'distance of a queued cell');
     if (d >= maxSteps) continue;
-    const from = cellMap.get(id)!;
+    const from = must(cellMap.get(id), 'queued cell');
     for (const nextId of from.next) {
       const n = cellMap.get(nextId);
       if (!n || n.laneIndex === PIT_LANE) continue;
       const diag =
-        diagonals.get(id)! +
+        must(diagonals.get(id), 'diagonals of a queued cell') +
         (n.laneIndex !== from.laneIndex && lapAhead(trackIndex, from, n) >= DIAGONAL_MIN_GAIN
           ? 1
           : 0);
       // a cell one layer further is still open to a cheaper parent of the same layer
-      if (dist.get(nextId) === d + 1 && diag < diagonals.get(nextId)!) diagonals.set(nextId, diag);
+      if (dist.get(nextId) === d + 1 && diag < must(diagonals.get(nextId), 'diagonals')) {
+        diagonals.set(nextId, diag);
+      }
       if (dist.has(nextId)) continue;
       dist.set(nextId, d + 1);
       diagonals.set(nextId, diag);
@@ -425,7 +438,7 @@ export function computeSqueezeTargets(
   }
 
   for (const [cellId, d] of dist) {
-    const cell = cellMap.get(cellId)!;
+    const cell = must(cellMap.get(cellId), 'reached cell');
     if (d <= 0 || occupied.has(cellId)) continue;
     if (Math.abs(cell.laneIndex - startCell.laneIndex) > 1) continue;
     const targetAhead = lapAhead(trackIndex, startCell, cell);
@@ -436,7 +449,10 @@ export function computeSqueezeTargets(
       passed += (occupiedAhead.get(lane) ?? []).filter((x) => x > 0 && x < targetAhead).length;
     }
     if (passed < 1) continue;
-    const moveSpend = d + diagonals.get(cellId)! + SQUEEZE_SURCHARGE_PER_CAR * passed;
+    const moveSpend =
+      d +
+      must(diagonals.get(cellId), 'diagonals of a reached cell') +
+      SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
     const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
     targets.set(cellId, {
@@ -468,10 +484,11 @@ function computePitExitSqueezeTargets(
   const passedTo = new Map<string, number>([[startCell.id, 0]]);
   const queue = [startCell.id];
   for (let i = 0; i < queue.length; i += 1) {
-    const id = queue[i]!;
-    const d = dist.get(id)!;
+    const id = must(queue[i], 'queued cell id');
+    const d = must(dist.get(id), 'distance of a queued cell');
     if (d >= PIT_EXIT_SQUEEZE_RANGE) continue;
-    const through = passedTo.get(id)! + (d > 0 && occupied.has(id) ? 1 : 0);
+    const through =
+      must(passedTo.get(id), 'cars passed to a queued cell') + (d > 0 && occupied.has(id) ? 1 : 0);
     for (const nextId of cellMap.get(id)?.next ?? []) {
       const n = cellMap.get(nextId);
       if (!n || n.laneIndex !== INNER_MAIN_LANE || dist.has(nextId)) continue;
@@ -481,8 +498,8 @@ function computePitExitSqueezeTargets(
     }
   }
   for (const [cellId, d] of dist) {
-    const cell = cellMap.get(cellId)!;
-    const passed = passedTo.get(cellId)!;
+    const cell = must(cellMap.get(cellId), 'reached cell');
+    const passed = must(passedTo.get(cellId), 'cars passed to a reached cell');
     if (d <= 0 || occupied.has(cellId) || passed < 1) continue;
     const moveSpend =
       computeMoveSpend(d, startCell.laneIndex, cell.laneIndex) + SQUEEZE_SURCHARGE_PER_CAR * passed;

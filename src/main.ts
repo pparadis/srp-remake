@@ -10,6 +10,7 @@ import {
   type HudSnapshot,
   type ToastKind
 } from './ui/hud';
+import { must } from './game/must';
 import { fpsText, startFpsMeter } from './ui/fps_meter';
 import { currentlyMuted, initSound, setMuted } from './ui/sound';
 import { mountSandboxPanel } from './ui/sandbox_panel';
@@ -45,12 +46,12 @@ import {
 } from './ui/router';
 
 function el<T extends HTMLElement>(id: string): T {
-  return document.getElementById(id) as T;
+  return must(document.getElementById(id), `element #${id}`) as T;
 }
 
 const app = el('app');
 showUncaughtErrors(el('crashReport'));
-const homeTrack = document.getElementById('homeTrack') as unknown as SVGSVGElement;
+const homeTrack = must(document.querySelector<SVGSVGElement>('#homeTrack'), 'element #homeTrack');
 const statusLine = el('statusLine');
 const homeNotice = el('homeNotice');
 const homeName = el<HTMLInputElement>('homeName');
@@ -87,11 +88,14 @@ const results = el('results');
 const resultsWinner = el('resultsWinner');
 const hud = el('hud');
 mountHud(hud);
-const hudChat = hud.querySelector<HTMLDetailsElement>('[data-testid="hud-chat"]')!;
-const hudChatBody = hud.querySelector<HTMLElement>('[data-testid="hud-chat-body"]')!;
-const hudChatUnread = hud.querySelector<HTMLElement>('[data-testid="hud-chat-unread"]')!;
-const hudDrawerDot = hud.querySelector<HTMLElement>('[data-testid="hud-drawer-dot"]')!;
-const hudDrawerToggle = hud.querySelector<HTMLElement>('[data-testid="hud-drawer-toggle"]')!;
+function hudPart<T extends HTMLElement>(selector: string): T {
+  return must(hud.querySelector<T>(selector), `HUD part ${selector}`);
+}
+const hudChat = hudPart<HTMLDetailsElement>('[data-testid="hud-chat"]');
+const hudChatBody = hudPart('[data-testid="hud-chat-body"]');
+const hudChatUnread = hudPart('[data-testid="hud-chat-unread"]');
+const hudDrawerDot = hudPart('[data-testid="hud-drawer-dot"]');
+const hudDrawerToggle = hudPart('[data-testid="hud-drawer-toggle"]');
 // `?sandbox` (solo only): a dev tool to place cars by hand; `?pos=<base64 of a Copy debug snapshot>` starts from one.
 const sandbox = new URLSearchParams(window.location.search).has('sandbox');
 // `?hidpi`: sharp canvas on a high-density screen plus a probe line (src/game/hidpi.ts); read once, the router drops it
@@ -101,7 +105,7 @@ const animate = new URLSearchParams(window.location.search).has('anim');
 // `?fps` starts the frame-rate readout on; the P key (or the touch button) toggles it during a race (issue #79)
 let fpsOn = new URLSearchParams(window.location.search).has('fps');
 let stopFps: (() => void) | null = null;
-if (sandbox) mountSandboxPanel(hud.querySelector('.hud-right')!);
+if (sandbox) mountSandboxPanel(hudPart('.hud-right'));
 renderMute(hud, currentlyMuted());
 initSound();
 
@@ -125,11 +129,11 @@ function toggleMute() {
   setMuted(!currentlyMuted());
   renderMute(hud, currentlyMuted());
 }
-hud.querySelector('[data-testid="hud-mute"]')!.addEventListener('click', toggleMute);
-hud.querySelector('[data-testid="hud-fps-toggle"]')!.addEventListener('click', toggleFps);
+hudPart('[data-testid="hud-mute"]').addEventListener('click', toggleMute);
+hudPart('[data-testid="hud-fps-toggle"]').addEventListener('click', toggleFps);
 renderFps(hud, fpsOn, 'fps \u2026'); // `?fps`: the meter itself starts with the game (ensureGameStarted)
-const hudTimer = hud.querySelector<HTMLElement>('[data-testid="hud-timer"]')!;
-const hudForceSkip = hud.querySelector<HTMLButtonElement>('[data-testid="hud-force-skip"]')!;
+const hudTimer = hudPart('[data-testid="hud-timer"]');
+const hudForceSkip = hudPart<HTMLButtonElement>('[data-testid="hud-force-skip"]');
 
 // `?seed=N` reproduces a solo race (bot personalities and grid); otherwise each race gets a fresh
 // one. The seed is made here, at the boundary: the engine never rolls dice.
@@ -138,7 +142,7 @@ const urlSeed = seedParam === null ? null : normalizeSeed(seedParam); // 0 is a 
 // `?rules=v1` starts the menu's Rules on that version (the sandbox link carries it); the menu is how it is chosen.
 const rulesParam = new URLSearchParams(window.location.search).get('rules');
 function freshSeed(): number {
-  return (crypto.getRandomValues(new Uint32Array(1))[0]! % MAX_SEED) + 1;
+  return (must(crypto.getRandomValues(new Uint32Array(1))[0], 'random number') % MAX_SEED) + 1;
 }
 
 function startPosition(): string | undefined {
@@ -563,9 +567,10 @@ function showResults(winnerCarId: number | null) {
   const car = lastLobby?.raceState?.cars.find((candidate) => candidate.carId === winnerCarId);
   const who = car ? car.name : mode === 'solo' ? (winnerCarId === 1 ? 'you' : 'bot') : '';
   resultsWinner.textContent = `Car ${winnerCarId ?? '?'}${who ? ` (${who})` : ''} wins`;
-  const online = mode === 'online' && backendSession !== null;
-  resultsPlayAgainBtn.hidden = !(online && backendSession!.isHost);
-  resultsWait.hidden = !(online && !backendSession!.isHost);
+  // null: not an online race (solo has no host)
+  const isHost = mode === 'online' && backendSession !== null ? backendSession.isHost : null;
+  resultsPlayAgainBtn.hidden = isHost !== true;
+  resultsWait.hidden = isHost !== false;
   results.hidden = false;
 }
 

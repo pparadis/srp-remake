@@ -9,6 +9,7 @@ import {
   SETUP_LIMITS,
   WING_LEVELS
 } from '../constants';
+import { must } from '../must';
 import { hasFinishedRace } from '../systems/lap_progress';
 import type { BotLevel, Car, CarSetup } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
@@ -120,7 +121,7 @@ export function createRace(
     throw new Error(`Track has room for ${cars.length} cars, ${seats.length} requested.`);
   }
   cars.forEach((car, i) => {
-    const seat = seats[i]!;
+    const seat = must(seats[i], 'seat');
     car.isBot = seat.isBot;
     car.ownerId = seat.ownerId;
     if (seat.isBot) car.botLevel = seat.botLevel ?? 'normal';
@@ -345,7 +346,7 @@ export function decideBotAction(
     rivals: state.cars
       .filter((c) => c.carId !== car.carId)
       .map((c) => {
-        const cell = ctx.cellMap.get(c.cellId)!;
+        const cell = must(ctx.cellMap.get(c.cellId), 'cell of a rival');
         return { fwd: trackFwd(cell, ctx.trackIndex.lane1FwdByZone), lane: cell.laneIndex };
       })
   };

@@ -9,6 +9,11 @@ export interface FrameLimit {
   _limitRate: number;
 }
 
+/** Phaser's loop has `_limitRate` (internal: not in its typings), a number from its constructor on. */
+export function isFrameLimit(loop: object): loop is FrameLimit {
+  return '_limitRate' in loop && typeof loop._limitRate === 'number';
+}
+
 /** How long the full rate lasts after the last input or the last moving thing (hover trails, the end of a glide). */
 const HOLD_MS = 600;
 

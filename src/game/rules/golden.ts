@@ -8,6 +8,7 @@ import {
   type RaceContext,
   type RaceState
 } from '../race/race_engine';
+import { must } from '../must';
 import type { RulesVersion } from './versions';
 
 export interface GoldenSample {
@@ -33,7 +34,10 @@ export function plain<T>(x: T): T {
 }
 
 export function carAfter(state: RaceState, carId: number) {
-  const c = state.cars.find((x) => x.carId === carId)!;
+  const c = must(
+    state.cars.find((x) => x.carId === carId),
+    'car'
+  );
   return {
     cellId: c.cellId,
     lapCount: c.lapCount ?? 0,

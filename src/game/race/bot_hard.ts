@@ -4,6 +4,7 @@
 // position it finds itself in. No runtime import of raceEngine (it passes its functions in), so
 // the two modules do not form an import cycle.
 import { PIT_LANE } from '../constants';
+import { must } from '../must';
 import {
   buildPlanContext,
   crawlCost,
@@ -51,17 +52,24 @@ function actionFor(
 ): RaceAction {
   // Same test as the bot system: a PIT_BOX target on an unserviced car is a stop.
   return info.isPitTrigger && !car.pitServiced
-    ? { type: 'pit', targetCellId: cellId, setup: pitSetupFor(car, ctx.cellMap.get(cellId)!, plan) }
+    ? {
+        type: 'pit',
+        targetCellId: cellId,
+        setup: pitSetupFor(car, must(ctx.cellMap.get(cellId), 'pit target cell'), plan)
+      }
     : { type: 'move', targetCellId: cellId };
 }
 
 function carById(state: RaceState, carId: number): Car {
-  return state.cars.find((c) => c.carId === carId)!;
+  return must(
+    state.cars.find((c) => c.carId === carId),
+    'car'
+  );
 }
 
 function valueOf(ctx: RaceContext, sim: RaceState, meId: number, plan: BotPlanContext): number {
   const me = carById(sim, meId);
-  const myCell = ctx.cellMap.get(me.cellId)!;
+  const myCell = must(ctx.cellMap.get(me.cellId), 'cell of the bot');
   const mine = progressOf(me, myCell, plan);
   if (sim.winnerCarId === meId) return VALUE.win + mine;
   if (sim.winnerCarId !== null) return -VALUE.win + mine;
@@ -70,7 +78,7 @@ function valueOf(ctx: RaceContext, sim: RaceState, meId: number, plan: BotPlanCo
   let rivals = 0;
   for (const car of sim.cars) {
     if (car.carId === meId) continue;
-    rivalSum += progressOf(car, ctx.cellMap.get(car.cellId)!, plan);
+    rivalSum += progressOf(car, must(ctx.cellMap.get(car.cellId), 'cell of a rival'), plan);
     rivals += 1;
   }
   const rivalTerm = rivals > 0 ? (rivalSum / rivals) * VALUE.rival : 0;
@@ -139,7 +147,10 @@ export function decideHardBotAction(
   }
   if (!best) return normal;
 
-  const info = trace.candidates.find((c) => c.cellId === best.cellId)!.info;
+  const { info } = must(
+    trace.candidates.find((c) => c.cellId === best.cellId),
+    'candidate chosen'
+  );
   return {
     action: actionFor(ctx, plan, car, best.cellId, info),
     trace: { ...trace, candidates: evaluated, selectedCellId: best.cellId },

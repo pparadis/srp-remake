@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import { renderScale } from '../../hidpi';
+import { must } from '../../must';
 
 // Canvas renderer on purpose (AGENTS.md): what repeats is drawn once into a canvas texture and shown as an Image, with
 // plain 2D canvas calls (no WebGL-only feature). Baked at `renderScale()` times 2: the player can pinch to 3x, and a
@@ -25,7 +26,10 @@ function bake(
   const k = bakeFactor();
   const full = `${key}@${k}`;
   if (scene.textures.exists(full)) return full;
-  const texture = scene.textures.createCanvas(full, Math.ceil(w * k), Math.ceil(h * k))!;
+  const texture = must(
+    scene.textures.createCanvas(full, Math.ceil(w * k), Math.ceil(h * k)),
+    'canvas texture'
+  );
   const ctx = texture.getContext();
   ctx.scale(k, k);
   draw(ctx, k);

@@ -1,4 +1,5 @@
 import { MOVE_BUDGET, OUTER_MAIN_LANE, PIT_LANE } from '../constants';
+import { must } from '../must';
 import type { BotLevel, Car } from '../types/car';
 import type { TrackCell } from '../types/track';
 import {
@@ -197,7 +198,10 @@ export function evaluateEasyTargets(
   const follows = !!plan?.style && !!from && seededUnit(car, seed, -1) >= EASY_IGNORE_STYLE;
   const sloppy = plan ? EASY_NOISE : 0;
   trace.candidates.forEach((c, i) => {
-    if (follows) c.score += fieldScore(from, cellMap!.get(c.cellId), c.info, plan!, false);
+    // `follows` is only true when `plan`, `cellMap` and `from` exist
+    if (follows && plan && cellMap) {
+      c.score += fieldScore(from, cellMap.get(c.cellId), c.info, plan, false);
+    }
     if (sloppy) c.score += (seededUnit(car, seed, i) - 0.5) * 2 * sloppy;
   });
   const ranked = [...trace.candidates].sort(
@@ -206,11 +210,11 @@ export function evaluateEasyTargets(
   const top = ranked.slice(0, EASY_PICK_WEIGHTS.length);
   const weights = EASY_PICK_WEIGHTS.slice(0, top.length);
   let roll = seededUnit(car, seed, -2) * weights.reduce((sum, w) => sum + w, 0);
-  let pick = top[0]!;
-  for (let i = 0; i < top.length; i += 1) {
-    roll -= weights[i]!;
+  let pick = must(top[0], 'best ranked candidate');
+  for (const [i, candidate] of top.entries()) {
+    roll -= must(weights[i], 'pick weight');
     if (roll < 0) {
-      pick = top[i]!;
+      pick = candidate;
       break;
     }
   }

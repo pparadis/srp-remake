@@ -2,6 +2,7 @@
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
 import { DRAFT_SLINGSHOT_TURNS, MOVE_BUDGET, MOVE_RATES } from '../constants';
+import { must } from '../must';
 import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
 import type { BotLevel, Car } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
@@ -521,7 +522,7 @@ export class RaceSession {
   private cellsFromStart(car: Car): number {
     return (
       (car.lapCount ?? 0) * this.ctx.trackIndex.spineLen +
-      rankPosition(this.ctx.trackIndex, this.cellMap.get(car.cellId)!)
+      rankPosition(this.ctx.trackIndex, must(this.cellMap.get(car.cellId), 'cell of a car'))
     );
   }
 
@@ -780,7 +781,7 @@ export class RaceSession {
       drafting: (car.draftTurns ?? 0) >= 1,
       draftTurns: car.draftTurns ?? 0,
       stint: stintEstimate(car, this.ctx.trackIndex.spineLen),
-      advice: pitAdvice(car, this.cellMap.get(car.cellId)!, this.plan())
+      advice: pitAdvice(car, must(this.cellMap.get(car.cellId), 'cell of a car'), this.plan())
     };
   }
 

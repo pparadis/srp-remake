@@ -3,6 +3,7 @@
 // same seed always gives the same grid of drivers. Seed 0 is the neutral baseline (everyone
 // "balanced", exactly the pre-personality Normal bot). Humans and the autopilot never get one.
 // Documented in docs/bot-system.md; this table is the single source of the numbers.
+import { must } from '../must';
 
 export type PersonalityKey =
   | 'balanced'
@@ -143,9 +144,19 @@ export function personalityOf(seed: number, carId: number): Personality {
   const deck = [...SEEDED_STYLES];
   for (let i = deck.length - 1; i > 0; i -= 1) {
     const j = mix(seed, block, i) % (i + 1);
-    [deck[i], deck[j]] = [deck[j]!, deck[i]!];
+    swap(deck, i, j);
   }
-  return personalityFor(deck[(carId - 1) % SEEDED_STYLES.length]!, seed, carId);
+  return personalityFor(
+    must(deck[(carId - 1) % SEEDED_STYLES.length], 'style in the deck'),
+    seed,
+    carId
+  );
+}
+
+function swap<T>(items: T[], i: number, j: number) {
+  const held = must(items[i], 'item to swap');
+  items[i] = must(items[j], 'item to swap');
+  items[j] = held;
 }
 
 // A given style for a car; the pit strategist's early/late side still comes from the seed.
@@ -189,7 +200,7 @@ export function gridSlots(seed: number, n: number): number[] {
   if (!seed) return slots;
   for (let i = n - 1; i > 0; i -= 1) {
     const j = mix(seed, 0x6721d, i) % (i + 1);
-    [slots[i], slots[j]] = [slots[j]!, slots[i]!];
+    swap(slots, i, j);
   }
   return slots;
 }

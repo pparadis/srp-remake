@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { renderScale } from '../../hidpi';
+import { must } from '../../must';
 import { swatchTexture } from '../rendering/baked_textures';
 
 interface Piece {
@@ -39,7 +40,11 @@ export class Confetti {
       .setDepth(90)
       .setScale(k);
     for (let i = 0; i < count; i += 1) {
-      const img = scene.add.image(0, 0, swatchTexture(scene, COLORS[i % COLORS.length]!));
+      const img = scene.add.image(
+        0,
+        0,
+        swatchTexture(scene, must(COLORS[i % COLORS.length], 'confetti color'))
+      );
       this.layer.add(img);
       this.pieces.push({
         img,

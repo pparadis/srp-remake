@@ -2,6 +2,7 @@
 // it after each action and online after each server state, so both say the same things. It reads the difference
 // between the states, so a state that carries several turns is said once, as one change.
 import { computeTargets, type RaceContext, type RaceState } from '../race/race_engine';
+import { must } from '../must';
 import type { Car } from '../types/car';
 import { lapInProgress } from './lap_progress';
 import { rankPosition } from './track_index';
@@ -41,7 +42,8 @@ export function feedLines(
   const say = (kind: FeedKind, car: Car, text: string) =>
     lines.push({ kind, carId: car.carId, text });
   const progress = (car: Car) =>
-    (car.lapCount ?? 0) * trackIndex.spineLen + rankPosition(trackIndex, cellMap.get(car.cellId)!);
+    (car.lapCount ?? 0) * trackIndex.spineLen +
+    rankPosition(trackIndex, must(cellMap.get(car.cellId), 'cell of a car'));
   const place = (state: RaceState, car: Car) =>
     1 + state.cars.filter((c) => progress(c) > progress(car)).length;
   const was = (car: Car) => before.cars.find((c) => c.carId === car.carId);
@@ -52,8 +54,8 @@ export function feedLines(
   for (const car of carsMovedInOrder(before, after)) {
     const prev = was(car);
     if (!prev) continue;
-    const from = cellMap.get(prev.cellId)!;
-    const to = cellMap.get(car.cellId)!;
+    const from = must(cellMap.get(prev.cellId), 'cell a car moved from');
+    const to = must(cellMap.get(car.cellId), 'cell a car moved to');
     const label = name(car);
     if (car.tire > prev.tire || car.fuel > prev.fuel) {
       say(
@@ -74,7 +76,10 @@ export function feedLines(
     }
 
     const passed = after.cars.filter(
-      (c) => c !== car && progress(was(c)!) > progress(prev) && progress(c) < progress(car)
+      (c) =>
+        c !== car &&
+        progress(must(was(c), 'car in the earlier state')) > progress(prev) &&
+        progress(c) < progress(car)
     );
     if (passed.length > 0) {
       say(
@@ -100,7 +105,10 @@ export function feedLines(
 
   // A car that did not move on a turn that passed, with moves not to be had, skipped (a grid setup is not a turn).
   if (onTurn && turnPassed && onTurn.state === 'ACTIVE') {
-    const car = after.cars.find((c) => c.carId === onTurn.carId)!;
+    const car = must(
+      after.cars.find((c) => c.carId === onTurn.carId),
+      'car on turn in the later state'
+    );
     if (car.cellId === onTurn.cellId) say('info', car, `${name(car)} skips (no moves)`);
   }
 
@@ -118,7 +126,10 @@ export function feedLines(
   }
 
   if (after.winnerCarId !== null && before.winnerCarId === null) {
-    const winner = after.cars.find((c) => c.carId === after.winnerCarId)!;
+    const winner = must(
+      after.cars.find((c) => c.carId === after.winnerCarId),
+      'winner'
+    );
     say('finish', winner, `${name(winner)} finishes P1`);
     const rest = after.cars.filter((c) => c !== winner).sort((a, b) => progress(b) - progress(a));
     if (rest.length > 0) {

@@ -5,6 +5,7 @@ import {
   SQUEEZE_SURCHARGE_PER_CAR,
   type WingLevel
 } from '../game/constants';
+import { must } from '../game/must';
 import type { PitAdvice, StintEstimate } from '../game/systems/strategy';
 import type { FeedKind } from '../game/systems/race_feed';
 import { isCompactHud } from './layout';
@@ -212,7 +213,11 @@ export type HudCommand =
   | { type: 'follow-car'; carId: number | null };
 
 function q(root: Element, id: string): HTMLElement {
-  return root.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
+  return must(root.querySelector<HTMLElement>(`[data-testid="${id}"]`), `HUD element ${id}`);
+}
+
+function tbodyOf(table: HTMLElement): HTMLElement {
+  return must(table.querySelector('tbody'), 'table body');
 }
 
 /** ok / warn / crit, same 20% threshold the old canvas HUD used. */
@@ -491,7 +496,7 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
       me.state === 'DNF' ? 'DNF' : `PITTING ${me.pitTurns} turn${me.pitTurns === 1 ? '' : 's'}`;
   }
 
-  fillStandings(q(root, 'hud-standings').querySelector('tbody')!, s.cars, s, 'hud-standing-row');
+  fillStandings(tbodyOf(q(root, 'hud-standings')), s.cars, s, 'hud-standing-row');
 
   const feed = q(root, 'hud-feed-list');
   feed.replaceChildren(
@@ -521,7 +526,8 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
 
 /** The followed car's panel: its moves over its last lap, newest first; the feed's title says whose lines it shows. */
 function renderFollow(root: HTMLElement, s: HudSnapshot) {
-  const car = s.follow ? s.cars.find((c) => c.carId === s.follow!.carId) : undefined;
+  const followedId = s.follow?.carId;
+  const car = s.cars.find((c) => c.carId === followedId);
   const panel = q(root, 'hud-follow');
   panel.hidden = !car;
   q(root, 'hud-feed-filter').textContent = car ? ` · ${car.name}` : '';
@@ -552,15 +558,15 @@ function renderFollow(root: HTMLElement, s: HudSnapshot) {
         ...(m.pit ? [['Pit stop', 2] as [string, number]] : [used(m.tireUsed), used(m.fuelUsed)])
       )
     );
-  q(root, 'hud-follow-moves')
-    .querySelector('tbody')!
-    .replaceChildren(...(rows.length > 0 ? rows : [row(['No moves yet', 5])]));
+  tbodyOf(q(root, 'hud-follow-moves')).replaceChildren(
+    ...(rows.length > 0 ? rows : [row(['No moves yet', 5])])
+  );
 }
 
 /** Final standings for the results overlay. */
 export function renderResults(root: HTMLElement, s: HudSnapshot) {
   fillStandings(
-    q(root, 'results-standings').querySelector('tbody')!,
+    tbodyOf(q(root, 'results-standings')),
     s.cars,
     { ...s, finished: true, follow: null },
     'results-row'

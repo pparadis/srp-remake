@@ -1,4 +1,5 @@
 import type { WingLevel } from '../game/constants';
+import { must } from '../game/must';
 import type { CarEdit } from '../game/race/sandbox';
 import type { BotLevel } from '../game/types/car';
 
@@ -82,7 +83,8 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
   root.hidden = true; // until a race sends a snapshot: online races have no sandbox
   root.innerHTML = TEMPLATE;
   parent.append(root);
-  const q = <T extends HTMLElement>(id: string) => root.querySelector<T>(`[data-testid="${id}"]`)!;
+  const q = <T extends HTMLElement>(id: string) =>
+    must(root.querySelector<T>(`[data-testid="${id}"]`), `sandbox element ${id}`);
   let last: SandboxSnapshot | null = null;
   const carId = () => last?.activeCarId ?? 0;
   const edit = (patch: CarEdit) => send({ type: 'edit', carId: carId(), edit: patch });
@@ -134,7 +136,8 @@ function setValue(input: HTMLInputElement | HTMLSelectElement, value: string): v
 }
 
 export function renderSandboxPanel(root: HTMLElement, s: SandboxSnapshot) {
-  const q = <T extends HTMLElement>(id: string) => root.querySelector<T>(`[data-testid="${id}"]`)!;
+  const q = <T extends HTMLElement>(id: string) =>
+    must(root.querySelector<T>(`[data-testid="${id}"]`), `sandbox element ${id}`);
   q<HTMLButtonElement>('sandbox-mode').textContent = s.editing ? 'Play (E)' : 'Edit (E)';
   q<HTMLFieldSetElement>('sandbox-fields').disabled = !s.editing;
   const select = q<HTMLSelectElement>('sandbox-car');

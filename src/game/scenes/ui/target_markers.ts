@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import { textResolution } from '../../hidpi';
+import { must } from '../../must';
 import {
   bakeFactor,
   ringTexture,
@@ -57,8 +58,8 @@ export class TargetMarkers {
       cost.setPosition(m.x, m.y).setVisible(true);
     });
     for (let i = markers.length; i < this.rings.length; i += 1) {
-      this.rings[i]!.setVisible(false);
-      this.costs[i]!.setVisible(false);
+      must(this.rings[i], 'ring').setVisible(false);
+      must(this.costs[i], 'cost label').setVisible(false);
     }
     if (selected) {
       // above the other rings, under the trails (depth 4)

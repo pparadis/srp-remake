@@ -1,5 +1,6 @@
 import type { TrackCell, TrackData } from '../types/track';
 import { PIT_LANE } from '../constants';
+import { must } from '../must';
 
 export interface TrackIndex {
   track: TrackData;
@@ -95,8 +96,8 @@ function lapPositions(track: TrackData, spineCells: TrackCell[]): Map<string, nu
   const project = (cell: TrackCell): number => {
     let best = { d: Infinity, at: cell.forwardIndex };
     for (let i = 0; i < n; i += 1) {
-      const a = spine[i]!.pos;
-      const b = spine[(i + 1) % n]!.pos;
+      const a = must(spine[i], 'spine cell').pos;
+      const b = must(spine[(i + 1) % n], 'spine cell').pos;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const u = Math.max(

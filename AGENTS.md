@@ -313,7 +313,13 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 - File names are snake_case (`race_engine.ts`, `race_scene.ts`, `race_engine.test.ts`), even a class's file (#75);
   `tools/file_names.test.ts` fails on a capital letter in a tracked `.ts` name. The `.mjs` scripts in `tools/` and the
   hyphenated e2e specs keep their names.
-- Not done yet, tracked separately: JSDoc on every top-level export (#76), `!` and `as` assertions (#77).
+- No `!` and no object-literal `as` in `src/` and `backend/src/` (#77; tests, `tools/` and the frozen `src/game/rules/v1/`
+  are exempt). A lookup that cannot miss goes through `must(value, 'what')` (`src/game/must.ts`), which throws a clear
+  error: DOM parts, `map.get(id)` of an id just read, `array[i]` under `noUncheckedIndexedAccess`. Keep `what` a
+  constant in a hot loop (the route search runs for every bot decision). A JSON import is typed by `parseTrack`
+  (`src/validation/track_schema.ts`), a Phaser internal by a type guard (`isFrameLimit`, `pinToScreen`), not
+  `as unknown as`.
+- Not done yet, tracked separately: JSDoc on every top-level export (#76).
 
 ## Conventions
 

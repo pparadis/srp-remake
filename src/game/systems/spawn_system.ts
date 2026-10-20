@@ -2,6 +2,7 @@ import type { Car } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
 import { createMoveCycle } from './move_budget_system';
 import { MAIN_LANES, PIT_LANE } from '../constants';
+import { must } from '../must';
 import { buildLaneSequence } from './lane_sequence';
 import { gridSlots } from './bot_style';
 import { lapCountAtSpawn } from './lap_progress';
@@ -24,7 +25,7 @@ export const CAR_SPRITES = [
 // Same order as CAR_SPRITES, for the DOM HUD chips.
 const CAR_COLORS = ['#e5484d', '#3b86c4', '#f5d90a', '#4cd964', '#3a3f47', '#ff8a3d'];
 export function carColor(index: number) {
-  return CAR_COLORS[index % CAR_COLORS.length]!;
+  return must(CAR_COLORS[index % CAR_COLORS.length], 'car color');
 }
 // Everyone is dealt the plain setup (hard, Medium wing); soft and the wing are a choice made on the grid.
 const DEFAULT_SETUPS: Car['setup'][] = [
@@ -35,7 +36,7 @@ const DEFAULT_SETUPS: Car['setup'][] = [
 ];
 
 export function carSprite(index: number): string {
-  return CAR_SPRITES[index % CAR_SPRITES.length]!;
+  return must(CAR_SPRITES[index % CAR_SPRITES.length], 'car sprite');
 }
 
 export function buildSpawnSlots(track: TrackData): TrackCell[] {
@@ -114,9 +115,9 @@ export function spawnCars(track: TrackData, options: SpawnOptions, seed = 0) {
   const grid = gridSlots(seed, count);
   for (let i = 0; i < count; i += 1) {
     // Car i + 1 starts in grid slot grid[i]; lapCount follows the cell it really occupies.
-    const cell = slots[grid[i]!];
+    const cell = slots[must(grid[i], 'grid slot')];
     if (!cell) continue;
-    const setup = (DEFAULT_SETUPS[i % DEFAULT_SETUPS.length] ?? DEFAULT_SETUPS[0])!;
+    const setup = must(DEFAULT_SETUPS[i % DEFAULT_SETUPS.length], 'default setup');
     const isBot = i >= humanCount;
     const botIndex = i - humanCount + 1;
     const car: Car = {
