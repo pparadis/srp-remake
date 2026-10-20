@@ -2,15 +2,18 @@ import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import { MOVE_RATES } from '../constants';
 import { createRaceContext } from '../race/race_engine';
+import { resources } from '../rules/v2/resources';
 import type { Car } from '../types/car';
 import type { TrackData } from '../types/track';
 import { buildPlanContext, SETUP_CHOICES, stopIsDue } from './bot_plan';
 import { computeValidTargets } from './movement_system';
-import { cellsToPitEntry, pitAdvice, stintEstimate } from './strategy';
+import { cellsToPitEntry, pitAdvice, stintEstimate as stintEstimateOf } from './strategy';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const cell = (id: string) => ctx.cellMap.get(id)!;
-const plan = (laps: number) => buildPlanContext(ctx.trackIndex, laps);
+const plan = (laps: number) => buildPlanContext(ctx.trackIndex, laps, resources);
+const stintEstimate = (c: Parameters<typeof stintEstimateOf>[0], spineLen: number) =>
+  stintEstimateOf(c, spineLen, resources);
 
 function car(over: Partial<Car> = {}): Car {
   return {

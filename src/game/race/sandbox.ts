@@ -1,12 +1,8 @@
 import { MOVE_CYCLE, WING_LEVELS, type WingLevel } from '../constants';
 import { must } from '../must';
-import { DEFAULT_RULES_VERSION } from '../rules/versions';
-import {
-  createMoveCycle,
-  cycleBudget,
-  getRemainingBudget,
-  type MoveCycle
-} from '../systems/move_budget_system';
+import type { ResourceRules } from '../rules/resource_rules';
+import { DEFAULT_RULES_VERSION, rulesOf } from '../rules/versions';
+import { createMoveCycle, getRemainingBudget, type MoveCycle } from '../systems/move_budget_system';
 import type { BotLevel, Car } from '../types/car';
 import { computeTargets, getActiveCar, type RaceContext, type RaceState } from './race_engine';
 
@@ -63,7 +59,10 @@ export function editCar(
   if (edit.wing !== undefined) car.setup = { ...car.setup, wing: edit.wing };
   if (edit.draftTurns !== undefined) car.draftTurns = clamp(edit.draftTurns, 0, 9);
   if (edit.budgetLeft !== undefined) {
-    car.moveCycle = cycleWithBudgetLeft(edit.budgetLeft, cycleBudget(car.setup));
+    car.moveCycle = cycleWithBudgetLeft(
+      edit.budgetLeft,
+      rulesOf(state).resources.cycleBudget(car.setup)
+    );
   }
   if (edit.isBot !== undefined && edit.isBot !== car.isBot) {
     car.isBot = edit.isBot;
@@ -178,8 +177,8 @@ export function restorePosition(
       setup: normalizeSetup(sc.setup),
       ...(sc.draftTurns !== undefined ? { draftTurns: sc.draftTurns } : {}),
       moveCycle: cycleWithBudgetLeft(
-        sc.budgetLeft ?? cycleBudget(normalizeSetup(sc.setup)),
-        cycleBudget(normalizeSetup(sc.setup))
+        sc.budgetLeft ?? rulesOf(state).resources.cycleBudget(normalizeSetup(sc.setup)),
+        rulesOf(state).resources.cycleBudget(normalizeSetup(sc.setup))
       )
     });
     editCar(ctx, state, car.carId, {
@@ -192,8 +191,8 @@ export function restorePosition(
 }
 
 /** The move points a car has left in its cycle (the sandbox panel shows it). */
-export function budgetLeftOf(car: Car) {
-  return getRemainingBudget(car.moveCycle, cycleBudget(car.setup));
+export function budgetLeftOf(car: Car, resources: ResourceRules) {
+  return getRemainingBudget(car.moveCycle, resources.cycleBudget(car.setup));
 }
 
 /**

@@ -5,6 +5,7 @@
 // the two modules do not form an import cycle.
 import { PIT_LANE } from '../constants';
 import { must } from '../must';
+import { rulesOf } from '../rules/versions';
 import {
   buildPlanContext,
   crawlCost,
@@ -119,7 +120,7 @@ export function decideHardBotAction(
   const trace = normal.trace;
   if (!trace || trace.candidates.length <= 1 || normal.action.type === 'skip') return normal;
 
-  const plan = buildPlanContext(ctx.trackIndex, state.raceLaps);
+  const plan = buildPlanContext(ctx.trackIndex, state.raceLaps, rulesOf(state).resources);
   const fromCell = ctx.cellMap.get(car.cellId);
   const top = [...trace.candidates]
     .sort((a, b) => b.score - a.score || a.cellId.localeCompare(b.cellId))

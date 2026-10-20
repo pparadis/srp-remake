@@ -3,7 +3,6 @@ import { must } from '../../must';
 import type Phaser from 'phaser';
 import type { Car } from '../../types/car';
 import { SETUP_LIMITS, WING_LEVELS } from '../../constants';
-import { cycleBudget } from '../../systems/move_budget_system';
 import { formatStint } from '../../../ui/hud';
 import type { StintEstimate } from '../../systems/strategy';
 import { makeButton } from './make_button';
@@ -29,6 +28,8 @@ interface PitModalOpenOptions {
   bodyLines: string[];
   /** Estimated stint on fresh tires and fuel for each compound at the setup being edited. */
   stints: (setup: Car['setup']) => PitStints;
+  /** The cycle budget the setup being edited buys. */
+  pace: (setup: Car['setup']) => number;
   onConfirm: (setup: Car['setup']) => void;
   onCancel: () => void;
 }
@@ -46,6 +47,7 @@ export class PitModal {
   private readonly modalCancel: Phaser.GameObjects.Text;
   private modalSetup: Car['setup'] | null = null;
   private stints: PitModalOpenOptions['stints'] | null = null;
+  private pace: PitModalOpenOptions['pace'] | null = null;
   private readonly modalValueTexts: PitModalTexts;
   private active = false;
 
@@ -211,6 +213,7 @@ export class PitModal {
   open(options: PitModalOpenOptions) {
     this.modalSetup = structuredClone(options.setup);
     this.stints = options.stints;
+    this.pace = options.pace;
     this.modalTitle.setText(options.title ?? 'Pit stop');
     this.modalBody.setText(options.bodyLines.join('\n'));
     this.refreshModalValues();
@@ -257,7 +260,7 @@ export class PitModal {
     );
     // The cycle budget is what the wing and the compound buy in pace; the wear shows in the stint lines below.
     this.modalValueTexts.wing.setText(
-      `${this.modalSetup.wing}  (pace ${cycleBudget(this.modalSetup)})`
+      `${this.modalSetup.wing}  (pace ${this.pace?.(this.modalSetup) ?? ''})`
     );
     if (!this.stints) return;
     const stints = this.stints(this.modalSetup);

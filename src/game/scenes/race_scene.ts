@@ -1394,6 +1394,7 @@ export class RaceScene extends Phaser.Scene {
       title: 'Grid setup',
       setup: this.activeCar.setup,
       stints: (setup) => this.session.pitStints(setup),
+      pace: (setup) => this.session.paceOf(setup),
       bodyLines: [
         'Compound, pressures and wing,',
         'free until your first move.',
@@ -1518,6 +1519,7 @@ export class RaceScene extends Phaser.Scene {
     this.pitModal.open({
       setup: this.activeCar.setup,
       stints: (setup) => this.session.pitStints(setup),
+      pace: (setup) => this.session.paceOf(setup),
       bodyLines: [
         `Drop on PIT_BOX: ${cell.id}`,
         `Setup will be applied.`,

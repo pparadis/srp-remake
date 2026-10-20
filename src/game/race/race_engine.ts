@@ -1,14 +1,7 @@
 // Phaser-free race engine: the one place the turn rules live.
 // Single-player (RaceScene) and the multiplayer server both drive a race through
 // `applyAction`, so the rules can't drift between them.
-import {
-  DRAFT_SLINGSHOT_TURNS,
-  MOVE_BUDGET,
-  MOVE_RATES,
-  PIT_LANE,
-  SETUP_LIMITS,
-  WING_LEVELS
-} from '../constants';
+import { DRAFT_SLINGSHOT_TURNS, PIT_LANE } from '../constants';
 import { must } from '../must';
 import { hasFinishedRace } from '../systems/lap_progress';
 import type { BotLevel, Car, CarSetup } from '../types/car';
@@ -29,7 +22,7 @@ import {
 } from '../systems/bot_system';
 import { decideHardBotAction } from './bot_hard';
 import { applyMove, crossesStartLine } from '../systems/move_commit_system';
-import { cycleBudget, getRemainingBudget, recordMove } from '../systems/move_budget_system';
+import { getRemainingBudget, recordMove } from '../systems/move_budget_system';
 import { validateMoveAttempt } from '../systems/move_validation_system';
 import type { TargetInfo } from '../systems/movement_system';
 import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
@@ -128,10 +121,11 @@ export function createRace(
     if (seat.isBot && seat.style) car.style = seat.style;
   });
   // Bots set up on the grid for the distance they must cover (Easy keeps the default setup it is dealt).
-  const plan = buildPlanContext(ctx.trackIndex, raceLaps);
+  const { resources } = rulesOf({ rulesVersion });
+  const plan = buildPlanContext(ctx.trackIndex, raceLaps, resources);
   for (const car of cars) {
     if (!car.isBot || car.botLevel === 'easy') continue;
-    car.setup = bestSetup(raceLaps * plan.spineLen);
+    car.setup = bestSetup(raceLaps * plan.spineLen, resources);
   }
   return {
     cars,
@@ -161,15 +155,13 @@ export function computeTargets(
   car: Car
 ): Map<string, TargetInfo> {
   const occupied = new Set(state.cars.map((c) => c.cellId));
-  const baseMaxSteps =
-    car.tire === 0 || car.fuel === 0 ? MOVE_BUDGET.zeroResourceMax : MOVE_BUDGET.baseMax;
-  const maxSteps = Math.min(
-    baseMaxSteps,
-    Math.max(0, getRemainingBudget(car.moveCycle, cycleBudget(car.setup)))
-  );
-  const tireRate = car.setup.compound === 'soft' ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
-  const costs = { tireRate, fuelRate: MOVE_RATES.fuel, setup: car.setup };
   const rules = rulesOf(state);
+  const { resources } = rules;
+  const maxSteps = Math.min(
+    resources.moveCap(car),
+    Math.max(0, getRemainingBudget(car.moveCycle, resources.cycleBudget(car.setup)))
+  );
+  const costs = resources.wearRates(car.setup);
   const normal = rules.computeValidTargets(
     ctx.trackIndex,
     car.cellId,
@@ -214,15 +206,6 @@ export function isDrafting(ctx: RaceContext, state: RaceState, car: Car): boolea
   );
 }
 
-export function isValidSetup(setup: CarSetup): boolean {
-  const { psi } = SETUP_LIMITS;
-  const psiOk = [setup.psi.fl, setup.psi.fr, setup.psi.rl, setup.psi.rr].every(
-    (v) => Number.isInteger(v) && v >= psi.min && v <= psi.max
-  );
-  const wingOk = WING_LEVELS.includes(setup.wing);
-  return (setup.compound === 'soft' || setup.compound === 'hard') && psiOk && wingOk;
-}
-
 function findWinner(state: RaceState): Car | null {
   const active = getActiveCar(state);
   if (hasFinishedRace(active.lapCount, state.raceLaps)) return active;
@@ -248,14 +231,15 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   if (state.winnerCarId !== null) return { ok: false, reason: 'race_finished' };
 
   const car = getActiveCar(state);
+  const { resources } = rulesOf(state);
   const fromCell = ctx.cellMap.get(car.cellId) ?? null;
   const fromCellId = car.cellId;
   let moveSpend = 0;
 
   if (action.type === 'setup') {
     if (car.setupLocked) return { ok: false, reason: 'setup_locked' };
-    if (!isValidSetup(action.setup)) return { ok: false, reason: 'invalid_setup' };
-    car.setup = structuredClone(action.setup);
+    if (!resources.isValidSetup(action.setup)) return { ok: false, reason: 'invalid_setup' };
+    resources.gridSetup(car, action.setup);
     // Not a turn: the same car still plays, and the race cannot end on it.
     return { ok: true, carId: car.carId, fromCellId, moveSpend: 0 };
   }
@@ -289,12 +273,12 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
       if (check.info.slingshot) car.slingshots = (car.slingshots ?? 0) + 1;
     } else {
       if (!check.isPitStop) return { ok: false, reason: 'not_pit_box' };
-      if (!isValidSetup(action.setup)) return { ok: false, reason: 'invalid_setup' };
+      if (!resources.isValidSetup(action.setup)) return { ok: false, reason: 'invalid_setup' };
       // A jump from the entry to a box can pass the pit line cell: that is a lap crossing too.
       if (crossesStartLine(fromCell, targetCell, ctx.trackIndex.pitLineFwd)) {
         car.lapCount = (car.lapCount ?? 0) + 1;
       }
-      applyPitStop(car, targetCell.id, structuredClone(action.setup));
+      applyPitStop(car, targetCell.id, structuredClone(action.setup), resources);
       car.setupLocked = true;
       recordMove(car.moveCycle, check.moveSpend);
       moveSpend = check.moveSpend;
@@ -331,7 +315,7 @@ export function decideBotAction(
   const level: BotPolicy = policy ?? car.botLevel ?? 'normal';
   const targets = computeTargets(ctx, state, car);
   const plan: BotPlanContext = {
-    ...buildPlanContext(ctx.trackIndex, state.raceLaps),
+    ...buildPlanContext(ctx.trackIndex, state.raceLaps, rulesOf(state).resources),
     // Humans (and the autopilot standing in for one) have no style; bots draw theirs from the race seed.
     style:
       level === 'hard'
@@ -350,7 +334,14 @@ export function decideBotAction(
         return { fwd: trackFwd(cell, ctx.trackIndex.lane1FwdByZone), lane: cell.laneIndex };
       })
   };
-  const { action, trace } = decideBotActionWithTrace(targets, car, ctx.cellMap, level, plan);
+  const { action, trace } = decideBotActionWithTrace(
+    targets,
+    car,
+    ctx.cellMap,
+    plan.resources,
+    level,
+    plan
+  );
   let decision: BotTurnDecision;
   if (action.type === 'skip') {
     return { action: { type: 'skip' }, trace, targets, skipNote: 'no-target' };

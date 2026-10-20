@@ -1,6 +1,7 @@
 // What the HUD tells the player about tire and fuel: stint length and pit advice. Phaser-free.
 // The wear math and the stop timing are botPlan's, so the advice and the Normal bot agree.
-import { MOVE_BUDGET, MOVE_CYCLE } from '../constants';
+import { MOVE_CYCLE } from '../constants';
+import type { ResourceRules } from '../rules/resource_rules';
 import type { Car } from '../types/car';
 import type { TrackCell } from '../types/track';
 import {
@@ -24,8 +25,12 @@ export type PitAdvice = 'ok' | 'pit-soon' | 'pit-now' | 'no-need';
 
 type Resources = Pick<Car, 'tire' | 'fuel' | 'setup'>;
 
-export function stintEstimate(car: Resources, spineLen: number): StintEstimate {
-  const cells = cellsUntilEmpty(car.tire, car.fuel, car.setup, 1);
+export function stintEstimate(
+  car: Resources,
+  spineLen: number,
+  resources: ResourceRules
+): StintEstimate {
+  const cells = cellsUntilEmpty(car.tire, car.fuel, car.setup, resources, 1);
   return { cells, laps: cells / spineLen, moves: cells / (MOVE_CYCLE.budget / MOVE_CYCLE.moves) };
 }
 
@@ -45,5 +50,6 @@ export function pitAdvice(car: Car, cell: TrackCell, plan: BotPlanContext): PitA
   if (toEntry === null) return 'no-need';
   if (projectShortfall(car, cell, plan).shortfall === 0) return 'no-need';
   if (!stopIsDue(car, cell, plan)) return 'ok';
-  return toEntry < MOVE_BUDGET.baseMax ? 'pit-now' : 'pit-soon';
+  const fullCap = plan.resources.moveCap({ tire: 100, fuel: 100, setup: car.setup });
+  return toEntry < fullCap ? 'pit-now' : 'pit-soon';
 }

@@ -7,6 +7,7 @@ import {
   decideBotAction,
   type RaceState
 } from '../race/race_engine';
+import { resources } from '../rules/v2/resources';
 import type { TrackData } from '../types/track';
 import { buildPlanContext, stopIsDue } from './bot_plan';
 import { PERSONALITIES, personalityFor, type PersonalityKey } from './bot_style';
@@ -101,7 +102,7 @@ describe('personality parameters on the Normal scorer', () => {
   });
 
   it('the pit strategist shifts the stop decision: the early one is due before the late one', () => {
-    const plan = buildPlanContext(ctx.trackIndex, 9);
+    const plan = buildPlanContext(ctx.trackIndex, 9, resources);
     const state = solo('balanced', 9);
     const car = state.cars[0]!;
     const cell = ctx.cellMap.get('Z20_L1_00')!;

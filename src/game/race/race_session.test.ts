@@ -3,6 +3,7 @@ import track from '../../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../types/track';
 import type { PublicLobby } from '../../net/backend_api';
 import type { Car } from '../types/car';
+import { resources } from '../rules/v2/resources';
 import { stintEstimate } from '../systems/strategy';
 import {
   applyAction,
@@ -290,7 +291,11 @@ describe('RaceSession: solo', () => {
   it('estimates the stint from tire and fuel, and shows no pit chip early in a short race', () => {
     const session = solo({ botCars: 1 });
     const stintOf = () =>
-      stintEstimate(session.cars.find((c) => c.carId === 1)!, session.ctx.trackIndex.spineLen);
+      stintEstimate(
+        session.cars.find((c) => c.carId === 1)!,
+        session.ctx.trackIndex.spineLen,
+        resources
+      );
     expect(hud(session).cars.find((c) => c.carId === 1)).toMatchObject({
       stint: stintOf(),
       advice: 'no-need'
@@ -310,7 +315,8 @@ describe('RaceSession: solo', () => {
     expect(stints.hard).toEqual(
       stintEstimate(
         { tire: 100, fuel: 100, setup: { ...setup, compound: 'hard' } },
-        session.ctx.trackIndex.spineLen
+        session.ctx.trackIndex.spineLen,
+        resources
       )
     );
   });
