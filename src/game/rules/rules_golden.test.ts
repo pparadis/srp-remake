@@ -50,13 +50,13 @@ for (const v of frozen) {
 }
 
 describe('v3 (draft)', () => {
-  // Phase 1 of #148 changes no behavior: until v3 gets its own rules it must give v2's answers. Delete this once it does.
-  it('is a draft that still answers like v2 on every v2 sample', () => {
+  // v3 has its own resource rules (#148): the v2 samples are not its answers. Freeze it with a golden/v3.json.
+  it('is a draft whose resource rules are not v2', () => {
     expect(RULES.v3.status).toBe('draft');
-    for (const sample of v2.samples) {
-      const now = replay(ctx, sample as unknown as Golden['samples'][number], 'v3');
-      expect(now).toEqual({ targets: sample.targets, after: sample.after });
-    }
+    expect(RULES.v3.rules.resources).not.toBe(RULES.v2.rules.resources);
+    const race = { raceLaps: 5, spineLen: 28 };
+    expect(RULES.v3.rules.resources(race).features).toEqual({ medium: true, fuelLoad: true });
+    expect(RULES.v2.rules.resources(race).features).toEqual({ medium: false, fuelLoad: false });
   });
 });
 

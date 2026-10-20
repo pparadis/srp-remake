@@ -25,7 +25,7 @@ import { applyMove, crossesStartLine } from '../systems/move_commit_system';
 import { getRemainingBudget, recordMove } from '../systems/move_budget_system';
 import { validateMoveAttempt } from '../systems/move_validation_system';
 import type { TargetInfo } from '../systems/movement_system';
-import { DEFAULT_RULES_VERSION, rulesOf, type RulesVersion } from '../rules/versions';
+import { DEFAULT_RULES_VERSION, resourcesOf, rulesOf, type RulesVersion } from '../rules/versions';
 import { advancePitPenalty, applyPitStop } from '../systems/pit_system';
 import { spawnCars } from '../systems/spawn_system';
 import { buildTrackIndex, type TrackIndex } from '../systems/track_index';
@@ -120,12 +120,14 @@ export function createRace(
     if (seat.isBot) car.botLevel = seat.botLevel ?? 'normal';
     if (seat.isBot && seat.style) car.style = seat.style;
   });
-  // Bots set up on the grid for the distance they must cover (Easy keeps the default setup it is dealt).
-  const { resources } = rulesOf({ rulesVersion });
+  // Everyone is dealt the version's default setup; bots then set up for the distance they must cover (Easy keeps the
+  // default it is dealt).
+  const resources = resourcesOf({ rulesVersion, raceLaps }, ctx.trackIndex);
   const plan = buildPlanContext(ctx.trackIndex, raceLaps, resources);
   for (const car of cars) {
+    resources.gridSetup(car, resources.defaultSetup(car.setup));
     if (!car.isBot || car.botLevel === 'easy') continue;
-    car.setup = bestSetup(raceLaps * plan.spineLen, resources);
+    resources.gridSetup(car, bestSetup(raceLaps * plan.spineLen, resources));
   }
   return {
     cars,
@@ -156,10 +158,10 @@ export function computeTargets(
 ): Map<string, TargetInfo> {
   const occupied = new Set(state.cars.map((c) => c.cellId));
   const rules = rulesOf(state);
-  const { resources } = rules;
+  const resources = resourcesOf(state, ctx.trackIndex);
   const maxSteps = Math.min(
     resources.moveCap(car),
-    Math.max(0, getRemainingBudget(car.moveCycle, resources.cycleBudget(car.setup)))
+    Math.max(0, getRemainingBudget(car.moveCycle, resources.cycleBudget(car)))
   );
   const costs = resources.wearRates(car.setup);
   const normal = rules.computeValidTargets(
@@ -231,7 +233,7 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
   if (state.winnerCarId !== null) return { ok: false, reason: 'race_finished' };
 
   const car = getActiveCar(state);
-  const { resources } = rulesOf(state);
+  const resources = resourcesOf(state, ctx.trackIndex);
   const fromCell = ctx.cellMap.get(car.cellId) ?? null;
   const fromCellId = car.cellId;
   let moveSpend = 0;
@@ -315,7 +317,7 @@ export function decideBotAction(
   const level: BotPolicy = policy ?? car.botLevel ?? 'normal';
   const targets = computeTargets(ctx, state, car);
   const plan: BotPlanContext = {
-    ...buildPlanContext(ctx.trackIndex, state.raceLaps, rulesOf(state).resources),
+    ...buildPlanContext(ctx.trackIndex, state.raceLaps, resourcesOf(state, ctx.trackIndex)),
     // Humans (and the autopilot standing in for one) have no style; bots draw theirs from the race seed.
     style:
       level === 'hard'

@@ -13,6 +13,7 @@ import {
 } from '../constants';
 import { must } from '../must';
 import { computeMoveSpend } from './move_budget_system';
+import { moveFactor, roundWear } from './resource_system';
 
 export interface TargetInfo {
   distance: number;
@@ -86,8 +87,11 @@ export function laneWearFactors(laneIndex: number): { tire: number; fuel: number
   };
 }
 
+// v3 (#148): the wear of `distance` cells walked in a move that spends `movePoints`; the move size scales it (a 9 burns
+// more per cell than an 8, a 7 less) and the cost is kept to 0.1.
 function computeCosts(
   distance: number,
+  movePoints: number,
   laneIndex: number,
   costs: MovementCostContext,
   drafting = false
@@ -96,11 +100,14 @@ function computeCosts(
   const { tire: tireLaneFactor, fuel: fuelLaneFactor } = laneWearFactors(laneIndex);
   const draftTire = drafting ? DRAFT_TIRE_FACTOR : 1;
   const draftFuel = drafting ? DRAFT_FUEL_FACTOR : 1;
+  const size = moveFactor(movePoints);
 
-  const tireCost = Math.round(
-    distance * costs.tireRate * aeroTire * psiFactor * tireLaneFactor * draftTire
+  const tireCost = roundWear(
+    distance * costs.tireRate * size.tire * aeroTire * psiFactor * tireLaneFactor * draftTire
   );
-  const fuelCost = Math.round(distance * costs.fuelRate * aeroFuel * fuelLaneFactor * draftFuel);
+  const fuelCost = roundWear(
+    distance * costs.fuelRate * size.fuel * aeroFuel * fuelLaneFactor * draftFuel
+  );
 
   return { tireCost, fuelCost };
 }
@@ -338,7 +345,7 @@ export function computeValidTargets(
     if (moveSpend > maxSteps) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes('PIT_BOX')) continue;
 
-    const { tireCost, fuelCost } = computeCosts(steps, cell.laneIndex, costs, drafted);
+    const { tireCost, fuelCost } = computeCosts(steps, moveSpend, cell.laneIndex, costs, drafted);
     targets.set(cellId, {
       distance: steps,
       moveSpend,
@@ -361,8 +368,8 @@ export function computeValidTargets(
       const exitCell = cellMap.get(exitCellId);
       if (exitCell) {
         const distance = Math.max(1, exitZone - startCell.zoneIndex);
-        const { tireCost, fuelCost } = computeCosts(distance, exitCell.laneIndex, costs);
         const moveSpend = computeMoveSpend(distance, startCell.laneIndex, exitCell.laneIndex);
+        const { tireCost, fuelCost } = computeCosts(distance, moveSpend, exitCell.laneIndex, costs);
         if (moveSpend <= maxSteps) {
           targets.set(exitCellId, {
             distance,
@@ -454,7 +461,7 @@ export function computeSqueezeTargets(
       must(diagonals.get(cellId), 'diagonals of a reached cell') +
       SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
-    const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
+    const { tireCost, fuelCost } = computeCosts(d, moveSpend, cell.laneIndex, costs);
     targets.set(cellId, {
       distance: d,
       moveSpend,
@@ -504,7 +511,7 @@ function computePitExitSqueezeTargets(
     const moveSpend =
       computeMoveSpend(d, startCell.laneIndex, cell.laneIndex) + SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
-    const { tireCost, fuelCost } = computeCosts(d, cell.laneIndex, costs);
+    const { tireCost, fuelCost } = computeCosts(d, moveSpend, cell.laneIndex, costs);
     targets.set(cellId, {
       distance: d,
       moveSpend,

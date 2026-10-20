@@ -1248,22 +1248,37 @@ describe('drafting costs and the slingshot', () => {
   it('wears less on a move that starts in the tow: fuel x0.8, tire x0.9', () => {
     const plain = targets('Z05_L1_00', []).get('Z06_L1_00')!;
     const drafted = targets('Z05_L1_00', [], { drafted: true }).get('Z06_L1_00')!;
-    // lane 1 is x1.05 on tires and x0.98 on fuel: 21 and 20 at 20 a cell
-    expect(plain).toMatchObject({ tireCost: 21, fuelCost: 20 });
+    // 20 a cell, lane 1 (tires x1.05, fuel x0.98), a 1-point move (tires x0.9, fuel x0.85), kept to 0.1
+    expect(plain).toMatchObject({ tireCost: 18.9, fuelCost: 16.7 });
     expect(plain.drafted).toBeUndefined();
-    expect(drafted).toMatchObject({ tireCost: 19, fuelCost: 16, drafted: true });
+    expect(drafted).toMatchObject({ tireCost: 17, fuelCost: 13.3, drafted: true });
   });
 
   it('does not look at the cars now: a car right behind another is not discounted unless it ended its move there', () => {
     expect(targets('Z05_L1_00', ['Z07_L1_00']).get('Z06_L1_00')).toMatchObject({
-      tireCost: 21,
-      fuelCost: 20
+      tireCost: 18.9,
+      fuelCost: 16.7
     });
     expect(targets('Z05_L1_00', ['Z20_L3_00'], { drafted: true }).get('Z06_L1_00')).toMatchObject({
-      tireCost: 19,
-      fuelCost: 16,
+      tireCost: 17,
+      fuelCost: 13.3,
       drafted: true
     });
+  });
+
+  it('prices wear by the move points spent: a 9 burns more per cell than an 8, a 7 less (v3)', () => {
+    const perCell = (cell: string) => {
+      const t = targets('Z05_L1_00', []).get(cell)!;
+      return { size: t.moveSpend, fuel: t.fuelCost / t.distance, tire: t.tireCost / t.distance };
+    };
+    const seven = perCell('Z12_L1_00');
+    const eight = perCell('Z13_L1_00');
+    const nine = perCell('Z14_L1_00');
+    expect([seven.size, eight.size, nine.size]).toEqual([7, 8, 9]);
+    expect(seven.fuel).toBeLessThan(eight.fuel);
+    expect(eight.fuel).toBeLessThan(nine.fuel);
+    expect(seven.tire).toBeLessThan(eight.tire);
+    expect(eight.tire).toBeLessThan(nine.tire);
   });
 
   it('never discounts in the pit lane', () => {

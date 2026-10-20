@@ -1,4 +1,4 @@
-import type { WingLevel } from '../game/constants';
+import type { Compound, WingLevel } from '../game/constants';
 import { must } from '../game/must';
 import type { CarEdit } from '../game/race/sandbox';
 import type { BotLevel } from '../game/types/car';
@@ -15,7 +15,7 @@ export interface SandboxSnapshot {
     lapCount: number;
     tire: number;
     fuel: number;
-    compound: 'soft' | 'hard';
+    compound: Compound;
     wing: WingLevel;
     budgetLeft: number;
     draftTurns: number;
@@ -105,7 +105,7 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
     edit({ cellId: (e.target as HTMLInputElement).value.trim() })
   );
   q('sandbox-compound').addEventListener('change', (e) =>
-    edit({ compound: (e.target as HTMLSelectElement).value as 'soft' | 'hard' })
+    edit({ compound: (e.target as HTMLSelectElement).value as Compound })
   );
   q('sandbox-wing').addEventListener('change', (e) =>
     edit({ wing: (e.target as HTMLSelectElement).value as WingLevel })

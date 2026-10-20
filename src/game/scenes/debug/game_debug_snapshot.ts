@@ -64,7 +64,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
         pitExitBoost: car.pitExitBoost,
         pitServiced: car.pitServiced,
         setup: car.setup,
-        budgetLeft: getRemainingBudget(car.moveCycle, resources.cycleBudget(car.setup)),
+        budgetLeft: getRemainingBudget(car.moveCycle, resources.cycleBudget(car)),
         draftTurns: car.draftTurns ?? 0,
         cell: cell
           ? {
@@ -80,10 +80,7 @@ export function buildGameDebugSnapshot(params: BuildGameDebugSnapshotParams) {
 
   const activeCell = cellMap.get(activeCar.cellId);
   const occupied = new Set(cars.map((c) => c.cellId));
-  const remainingBudget = getRemainingBudget(
-    activeCar.moveCycle,
-    resources.cycleBudget(activeCar.setup)
-  );
+  const remainingBudget = getRemainingBudget(activeCar.moveCycle, resources.cycleBudget(activeCar));
   const maxSteps = Math.min(resources.moveCap(activeCar), Math.max(0, remainingBudget));
   const { tireRate, fuelRate } = resources.wearRates(activeCar.setup);
   const inPitLane = activeCell?.laneIndex === PIT_LANE;

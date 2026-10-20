@@ -12,8 +12,9 @@ import * as v1Movement from './v1/movement_system';
 import * as v1Draft from './v1/draft_system';
 import * as v2Movement from './v2/movement_system';
 import * as v2Draft from './v2/draft_system';
-import { resources as v2Resources } from './v2/resources';
-import type { ResourceRules } from './resource_rules';
+import { resourcesFor as v2Resources } from './v2/resources';
+import { resourceRulesFor } from '../systems/resource_system';
+import type { ResourceRules, ResourceRulesFor } from './resource_rules';
 import { DEFAULT_RULES_VERSION, type RulesVersion } from './ids';
 
 export { DEFAULT_RULES_VERSION, isRulesVersion, RULES_VERSIONS, type RulesVersion } from './ids';
@@ -22,7 +23,7 @@ export interface MovementRules {
   computeValidTargets: typeof computeValidTargets;
   computeSqueezeTargets: typeof computeSqueezeTargets;
   draftAhead: typeof draftAhead;
-  resources: ResourceRules;
+  resources: ResourceRulesFor;
 }
 
 export const RULES: Record<
@@ -51,12 +52,25 @@ export const RULES: Record<
   },
   v3: {
     status: 'draft',
-    note: '#148: car config and race management. Starts equal to v2; its code is the live movement and draft systems.',
-    rules: { computeValidTargets, computeSqueezeTargets, draftAhead, resources: v2Resources }
+    note: '#148: car config and race management: compounds hard, medium and soft, a fuel load, wear sized to the race and to the move size. Its code is the live movement, draft and resource systems.',
+    rules: {
+      computeValidTargets,
+      computeSqueezeTargets,
+      draftAhead,
+      resources: resourceRulesFor
+    }
   }
 };
 
 /** The rules a race plays on. A state without a version (made before #118) plays the default. */
 export function rulesOf(state: { rulesVersion?: RulesVersion | undefined }): MovementRules {
   return RULES[state.rulesVersion ?? DEFAULT_RULES_VERSION].rules;
+}
+
+/** The tire, fuel and move-size rules of a race: the version's, sized to the race's length. */
+export function resourcesOf(
+  state: { rulesVersion?: RulesVersion | undefined; raceLaps: number },
+  trackIndex: { spineLen: number }
+): ResourceRules {
+  return rulesOf(state).resources({ raceLaps: state.raceLaps, spineLen: trackIndex.spineLen });
 }
