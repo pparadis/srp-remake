@@ -29,7 +29,7 @@ import { RaceSession, SERVER_WAIT_MS, type MovePreview } from '../race/race_sess
 import { positionAsTest, type CarEdit } from '../race/sandbox';
 import type { SandboxCommand } from '../../ui/sandbox_panel';
 import { validateTrack } from '../../validation/track_validation';
-import { PIT_PANEL, PitModal } from './ui/pit_modal';
+import { PIT_PANEL, PitModal, type PitModalButton } from './ui/pit_modal';
 import { DebugButtons } from './ui/debug_buttons';
 import { makeButton } from './ui/make_button';
 import { applyCarsMovesVisibility } from './ui/cars_moves_visibility';
@@ -71,10 +71,8 @@ declare global {
     __srp?: {
       state: () => ReturnType<typeof buildGameDebugSnapshot>;
       cellScreenPos: (cellId: string) => { x: number; y: number } | null;
-      /** Centre of a canvas button (page coordinates): Setup, and the pit modal's wing -/+ and Confirm. Null when hidden. */
-      uiButtonPos: (
-        name: 'setup' | 'wing-minus' | 'wing-plus' | 'confirm'
-      ) => { x: number; y: number } | null;
+      /** Centre of a canvas button (page coordinates): Setup, and the buttons of the pit modal. Null when hidden. */
+      uiButtonPos: (name: 'setup' | PitModalButton) => { x: number; y: number } | null;
       /** Where a car token is drawn right now (page coordinates), mid-tween included. */
       tokenScreenPos: (carId: number) => { x: number; y: number } | null;
       /** The rotation of a car's body in radians (Phaser's: 0 = pointing up), mid-drag and mid-glide included. */
@@ -151,6 +149,8 @@ export class RaceScene extends Phaser.Scene {
   private confetti: Confetti | null = null;
   // Set by the e2e hook: no celebration may run over a screenshot.
   private animationsFrozen = false;
+  /** Cars whose grid setup panel has opened by itself (rules v3), so Cancel does not bring it back. */
+  private readonly offeredSetup = new Set<number>();
   // The cell each car token stands on, or glides to (the board draws from what the session already knows).
   private readonly tokenCell = new Map<number, string>();
   // The camera: what the fit leaves (set by centerTrack), and the player's zoom and pan on top of it.
@@ -1390,13 +1390,17 @@ export class RaceScene extends Phaser.Scene {
   // Before a car's first turn: compound and wing, once and free (the car keeps the turn).
   private openGridSetup() {
     if (!this.session.canSetup() || this.pitModal.isActive()) return;
+    const features = this.session.setupFeatures();
     this.pitModal.open({
       title: 'Grid setup',
       setup: this.activeCar.setup,
       stints: (setup) => this.session.pitStints(setup),
       pace: (setup) => this.session.paceOf(setup),
+      features,
+      fuelNote: (setup) => this.session.fuelNote(setup),
+      ...(features.fuelLoad ? { suggest: () => this.session.suggestedSetup() } : {}),
       bodyLines: [
-        'Compound, pressures and wing,',
+        features.fuelLoad ? 'Compound, pressures, wing and fuel,' : 'Compound, pressures and wing,',
         'free until your first move.',
         'Low wing is fast and hard on tires.'
       ],
@@ -1454,6 +1458,19 @@ export class RaceScene extends Phaser.Scene {
       if (canSetup) this.setupButton.setInteractive({ useHandCursor: true });
       else this.setupButton.disableInteractive();
     }
+    // a tick later: this runs while the scene is still being made, before the panel has been laid out
+    this.time.delayedCall(0, () => this.offerGridSetup());
+  }
+
+  // Rules v3: the setup is a real decision (compound, fuel), so the panel opens by itself on the player's first turn,
+  // once per car, prefilled; Cancel keeps the dealt setup and the Setup button stays.
+  private offerGridSetup() {
+    if (!this.pitModal) return;
+    if (!this.session.setupFeatures().fuelLoad || !this.session.canSetup()) return;
+    const carId = this.activeCar.carId;
+    if (this.offeredSetup.has(carId) || this.pitModal.isActive()) return;
+    this.offeredSetup.add(carId);
+    this.openGridSetup();
   }
 
   private async copyDebugSnapshot() {
@@ -1516,14 +1533,20 @@ export class RaceScene extends Phaser.Scene {
     this.pendingPit = { cell, origin };
     const token = this.getActiveToken();
     if (token) token.disableInteractive();
+    const features = this.session.setupFeatures();
     this.pitModal.open({
       setup: this.activeCar.setup,
       stints: (setup) => this.session.pitStints(setup),
       pace: (setup) => this.session.paceOf(setup),
+      features,
+      fuelNote: (setup) => this.session.fuelNote(setup),
+      ...(features.fuelLoad ? { suggest: () => this.session.suggestedSetup() } : {}),
       bodyLines: [
         `Drop on PIT_BOX: ${cell.id}`,
         `Setup will be applied.`,
-        `Tires and fuel refilled to 100.`,
+        features.fuelLoad
+          ? `Fresh tires; fuel topped up to the load.`
+          : `Tires and fuel refilled to 100.`,
         `Pit penalty: lose 1 turn.`
       ],
       onConfirm: (setup) => {
@@ -1613,9 +1636,7 @@ export class RaceScene extends Phaser.Scene {
 
   // Centre of a canvas button in page coordinates, or null while it is not on screen. The buttons are fixed
   // (scrollFactor 0) and zoomed with the camera around its centre.
-  private uiButtonScreenPos(
-    name: 'setup' | 'wing-minus' | 'wing-plus' | 'confirm'
-  ): { x: number; y: number } | null {
+  private uiButtonScreenPos(name: 'setup' | PitModalButton): { x: number; y: number } | null {
     const button = name === 'setup' ? this.setupButton : this.pitModal.button(name);
     if (!button || !button.visible || (name !== 'setup' && !this.pitModal.isActive())) return null;
     const b = button.getBounds();

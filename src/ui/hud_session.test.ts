@@ -121,6 +121,38 @@ describe('race session -> HUD', () => {
     expect(tip.style.left).toBe('300px');
   });
 
+  it('rules v3: the card says the cap, the heavy tank and the pace, and the tooltip the fuel a cell (#148)', () => {
+    const session = new RaceSession(TRACK, {
+      totalCars: 1,
+      humanCars: 1,
+      botCars: 0,
+      raceLaps: 5,
+      seed: 0,
+      rulesVersion: 'v3'
+    });
+    session.recomputeTargets();
+    const [cellId] = [...session.validTargets].find(([, target]) => !target.isPitTrigger)!;
+    render(session, { cellId });
+    // dealt medium tires and 95% fuel: heavy, and a medium car can keep an 8 over 5 laps
+    expect(tid('hud-compound').textContent).toBe('MED');
+    expect(tid('hud-pace').hidden).toBe(false);
+    expect(tid('hud-pace').textContent).toMatch(
+      /^Max 8 a move · HEAVY \(-1 pace\) · pace to the flag: [789]$/
+    );
+    expect(tid('hud-tooltip').textContent).toMatch(
+      /uses \d+\.\d tire, \d+\.\d fuel \(0\.\d\d fuel a cell\)/
+    );
+  });
+
+  it('before rules v3 the card has no cap line and the tooltip no rate', () => {
+    const session = newSession(0, 1);
+    session.recomputeTargets();
+    const [cellId] = [...session.validTargets].find(([, target]) => !target.isPitTrigger)!;
+    render(session, { cellId });
+    expect(tid('hud-pace').hidden).toBe(true);
+    expect(tid('hud-tooltip').textContent).not.toContain('a cell');
+  });
+
   it('the results table shows the winner first and the final standings', () => {
     const session = newSession(2, 1);
     for (let turn = 0; turn < 60 && !session.finished; turn += 1) playMyTurn(session);

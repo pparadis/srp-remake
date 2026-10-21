@@ -10,6 +10,7 @@ import {
 } from '../../src/game/race/race_engine';
 import { normalizeChatText } from '../../src/game/chat_text';
 import { must } from '../../src/game/must';
+import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from '../../src/game/rules/ids';
 import { MAX_SEED, normalizeSeed } from '../../src/game/systems/bot_style';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
 import { getRaceContext, knownTrackIds } from './tracks.js';
@@ -102,6 +103,12 @@ function newRaceSeed(): number {
   return pinned !== undefined && pinned !== '' ? normalizeSeed(pinned) : randomInt(1, MAX_SEED);
 }
 
+// The rules every race on this server plays: the engine's default, or RULES_VERSION (tests, trying a draft version).
+function raceRulesVersion(): RulesVersion {
+  const pinned = process.env.RULES_VERSION;
+  return isRulesVersion(pinned) ? pinned : DEFAULT_RULES_VERSION;
+}
+
 function toPublicRaceState(lobby: Lobby): RaceState | undefined {
   const race = lobby.race;
   if (!race) return undefined;
@@ -113,6 +120,7 @@ function toPublicRaceState(lobby: Lobby): RaceState | undefined {
     activeSeatIndex: activeSeatIndex(engine),
     winnerCarId: engine.winnerCarId,
     seed: engine.seed,
+    rulesVersion: engine.rulesVersion ?? DEFAULT_RULES_VERSION,
     cars: engine.cars.map((car, i): RaceCarState => ({ ...car, ...must(seats[i], 'race seat') })),
     ...(race.turnDeadlineAt !== undefined
       ? { turnRemainingMs: Math.max(0, race.turnDeadlineAt - Date.now()) }
@@ -224,7 +232,8 @@ export class LobbyStore {
         botLevel: lobby.settings.botLevel
       })),
       lobby.settings.raceLaps,
-      newRaceSeed()
+      newRaceSeed(),
+      raceRulesVersion()
     );
     return { engine, seats, turnIndex: 0 };
   }

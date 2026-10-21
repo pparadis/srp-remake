@@ -76,6 +76,20 @@ describe('sandbox edits', () => {
     );
   });
 
+  it('edits the fuel load to a multiple of 5 between 40 and 100, the tank apart (#148)', () => {
+    const state = newRace(1);
+    const car = state.cars[0]!;
+    editCar(ctx, state, 1, { fuelLoad: 63 });
+    expect(car.setup.fuelLoad).toBe(65);
+    editCar(ctx, state, 1, { fuelLoad: 5 });
+    expect(car.setup.fuelLoad).toBe(40);
+    editCar(ctx, state, 1, { fuelLoad: 250 });
+    expect(car.setup.fuelLoad).toBe(100);
+    expect(car.fuel).toBe(100);
+    editCar(ctx, state, 1, { compound: 'medium' });
+    expect(car.setup.compound).toBe('medium');
+  });
+
   it('switches a car between human and bot', () => {
     const state = newRace();
     editCar(ctx, state, 2, { isBot: false });

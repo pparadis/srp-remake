@@ -14,6 +14,7 @@ export function toEngineRace(raceState: PublicRaceState): RaceState {
     turn: { order, index: Math.max(0, order.indexOf(raceState.activeSeatIndex + 1)) },
     raceLaps: raceState.raceLaps,
     winnerCarId: raceState.winnerCarId,
-    seed: raceState.seed
+    seed: raceState.seed,
+    ...(raceState.rulesVersion ? { rulesVersion: raceState.rulesVersion } : {})
   };
 }

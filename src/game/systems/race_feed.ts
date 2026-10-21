@@ -3,9 +3,22 @@
 // between the states, so a state that carries several turns is said once, as one change.
 import { computeTargets, type RaceContext, type RaceState } from '../race/race_engine';
 import { must } from '../must';
+import { resourcesOf } from '../rules/versions';
 import type { Car } from '../types/car';
 import { lapInProgress } from './lap_progress';
 import { rankPosition } from './track_index';
+
+function sameSetup(a: Car['setup'], b: Car['setup']): boolean {
+  return (
+    a.compound === b.compound &&
+    a.wing === b.wing &&
+    a.fuelLoad === b.fuelLoad &&
+    a.psi.fl === b.psi.fl &&
+    a.psi.fr === b.psi.fr &&
+    a.psi.rl === b.psi.rl &&
+    a.psi.rr === b.psi.rr
+  );
+}
 
 export type FeedKind = 'move' | 'pass' | 'lap' | 'pit' | 'warn' | 'finish' | 'info';
 
@@ -58,10 +71,14 @@ export function feedLines(
     const to = must(cellMap.get(car.cellId), 'cell a car moved to');
     const label = name(car);
     if (car.tire > prev.tire || car.fuel > prev.fuel) {
+      // v3 tops the tank up to the fuel load (and never takes fuel away), so it says how far.
+      const tank = resourcesOf(after, trackIndex).features.fuelLoad
+        ? `refuelled to ${Math.round(car.fuel)}%`
+        : 'full tank';
       say(
         'pit',
         car,
-        `${label} pits: ${car.setup.compound} tires, ${car.setup.wing} wing, full tank`
+        `${label} pits: ${car.setup.compound} tires, ${car.setup.wing} wing, ${tank}`
       );
     } else {
       const cells = Math.round(progress(car) - progress(prev));
@@ -101,6 +118,18 @@ export function feedLines(
           : `${label} starts lap ${lap}/${after.raceLaps}`
       );
     }
+  }
+
+  // A grid setup is not a turn and moves nothing: the car stands where it stood with another setup.
+  for (const car of after.cars) {
+    const prev = was(car);
+    if (!prev || car.cellId !== prev.cellId || sameSetup(car.setup, prev.setup)) continue;
+    const fuel = car.setup.fuelLoad === undefined ? '' : `, ${car.setup.fuelLoad}% fuel`;
+    say(
+      'info',
+      car,
+      `${name(car)} sets up: ${car.setup.compound} tires, ${car.setup.wing} wing${fuel}`
+    );
   }
 
   // A car that did not move on a turn that passed, with moves not to be had, skipped (a grid setup is not a turn).

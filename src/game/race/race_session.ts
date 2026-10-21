@@ -1,13 +1,21 @@
 // The race as one player's page sees it, without Phaser: the solo turn loop (the human's action, then the bots
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
-import { DRAFT_SLINGSHOT_TURNS } from '../constants';
+import { DRAFT_SLINGSHOT_TURNS, HEAVY_FUEL, type Compound } from '../constants';
 import { must } from '../must';
 import { DEFAULT_RULES_VERSION, resourcesOf, rulesOf, type RulesVersion } from '../rules/versions';
 import type { BotLevel, Car } from '../types/car';
 import type { TrackCell, TrackData } from '../types/track';
 import { laneWearFactors, setupFactors, type TargetInfo } from '../systems/movement_system';
-import { buildPlanContext, type BotPlanContext } from '../systems/bot_plan';
+import {
+  bestSetup,
+  buildPlanContext,
+  progressOf,
+  sustainablePace,
+  wearPerCell,
+  type BotPlanContext
+} from '../systems/bot_plan';
+import { isHeavy } from '../systems/resource_system';
 import { rankPosition } from '../systems/track_index';
 import { pitAdvice, stintEstimate } from '../systems/strategy';
 import { createFeelMemory, detectFeel, type FeelEvent } from '../systems/feel_events';
@@ -675,21 +683,57 @@ export class RaceSession {
     };
   }
 
-  // Stint after the refill (100% tire and fuel) for each compound at the wings and psi being set.
+  // The active car with `setup` fitted: on the grid the tank is the fuel load, at a stop it is topped up to it.
+  private afterFitting(setup: Car['setup']): Pick<Car, 'tire' | 'fuel' | 'setup'> {
+    const car = {
+      tire: this.activeCar.tire,
+      fuel: this.activeCar.fuel,
+      setup: this.activeCar.setup
+    };
+    if (this.canSetup()) this.resources().gridSetup(car, setup);
+    else this.resources().pitService(car, structuredClone(setup));
+    return { ...car, tire: 100 };
+  }
+
+  // Stint after the fitting (fresh tires, the fuel the rules give) for each compound at the wings and psi being set.
   pitStints(setup: Car['setup']): PitStints {
     const spineLen = this.ctx.trackIndex.spineLen;
-    const at = (compound: 'soft' | 'hard') =>
-      stintEstimate(
-        { tire: 100, fuel: 100, setup: { ...setup, compound } },
-        spineLen,
-        this.resources()
-      );
-    return { soft: at('soft'), hard: at('hard') };
+    const fitted = this.afterFitting(setup);
+    const at = (compound: Compound) =>
+      stintEstimate({ ...fitted, setup: { ...setup, compound } }, spineLen, this.resources());
+    return { hard: at('hard'), medium: at('medium'), soft: at('soft') };
   }
 
   /** The move points a cycle holds for this setup (the pit modal shows it as pace). */
   paceOf(setup: Car['setup']): number {
-    return this.resources().cycleBudget({ ...this.activeCar, setup });
+    return this.resources().cycleBudget(this.afterFitting(setup));
+  }
+
+  /** What the rules offer the setup panel: the medium compound and a fuel load. */
+  setupFeatures(): { medium: boolean; fuelLoad: boolean } {
+    return this.resources().features;
+  }
+
+  /** The line under the fuel row (rules v3): where the tank ends up, how far it goes and how long it is heavy. */
+  fuelNote(setup: Car['setup']): string {
+    const resources = this.resources();
+    const fitted = this.afterFitting(setup);
+    const perCell = wearPerCell(setup, resources).fuel;
+    const laps = (cells: number) => (cells / this.ctx.trackIndex.spineLen).toFixed(1);
+    const heavy = isHeavy(fitted)
+      ? `heavy for the first ${laps((fitted.fuel - HEAVY_FUEL) / perCell)} laps`
+      : 'not heavy';
+    const refuel = this.canSetup() ? '' : `refuels to ${Math.round(fitted.fuel)}% · `;
+    return `${refuel}covers about ${laps(fitted.fuel / perCell)} laps at 8s · ${heavy}`;
+  }
+
+  /** The setup the bots would take for what is left of the race (the Suggested button of the setup panel). */
+  suggestedSetup(): Car['setup'] {
+    const car = this.activeCar;
+    const plan = this.plan();
+    const cell = must(this.cellMap.get(car.cellId), 'cell of the active car');
+    const cells = Math.max(0, this.raceLaps * plan.spineLen - progressOf(car, cell, plan));
+    return bestSetup(cells, this.resources(), this.canSetup() ? 0 : car.fuel);
   }
 
   private resources() {
@@ -730,7 +774,10 @@ export class RaceSession {
       ...(target.slingshotOnly ? { slingshotOnly: true } : {}),
       ...(this.endsTucked(cell.id) ? { tucksIn: true } : {}),
       tireBefore: this.activeCar.tire,
-      fuelBefore: this.activeCar.fuel
+      fuelBefore: this.activeCar.fuel,
+      ...(this.resources().features.fuelLoad && target.distance > 0
+        ? { fuelPerCell: target.fuelCost / target.distance }
+        : {})
     };
   }
 
@@ -794,7 +841,19 @@ export class RaceSession {
       drafting: (car.draftTurns ?? 0) >= 1,
       draftTurns: car.draftTurns ?? 0,
       stint: stintEstimate(car, this.ctx.trackIndex.spineLen, this.resources()),
-      advice: pitAdvice(car, must(this.cellMap.get(car.cellId), 'cell of a car'), this.plan())
+      advice: pitAdvice(car, must(this.cellMap.get(car.cellId), 'cell of a car'), this.plan()),
+      ...this.sizedHud(car)
+    };
+  }
+
+  // Rules v3: the cap of a move, the heavy tank and the pace the car can keep to the flag.
+  private sizedHud(car: Car): Pick<HudCar, 'cap' | 'heavy' | 'pace'> | Record<string, never> {
+    const resources = this.resources();
+    if (!resources.features.fuelLoad) return {};
+    return {
+      cap: resources.moveCap(car),
+      heavy: isHeavy(car),
+      pace: sustainablePace(car, must(this.cellMap.get(car.cellId), 'cell of a car'), this.plan())
     };
   }
 
@@ -937,6 +996,7 @@ export class RaceSession {
         fuel: car.fuel,
         compound: car.setup.compound,
         wing: car.setup.wing,
+        fuelLoad: this.resources().features.fuelLoad ? (car.setup.fuelLoad ?? 100) : null,
         budgetLeft: budgetLeftOf(car, this.resources()),
         draftTurns: car.draftTurns ?? 0,
         isBot: car.isBot,

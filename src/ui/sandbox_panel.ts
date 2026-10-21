@@ -17,6 +17,8 @@ export interface SandboxSnapshot {
     fuel: number;
     compound: Compound;
     wing: WingLevel;
+    /** The fuel load of the setup; null on rules that have none (before v3), which hides the field. */
+    fuelLoad: number | null;
     budgetLeft: number;
     draftTurns: number;
     isBot: boolean;
@@ -54,8 +56,9 @@ const TEMPLATE = `
   <label>Moves left <input data-testid="sandbox-budget" type="number" min="0" max="42" /></label>
   <label>Draft turns <input data-testid="sandbox-draft" type="number" min="0" max="9" /></label>
   <label>Compound
-    <select data-testid="sandbox-compound"><option value="soft">Soft</option><option value="hard">Hard</option></select>
+    <select data-testid="sandbox-compound"><option value="soft">Soft</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
   </label>
+  <label data-testid="sandbox-fuel-load-field">Fuel load % <input data-testid="sandbox-fuel-load" type="number" min="40" max="100" step="5" /></label>
   <label>Wing
     <select data-testid="sandbox-wing"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
   </label>
@@ -88,7 +91,10 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
   let last: SandboxSnapshot | null = null;
   const carId = () => last?.activeCarId ?? 0;
   const edit = (patch: CarEdit) => send({ type: 'edit', carId: carId(), edit: patch });
-  const num = (id: string, key: 'lapCount' | 'tire' | 'fuel' | 'budgetLeft' | 'draftTurns') =>
+  const num = (
+    id: string,
+    key: 'lapCount' | 'tire' | 'fuel' | 'budgetLeft' | 'draftTurns' | 'fuelLoad'
+  ) =>
     q<HTMLInputElement>(id).addEventListener('change', (e) => {
       const value = (e.target as HTMLInputElement).valueAsNumber;
       if (Number.isFinite(value)) edit({ [key]: value });
@@ -96,6 +102,7 @@ export function mountSandboxPanel(parent: Element): HTMLElement {
   num('sandbox-lap', 'lapCount');
   num('sandbox-tire', 'tire');
   num('sandbox-fuel', 'fuel');
+  num('sandbox-fuel-load', 'fuelLoad');
   num('sandbox-budget', 'budgetLeft');
   num('sandbox-draft', 'draftTurns');
   q('sandbox-car').addEventListener('change', (e) =>
@@ -164,4 +171,6 @@ export function renderSandboxPanel(root: HTMLElement, s: SandboxSnapshot) {
   setValue(q<HTMLInputElement>('sandbox-draft'), String(s.car.draftTurns));
   setValue(q<HTMLSelectElement>('sandbox-compound'), s.car.compound);
   setValue(q<HTMLSelectElement>('sandbox-wing'), s.car.wing);
+  q('sandbox-fuel-load-field').hidden = s.car.fuelLoad === null;
+  setValue(q<HTMLInputElement>('sandbox-fuel-load'), String(s.car.fuelLoad ?? ''));
 }

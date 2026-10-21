@@ -82,6 +82,24 @@ describe('hud', () => {
     expect(root.querySelector('[data-testid="hud-state"]')).toHaveProperty('hidden', true);
   });
 
+  it('rules v3: shows the medium compound, the cap of a move, the heavy tank and the pace to the flag', () => {
+    renderHud(root, snap({ cars: [car(2, { compound: 'medium', cap: 8, heavy: true, pace: 7 })] }));
+    expect(text(root, 'hud-compound')).toBe('MED');
+    expect(root.querySelector('[data-testid="hud-compound"]')!.className).toContain('is-medium');
+    const pace = root.querySelector<HTMLElement>('[data-testid="hud-pace"]')!;
+    expect(pace.hidden).toBe(false);
+    expect(pace.textContent).toBe('Max 8 a move · HEAVY (-1 pace) · pace to the flag: 7');
+    expect(pace.classList.contains('is-heavy')).toBe(true);
+    renderHud(root, snap({ cars: [car(2, { cap: 9, heavy: false, pace: 9 })] }));
+    expect(pace.textContent).toBe('Max 9 a move · pace to the flag: 9');
+    expect(pace.classList.contains('is-heavy')).toBe(false);
+  });
+
+  it('says nothing about a cap or a pace before rules v3', () => {
+    renderHud(root, snap());
+    expect(root.querySelector<HTMLElement>('[data-testid="hud-pace"]')!.hidden).toBe(true);
+  });
+
   it('flags low resources as crit and shows the hard compound and pit state', () => {
     renderHud(
       root,

@@ -326,3 +326,101 @@ test("the server's bots set up on the grid for the distance; a human keeps the p
     assert.equal(bot.setup.wing, 'low');
   }
 });
+
+// Rules v3 (#148). The server plays one version for every race: the engine's default, or RULES_VERSION.
+function playRules(t: test.TestContext, version: string) {
+  const before = process.env.RULES_VERSION;
+  process.env.RULES_VERSION = version;
+  t.after(() => {
+    if (before === undefined) delete process.env.RULES_VERSION;
+    else process.env.RULES_VERSION = before;
+  });
+}
+
+const V3_SETUP = {
+  compound: 'medium',
+  psi: { fl: 32, fr: 32, rl: 32, rr: 32 },
+  wing: 'medium',
+  fuelLoad: 60
+};
+
+test('rules v3: the race says its rules, the human is dealt medium tires and a fuel load, and a grid setup takes both', async (t) => {
+  playRules(t, 'v3');
+  const { app, token, lobbyId, raceState, submit } = await startRace();
+  t.after(() => app.close());
+  assert.equal(raceState.rulesVersion, 'v3');
+  assert.deepEqual(
+    [raceState.cars[0]!.setup.compound, raceState.cars[0]!.setup.fuelLoad, raceState.cars[0]!.fuel],
+    ['medium', 95, 95]
+  );
+
+  const bad = await submit({ type: 'setup', setup: { ...V3_SETUP, fuelLoad: 62 } }, 'load-bad');
+  assert.equal(bad.statusCode, 409);
+  assert.equal((bad.json() as { reason: string }).reason, 'invalid_setup');
+
+  const ok = await submit({ type: 'setup', setup: V3_SETUP }, 'load-ok');
+  assert.equal(ok.statusCode, 200);
+  const car = (await readLobby(app, lobbyId, token)).raceState.cars[0]!;
+  assert.deepEqual([car.setup.compound, car.setup.fuelLoad, car.fuel], ['medium', 60, 60]);
+});
+
+test('rules v2 (the default): the medium compound and a fuel load are refused', async (t) => {
+  const { app, raceState, submit } = await startRace();
+  t.after(() => app.close());
+  assert.equal(raceState.rulesVersion, 'v2');
+  for (const [name, setup] of [
+    ['medium', { ...V3_SETUP, fuelLoad: undefined }],
+    ['fuel load', { ...V3_SETUP, compound: 'hard' }]
+  ] as const) {
+    const res = await submit({ type: 'setup', setup }, `v2-${name}`);
+    assert.equal(res.statusCode, 409, name);
+    assert.equal((res.json() as { reason: string }).reason, 'invalid_setup', name);
+  }
+});
+
+test('rules v3: a pit stop fits fresh tires and refuels to the load, and never takes fuel away', async (t) => {
+  playRules(t, 'v3');
+  for (const [fuelBefore, load, fuelAfter] of [
+    [25, 80, 80],
+    [90, 60, 90]
+  ] as const) {
+    const store = new LobbyStore();
+    const app = await createApp(TEST_CONFIG, { logger: false, lobbyStore: store });
+    t.after(() => app.close());
+    const created = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/v1/lobbies',
+        payload: { name: 'Host', settings: { totalCars: 2, humanCars: 1, botCars: 1, raceLaps: 3 } }
+      })
+    ).json() as { lobby: { lobbyId: string }; playerToken: string };
+    const { lobbyId } = created.lobby;
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/lobbies/${lobbyId}/start`,
+      payload: { playerToken: created.playerToken }
+    });
+    Object.assign(store.getLobby(lobbyId)!.race!.engine.cars[0]!, {
+      cellId: 'Z01_L0_00',
+      tire: 20,
+      fuel: fuelBefore
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/lobbies/${lobbyId}/turns`,
+      payload: {
+        playerToken: created.playerToken,
+        clientCommandId: `pit-${load}`,
+        revision: 0,
+        action: {
+          type: 'pit',
+          targetCellId: 'Z02_L0_00',
+          setup: { ...V3_SETUP, fuelLoad: load }
+        }
+      }
+    });
+    assert.equal(res.statusCode, 200);
+    const car = (await readLobby(app, lobbyId, created.playerToken)).raceState.cars[0]!;
+    assert.deepEqual([car.tire, car.fuel], [100, fuelAfter]);
+  }
+});

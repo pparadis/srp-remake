@@ -582,6 +582,7 @@ function lobbyOf(race: RaceState, over: Partial<PublicLobby> = {}): PublicLobby 
       activeSeatIndex: active.carId - 1,
       winnerCarId: race.winnerCarId,
       seed: race.seed,
+      ...(race.rulesVersion ? { rulesVersion: race.rulesVersion } : {}),
       cars: race.cars.map((car) => ({
         ...structuredClone(car),
         seatIndex: car.carId - 1,
@@ -1040,5 +1041,78 @@ describe('RaceSession: following a car (#135)', () => {
     const waiting = lobbyOf(createRace(session.ctx, SEATS, 2, 0), { status: 'WAITING' });
     session.applyServerState(waiting, 'host');
     expect(session.followed).toBeNull();
+  });
+});
+
+// The setup panel on rules v3 (#148): the three compounds, the fuel load, the Suggested setup.
+describe('setup panel data on rules v3', () => {
+  const v3 = () => solo({ botCars: 1, raceLaps: 5, rulesVersion: 'v3' });
+
+  it('offers the medium compound and the fuel load on v3 and neither on v2', () => {
+    expect(v3().setupFeatures()).toEqual({ medium: true, fuelLoad: true });
+    expect(solo().setupFeatures()).toEqual({ medium: false, fuelLoad: false });
+  });
+
+  it('estimates a stint for each compound from the tank the load gives, not from a full one', () => {
+    const session = v3();
+    const setup = session.activeCar.setup;
+    const stints = session.pitStints({ ...setup, fuelLoad: 60 });
+    expect(stints.hard.cells).toBeGreaterThan(stints.medium.cells);
+    expect(stints.medium.cells).toBeGreaterThan(stints.soft.cells);
+    // 60 fuel at 0.65 a cell is about 92 cells, whatever the tires could do
+    const full = session.pitStints({ ...setup, fuelLoad: 100 });
+    expect(stints.hard.cells).toBeLessThan(full.hard.cells);
+  });
+
+  it('says how far the tank goes and how long it is heavy; a stop says where it tops up to', () => {
+    const session = v3();
+    const setup = session.activeCar.setup;
+    expect(session.fuelNote({ ...setup, fuelLoad: 100 })).toMatch(
+      /^covers about 5\.\d laps at 8s · heavy for the first 1\.\d laps$/
+    );
+    expect(session.fuelNote({ ...setup, fuelLoad: 70 })).toMatch(/not heavy$/);
+    // after the first move the setup is closed: a panel from here on is a stop, which tops up to the load
+    session.activeCar.setupLocked = true;
+    session.activeCar.fuel = 20;
+    expect(session.fuelNote({ ...setup, fuelLoad: 80 })).toMatch(/^refuels to 80% · covers about/);
+    expect(session.fuelNote({ ...setup, fuelLoad: 60 })).toMatch(/^refuels to 60% · /);
+    session.activeCar.fuel = 90;
+    expect(session.fuelNote({ ...setup, fuelLoad: 60 })).toMatch(/^refuels to 90% · /);
+  });
+
+  it('suggests the setup the bots would take, with a fuel load the rules allow', () => {
+    const session = v3();
+    const suggested = session.suggestedSetup();
+    expect(['hard', 'medium', 'soft']).toContain(suggested.compound);
+    expect(suggested.fuelLoad! % 5).toBe(0);
+    expect(suggested.fuelLoad!).toBeGreaterThanOrEqual(40);
+    expect(session.ctx).toBeDefined();
+  });
+
+  it('an online race plays the rules the server says, with its own fuel load on the HUD card', () => {
+    const session = new RaceSession(TRACK, {
+      totalCars: 2,
+      humanCars: 2,
+      botCars: 0,
+      raceLaps: 5,
+      seed: 0
+    });
+    expect(session.setupFeatures().fuelLoad).toBe(false);
+    const race = createRace(session.ctx, SEATS, 5, 0, 'v3');
+    expect(session.applyServerState(lobbyOf(race), 'host')).toMatchObject({ applied: true });
+    expect(session.setupFeatures()).toEqual({ medium: true, fuelLoad: true });
+    expect(session.canSetup()).toBe(true);
+    const mine = session
+      .hudSnapshot(view())!
+      .cars.find((c) => c.carId === session.localCar()!.carId);
+    expect(mine).toMatchObject({ compound: 'medium', cap: 8, heavy: true });
+  });
+
+  it('the pace of a setup follows the tank: one point less while it is heavy', () => {
+    const session = v3();
+    const setup = session.activeCar.setup;
+    expect(session.paceOf({ ...setup, fuelLoad: 100 })).toBe(
+      session.paceOf({ ...setup, fuelLoad: 70 }) - 1
+    );
   });
 });

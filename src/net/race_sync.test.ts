@@ -87,6 +87,11 @@ describe('toEngineRace', () => {
     expect(race.turn.order[race.turn.index]).toBe(3); // seat 2 = car 3
   });
 
+  it('carries the rules the server plays, and none from a server that predates the field (#148)', () => {
+    expect(toEngineRace({ ...snapshot, rulesVersion: 'v3' }).rulesVersion).toBe('v3');
+    expect(toEngineRace(snapshot).rulesVersion).toBeUndefined();
+  });
+
   it('carries the winner', () => {
     expect(toEngineRace({ ...snapshot, winnerCarId: 2 }).winnerCarId).toBe(2);
   });

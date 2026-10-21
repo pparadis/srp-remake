@@ -64,8 +64,11 @@ export async function setLobbySettings(
     laps?: number;
     timer?: 0 | 30 | 60 | 120;
     botLevel?: 'easy' | 'normal' | 'hard';
+    /** Solo only: the rules version of the Rules select. */
+    rules?: 'v1' | 'v2' | 'v3';
   }
 ) {
+  if (s.rules !== undefined) await page.getByTestId('lobby-rules').selectOption(s.rules);
   if (s.timer !== undefined) {
     await page.getByTestId('lobby-turn-timer').selectOption(String(s.timer));
   }
@@ -94,14 +97,20 @@ export async function startRace(page: Page) {
 /** Home -> Quick race -> settings -> Start; ends on the Race screen. */
 export async function quickRace(
   page: Page,
-  opts: { bots?: number; laps?: number; botLevel?: 'easy' | 'normal' | 'hard' } = {}
+  opts: {
+    bots?: number;
+    laps?: number;
+    botLevel?: 'easy' | 'normal' | 'hard';
+    rules?: 'v1' | 'v2' | 'v3';
+  } = {}
 ) {
   await gotoHome(page);
   await page.getByTestId('home-quick').click();
   await setLobbySettings(page, {
     bots: opts.bots ?? 2,
     laps: opts.laps ?? 1,
-    ...(opts.botLevel ? { botLevel: opts.botLevel } : {})
+    ...(opts.botLevel ? { botLevel: opts.botLevel } : {}),
+    ...(opts.rules ? { rules: opts.rules } : {})
   });
   await startRace(page);
 }

@@ -1,4 +1,5 @@
 import type { RaceAction, RejectReason } from '../game/race/race_engine';
+import type { RulesVersion } from '../game/rules/ids';
 import type { BotLevel, Car } from '../game/types/car';
 
 // What a client submits for its turn; identical to the race engine's action.
@@ -32,6 +33,8 @@ export interface PublicRaceState {
   winnerCarId: number | null;
   /** Per-race seed: decides the bots' personalities and the grid (see docs/bot-system.md). */
   seed: number;
+  /** The rules the race plays; a server that predates the field plays the default. */
+  rulesVersion?: RulesVersion;
   cars: PublicRaceCar[];
   /** Time left for the active human seat, measured by the server; absent when the lobby has no timer. */
   turnRemainingMs?: number;

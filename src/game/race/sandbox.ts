@@ -1,4 +1,11 @@
-import { MOVE_CYCLE, WING_LEVELS, type Compound, type WingLevel } from '../constants';
+import {
+  FUEL_LOAD_MIN,
+  FUEL_LOAD_STEP,
+  MOVE_CYCLE,
+  WING_LEVELS,
+  type Compound,
+  type WingLevel
+} from '../constants';
 import { must } from '../must';
 import type { ResourceRules } from '../rules/resource_rules';
 import { DEFAULT_RULES_VERSION, resourcesOf } from '../rules/versions';
@@ -15,6 +22,8 @@ export interface CarEdit {
   fuel?: number;
   compound?: Compound;
   wing?: WingLevel;
+  /** The setup's fuel load (rules v3): a multiple of 5 from 40 to 100. The tank itself is the `fuel` edit. */
+  fuelLoad?: number;
   /** Move points left in the cycle (0..the car's cycle budget); a turn can spend at most min(9, this). */
   budgetLeft?: number;
   /** Consecutive turns begun in a draft (the slingshot needs DRAFT_SLINGSHOT_TURNS). */
@@ -57,6 +66,10 @@ export function editCar(
   if (edit.fuel !== undefined) car.fuel = clamp(edit.fuel, 0, 100);
   if (edit.compound !== undefined) car.setup = { ...car.setup, compound: edit.compound };
   if (edit.wing !== undefined) car.setup = { ...car.setup, wing: edit.wing };
+  if (edit.fuelLoad !== undefined) {
+    const load = Math.round(clamp(edit.fuelLoad, FUEL_LOAD_MIN, 100) / FUEL_LOAD_STEP);
+    car.setup = { ...car.setup, fuelLoad: load * FUEL_LOAD_STEP };
+  }
   if (edit.draftTurns !== undefined) car.draftTurns = clamp(edit.draftTurns, 0, 9);
   if (edit.budgetLeft !== undefined) {
     car.moveCycle = cycleWithBudgetLeft(
