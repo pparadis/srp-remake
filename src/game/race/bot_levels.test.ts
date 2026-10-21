@@ -90,6 +90,24 @@ describe('bot levels benchmark', () => {
   });
 });
 
+// Rules v3 (#148): the same ladder with the pace plan, the fuel load and the three compounds. The set is wider than
+// v1's because Hard's edge over Normal is a few tenths of a place and 4 seeds left it inside the noise.
+describe('bot levels benchmark on rules v3', () => {
+  const lineup: BotPolicy[] = ['hard', 'normal', 'easy', 'autopilot'];
+  const v3 = runBench(ctx, {
+    lineup,
+    laps: [5, 8, 12],
+    seeds: [1, 2, 3, 4, 5, 6, 7, 8],
+    rulesVersion: 'v3'
+  });
+
+  it('finishes Hard ahead of Normal ahead of Easy ahead of Autopilot (lower is better)', () => {
+    const order = lineup.map((p) => v3.stats.get(p)!.avgFinish);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order[0]).toBeLessThan(order[1]!);
+  });
+});
+
 // The balance gate of the wing (issue #48): `npx tsx tools/bot_bench.ts --setups` prints the whole table.
 describe('setup sweep', () => {
   const rows = setupSweep(ctx, { laps: [3, 4, 5, 6, 7, 8, 9, 10], seeds: [1, 2] });
@@ -103,5 +121,29 @@ describe('setup sweep', () => {
     expect(gate.noSetupDominates).toBe(true);
     // and the extremes differ: a sprint wants Low wing, a stint-length race High wing
     expect(rows[0]!.best).not.toBe(rows[rows.length - 1]!.best);
+  });
+});
+
+// The same gate on rules v3, with the compounds: every compound is the fastest at some race length (soft in a sprint,
+// medium in between, hard when the stint is stretched), and no setup is the fastest everywhere. A lone car: against
+// traffic one seed's tow and blocking move a result by more than the gap between two setups. The wings are printed
+// by the tool; Low wing wins by 0.2 moves at one length, which is tuning for the last phase of #148.
+describe('setup sweep on rules v3', () => {
+  const rows = setupSweep(ctx, {
+    laps: [3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+    cars: 1,
+    rulesVersion: 'v3'
+  });
+  const gate = setupSweepGate(rows);
+
+  it('has every compound fastest at some race length', () => {
+    expect(gate.everyCompoundWinsSomewhere, gate.winners.join(', ')).toBe(true);
+  });
+
+  it('has no single setup fastest at every race length', () => {
+    expect(gate.noSetupDominates).toBe(true);
+    expect(rows[0]!.choices[rows[0]!.best]).not.toEqual(
+      rows[rows.length - 1]!.choices[rows[rows.length - 1]!.best]
+    );
   });
 });

@@ -50,7 +50,7 @@ export type Compound = (typeof COMPOUNDS)[number];
 // `tireLife`: stints (of capacity cells) a set lasts at the normal pace.
 export const COMPOUND_TABLE: Record<Compound, { cap: number; budget: number; tireLife: number }> = {
   hard: { cap: 8, budget: 36, tireLife: 1.4 },
-  medium: { cap: 8, budget: 39, tireLife: 1.1 },
+  medium: { cap: 8, budget: 39, tireLife: 1.0 },
   soft: { cap: 9, budget: 42, tireLife: 0.95 }
 };
 // Wear multiplier by the move points a move spends: 7 or less is conservative, 8 normal, 9 high consumption.

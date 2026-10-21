@@ -36,6 +36,10 @@ export interface Personality {
   // Cells added to the gain of a stop, and to the window of passes it may be taken in (+ = earlier).
   pitGain: number;
   pitWindow: number;
+  // v3 pace plan (bot_plan sustainablePace): points lost per move point above the pace the car can keep to the flag,
+  // and the share of the distance it keeps in hand when working that pace out (negative: counts on running low).
+  paceWeight: number;
+  paceReserve: number;
 }
 
 const BASE: Personality = {
@@ -49,7 +53,9 @@ const BASE: Personality = {
   queue: 0,
   block: 0,
   pitGain: 0,
-  pitWindow: 0
+  pitWindow: 0,
+  paceWeight: 30,
+  paceReserve: 0
 };
 
 // The table. The pit strategist's sign comes from the seed (pitSide): early + / late -.
@@ -67,7 +73,9 @@ export const PERSONALITIES: Record<PersonalityKey, Personality> = {
     shareWeight: 0,
     innerLane: 0.6,
     overtake: 8,
-    queue: 4
+    queue: 4,
+    paceWeight: 12,
+    paceReserve: -0.06
   },
   // even spend (8-8-8-8-8: the share weight outweighs a cell of progress), inner lane, few lane changes
   steady: {
@@ -76,7 +84,9 @@ export const PERSONALITIES: Record<PersonalityKey, Personality> = {
     label: 'Steady',
     shareWeight: 48,
     innerLane: 1,
-    laneChange: -3
+    laneChange: -3,
+    paceWeight: 45,
+    paceReserve: 0.06
   },
   // hunts positions: passes with lane changes, hates queuing, accepts the +1 lane change cost
   racer: {
@@ -101,6 +111,11 @@ export const PERSONALITIES: Record<PersonalityKey, Personality> = {
   // plain Normal, but stops earlier or later than the rest
   strategist: { ...BASE, key: 'strategist', label: 'Strategist', innerLane: 0.8 }
 };
+
+// Hard's taste on rules v3 (#148), where wear follows the move size and the lap is a race against the tires: a little
+// more value on the inner lane than v1 and v2 want. On v3 it is +0.06 / +0.08 places over Normal (0.6 is a tie, which
+// is all Hard's lookahead earns once the pace plan is in); on v1 and v2 it would change nothing, so they keep 0.6.
+export const ADAPTIVE_V3: Personality = { ...PERSONALITIES.adaptive, innerLane: 0.9 };
 
 // What Hard adds to its personality: it reads the field instead of only its own plan.
 export const HARD_ADAPT = { overtake: 14, queue: 8, block: 0, innerLane: 0.3 } as const;

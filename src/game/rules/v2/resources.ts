@@ -35,6 +35,9 @@ export const resources: ResourceRules = {
     const tireRate = setup.compound === 'soft' ? MOVE_RATES.softTire : MOVE_RATES.hardTire;
     return { tireRate, fuelRate: MOVE_RATES.fuel, setup };
   },
+  sizeFactor() {
+    return { fuel: 1, tire: 1 };
+  },
   gridSetup(car, setup) {
     car.setup = structuredClone(setup);
   },

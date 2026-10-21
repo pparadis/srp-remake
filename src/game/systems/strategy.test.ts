@@ -39,7 +39,8 @@ describe('stintEstimate', () => {
     const est = stintEstimate(car(), 28);
     expect(est.cells).toBeCloseTo(200, 5);
     expect(est.laps).toBeCloseTo(200 / 28, 5);
-    expect(est.moves).toBeCloseTo(25, 5);
+    // soft's cycle holds 41 points, so a move averages 8.2 cells
+    expect(est.moves).toBeCloseTo(200 / 8.2, 5);
   });
 
   it('hard lasts longer than soft until fuel becomes the limit', () => {

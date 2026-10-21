@@ -2,8 +2,10 @@
 // One policy per grid slot; rotating the line-up gives every policy every grid slot (and every
 // starting tire), so pole position and the default setups are not a bias. Each race has a seed
 // (it decides the bots' personalities); results can be cut by policy, personality or grid slot.
+import { COMPOUNDS } from '../constants';
 import { must } from '../must';
 import { SETUP_CHOICES } from '../systems/bot_plan';
+import { recommendedFuel } from '../systems/resource_system';
 import { trackFwd } from '../systems/track_index';
 import type { CarSetup } from '../types/car';
 import { getRemainingBudget } from '../systems/move_budget_system';
@@ -309,32 +311,57 @@ export function runBench(
   return { races: results.length, stats, results, overtakesPerRace };
 }
 
-// Setup sweep: how many turns car 1 needs to finish on each compound and wing, at each race length, with three
-// Normal bots (on the grid setup they pick) around it. Fewer is faster. The balance gate of the wing (issue #48):
+// Setup sweep: how many turns car 1 needs to finish on each compound and wing, at each race length, with `cars - 1`
+// Normal bots (on the grid setup they pick) around it (alone with cars = 1: no traffic, no tow, so the numbers are the
+// economy of the setups and nothing else). Fewer is faster. The balance gate of the wing (issue #48):
 // every wing level is the fastest at some length, and no one setup is the fastest at every length.
 export interface SetupSweepRow {
   laps: number;
-  // Mean turns to finish, one entry per SETUP_CHOICES, in that order.
+  // The setups swept at this length (v3 fuels them with the fuel a race of 8s needs).
+  choices: CarSetup[];
+  // Mean turns to finish, one entry per choice, in that order.
   moves: number[];
-  // Index into SETUP_CHOICES of the fastest (the first one on a tie).
+  // Index into `choices` of the fastest (the first one on a tie).
   best: number;
+}
+
+// The compound and wing levels a version sweeps: hard and soft before v3, all three compounds from v3 on.
+function sweepChoices(rulesVersion: RulesVersion | undefined, laps: number, spineLen: number) {
+  const resources = resourcesOf({ rulesVersion, raceLaps: laps }, { spineLen });
+  if (!resources.features.medium) return SETUP_CHOICES.map((c) => structuredClone(c));
+  const fuelLoad = recommendedFuel({ raceLaps: laps, spineLen });
+  return COMPOUNDS.flatMap((compound) =>
+    (['medium', 'low', 'high'] as const).map((wing) => ({
+      compound,
+      psi: { fl: 32, fr: 32, rl: 32, rr: 32 },
+      wing,
+      fuelLoad
+    }))
+  );
 }
 
 export function setupSweep(
   ctx: RaceContext,
-  { laps, seeds = [1] }: { laps: number[]; seeds?: number[] }
+  {
+    laps,
+    seeds = [1],
+    rulesVersion,
+    cars = 4
+  }: { laps: number[]; seeds?: number[]; rulesVersion?: RulesVersion; cars?: number }
 ): SetupSweepRow[] {
   return laps.map((lapCount) => {
-    const moves = SETUP_CHOICES.map((choice) => {
+    const choices = sweepChoices(rulesVersion, lapCount, ctx.trackIndex.spineLen);
+    const moves = choices.map((choice) => {
       let total = 0;
       for (const seed of seeds) {
         const result = playBenchRace(
           ctx,
-          ['normal', 'normal', 'normal', 'normal'],
+          Array.from({ length: cars }, () => 'normal' as const),
           lapCount,
           seed,
           undefined,
-          [choice]
+          [choice],
+          rulesVersion
         );
         total += must(
           result.finishers.find((f) => f.slot === 0),
@@ -347,18 +374,21 @@ export function setupSweep(
     moves.forEach((m, i) => {
       if (m < must(moves[best], 'moves of the best setup') - 1e-9) best = i;
     });
-    return { laps: lapCount, moves, best };
+    return { laps: lapCount, choices, moves, best };
   });
 }
 
-// The gate on a sweep: which wing levels win somewhere, and whether one setup wins everywhere.
+// The gate on a sweep: which wing levels and compounds win somewhere, and whether one setup wins everywhere.
 export function setupSweepGate(rows: SetupSweepRow[]) {
-  const winners = new Set(rows.map((r) => r.best));
-  const choiceOf = (i: number) => must(SETUP_CHOICES[i], 'setup choice');
-  const wings = new Set([...winners].map((i) => choiceOf(i).wing));
+  const winners = rows.map((r) => must(r.choices[r.best], 'setup choice'));
+  const keys = new Set(winners.map((c) => `${c.compound}/${c.wing}`));
   return {
-    everyWingWinsSomewhere: wings.size === 3,
-    noSetupDominates: winners.size > 1,
-    winners: [...winners].map((i) => `${choiceOf(i).compound}/${choiceOf(i).wing}`)
+    everyWingWinsSomewhere: new Set(winners.map((c) => c.wing)).size === 3,
+    // 2 compounds before v3 (hard, soft), 3 from v3 on
+    everyCompoundWinsSomewhere:
+      new Set(winners.map((c) => c.compound)).size ===
+      new Set(rows.flatMap((r) => r.choices.map((c) => c.compound))).size,
+    noSetupDominates: keys.size > 1,
+    winners: [...keys]
   };
 }
