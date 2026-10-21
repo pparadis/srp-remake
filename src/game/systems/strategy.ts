@@ -31,7 +31,11 @@ export function stintEstimate(
   resources: ResourceRules
 ): StintEstimate {
   const cells = cellsUntilEmpty(car.tire, car.fuel, car.setup, resources, 1);
-  return { cells, laps: cells / spineLen, moves: cells / (MOVE_CYCLE.budget / MOVE_CYCLE.moves) };
+  return {
+    cells,
+    laps: cells / spineLen,
+    moves: cells / (resources.cycleBudget(car) / MOVE_CYCLE.moves)
+  };
 }
 
 /** Cells until the car stands on the lane-1 cell next to PIT_ENTRY, null when the track has no pit. */

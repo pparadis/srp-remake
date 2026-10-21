@@ -11,6 +11,7 @@ import {
   turnOrderOf,
   personalityFor,
   personalityOf,
+  ADAPTIVE_V3,
   PERSONALITIES,
   type PersonalityKey
 } from '../systems/bot_style';
@@ -316,12 +317,15 @@ export function decideBotAction(
   }
   const level: BotPolicy = policy ?? car.botLevel ?? 'normal';
   const targets = computeTargets(ctx, state, car);
+  const resources = resourcesOf(state, ctx.trackIndex);
   const plan: BotPlanContext = {
-    ...buildPlanContext(ctx.trackIndex, state.raceLaps, resourcesOf(state, ctx.trackIndex)),
+    ...buildPlanContext(ctx.trackIndex, state.raceLaps, resources),
     // Humans (and the autopilot standing in for one) have no style; bots draw theirs from the race seed.
     style:
       level === 'hard'
-        ? PERSONALITIES.adaptive
+        ? resources.features.fuelLoad
+          ? ADAPTIVE_V3
+          : PERSONALITIES.adaptive
         : !car.isBot
           ? PERSONALITIES.balanced
           : car.style

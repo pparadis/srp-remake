@@ -72,7 +72,20 @@ function isValidFuelLoad(fuelLoad: number | undefined): boolean {
   );
 }
 
+// One rules object per race length, so a caller can key a cache on it (the bots' setup search does).
+const rulesByRace = new Map<string, ResourceRules>();
+
 export const resourceRulesFor: ResourceRulesFor = (race) => {
+  const key = `${race.raceLaps}x${race.spineLen}`;
+  let rules = rulesByRace.get(key);
+  if (!rules) {
+    rules = makeRules(race);
+    rulesByRace.set(key, rules);
+  }
+  return rules;
+};
+
+function makeRules(race: RaceScale): ResourceRules {
   const rules: ResourceRules = {
     isValidSetup(setup) {
       const { psi } = SETUP_LIMITS;
@@ -106,6 +119,7 @@ export const resourceRulesFor: ResourceRulesFor = (race) => {
         setup
       };
     },
+    sizeFactor: moveFactor,
     gridSetup(car, setup) {
       car.setup = structuredClone(setup);
       car.fuel = fuelLoadOf(setup);
@@ -118,4 +132,4 @@ export const resourceRulesFor: ResourceRulesFor = (race) => {
     features: { medium: true, fuelLoad: true }
   };
   return rules;
-};
+}

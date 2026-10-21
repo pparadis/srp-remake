@@ -9,6 +9,7 @@ import {
   isFinalLap,
   resourceWeights,
   stopIsDue,
+  sustainablePace,
   wearPerCell,
   type BotPlanContext
 } from './bot_plan';
@@ -297,6 +298,8 @@ export function evaluateNormalTargets(
     plan && from && !inPitLane ? resourceWeights(car, from, plan) : { tire: 1, fuel: 1 };
   const wear = wearPerCell(car.setup, resources);
   const style = plan?.style ?? PERSONALITIES.balanced;
+  // The largest move size the car can keep to the flag (v3): each point above it costs style.paceWeight.
+  const pace = plan && from && !inPitLane ? sustainablePace(car, from, plan) : fullCap;
 
   let selectedCellId: string | null = null;
   let bestScore = -Infinity;
@@ -317,6 +320,9 @@ export function evaluateNormalTargets(
     // Budget cycle: unspendable leftovers are lost, and a spend above the even share starves the
     // remaining moves (no room for a lane change or a gap).
     // (pit-lane moves are priced into the stop decision itself).
+    if (cell?.laneIndex !== PIT_LANE) {
+      score -= Math.max(0, (info.moveSpend ?? info.distance) - pace) * style.paceWeight;
+    }
     if (movesLeft > 1 && cell?.laneIndex !== PIT_LANE) {
       const spend = info.moveSpend ?? info.distance;
       const left = budget - spend;

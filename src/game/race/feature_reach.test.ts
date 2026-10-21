@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
+import { must } from '../must';
 import type { TrackData } from '../types/track';
 import { lapAhead } from '../systems/track_index';
 import {
@@ -159,5 +160,131 @@ describe('rules come up in play', () => {
       `reach over ${long.races} 12-lap races: pit stops ${(long.pitStops / long.races).toFixed(1)}/race`
     );
     expect(long.pitStops / long.races, 'pit stops per race').toBeGreaterThanOrEqual(1);
+  });
+});
+
+// Rules v3 (#148): tire and fuel have to matter at any race length. Bot-only races again, the lineup a field would be
+// (hard, normal, easy, normal), each car's resources read the moment it crosses the line.
+interface ResourceReach {
+  cars: number;
+  finishFuel: number[];
+  finishTire: number[];
+  moves: number;
+  /** moves of 7 move points or less, made with tire and fuel in hand (a crawl at the empty cap is not a choice) */
+  conservative: number;
+  softMoves: number;
+  softNines: number;
+  /** cars that made at least one move on an empty tire or tank */
+  crawled: number;
+  pitStops: number;
+  races: number;
+}
+
+function playResources(laps: number, seeds: number[]): ResourceReach {
+  const reach: ResourceReach = {
+    cars: 0,
+    finishFuel: [],
+    finishTire: [],
+    moves: 0,
+    conservative: 0,
+    softMoves: 0,
+    softNines: 0,
+    crawled: 0,
+    pitStops: 0,
+    races: seeds.length
+  };
+  for (const seed of seeds) {
+    const state = createRace(
+      ctx,
+      LEVELS_V3.map((botLevel, i) => ({ isBot: true, ownerId: `B${i}`, botLevel })),
+      laps,
+      seed,
+      'v3'
+    );
+    reach.cars += state.cars.length;
+    const crawlers = new Set<number>();
+    for (let turn = 0; turn < laps * 600 && state.cars.length > 0; turn += 1) {
+      const car = getActiveCar(state);
+      const action = decideBotAction(ctx, state).action;
+      const info =
+        action.type === 'move'
+          ? computeTargets(ctx, state, car).get(action.targetCellId)
+          : undefined;
+      const empty = car.tire === 0 || car.fuel === 0;
+      const compound = car.setup.compound;
+      if (!applyAction(ctx, state, action).ok) throw new Error('bot action refused');
+      if (action.type === 'pit') reach.pitStops += 1;
+      if (info) {
+        const points = info.moveSpend ?? info.distance;
+        if (empty) {
+          crawlers.add(car.carId);
+        } else {
+          reach.moves += 1;
+          if (points <= 7) reach.conservative += 1;
+          if (compound === 'soft') {
+            reach.softMoves += 1;
+            if (points >= 9) reach.softNines += 1;
+          }
+        }
+      }
+      if (state.winnerCarId !== null) {
+        // a finisher leaves the track; the others play on to their own flag
+        const done = must(
+          state.cars.find((c) => c.carId === state.winnerCarId),
+          'winner'
+        );
+        reach.finishFuel.push(done.fuel);
+        reach.finishTire.push(done.tire);
+        const at = state.turn.order.indexOf(done.carId);
+        state.turn.order.splice(at, 1);
+        state.turn.index = state.turn.order.length > 0 ? at % state.turn.order.length : 0;
+        state.cars = state.cars.filter((c) => c.carId !== done.carId);
+        state.winnerCarId = null;
+      }
+    }
+    reach.crawled += crawlers.size;
+  }
+  return reach;
+}
+
+const LEVELS_V3 = ['hard', 'normal', 'easy', 'normal'] as const;
+const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? NaN;
+
+describe('rules v3: tire and fuel matter in play', () => {
+  const seeds = Array.from({ length: 8 }, (_slot, i) => i + 1);
+  const five = playResources(5, seeds);
+  const six = playResources(6, seeds.slice(0, 4));
+  const twelve = playResources(12, seeds.slice(0, 4));
+
+  it('prints what the bots did', () => {
+    const line = (laps: number, r: ResourceReach) =>
+      `${laps} laps: fuel at the flag ${median(r.finishFuel)}, tire ${median(r.finishTire)}, ` +
+      `moves of 7 or less ${pct(r.conservative, r.moves).toFixed(0)}%, soft 9s ${pct(r.softNines, r.softMoves).toFixed(0)}% of ${r.softMoves}, ` +
+      `cars that crawled ${r.crawled}/${r.cars}, stops ${(r.pitStops / r.races).toFixed(1)}/race`;
+    console.log([line(5, five), line(6, six), line(12, twelve)].join('\n'));
+    expect(five.cars).toBe(32);
+  });
+
+  it('a 5-lap race ends with little fuel and tire left', () => {
+    expect(median(five.finishFuel), 'median fuel at the flag').toBeLessThanOrEqual(15);
+    expect(median(five.finishTire), 'median tire at the flag').toBeLessThanOrEqual(30);
+  });
+
+  it('the size of a move is a decision: some are 7 or less, and soft cars play 9s', () => {
+    expect(pct(five.conservative, five.moves), 'moves of 7 or less, %').toBeGreaterThanOrEqual(15);
+    expect(five.softMoves, 'soft cars on the grid').toBeGreaterThan(0);
+    expect(five.softNines, 'soft 9s').toBeGreaterThan(0);
+  });
+
+  it('a car runs dry in some races, but in fewer than half of the cars', () => {
+    expect(five.crawled, 'cars that crawled').toBeGreaterThan(0);
+    expect(five.crawled / five.cars, 'share of cars that crawled').toBeLessThan(0.5);
+    expect(twelve.crawled / twelve.cars, 'share, 12 laps').toBeLessThan(0.75);
+  });
+
+  it('there is no stop up to 6 laps and at least one in a 12-lap race', () => {
+    expect(five.pitStops, 'stops, 5 laps').toBe(0);
+    expect(six.pitStops, 'stops, 6 laps').toBe(0);
+    expect(twelve.pitStops / twelve.races, 'stops per 12-lap race').toBeGreaterThanOrEqual(1);
   });
 });

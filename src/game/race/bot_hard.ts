@@ -13,6 +13,7 @@ import {
   pitSetupFor,
   PIT_LANE_CELLS,
   progressOf,
+  servicedCar,
   type BotPlanContext
 } from '../systems/bot_plan';
 import type { BotDecisionTrace } from '../systems/bot_system';
@@ -86,7 +87,10 @@ function valueOf(ctx: RaceContext, sim: RaceState, meId: number, plan: BotPlanCo
   let crawl = crawlCost(me, myCell, plan);
   if (myCell.laneIndex === PIT_LANE && !me.pitServiced) {
     // A stop under way: count the fresh tires and tank it is about to get, less the pit moves left.
-    const fresh = { ...me, tire: 100, fuel: 100, setup: pitSetupFor(me, myCell, plan) };
+    const fresh = {
+      ...me,
+      ...servicedCar(me, pitSetupFor(me, myCell, plan), plan.resources)
+    };
     crawl = Math.min(crawl, crawlCost(fresh, myCell, plan) + PIT_LANE_CELLS);
   }
   return mine - rivalTerm - crawl;

@@ -5,7 +5,8 @@
 // (inner lane, 9-8-8-8-7, and the greedy variant) against 3 bots of a level from every grid slot.
 // Lineup entries: hard, normal, easy, autopilot, scripted, greedy; `--styles pusher,steady,...` forces
 // a personality per line-up entry (it rotates with the line-up). `--setups [--laps ..] [--seeds N]` sweeps car 1
-// over every compound and wing level at each race length (the balance gate of the wing, issue #48).
+// over every compound and wing level at each race length (the balance gate of the wing, issue #48; from rules v3 on
+// also of the compounds, #148). `--rules v3` plays any of these on another rules version (the default's otherwise).
 import { readFileSync } from 'node:fs';
 import {
   playBenchRace,
@@ -16,7 +17,7 @@ import {
   type BenchPolicy
 } from '../src/game/race/bot_bench';
 import { createRaceContext } from '../src/game/race/race_engine';
-import { SETUP_CHOICES } from '../src/game/systems/bot_plan';
+import { isRulesVersion } from '../src/game/rules/ids';
 import type { PersonalityKey } from '../src/game/systems/bot_style';
 import type { TrackData } from '../src/game/types/track';
 
@@ -32,6 +33,9 @@ const ctx = createRaceContext(track);
 const laps = arg('laps', '3,4,5,6').split(',').map(Number);
 const seedCount = Number(arg('seeds', '1'));
 const seeds = Array.from({ length: seedCount }, (_item, i) => i + 1);
+const rulesArg = arg('rules', '');
+if (rulesArg && !isRulesVersion(rulesArg)) throw new Error(`Unknown rules version ${rulesArg}`);
+const rulesVersion = isRulesVersion(rulesArg) ? rulesArg : undefined;
 const started = performance.now();
 function seconds(): string {
   return ((performance.now() - started) / 1000).toFixed(1);
@@ -46,7 +50,15 @@ if (process.argv.includes('--strategist')) {
   for (const variant of ['scripted', 'greedy'] as const) {
     for (const lapCount of laps) {
       const results = seeds.map((seed) =>
-        playBenchRace(ctx, [variant, level, level, level], lapCount, seed)
+        playBenchRace(
+          ctx,
+          [variant, level, level, level],
+          lapCount,
+          seed,
+          undefined,
+          undefined,
+          rulesVersion
+        )
       );
       const me = results.flatMap((r) => r.finishers.filter((f) => f.slot === 0));
       const bySlot = statsBy([{ finishers: me, order: [], decisionMs: {}, overtakes: 0 }], (f) =>
@@ -71,22 +83,29 @@ if (process.argv.includes('--setups')) {
   console.log(
     `setup sweep: car 1 on each setup vs 3 x normal; laps ${sweepLaps.join('/')}, seeds 1..${seedCount}`
   );
-  const rows = setupSweep(ctx, { laps: sweepLaps, seeds });
+  const rows = setupSweep(ctx, {
+    laps: sweepLaps,
+    seeds,
+    cars: Number(arg('cars', '4')),
+    ...(rulesVersion ? { rulesVersion } : {})
+  });
   console.log(
-    `laps  ${SETUP_CHOICES.map((c) => `${c.compound}/${c.wing}`.padStart(11)).join(' ')}   fastest`
+    `laps  ${rows[0]!.choices.map((c) => `${c.compound}/${c.wing}`.padStart(11)).join(' ')}   fastest`
   );
   for (const row of rows) {
-    const best = SETUP_CHOICES[row.best]!;
+    const best = row.choices[row.best]!;
     console.log(
       `${String(row.laps).padStart(4)}  ${row.moves.map((m) => m.toFixed(1).padStart(11)).join(' ')}   ${best.compound}/${best.wing}`
     );
   }
   const gate = setupSweepGate(rows);
   console.log(
-    `\nevery wing wins somewhere: ${gate.everyWingWinsSomewhere}; no setup dominates: ${gate.noSetupDominates} (${gate.winners.join(', ')})`
+    `\nevery wing wins somewhere: ${gate.everyWingWinsSomewhere}; every compound wins somewhere: ${gate.everyCompoundWinsSomewhere}; no setup dominates: ${gate.noSetupDominates} (${gate.winners.join(', ')})`
   );
   console.log(`${seconds()} s`);
-  process.exit(gate.everyWingWinsSomewhere && gate.noSetupDominates ? 0 : 1);
+  process.exit(
+    gate.everyWingWinsSomewhere && gate.everyCompoundWinsSomewhere && gate.noSetupDominates ? 0 : 1
+  );
 }
 
 const lineup = arg('lineup', 'hard,normal,easy,autopilot').split(',') as BenchPolicy[];
@@ -96,7 +115,8 @@ const { races, stats, results, overtakesPerRace } = runBench(ctx, {
   lineup,
   laps,
   seeds,
-  ...(styles ? { styles } : {})
+  ...(styles ? { styles } : {}),
+  ...(rulesVersion ? { rulesVersion } : {})
 });
 console.log(
   `${races} races (${lineup.join(', ')}; laps ${laps.join('/')}; ${seedCount} seeds) in ${seconds()} s`

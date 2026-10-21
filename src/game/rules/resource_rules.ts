@@ -28,10 +28,12 @@ export interface ResourceRules {
   cycleBudget(car: Wearing): number;
   /** Per-cell wear before the setup, lane and tow factors. */
   wearRates(setup: CarSetup): WearRates;
+  /** What a move that spends `points` multiplies the per-cell wear by (1 in v1 and v2: the size changes nothing). */
+  sizeFactor(points: number): { fuel: number; tire: number };
   /** The grid `setup` action: what the car is set up with before its first turn. */
-  gridSetup(car: Car, setup: CarSetup): void;
+  gridSetup(car: Wearing, setup: CarSetup): void;
   /** What a pit stop does to the car: fits `setup` (when given) and refills. */
-  pitService(car: Car, setup: CarSetup | null): void;
+  pitService(car: Wearing, setup: CarSetup | null): void;
   /** What the setup UI offers. */
   features: { medium: boolean; fuelLoad: boolean };
 }

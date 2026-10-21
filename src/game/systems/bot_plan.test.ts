@@ -8,14 +8,19 @@ import {
   bestSetup as bestSetupFor,
   buildPlanContext,
   cellsToFeeder,
+  cycleSizes,
   forwardGain,
   SETUP_CHOICES,
   isFinalLap,
   progressOf,
   resourceWeights,
+  servicedCar,
   stopIsDue,
+  sustainablePace,
+  sustainableSize,
   wearPerCell as wearPerCellFor
 } from './bot_plan';
+import { resourceRulesFor } from './resource_system';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 const cell = (id: string) => ctx.cellMap.get(id)!;
@@ -169,5 +174,81 @@ describe('bestSetup', () => {
 
   it('wants soft tires and Low wing for a short sprint, never High wing', () => {
     expect(bestSetup(28)).toMatchObject({ compound: 'soft', wing: 'low' });
+  });
+});
+
+// Rules v3 (#148): the pace plan, the setup search over the fuel load, the stop that tops up.
+describe('pace plan on rules v3', () => {
+  const v3 = resourceRulesFor({ raceLaps: 5, spineLen: 28 });
+  const plan3 = (laps = 5) => buildPlanContext(ctx.trackIndex, laps, v3);
+  const mediumCar = (over: Partial<Car> = {}) =>
+    car({
+      setup: { compound: 'medium', psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: 'medium' },
+      ...over
+    });
+
+  it('spends a cycle budget in even moves, the larger first', () => {
+    expect(cycleSizes(36)).toEqual([8, 7, 7, 7, 7]);
+    expect(cycleSizes(39)).toEqual([8, 8, 8, 8, 7]);
+    expect(cycleSizes(42)).toEqual([9, 9, 8, 8, 8]);
+  });
+
+  const softCar = (over: Partial<Car> = {}) =>
+    car({
+      setup: { compound: 'soft', psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: 'medium' },
+      ...over
+    });
+
+  it('plays the biggest move it can keep to the flag: soft cannot keep an 8 over 5 laps, a half-way medium can', () => {
+    expect(sustainableSize(softCar({ fuel: 95 }), 140, v3)).toBe(7);
+    const half = mediumCar({ tire: 60, fuel: 60 });
+    expect(sustainableSize(half, 70, v3)).toBe(8);
+    expect(sustainableSize(half, 35, v3)).toBe(8);
+  });
+
+  it('plays a 9 only when the tires and the tank have slack for it', () => {
+    expect(sustainableSize(softCar(), 30, v3)).toBe(9);
+    expect(sustainableSize(softCar(), 140, v3)).toBe(7);
+  });
+
+  it('is null when not even a 7 reaches the flag, and the car runs flat out to a stop it can still take', () => {
+    const worn = mediumCar({ tire: 40, fuel: 40 });
+    expect(sustainableSize(worn, 140, v3)).toBeNull();
+    const start = cell('Z01_L1_00');
+    expect(sustainablePace(worn, start, plan3())).toBe(8);
+    // on the final lap, or after the stop, there is no stop to run to: save what is left
+    expect(sustainablePace({ ...worn, pitServiced: true }, start, plan3())).toBe(7);
+  });
+
+  it('a driver that counts on running low keeps less in hand, one that saves keeps more', () => {
+    const tight = mediumCar({ tire: 80, fuel: 80 });
+    const base = sustainableSize(tight, 100, v3);
+    expect(sustainableSize(tight, 100, v3, -0.2)).toBeGreaterThanOrEqual(base!);
+    expect(sustainableSize(tight, 100, v3, 0.3) ?? 0).toBeLessThanOrEqual(base!);
+  });
+
+  it('asks nothing of the pace where the size of a move changes nothing (v1 and v2)', () => {
+    expect(sustainablePace(car({ tire: 10, fuel: 10 }), cell('Z01_L1_00'), plan(5))).toBe(9);
+  });
+
+  it('searches the fuel load: a lighter tank than a full one for a short race, and never below 40', () => {
+    const sprint = bestSetupFor(28, v3);
+    expect(sprint.fuelLoad).toBeGreaterThanOrEqual(40);
+    expect(sprint.fuelLoad).toBeLessThan(100);
+    const full = bestSetupFor(5 * 28, v3);
+    expect(full.fuelLoad! % 5).toBe(0);
+    expect(v3.isValidSetup(full)).toBe(true);
+  });
+
+  it('a stop tops the tank up to the load and never takes fuel away', () => {
+    const setup = { ...mediumCar().setup, fuelLoad: 60 };
+    expect(servicedCar(mediumCar({ tire: 10, fuel: 20 }), setup, v3)).toMatchObject({
+      tire: 100,
+      fuel: 60
+    });
+    expect(servicedCar(mediumCar({ tire: 10, fuel: 90 }), setup, v3)).toMatchObject({
+      tire: 100,
+      fuel: 90
+    });
   });
 });

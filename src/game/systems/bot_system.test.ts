@@ -12,6 +12,8 @@ import {
   pickBotMove
 } from './bot_system';
 import type { BotPlanContext } from './bot_plan';
+import { PERSONALITIES } from './bot_style';
+import { resourceRulesFor } from './resource_system';
 import type { TrackCell } from '../types/track';
 
 // The tests play on v2's resource rules.
@@ -389,5 +391,40 @@ describe('normal policy scoring', () => {
     expect(evaluateNormalTargets(targets, makeCar(), map, plan).selectedCellId).toBe('B');
     // Without the plan it only knows distance.
     expect(evaluateNormalTargets(targets, makeCar(), map).selectedCellId).toBe('A');
+  });
+
+  it('on rules v3 holds a move back to the size the car can keep to the flag, and a pusher less so (#148)', () => {
+    const v3 = resourceRulesFor({ raceLaps: 5, spineLen: 28 });
+    const from = { ...makeCell('A0', 1), forwardIndex: 0 };
+    const nine = { ...makeCell('A', 1), forwardIndex: 9 };
+    const seven = { ...makeCell('B', 1), forwardIndex: 7 };
+    const map = new Map([from, nine, seven].map((c) => [c.id, c]));
+    const targets = makeTargets([
+      ['A', { ...t(9), tireCost: 6, fuelCost: 6 }],
+      ['B', { ...t(7), tireCost: 4, fuelCost: 4 }]
+    ]);
+    // a fresh soft car on 32 psi keeps a 7 over 5 laps, not a 9
+    const soft = makeCar({
+      setup: { compound: 'soft', psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: 'medium' }
+    });
+    const plan = (resourcesOf: typeof resources, style = PERSONALITIES.balanced) => ({
+      raceLaps: 5,
+      resources: resourcesOf,
+      spineLen: 28,
+      lane1FwdByZone: new Map(),
+      feederFwd: 26,
+      style
+    });
+    expect(evaluateNormalTargetsOf(targets, soft, map, v3, plan(v3)).selectedCellId).toBe('B');
+    // the size of a move changes nothing on v2: the longer move wins
+    expect(evaluateNormalTargets(targets, soft, map, plan(resources)).selectedCellId).toBe('A');
+    // a pusher pays 12 a point instead of 30, and counts on running low
+    const scoreOfNine = (style: typeof PERSONALITIES.balanced) =>
+      evaluateNormalTargetsOf(targets, soft, map, v3, plan(v3, style)).candidates.find(
+        (c) => c.cellId === 'A'
+      )!.score;
+    expect(scoreOfNine(PERSONALITIES.pusher)).toBeGreaterThan(
+      scoreOfNine(PERSONALITIES.balanced) + 20
+    );
   });
 });
