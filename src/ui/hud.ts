@@ -48,6 +48,11 @@ export interface HudCar {
   /** Racing left on the current tire and fuel at this car's setup (see strategy.ts). */
   stint: Pick<StintEstimate, 'laps' | 'moves'>;
   advice: PitAdvice;
+  /** Rules v3 only (absent before): the most move points one move may spend now, whether the tank is heavy (-1 pace),
+   * and the move size the car can keep to the flag. */
+  cap?: number;
+  heavy?: boolean;
+  pace?: number;
 }
 
 export interface HudHover {
@@ -74,6 +79,8 @@ export interface HudHover {
   /** The active car's tire and fuel (percent) before the move, to show what is left after it. */
   tireBefore: number;
   fuelBefore: number;
+  /** Rules v3 only: fuel burnt per cell walked by this move (its size changes it: a 9 burns more than an 8). */
+  fuelPerCell?: number;
 }
 
 export interface HudSnapshot {
@@ -144,6 +151,7 @@ const TEMPLATE = `
     <div class="hud-meter"><span data-testid="hud-fuel"></span>
       <div class="hud-bar"><i data-testid="hud-fuel-bar"></i></div></div>
     <div class="hud-stint" data-testid="hud-stint"></div>
+    <div class="hud-pace" data-testid="hud-pace" hidden></div>
     <div class="hud-draft" data-testid="hud-draft" hidden><span class="hud-draft-long" data-testid="hud-draft-long"></span><span class="hud-draft-short" data-testid="hud-draft-short"></span></div>
     <div class="hud-advice" data-testid="hud-advice" hidden></div>
     <div class="hud-warning" data-testid="hud-warning" hidden></div>
@@ -241,6 +249,18 @@ export function formatStint(stint: Pick<StintEstimate, 'laps' | 'moves'>): strin
   return `≈ ${laps} laps (~${Math.round(stint.moves)} moves)`;
 }
 
+/** Rules v3: "Max 8 a move - HEAVY - pace to the flag 7", or '' before v3. */
+export function paceText(car: Pick<HudCar, 'cap' | 'heavy' | 'pace'>): string {
+  if (car.cap === undefined) return '';
+  return [
+    `Max ${car.cap} a move`,
+    car.heavy ? 'HEAVY (-1 pace)' : null,
+    car.pace === undefined ? null : `pace to the flag: ${car.pace}`
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 const ADVICE_LABEL: Partial<Record<PitAdvice, string>> = {
   'pit-soon': 'Pit this lap',
   'pit-now': 'Pit now'
@@ -273,6 +293,12 @@ function renderTooltip(tip: HTMLElement, h: HudHover) {
     const tire = part('tire', h.tireBefore, h.tireCost);
     const fuel = part('fuel', h.fuelBefore, h.fuelCost);
     nodes.push(tire.span, ' - ', fuel.span);
+    if (h.fuelPerCell !== undefined) {
+      const rate = document.createElement('div');
+      rate.className = 'hud-tooltip-rate';
+      rate.textContent = `uses ${h.tireCost.toFixed(1)} tire, ${h.fuelCost.toFixed(1)} fuel (${h.fuelPerCell.toFixed(2)} fuel a cell)`;
+      nodes.push(rate);
+    }
     if (h.drafted || h.slingshot) {
       const note = document.createElement('div');
       note.className = 'hud-tooltip-draft';
@@ -446,13 +472,18 @@ export function renderHud(root: HTMLElement, s: HudSnapshot) {
     setMeter(q(root, 'hud-tire'), q(root, 'hud-tire-bar'), 'Tire', me.tire);
     setMeter(q(root, 'hud-fuel'), q(root, 'hud-fuel-bar'), 'Fuel', me.fuel);
     const compound = q(root, 'hud-compound');
-    compound.textContent = me.compound.toUpperCase();
+    compound.textContent = me.compound === 'medium' ? 'MED' : me.compound.toUpperCase();
+    compound.title = `${me.compound} tires`;
     compound.className = `hud-compound is-${me.compound}`;
     const wing = q(root, 'hud-wing');
     wing.textContent = me.wing === 'medium' ? 'MED' : me.wing.toUpperCase();
     wing.title = `${me.wing} wing`;
     q(root, 'hud-budget').textContent = `${me.remaining} / ${me.budget}`;
     q(root, 'hud-stint').textContent = formatStint(me.stint);
+    const pace = q(root, 'hud-pace');
+    pace.hidden = me.cap === undefined;
+    pace.textContent = paceText(me);
+    pace.classList.toggle('is-heavy', me.heavy === true);
     const draft = q(root, 'hud-draft');
     const ready = me.draftTurns >= DRAFT_SLINGSHOT_TURNS;
     draft.hidden = !me.drafting;

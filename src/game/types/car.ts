@@ -8,7 +8,7 @@ export interface CarSetup {
   // 'medium' and `fuelLoad` exist from rules v3 on; v1 and v2 refuse them.
   compound: Compound;
   // Fuel at the grid, an integer percent (a multiple of 5, 40 to 100). Missing means a full tank.
-  fuelLoad?: number;
+  fuelLoad?: number | undefined;
   psi: {
     fl: number;
     fr: number;

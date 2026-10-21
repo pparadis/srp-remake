@@ -3,6 +3,7 @@ import type {
   RaceState as EngineRaceState,
   RejectReason
 } from '../../src/game/race/race_engine';
+import type { RulesVersion } from '../../src/game/rules/ids';
 import { BOT_LEVELS, type BotLevel, type Car } from '../../src/game/types/car';
 
 export const TURN_TIMER_CHOICES = [0, 30, 60, 120] as const;
@@ -29,6 +30,8 @@ export interface RaceState {
   winnerCarId: number | null;
   // Per-race seed: bot personalities and the grid (src/game/systems/bot_style.ts).
   seed: number;
+  // The movement and resource rules the race plays (src/game/rules/versions.ts).
+  rulesVersion: RulesVersion;
   cars: RaceCarState[];
   // Time left for the active human seat (server clock, so no client clock skew); absent without a timer.
   turnRemainingMs?: number;

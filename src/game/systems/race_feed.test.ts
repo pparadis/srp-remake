@@ -82,6 +82,40 @@ describe('feedLines', () => {
     expect(lines.some((l) => l.kind === 'warn')).toBe(false); // refuelled, not running low
   });
 
+  it('on rules v3 says how far a stop refuelled, and names a grid setup with its fuel load', () => {
+    const before: RaceState = createRace(ctx, seats, 3, 0, 'v3');
+    before.cars.forEach((car, i) =>
+      Object.assign(car, { cellId: ['Z05_L1_00', 'Z07_L1_00', 'Z10_L1_00'][i], lapCount: 0 })
+    );
+    before.turn = { order: [1, 2, 3], index: 0 };
+    const stop = structuredClone(before);
+    before.cars[0]!.fuel = 20;
+    Object.assign(stop.cars[0]!, {
+      cellId: 'Z03_L0_00',
+      tire: 100,
+      fuel: 80,
+      setup: { ...stop.cars[0]!.setup, compound: 'soft', fuelLoad: 80 }
+    });
+    expect(texts(before, stop)[0]).toBe('Car 1 pits: soft tires, medium wing, refuelled to 80%');
+
+    const grid = structuredClone(before);
+    Object.assign(grid.cars[0]!, {
+      setup: { ...grid.cars[0]!.setup, compound: 'soft', wing: 'low', fuelLoad: 70 }
+    });
+    expect(said(before, grid)).toEqual([
+      { kind: 'info', carId: 1, text: 'Car 1 sets up: soft tires, low wing, 70% fuel' }
+    ]);
+    expect(texts(grid, structuredClone(grid))).toEqual([]);
+  });
+
+  it('names a grid setup without a fuel load before v3', () => {
+    const { before, after } = states();
+    Object.assign(after.cars[1]!, {
+      setup: { ...after.cars[1]!.setup, compound: 'soft', wing: 'high' }
+    });
+    expect(texts(before, after)).toEqual(['Car 2 sets up: soft tires, high wing']);
+  });
+
   it('warns once when a resource crosses 20% and once when it runs out', () => {
     const { before, after } = states();
     before.cars[1]!.fuel = 25;

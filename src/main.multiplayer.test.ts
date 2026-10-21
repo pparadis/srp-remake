@@ -742,6 +742,22 @@ describe('main multiplayer screens', () => {
       window.removeEventListener('srp:backend-turn-applied', applied);
     });
 
+    it('sends the medium compound and the fuel load of a v3 grid setup to the server untouched (#148)', async () => {
+      await enter('host', makeRaceLobby('grid-v3', 0));
+      const setup = {
+        compound: 'medium',
+        psi: { fl: 32, fr: 32, rl: 32, rr: 32 },
+        wing: 'medium',
+        fuelLoad: 80
+      };
+      submitTurnMock.mockResolvedValue({ ok: true, revision: 4 });
+      window.dispatchEvent(
+        new CustomEvent('srp:local-turn-action', { detail: { type: 'setup', setup } })
+      );
+      await vi.waitFor(() => expect(submitTurnMock).toHaveBeenCalled());
+      expect(submitTurnMock.mock.calls.at(-1)?.[4]).toEqual({ type: 'setup', setup });
+    });
+
     it('warns a guest when the host closes their page, then sends them home once the lobby closes', async () => {
       await enter('guest', makeRaceLobby('gone', 0));
       expect(document.body.dataset.screen).toBe('race');

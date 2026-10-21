@@ -119,10 +119,12 @@ const forceSkipSchema = z.object({
 });
 
 // Shape only; the race engine enforces the PSI limits and every game rule.
+// `medium` and `fuelLoad` exist from rules v3 on; the engine refuses them on older rules.
 const carSetupSchema = z.object({
-  compound: z.enum(['soft', 'hard']),
+  compound: z.enum(['soft', 'medium', 'hard']),
   psi: z.object({ fl: z.number(), fr: z.number(), rl: z.number(), rr: z.number() }),
-  wing: z.enum(['low', 'medium', 'high'])
+  wing: z.enum(['low', 'medium', 'high']),
+  fuelLoad: z.number().int().optional()
 });
 
 const turnActionSchema = z.discriminatedUnion('type', [

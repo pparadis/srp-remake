@@ -13,6 +13,7 @@ const snapshot = (over: Partial<SandboxSnapshot> = {}): SandboxSnapshot => ({
     fuel: 55,
     compound: 'soft',
     wing: 'medium',
+    fuelLoad: null,
     budgetLeft: 40,
     draftTurns: 0,
     isBot: true,
@@ -79,6 +80,20 @@ describe('sandbox panel', () => {
       { type: 'edit', carId: 2, edit: { isBot: false } },
       { type: 'edit', carId: 2, edit: { isBot: true, botLevel: 'easy' } }
     ]);
+  });
+
+  it('offers the medium compound and a fuel load only where the rules have one (v3)', () => {
+    send(snapshot());
+    expect(el('sandbox-fuel-load-field').hidden).toBe(true);
+    expect([...el<HTMLSelectElement>('sandbox-compound').options].map((o) => o.value)).toContain(
+      'medium'
+    );
+    send(snapshot({ car: { ...snapshot().car, compound: 'medium', fuelLoad: 80 } }));
+    expect(el('sandbox-fuel-load-field').hidden).toBe(false);
+    expect(el<HTMLInputElement>('sandbox-fuel-load').value).toBe('80');
+    expect(el<HTMLSelectElement>('sandbox-compound').value).toBe('medium');
+    change('sandbox-fuel-load', '65');
+    expect(commands.at(-1)).toEqual({ type: 'edit', carId: 2, edit: { fuelLoad: 65 } });
   });
 
   it('sends select, mode, copy and load commands', () => {

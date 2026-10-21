@@ -469,6 +469,10 @@ body[data-screen='race'] .version {
   background: #ff5a5a;
 }
 
+.hud-compound.is-medium {
+  background: #ffd166;
+}
+
 .hud-compound.is-hard {
   background: #e6eef6;
 }
@@ -1063,6 +1067,20 @@ body[data-screen='race'] .version {
   font-variant-numeric: tabular-nums;
 }
 
+.hud-pace {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #9fb0bf;
+}
+
+.hud-pace.is-heavy {
+  color: #ffd166;
+}
+
+.hud-tooltip-rate {
+  color: #9fb0bf;
+}
+
 .hud-advice {
   display: inline-block;
   margin-top: 4px;
@@ -1485,6 +1503,7 @@ body[data-screen='home'] #screen-home {
 
   #hud .hud-pips,
   #hud .hud-stint,
+  #hud .hud-pace,
   #hud .hud-hint,
   #hud .hud-lap-hint {
     display: none;
