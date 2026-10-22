@@ -32,7 +32,7 @@ const SETUP: CarSetup = {
 // The plain setup (hard, Medium wing: a cycle budget of 40). createRace gives bots a setup for the distance; the
 // rules tests below want the same budget on every car, and the grid-setup tests pick their own.
 function newRace(laps = 5, seats = SEATS): RaceState {
-  const state = createRace(ctx, seats, laps);
+  const state = createRace(ctx, seats, laps, 0, 'v2');
   for (const car of state.cars) Object.assign(car.setup, { compound: 'hard', wing: 'medium' });
   return state;
 }
@@ -690,7 +690,9 @@ describe('grid setup and the wing', () => {
         { isBot: true, ownerId: 'B2', botLevel: 'easy' },
         { isBot: false, ownerId: 'P3' }
       ],
-      3
+      3,
+      0,
+      'v2'
     );
     expect(state.cars[0]!.setup).toMatchObject({ compound: 'soft', wing: 'low' });
     expect(state.cars[1]!.setup).toMatchObject({ compound: 'hard', wing: 'medium' });

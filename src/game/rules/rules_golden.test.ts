@@ -5,6 +5,7 @@ import type { TrackData } from '../types/track';
 import { replay, type Golden } from './golden';
 import v1 from './golden/v1.json';
 import v2 from './golden/v2.json';
+import v3 from './golden/v3.json';
 import { DEFAULT_RULES_VERSION, RULES, RULES_VERSIONS, type RulesVersion } from './versions';
 
 // A frozen rules version never changes behavior (#118): every sample of its golden file must give the same targets
@@ -12,16 +13,18 @@ import { DEFAULT_RULES_VERSION, RULES, RULES_VERSIONS, type RulesVersion } from 
 // its own code or through shared code (constants, track, pit, wear): change it back, or make the change a new version.
 const GOLDEN: Partial<Record<RulesVersion, Golden>> = {
   v1: v1 as unknown as Golden,
-  v2: v2 as unknown as Golden
+  v2: v2 as unknown as Golden,
+  v3: v3 as unknown as Golden
 };
 const ctx = createRaceContext(track as unknown as TrackData);
 const frozen = RULES_VERSIONS.filter((v) => RULES[v].status === 'frozen');
 
 describe('rules versions', () => {
-  it('v2 is the default, and v1 and v2 are frozen', () => {
-    expect(DEFAULT_RULES_VERSION).toBe('v2');
+  it('v3 is the default, and v1, v2 and v3 are frozen', () => {
+    expect(DEFAULT_RULES_VERSION).toBe('v3');
     expect(RULES.v1.status).toBe('frozen');
     expect(RULES.v2.status).toBe('frozen');
+    expect(RULES.v3.status).toBe('frozen');
   });
 
   it('every frozen version has a golden file for this track', () => {
@@ -49,10 +52,9 @@ for (const v of frozen) {
   });
 }
 
-describe('v3 (draft)', () => {
-  // v3 has its own resource rules (#148): the v2 samples are not its answers. Freeze it with a golden/v3.json.
-  it('is a draft whose resource rules are not v2', () => {
-    expect(RULES.v3.status).toBe('draft');
+describe('v3', () => {
+  // v3 has its own resource rules (#148): the v2 samples are not its answers, it has its own golden/v3.json.
+  it('has resource rules that are not v2', () => {
     expect(RULES.v3.rules.resources).not.toBe(RULES.v2.rules.resources);
     const race = { raceLaps: 5, spineLen: 28 };
     expect(RULES.v3.rules.resources(race).features).toEqual({ medium: true, fuelLoad: true });

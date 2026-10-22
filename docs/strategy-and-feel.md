@@ -47,7 +47,28 @@
   or key press (autoplay policy), while muted, and in test builds. The "Sound: on/off" button in the HUD and
   the `M` key toggle it; the choice is kept in `localStorage["srp:muted"]`.
 
-## Downforce (wing)
+## Car setup (compound, fuel load, wing; rules v3, #148)
+
+Before the race, solo or online, a car picks a tire compound (hard, medium, soft), a fuel load and a wing level; the
+rules behind them are in `docs/movement-spec.md`, "Resources on rules v3". The Setup panel is the pit modal, the same one
+a stop uses:
+
+- **Grid setup** opens by itself on the player's first turn on v3, once per car, prefilled with the default
+  (`defaultSetup`: medium, Medium wing, `recommendedFuel`). The Setup button stays. **Suggested** applies the bots' pick
+  (`bestSetup`) for this race.
+- **Compound:** a three-way selector, and a stint line for each (cells, laps and moves until tire or fuel runs out at
+  that compound with the tank the load gives, not a full one). Medium is only offered where the rules have it.
+- **Fuel load:** a -/+ row in steps of 5 with what the load buys: "covers about 5.4 laps at 8s · heavy for the first
+  1.2 laps" (`RaceSession.fuelNote`); in a stop it says "refuels to N%".
+- **Car card:** a `MED` chip next to `SOFT` and `HARD`, the cap of a move, `HEAVY` while the tank is over 70, and "pace
+  to the flag: 7/8/9", the largest move size the car can keep to the end (the bots' `sustainablePace`).
+- **Target tooltip:** the fuel and tire a move uses and the fuel a cell ("2.70 fuel a cell").
+- **Feed:** a grid setup says "Car N sets up: soft tires, high wing, 95% fuel"; a stop says how far it refuelled.
+- **Sandbox:** the compound picker has medium, and a fuel-load field.
+
+On v1 and v2 the panel has two compounds, no fuel row and no automatic opening. The wing is the same on every version:
+
+### Downforce (wing)
 
 Three levels per car, `CarSetup.wing`: `low`, `medium`, `high` (`WING_EFFECTS` in `constants.ts`).
 
@@ -57,9 +78,13 @@ Three levels per car, `CarSetup.wing`: `low`, `medium`, `high` (`WING_EFFECTS` i
 | Medium | 0            | x1        | x1        |
 | High   | -1           | x0.8      | x0.9      |
 
-The soft compound adds +1 to the cycle budget (`SOFT_PACE_BONUS`) and wears faster; the cycle budget is 40 on the
-plain setup, so 39 to 42. Move cost per move is rounded to whole points as before, so the wing shows over a stint
-rather than on one move. **Drafting** (see `docs/movement-spec.md`, issues #83, #93 and #98): a car is in the tow when its last move ended 1-2
+On v1 and v2 the soft compound adds +1 to the cycle budget (`SOFT_PACE_BONUS`) and wears faster; the cycle budget is 40
+on the plain setup, so 39 to 42. Move cost per move is rounded to whole points as before, so the wing shows over a
+stint rather than on one move. On v3 the budget is the compound's (36, 39, 42) plus the wing, and costs go to 0.1.
+
+### Drafting
+
+**Drafting** (see `docs/movement-spec.md`, issues #83, #93 and #98): a car is in the tow when its last move ended 1-2
 cells behind a car in its lane. The car card shows "In the tow 1/2" and then "In the tow - slingshot ready"; the compact
 phone bar shows a short chip instead ("» DRAFT 1/2", gold "» SLINGSHOT"; `.hud-draft-short`, 11px so the bar stays one
 line), which pulses once when it appears and when the count goes up (none under `prefers-reduced-motion`).

@@ -97,8 +97,8 @@ describe('main (solo flow)', () => {
     byId('homeQuickBtn').click();
     const rules = byId<HTMLSelectElement>('lobbyRules');
     expect(byId('lobbyRulesField').hidden).toBe(false);
-    expect(rules.value).toBe('v2');
-    expect([...rules.options].map((o) => o.value)).toEqual(['v2', 'v3', 'v1']);
+    expect(rules.value).toBe('v3');
+    expect([...rules.options].map((o) => o.value)).toEqual(['v3', 'v2', 'v1']);
     rules.value = 'v1';
     rules.dispatchEvent(new Event('change'));
     expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v1'); // kept across the re-render
@@ -120,7 +120,7 @@ describe('main (solo flow)', () => {
     window.history.replaceState({}, '', '/?rules=v9');
     await import('./main');
     byId('homeQuickBtn').click();
-    expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v2');
+    expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v3');
   });
 
   it('quick race -> lobby -> start creates the game with the lobby settings', async () => {
@@ -159,7 +159,7 @@ describe('main (solo flow)', () => {
         raceLaps: 2,
         botLevel: 'hard',
         seed: expect.any(Number),
-        rulesVersion: 'v2',
+        rulesVersion: 'v3',
         hidpi: false,
         animate: false
       });

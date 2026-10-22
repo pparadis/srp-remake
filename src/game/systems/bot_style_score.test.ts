@@ -23,7 +23,8 @@ function solo(
     ctx,
     [{ isBot: true, ownerId: 'BOT1', botLevel: level, style }],
     laps,
-    3
+    3,
+    'v2'
   );
   // The plain setup (budget 40), whatever the bot would pick on the grid.
   Object.assign(state.cars[0]!.setup, { compound: 'hard', wing: 'medium' });
@@ -51,7 +52,8 @@ const behindAWall = (style: PersonalityKey, level: 'normal' | 'hard' = 'normal')
       { isBot: true, ownerId: 'B' }
     ],
     5,
-    0
+    0,
+    'v2'
   );
   Object.assign(state.cars[0]!, { cellId: 'Z05_L1_00' });
   Object.assign(state.cars[1]!, { cellId: 'Z12_L1_00', state: 'DNF' });

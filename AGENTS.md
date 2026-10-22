@@ -34,20 +34,26 @@ Project guide for Codex and other automation.
 ## Key Rules (Current)
 
 - Rules versions (#118): a race plays one movement-rules version (`RaceState.rulesVersion`, set by `createRace`, default
-  `v2`). The registry is `src/game/rules/versions.ts`: what differs between versions (target search, squeeze, draft
-  test) goes through `rulesOf(state)`, never a direct import of `computeValidTargets` / `draftAhead` in engine code.
-  Both versions are **frozen**: `rules_golden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
+  `v3` since #148). The registry is `src/game/rules/versions.ts`: what differs between versions (target search, squeeze,
+  draft test, and the tire, fuel and move-size rules via `rulesOf(state).resources` or `resourcesOf(state, trackIndex)`)
+  goes through `rulesOf(state)`, never a direct import of `computeValidTargets` / `draftAhead` in engine code, nor of
+  `cycleBudget` / `MOVE_RATES` / `MOVE_BUDGET` for a car. All three versions are **frozen**: `rules_golden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
   `tools/rules_golden.ts`) and fails if a version's targets, prices or the car after the recorded move change, whether
   through its own code or shared code (constants, track, pit, wear). `v1` (before #114, tag `rules-v1`) has its own copy
   of the rule code in `src/game/rules/v1/` and is kept for reference, not online. `v2` (#114 and #102, tag `rules-v2`)
-  is the live code in `src/game/systems/` (`movement_system.ts`, `draft_system.ts`, `track_index.ts`): the rules below are
-  v2's. **To change the rules, make a v3**: copy v2's rule code to `src/game/rules/v2/` first (as v1's was), point v2 at
-  the copy, then change the live code, add `v3` to `src/game/rules/ids.ts` and `versions.ts` (a `draft` while it is
-  tried), and generate its golden file when you freeze it (`npx tsx tools/rules_golden.ts src/game/rules/golden/v3.json
-v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rules_compare.ts [--rules v1,v2]` (the bots'
-  ordering, overtakes, race length, how often tows, slingshots, squeezes and lane changes come up, lane use).
-  In solo the version is chosen in the Quick race card (`lobbyRules`, hidden online: v1 is not offered there;
-  `?rules=v1` only seeds that select, and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
+  has its own copy of the movement, draft and resource code in `src/game/rules/v2/`. `v3` (#148, tag `rules-v3`, the
+  default) is the live code in `src/game/systems/` (`movement_system.ts`, `draft_system.ts`, `track_index.ts`,
+  `resource_system.ts`): the movement rules below are v2's and v3's (v3 changes only the resources: three compounds, a
+  fuel load, wear by move size, see `docs/movement-spec.md`). **To change the rules, make a v4**: copy v3's rule code to
+  `src/game/rules/v3/` first (as v2's was), point v3 at the copy, then change the live code, add `v4` to
+  `src/game/rules/ids.ts` and `versions.ts` (a `draft` while it is tried), and generate its golden file when you
+  freeze it (`npx tsx tools/rules_golden.ts src/game/rules/golden/v4.json v4`; tag `rules-v4`). Compare versions on the
+  same races: `npx tsx tools/rules_compare.ts [--rules v2,v3]` (the bots' ordering, overtakes, race length, how often
+  tows, slingshots, squeezes and lane changes come up, lane use). A test that is written for one version's numbers
+  passes it to `createRace` (`createRace(ctx, seats, laps, seed, 'v2')`) instead of relying on the default; the rule
+  diagrams in `tools/diagrams/` play v2 (`positionOf`'s third argument) except `move-size`, which plays v3.
+  In solo the version is chosen in the Quick race card (`lobbyRules`, hidden online: online plays the default or the
+  server's `RULES_VERSION`; `?rules=v1` only seeds that select, and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
   page loads it eagerly), the rules in `versions.ts` (lazy, with the game). "Copy debug" records `rulesVersion`, and a
   sandbox "Load position" from other rules is refused.
 - Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `track_index.ts`), never by
@@ -144,10 +150,14 @@ v3`; tag `rules-v3`). Compare versions on the same races: `npx tsx tools/rules_c
   Copying a cell id on press only happens with the F overlay on. `e2e/mobile.spec.ts` covers it. Add to Home Screen:
   `public/manifest.webmanifest` (fullscreen, landscape, relative URLs so the Pages base works) and the iOS tags in
   `index.html`; icons in `public/icons/` are rendered from `icon.svg` by `npm run gen:icons`. No service worker.
-- Downforce (#48): `CarSetup.wing` is `low | medium | high` (`WING_EFFECTS`, `SOFT_PACE_BONUS` in `constants.ts`); the cycle
-  budget is `cycleBudget(setup)` (40, +1 Low, -1 High, +1 soft), never `MOVE_CYCLE.budget` for a car. The `setup` action
-  (grid setup, before the first move, not a turn) sets it; bots set up in `createRace` with `bestSetup`. A change to the
-  numbers must keep `npx tsx tools/bot_bench.ts --setups` passing the gate (`docs/bot-system.md`).
+- Car setup (#48, #148): `CarSetup.wing` is `low | medium | high` (`WING_EFFECTS` in `constants.ts`); on v3 also
+  `compound` `hard | medium | soft` (`COMPOUND_TABLE`: cap, cycle budget, tire life) and `fuelLoad` (a multiple of 5, 40 to
+  100; missing = 100). The cycle budget, cap and wear of a car are `resourcesOf(state, trackIndex)`'s (v3: the compound's
+  budget plus the wing, minus 1 while the tank holds over `HEAVY_FUEL`; wear sized to the race length, by move points 7 /
+  8 / 9, rounded to 0.1), never `MOVE_CYCLE.budget` for a car. The `setup` action (grid setup, before the first move, not
+  a turn) sets it and `car.fuel = fuelLoad`; a stop refuels to `max(fuel, fuelLoad)`. Bots set up in `createRace` with
+  `bestSetup`; the human's panel opens by itself on its first turn on v3. A change to the numbers must keep
+  `npx tsx tools/bot_bench.ts --setups` (and `--rules v3`) passing the gate (`docs/bot-system.md`).
 - Race feed (#92): `src/game/systems/race_feed.ts` (`feedLines(ctx, before, after, name)`, pure) turns the difference between
   two race states into `{ text, kind, carId }` lines (move, pass, lap, pit, warn, finish, info). Solo calls it after each
   action (`RaceSession.addFeed`, with a clone of the state before) and online after each server state, so both say the same.

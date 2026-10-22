@@ -19,6 +19,8 @@ import { RaceSession, SERVER_WAIT_MS, type HudView, type RaceSessionSetup } from
 const TRACK = track as unknown as TrackData;
 const AT = { x: 120, y: 340 };
 
+// Plays rules v2 unless a test says otherwise: most of what is checked here (budgets, wear, the HUD numbers) is
+// written for v2's resource rules; the v3 ones have their own block below and the version tests pass theirs.
 function solo(over: Partial<RaceSessionSetup> = {}): RaceSession {
   const botCars = over.botCars ?? 2;
   return new RaceSession(TRACK, {
@@ -27,6 +29,7 @@ function solo(over: Partial<RaceSessionSetup> = {}): RaceSession {
     botCars,
     raceLaps: 2,
     seed: 0,
+    rulesVersion: 'v2',
     ...over
   });
 }
@@ -193,8 +196,15 @@ describe('RaceSession: drafting', () => {
 
 describe('RaceSession: rules version (#118)', () => {
   it('plays the default rules unless told otherwise, and the snapshot says which', () => {
-    expect(solo().race.rulesVersion).toBe('v2');
-    expect(solo().debugSnapshot().rulesVersion).toBe('v2');
+    const session = new RaceSession(TRACK, {
+      totalCars: 2,
+      humanCars: 1,
+      botCars: 1,
+      raceLaps: 2,
+      seed: 0
+    });
+    expect(session.race.rulesVersion).toBe('v3');
+    expect(session.debugSnapshot().rulesVersion).toBe('v3');
   });
 
   it('a solo race on v1 plays v1, and the snapshot says so', () => {
@@ -1095,7 +1105,8 @@ describe('setup panel data on rules v3', () => {
       humanCars: 2,
       botCars: 0,
       raceLaps: 5,
-      seed: 0
+      seed: 0,
+      rulesVersion: 'v2'
     });
     expect(session.setupFeatures().fuelLoad).toBe(false);
     const race = createRace(session.ctx, SEATS, 5, 0, 'v3');

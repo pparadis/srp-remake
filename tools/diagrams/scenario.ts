@@ -10,6 +10,7 @@ import {
   type RaceState
 } from '../../src/game/race/race_engine';
 import { editCar, placeCar, setActiveCar, type CarEdit } from '../../src/game/race/sandbox';
+import type { RulesVersion } from '../../src/game/rules/ids';
 import type { TargetInfo } from '../../src/game/systems/movement_system';
 import type { Car } from '../../src/game/types/car';
 import type { TrackData } from '../../src/game/types/track';
@@ -37,16 +38,22 @@ export function contextOf(track: TrackData): RaceContext {
   return createRaceContext(track);
 }
 
-/** Car 1 on `start` to play, one more car per entry of `cars`, all humans, seed 0. */
+/**
+ * Car 1 on `start` to play, one more car per entry of `cars`, all humans, seed 0. The movement pictures play v2, whose
+ * cap is 9 whatever the tires (the doc's "9-point cap"); v3 caps by compound, and its own picture asks for it.
+ */
 export function positionOf(
   ctx: RaceContext,
-  s: Pick<Scenario, 'start' | 'cars' | 'edit'>
+  s: Pick<Scenario, 'start' | 'cars' | 'edit'>,
+  rules: RulesVersion = 'v2'
 ): Position {
   const cells = [s.start, ...s.cars];
   const state = createRace(
     ctx,
     cells.map((_cell, i) => ({ isBot: false, ownerId: `P${i + 1}` })),
-    5
+    5,
+    0,
+    rules
   );
   cells.forEach((cell, i) => {
     // placeCar swaps with whoever stands on the cell: every car ends on its own cell, as each cell is named once

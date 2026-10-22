@@ -28,9 +28,12 @@ export default defineConfig({
       // clocks and break e2e/afk.spec.ts; stop it or use another E2E_BACKEND_PORT.
       // BOT_SEED=0: neutral bots and the grid in car order, so the specs are deterministic.
       // RATE_LIMIT_ENABLED=false: the specs open many lobbies from 127.0.0.1.
+      // RULES_VERSION=v2: the online specs are written for v2's numbers and no automatic grid setup (the engine's
+      // default is v3; the contract tests and main.multiplayer.test.ts cover online v3).
       env: {
         PORT: backendPort,
         BOT_SEED: '0',
+        RULES_VERSION: 'v2',
         TURN_TIMER_TIME_SCALE: '0.1',
         HOST_GRACE_SECONDS: '8',
         RATE_LIMIT_ENABLED: 'false'

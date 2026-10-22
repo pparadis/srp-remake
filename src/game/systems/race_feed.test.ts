@@ -11,7 +11,7 @@ const name = (car: Car) => `Car ${car.carId}`;
 
 // A race with the three cars placed on known cells, and a copy of it for "after" to be edited.
 function states(cells: [string, string, string] = ['Z05_L1_00', 'Z07_L1_00', 'Z10_L1_00']) {
-  const before: RaceState = createRace(ctx, seats, 3, 0);
+  const before: RaceState = createRace(ctx, seats, 3, 0, 'v2');
   before.cars.forEach((car, i) =>
     Object.assign(car, { cellId: cells[i], lapCount: 0, tire: 80, fuel: 80 })
   );

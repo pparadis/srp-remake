@@ -31,7 +31,8 @@ extra cell it walks; a diagonal change pays it as a `+1` surcharge.
   zig-zag of three `+3`. Moves into or out of the pit lane are no lane change.
 - The search is by price, not by steps: `searchRoutes` walks (cell, diagonal changes) states and keeps, per cell, the
   cheapest route (price, then fewest steps). Tire and fuel are charged on the cells walked on that route
-  (`TargetInfo.distance`), not on the lane-change points. The 9-point cap applies to the price.
+  (`TargetInfo.distance`), not on the lane-change points. The move cap applies to the price (9 on v1 and v2; on v3 it
+  is the compound's, see "Resources on rules v3").
 - `TargetInfo.laneChanges` is set only when the route changes lane 2 or more times; the hover tooltip then says
   "(N lane changes)".
 
@@ -47,7 +48,47 @@ diagonal change paid by its surcharge. Zone numbers differ per lane, so a sidewa
   - Distance traveled.
   - Lane factors (lane 1 is higher tire/lower fuel, lane 3 is lower tire/higher fuel).
   - Car setup (wing level and PSI deltas vs 32): Low wing x1.6 tire / x1.05 fuel, High x0.8 / x0.9 (see `docs/strategy-and-feel.md`).
-- Costs are rounded to integers.
+- Costs are rounded to integers on v1 and v2; on v3 to 0.1 (below).
+- The pictures in this doc show the movement rules on v2's resource rules (a cap of 9 whatever the tires): the cells,
+  routes and prices are the same on v3, only the cap and the wear differ.
+
+### Resources on rules v3 (#148)
+
+A race plays one rules version (`RaceState.rulesVersion`, default **v3** since #148; v1 and v2 stay selectable in solo).
+v3 changes only the resource rules (`src/game/systems/resource_system.ts`, the one copy of the math); next[], routes,
+prices, squeeze and the tow are v2's. The numbers are in `constants.ts`; the sizes below follow the race length.
+
+- **Capacity follows the race.** `capacityCells = min(raceLaps, STINT_LAPS) * spineLen` (`STINT_LAPS` 6, 28 cells a
+  lap in lane 1). A full tank (100) covers `capacityCells * FUEL_MARGIN` (1.1) at the normal pace of 8 points a move,
+  so `fuelPerCell = 100 / (capacityCells * 1.1)`: about 0.65 on 5 laps. A tire set lasts `capacityCells * tireLife`.
+  From 8 laps the tank covers 6 laps, so a stop is planned; at 6 laps or fewer the bots do not stop.
+- **Three compounds** (`COMPOUND_TABLE`):
+
+  | compound | cap per move | cycle budget (Medium wing) | `tireLife` |
+  | -------- | ------------ | -------------------------- | ---------- |
+  | hard     | 8            | 36 (7, 7, 7, 7, 8)         | 1.4        |
+  | medium   | 8            | 39                         | 1.0        |
+  | soft     | 9            | 42                         | 0.95       |
+
+  The wing keeps its +1 (Low) / -1 (High) on the budget and its wear factors; the budget is clamped to `cap * 5`. A car
+  with no tire or no fuel left is capped at 4, as before.
+
+- **The size of a move is a resource decision.** Wear is keyed by the move points a move spends (the number the target
+  shows, so a slingshot that drops a point also burns less): 7 or less is conservative (fuel x0.85, tire x0.9), 8 is
+  normal, 9 is high consumption (fuel x1.2, tire x1.1). The cost of a move is
+  `cells * rate * size factor * wing * psi (tire) * lane * tow`, rounded to 0.1 (whole numbers would swallow a 15% factor;
+  the HUD shows whole percents). The tow stays fuel x0.8 and tire x0.9, so it is how a car gets home with margin.
+
+![The size of a move: 7, 8 and 9 points on a straight, with the fuel and tire each burns](img/move-size.svg)
+
+- **Fuel load and weight.** `CarSetup.fuelLoad`: a multiple of 5 from `FUEL_LOAD_MIN` (40) to 100, missing = 100. The grid
+  `setup` action sets `car.fuel = fuelLoad`. While `car.fuel > HEAVY_FUEL` (70) the cycle budget is 1 lower, so a full
+  tank is heavy for about the first quarter of a 5-lap race. A stop fits fresh tires and refuels to
+  `max(car.fuel, fuelLoad)`: it does not shorten the stop, and a small load tops up less.
+- **Defaults.** A human who never opens Setup (and the AFK autopilot) gets medium tires, Medium wing and
+  `recommendedFuel(race)`, the fuel a race of 8s needs rounded up to 5. The bots pick their setup with `bestSetup`.
+- **Frozen.** v3 is replayed by `src/game/rules/golden/v3.json` (tag `rules-v3`) like v1 and v2. Medium and
+  `fuelLoad` are refused on v1 and v2.
 
 ## Lane Change Rules
 

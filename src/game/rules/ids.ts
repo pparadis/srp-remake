@@ -2,7 +2,7 @@
 // themselves (versions.ts) come with the lazily loaded game (#118).
 export const RULES_VERSIONS = ['v1', 'v2', 'v3'] as const;
 export type RulesVersion = (typeof RULES_VERSIONS)[number];
-export const DEFAULT_RULES_VERSION: RulesVersion = 'v2';
+export const DEFAULT_RULES_VERSION: RulesVersion = 'v3';
 
 export function isRulesVersion(value: unknown): value is RulesVersion {
   return typeof value === 'string' && (RULES_VERSIONS as readonly string[]).includes(value);

@@ -51,8 +51,8 @@ export const RULES: Record<
     }
   },
   v3: {
-    status: 'draft',
-    note: '#148: car config and race management: compounds hard, medium and soft, a fuel load, wear sized to the race and to the move size. Its code is the live movement, draft and resource systems.',
+    status: 'frozen',
+    note: '#148: car config and race management: compounds hard, medium and soft, a fuel load, wear sized to the race and to the move size (tag rules-v3). The default. Its code is the live movement, draft and resource systems.',
     rules: {
       computeValidTargets,
       computeSqueezeTargets,

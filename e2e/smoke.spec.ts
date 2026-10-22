@@ -9,7 +9,7 @@ test('home loads without starting a game, quick race builds the scene, no errors
   page
 }) => {
   const errors = collectErrors(page);
-  await page.goto('/?seed=0');
+  await page.goto('/?seed=0&rules=v2');
   await expect(page.locator('body')).toHaveAttribute('data-screen', 'home');
   await expect(page.locator('canvas')).toHaveCount(0);
   expect(await page.evaluate(() => window.__srp === undefined)).toBe(true);

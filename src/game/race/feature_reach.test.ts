@@ -160,7 +160,7 @@ describe('rules come up in play', () => {
       `reach over ${long.races} 12-lap races: pit stops ${(long.pitStops / long.races).toFixed(1)}/race`
     );
     expect(long.pitStops / long.races, 'pit stops per race').toBeGreaterThanOrEqual(1);
-  });
+  }, 30_000); // four 12-lap races: about 1.3 s plain, over 5 s with coverage on
 });
 
 // Rules v3 (#148): tire and fuel have to matter at any race length. Bot-only races again, the lineup a field would be

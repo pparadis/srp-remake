@@ -19,7 +19,12 @@ const ctx = createRaceContext(track as unknown as TrackData);
 describe('bot levels benchmark', () => {
   const lineup: BotPolicy[] = ['hard', 'normal', 'easy', 'autopilot'];
   // 4 line-up rotations x 3 race lengths x 4 seeds (personalities and grid) = 48 races; the long one needs a pit stop.
-  const result = runBench(ctx, { lineup, laps: [5, 8, 12], seeds: [1, 2, 3, 4] });
+  const result = runBench(ctx, {
+    lineup,
+    laps: [5, 8, 12],
+    seeds: [1, 2, 3, 4],
+    rulesVersion: 'v2'
+  });
   const avg = (policy: BotPolicy) => result.stats.get(policy)!.avgFinish;
 
   it('plays 48 races and every policy finishes in every one', () => {
@@ -44,7 +49,9 @@ describe('bot levels benchmark', () => {
       const state = createRace(
         ctx,
         Array.from({ length: 4 }, (_slot, i) => ({ isBot: true, ownerId: `B${i}` })),
-        laps
+        laps,
+        0,
+        'v2'
       );
       let pits = 0;
       for (let turn = 0; turn < laps * 400 && state.winnerCarId === null; turn += 1) {
@@ -110,7 +117,11 @@ describe('bot levels benchmark on rules v3', () => {
 
 // The balance gate of the wing (issue #48): `npx tsx tools/bot_bench.ts --setups` prints the whole table.
 describe('setup sweep', () => {
-  const rows = setupSweep(ctx, { laps: [3, 4, 5, 6, 7, 8, 9, 10], seeds: [1, 2] });
+  const rows = setupSweep(ctx, {
+    laps: [3, 4, 5, 6, 7, 8, 9, 10],
+    seeds: [1, 2],
+    rulesVersion: 'v2'
+  });
   const gate = setupSweepGate(rows);
 
   it('has every wing level fastest at some race length', () => {

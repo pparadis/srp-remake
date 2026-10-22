@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 406" width="840" height="406">
+<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#0b0f14"/><rect width="3" height="7" fill="#5aa9ff" opacity="0.5"/></pattern></defs>
+<rect x="0" y="0" width="840" height="406" fill="#0b0f14"/>
+<text x="40" y="44" fill="#e6edf3" font-size="22" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">The size of a move is a resource decision</text>
+<text x="40" y="70" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">Rules v3, soft tires (cap 9), a lane-1 straight, 5 laps, full tank, no tow.</text>
+<text x="40" y="88" fill="#8fa3b5" font-size="13" font-weight="400" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">Fuel and tire per cell grow with the move points: 7 or less saves, 9 burns the most.</text>
+<rect x="40" y="108" width="760" height="278" rx="10" fill="#111821" stroke="#2a3642"/>
+<text x="60" y="144" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">7: conservative</text>
+<rect x="60" y="154" width="392.5" height="36" rx="4" fill="#59636e" />
+<text x="256.3" y="177" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">7 cells</text>
+<text x="470.5" y="179" fill="#5fd38a" font-size="18" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">= 7</text>
+<text x="300" y="144" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">fuel 3.8 · tire 5.4</text>
+<text x="60" y="230" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">8: normal</text>
+<rect x="60" y="240" width="449" height="36" rx="4" fill="#59636e" />
+<text x="284.5" y="263" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">8 cells</text>
+<text x="527" y="265" fill="#5fd38a" font-size="18" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">= 8</text>
+<text x="300" y="230" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">fuel 5.1 · tire 6.8</text>
+<text x="60" y="316" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">9: high consumption</text>
+<rect x="60" y="326" width="505.5" height="36" rx="4" fill="#59636e" />
+<text x="312.8" y="349" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">9 cells</text>
+<text x="583.5" y="351" fill="#5fd38a" font-size="18" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">= 9</text>
+<text x="300" y="316" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="start" font-family="ui-monospace, Menlo, Consolas, monospace">fuel 6.9 · tire 8.4</text>
+</svg>
