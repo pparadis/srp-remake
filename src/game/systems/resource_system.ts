@@ -129,7 +129,7 @@ function makeRules(race: RaceScale): ResourceRules {
       car.tire = 100;
       car.fuel = Math.max(car.fuel, fuelLoadOf(car.setup));
     },
-    features: { medium: true, fuelLoad: true }
+    features: { medium: true, fuelLoad: true, psi: false }
   };
   return rules;
 }

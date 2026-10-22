@@ -47,7 +47,9 @@ diagonal change paid by its surcharge. Zone numbers differ per lane, so a sidewa
 - Each valid target includes computed tire and fuel costs based on:
   - Distance traveled.
   - Lane factors (lane 1 is higher tire/lower fuel, lane 3 is lower tire/higher fuel).
-  - Car setup (wing level and PSI deltas vs 32): Low wing x1.6 tire / x1.05 fuel, High x0.8 / x0.9 (see `docs/strategy-and-feel.md`).
+  - Car setup: Low wing x1.6 tire / x1.05 fuel, High x0.8 / x0.9 (see `docs/strategy-and-feel.md`). On v1 and v2 the
+    tire pressures also cost tire wear, +0.2% per psi each tire is away from 32; v3 ignores them (#163: 32 was always
+    the best, so the choice had no trade-off), and its setup menu has no pressure row.
 - Costs are rounded to integers on v1 and v2; on v3 to 0.1 (below).
 - The pictures in this doc show the movement rules on v2's resource rules (a cap of 9 whatever the tires): the cells,
   routes and prices are the same on v3, only the cap and the wear differ.
@@ -76,7 +78,7 @@ prices, squeeze and the tow are v2's. The numbers are in `constants.ts`; the siz
 - **The size of a move is a resource decision.** Wear is keyed by the move points a move spends (the number the target
   shows, so a slingshot that drops a point also burns less): 7 or less is conservative (fuel x0.85, tire x0.9), 8 is
   normal, 9 is high consumption (fuel x1.2, tire x1.1). The cost of a move is
-  `cells * rate * size factor * wing * psi (tire) * lane * tow`, rounded to 0.1 (whole numbers would swallow a 15% factor;
+  `cells * rate * size factor * wing * lane * tow`, rounded to 0.1 (whole numbers would swallow a 15% factor;
   the HUD shows whole percents). The tow stays fuel x0.8 and tire x0.9, so it is how a car gets home with margin.
 
 ![The size of a move: 7, 8 and 9 points on a straight, with the fuel and tire each burns](img/move-size.svg)

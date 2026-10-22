@@ -4,10 +4,11 @@ import type { CarSetup } from '../types/car';
 
 // The edits of the setup panels (grid setup, pit stop), shared so the two say the same. All of them change `setup`.
 
-/** What the rules offer: the medium compound and the fuel load row (rules v3). */
+/** What the rules offer: the medium compound and the fuel load row (rules v3), the pressure row (v1 and v2). */
 export interface SetupFeatures {
   medium: boolean;
   fuelLoad: boolean;
+  psi: boolean;
 }
 
 /**

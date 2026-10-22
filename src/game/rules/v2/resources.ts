@@ -46,7 +46,7 @@ export const resources: ResourceRules = {
     car.fuel = 100;
     if (setup) car.setup = setup;
   },
-  features: { medium: false, fuelLoad: false }
+  features: { medium: false, fuelLoad: false, psi: true }
 };
 
 /** v1 and v2 size nothing to the race. */

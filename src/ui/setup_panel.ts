@@ -50,7 +50,7 @@ const TEMPLATE = `
       (c) => `<button type="button" data-testid="setup-compound-${c}">${COMPOUND_LABEL[c]}</button>`
     ).join('')}</span>
   </div>
-  <div class="setup-row"><span>PSI FL/FR/RL/RR</span><b data-testid="setup-psi"></b>${stepper('psi', 'pressure')}</div>
+  <div class="setup-row" data-testid="setup-psi-row"><span>PSI FL/FR/RL/RR</span><b data-testid="setup-psi"></b>${stepper('psi', 'pressure')}</div>
   <div class="setup-row"><span>Wing</span><b data-testid="setup-wing"></b>${stepper('wing', 'wing')}</div>
   <div class="setup-row" data-testid="setup-fuel-row"><span>Fuel load</span><b data-testid="setup-fuel"></b>${stepper('fuel', 'fuel load')}</div>
   <p class="setup-note" data-testid="setup-fuel-note"></p>
@@ -138,6 +138,7 @@ export class SetupPanel {
   open(options: SetupPanelOptions): void {
     this.options = options;
     this.setup = fitToFeatures(options.setup, options.features);
+    this.q('setup-psi-row').hidden = !options.features.psi;
     this.q('setup-fuel-row').hidden = !options.features.fuelLoad;
     this.q('setup-fuel-note').hidden = !options.features.fuelLoad;
     this.q('setup-compound-medium').hidden = !options.features.medium;

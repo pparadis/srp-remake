@@ -2,6 +2,7 @@
 import { FUEL_LOAD_MIN, FUEL_LOAD_STEP, MOVE_CYCLE, PIT_LANE } from '../constants';
 import { must } from '../must';
 import type { ResourceRules } from '../rules/resource_rules';
+import { setupFactors as setupFactorsV2 } from '../rules/v2/movement_system';
 import type { Car, CarSetup } from '../types/car';
 import type { TrackCell } from '../types/track';
 import { setupFactors } from './movement_system';
@@ -103,9 +104,11 @@ export function wearPerCell(
   setup: CarSetup,
   resources: ResourceRules
 ): { tire: number; fuel: number } {
-  const { aeroTire, aeroFuel, psiFactor } = setupFactors(setup);
+  const { aeroTire, aeroFuel } = setupFactors(setup);
   const { tireRate, fuelRate } = resources.wearRates(setup);
-  return { tire: tireRate * aeroTire * psiFactor, fuel: fuelRate * aeroFuel };
+  // the tire pressures cost wear on v1 and v2 only (v3 ignores them, #163)
+  const psi = resources.features.psi ? setupFactorsV2(setup).psiFactor : 1;
+  return { tire: tireRate * aeroTire * psi, fuel: fuelRate * aeroFuel };
 }
 
 export function progressOf(car: Car, cell: TrackCell, plan: BotPlanContext): number {

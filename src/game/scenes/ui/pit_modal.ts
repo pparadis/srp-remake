@@ -3,7 +3,13 @@ import { UI_FONT } from '../../ui_font';
 import type Phaser from 'phaser';
 import type { Car } from '../../types/car';
 import { COMPOUNDS, type Compound } from '../../constants';
-import { fitToFeatures, nudgeFuel, nudgePsi, nudgeWing } from '../../systems/setup_edit';
+import {
+  fitToFeatures,
+  nudgeFuel,
+  nudgePsi,
+  nudgeWing,
+  type SetupFeatures
+} from '../../systems/setup_edit';
 import { formatStint } from '../../../ui/hud';
 import type { StintEstimate } from '../../systems/strategy';
 import { makeButton } from './make_button';
@@ -39,7 +45,7 @@ interface PitModalOpenOptions {
   /** The cycle budget the setup being edited buys. */
   pace: (setup: Car['setup']) => number;
   /** What the rules offer: the medium compound and the fuel load row (rules v3). */
-  features: { medium: boolean; fuelLoad: boolean };
+  features: SetupFeatures;
   /** The line under the fuel row: what the load being edited buys (rules v3 only). */
   fuelNote: (setup: Car['setup']) => string;
   /** The setup the bots would pick; the Suggested button shows when given. */
@@ -89,7 +95,11 @@ export class PitModal {
   private stints: PitModalOpenOptions['stints'] | null = null;
   private pace: PitModalOpenOptions['pace'] | null = null;
   private fuelNote: PitModalOpenOptions['fuelNote'] | null = null;
-  private features: PitModalOpenOptions['features'] = { medium: false, fuelLoad: false };
+  private features: PitModalOpenOptions['features'] = {
+    medium: false,
+    fuelLoad: false,
+    psi: true
+  };
   private readonly modalValueTexts: PitModalTexts;
   private active = false;
 
