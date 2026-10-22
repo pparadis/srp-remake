@@ -45,16 +45,18 @@ describe.each([
     for (const style of styles) expect(byStyle.get(style)!.winRate).toBeLessThan(0.3);
   });
 
+  // Run with the others above, not in the `it`: the bench would count against the 5 s test timeout (#160).
+  const four: PersonalityKey[] = ['pusher', 'steady', 'racer', 'defender'];
+  const fourCar = runBench(ctx, {
+    lineup: four.map(() => 'normal' as const),
+    laps: [3, 5, 8, 12],
+    seeds: [1, 2, 3, 4, 5, 6],
+    styles: four,
+    rulesVersion
+  });
+
   it('also holds in 4-car races with the same line-up of four styles', () => {
-    const four: PersonalityKey[] = ['pusher', 'steady', 'racer', 'defender'];
-    const r = runBench(ctx, {
-      lineup: four.map(() => 'normal' as const),
-      laps: [3, 5, 8, 12],
-      seeds: [1, 2, 3, 4, 5, 6],
-      styles: four,
-      rulesVersion
-    });
-    const stats = statsBy(r.results, (f) => f.style);
+    const stats = statsBy(fourCar.results, (f) => f.style);
     for (const style of four) expect(stats.get(style)!.winRate).toBeLessThan(0.4);
   });
 });
