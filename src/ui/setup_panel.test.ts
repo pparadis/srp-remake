@@ -24,7 +24,7 @@ function open(panel: SetupPanel, extra: Partial<SetupPanelOptions> = {}) {
       soft: { cells: 70, laps: 4.3, moves: 15 }
     }),
     pace: (s) => (s.wing === 'low' ? 41 : 38),
-    features: { medium: true, fuelLoad: true },
+    features: { medium: true, fuelLoad: true, psi: true },
     fuelNote: (s) => `load ${s.fuelLoad}`,
     onConfirm,
     onCancel,
@@ -81,7 +81,8 @@ describe('SetupPanel', () => {
   });
 
   it('hides what the rules do not offer: no medium, no fuel row, no Suggested', () => {
-    open(panel, { features: { medium: false, fuelLoad: false } });
+    open(panel, { features: { medium: false, fuelLoad: false, psi: false } });
+    expect(el('setup-psi-row').hidden).toBe(true);
     expect(el('setup-compound-medium').hidden).toBe(true);
     expect(el('setup-stint-medium').hidden).toBe(true);
     expect(el('setup-fuel-row').hidden).toBe(true);

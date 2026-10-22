@@ -61,22 +61,14 @@ function laneFactor(
   return 1;
 }
 
-// Setup multipliers on per-cell wear (1 = no penalty). Exported so bots can project wear.
+// Setup multipliers on per-cell wear (1 = no penalty). Exported so bots can project wear. The tire pressures are not
+// here: v3 ignores them (they only ever cost tire wear around 32, #163); v1 and v2 keep their own copy with the penalty.
 export function setupFactors(setup: CarSetup): {
   aeroTire: number;
   aeroFuel: number;
-  psiFactor: number;
 } {
   const { tire: aeroTire, fuel: aeroFuel } = WING_EFFECTS[setup.wing];
-  const psi = setup.psi;
-  const psiFactor =
-    1 +
-    (Math.abs(psi.fl - 32) +
-      Math.abs(psi.fr - 32) +
-      Math.abs(psi.rl - 32) +
-      Math.abs(psi.rr - 32)) *
-      0.002;
-  return { aeroTire, aeroFuel, psiFactor };
+  return { aeroTire, aeroFuel };
 }
 
 // Per-lane wear multipliers: the inner lane is hard on tires, the outer one on fuel.
@@ -96,14 +88,14 @@ function computeCosts(
   costs: MovementCostContext,
   drafting = false
 ): { tireCost: number; fuelCost: number } {
-  const { aeroTire, aeroFuel, psiFactor } = setupFactors(costs.setup);
+  const { aeroTire, aeroFuel } = setupFactors(costs.setup);
   const { tire: tireLaneFactor, fuel: fuelLaneFactor } = laneWearFactors(laneIndex);
   const draftTire = drafting ? DRAFT_TIRE_FACTOR : 1;
   const draftFuel = drafting ? DRAFT_FUEL_FACTOR : 1;
   const size = moveFactor(movePoints);
 
   const tireCost = roundWear(
-    distance * costs.tireRate * size.tire * aeroTire * psiFactor * tireLaneFactor * draftTire
+    distance * costs.tireRate * size.tire * aeroTire * tireLaneFactor * draftTire
   );
   const fuelCost = roundWear(
     distance * costs.fuelRate * size.fuel * aeroFuel * fuelLaneFactor * draftFuel

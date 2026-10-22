@@ -43,10 +43,12 @@ describe('setup edits', () => {
 
   it('trades what the rules do not offer for the closest thing, on a copy', () => {
     const original = base();
-    const v2 = fitToFeatures(original, { medium: false, fuelLoad: false });
+    const v2 = fitToFeatures(original, { medium: false, fuelLoad: false, psi: true });
     expect(v2.compound).toBe('hard');
     expect(v2.fuelLoad).toBeUndefined();
     expect(original.compound).toBe('medium');
-    expect(fitToFeatures(original, { medium: true, fuelLoad: true }).fuelLoad).toBe(100);
+    expect(fitToFeatures(original, { medium: true, fuelLoad: true, psi: false }).fuelLoad).toBe(
+      100
+    );
   });
 });

@@ -3,7 +3,7 @@
 ## Strategy helpers (`src/game/systems/strategy.ts`, Phaser-free)
 
 - `stintEstimate(car, spineLen)`: cells, laps and moves until tire or fuel reaches 0 at the car's compound,
-  wing and PSI (middle lane, no safety margin). One move is taken as 8 cells (`MOVE_CYCLE`: 40 per 5 moves, plus
+  wing (and PSI on v1 and v2) (middle lane, no safety margin). One move is taken as 8 cells (`MOVE_CYCLE`: 40 per 5 moves, plus
   the wing and compound pace: `cycleBudget(setup)`).
   The wear math is `wearPerCell` in `bot_plan.ts`, which uses `setupFactors` from `movement_system.ts`: there is
   one copy of it, shared by the engine costs, the bots, the HUD and the pit modal.
@@ -20,7 +20,7 @@
 - Hover tooltip: `Move 7 - tire 63% → 58% - fuel ...`, each part coloured by the level it lands on; a move
   that empties tire or fuel adds a warning. Targets that leave tire or fuel under 20% get a red ring on the
   board (thicker when empty).
-- Pit modal: stint of a fresh soft and hard set at the wing and PSI being edited, live. The same panel is the
+- Pit modal: stint of a fresh soft and hard set at the setup being edited, live. The same panel is the
   grid setup ("Setup" button next to Skip, until the car's first move).
 
 ## Feel
@@ -161,6 +161,6 @@ several turns), so the scene animates the difference:
   points, tire and fuel used, pit stops) and the board draws that lap as a faint white line with a dot where each move
   ended. Click or tap it again, or "All cars", to stop. A tap near one of your own targets still picks the target.
 
-The grid setup is the `setup` action (compound, pressures, wing; free, once, before the car's
+The grid setup is the `setup` action (compound, wing, fuel load, and the pressures on v1 and v2; free, once, before the car's
 first move; it does not end the turn; `setup_locked` after that). Positions saved with two wing angles load as
 Medium (`normalizeSetup` in `sandbox.ts`).
