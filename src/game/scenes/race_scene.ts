@@ -1,4 +1,5 @@
 import { renderScale, textResolution } from '../hidpi';
+import { UI_FONT } from '../ui_font';
 import { FrameGovernor, isFrameLimit } from '../frame_governor';
 import { must } from '../must';
 import { pinToScreen } from './ui/pin_to_screen';
@@ -1290,7 +1291,7 @@ export class RaceScene extends Phaser.Scene {
     if (!this.showForwardIndex) return;
     for (const cell of this.track.cells) {
       const label = this.add.text(cell.pos.x + 8, cell.pos.y + 6, String(cell.forwardIndex), {
-        fontFamily: 'monospace',
+        fontFamily: UI_FONT,
         resolution: textResolution(),
         fontSize: '10px',
         color: '#e6edf3'

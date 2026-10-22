@@ -1,4 +1,5 @@
 import { textResolution } from '../../hidpi';
+import { UI_FONT } from '../../ui_font';
 import { must } from '../../must';
 import type Phaser from 'phaser';
 import type { Car } from '../../types/car';
@@ -109,7 +110,7 @@ export class PitModal {
 
     const text = (x: number, y: number, size = '13px', color = '#9fb0bf') =>
       this.scene.add.text(x, y, '', {
-        fontFamily: 'monospace',
+        fontFamily: UI_FONT,
         resolution: textResolution(),
         fontSize: size,
         color
