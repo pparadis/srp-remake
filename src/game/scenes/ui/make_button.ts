@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import { textResolution } from '../../hidpi';
+import { UI_FONT } from '../../ui_font';
 
 interface TextButtonOptions {
   fontSize: string;
@@ -14,7 +15,7 @@ export function makeButton(
   options: TextButtonOptions
 ): Phaser.GameObjects.Text {
   const text = scene.add.text(0, 0, label, {
-    fontFamily: 'monospace',
+    fontFamily: UI_FONT,
     resolution: textResolution(),
     fontSize: options.fontSize,
     color: '#0b0f14',

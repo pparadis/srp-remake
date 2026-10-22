@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import { textResolution } from '../../hidpi';
+import { UI_FONT } from '../../ui_font';
 import { must } from '../../must';
 import {
   bakeFactor,
@@ -44,7 +45,7 @@ export class TargetMarkers {
 
       const cost = (this.costs[i] ??= this.scene.add
         .text(0, 0, '', {
-          fontFamily: 'monospace',
+          fontFamily: UI_FONT,
           resolution: textResolution(),
           fontSize: '11px',
           color: '#ffffff',
