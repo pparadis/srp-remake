@@ -17,7 +17,6 @@ import { formatStint } from './hud';
 
 export interface SetupPanelOptions {
   setup: Car['setup'];
-  bodyLines: string[];
   /** Estimated stint on fresh tires and fuel for each compound at the setup being edited. */
   stints: (setup: Car['setup']) => Record<Compound, StintEstimate>;
   /** The cycle budget the setup being edited buys. */
@@ -44,7 +43,7 @@ function stepper(id: string, label: string): string {
 const TEMPLATE = `
 <section class="setup-card" role="dialog" aria-labelledby="setup-title">
   <h2 id="setup-title">Grid setup</h2>
-  <p class="setup-body" data-testid="setup-body"></p>
+  <div class="setup-controls">
   <div class="setup-row">
     <span>Compound</span>
     <span class="setup-compounds">${COMPOUNDS.map(
@@ -55,6 +54,7 @@ const TEMPLATE = `
   <div class="setup-row"><span>Wing</span><b data-testid="setup-wing"></b>${stepper('wing', 'wing')}</div>
   <div class="setup-row" data-testid="setup-fuel-row"><span>Fuel load</span><b data-testid="setup-fuel"></b>${stepper('fuel', 'fuel load')}</div>
   <p class="setup-note" data-testid="setup-fuel-note"></p>
+  </div>
   <div class="setup-stints">
     <span>Stint on fresh tires and fuel</span>
     ${COMPOUNDS.map((c) => `<div data-testid="setup-stint-${c}"></div>`).join('')}
@@ -138,7 +138,6 @@ export class SetupPanel {
   open(options: SetupPanelOptions): void {
     this.options = options;
     this.setup = fitToFeatures(options.setup, options.features);
-    this.q('setup-body').textContent = options.bodyLines.join(' ');
     this.q('setup-fuel-row').hidden = !options.features.fuelLoad;
     this.q('setup-fuel-note').hidden = !options.features.fuelLoad;
     this.q('setup-compound-medium').hidden = !options.features.medium;

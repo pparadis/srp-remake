@@ -1411,11 +1411,6 @@ export class RaceScene extends Phaser.Scene {
       features,
       fuelNote: (setup) => this.session.fuelNote(setup),
       ...(features.fuelLoad ? { suggest: () => this.session.suggestedSetup() } : {}),
-      bodyLines: [
-        features.fuelLoad ? 'Compound, pressures, wing and fuel,' : 'Compound, pressures and wing,',
-        'free until your first move.',
-        'Low wing is fast and hard on tires.'
-      ],
       onConfirm: (setup) => {
         this.setupPanel.close();
         this.applyLocalAction({ type: 'setup', setup });

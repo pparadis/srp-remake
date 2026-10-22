@@ -18,7 +18,6 @@ function open(panel: SetupPanel, extra: Partial<SetupPanelOptions> = {}) {
   const onCancel = vi.fn();
   panel.open({
     setup: SETUP,
-    bodyLines: ['Free until your first move.'],
     stints: () => ({
       hard: { cells: 100, laps: 6.1, moves: 25 },
       medium: { cells: 80, laps: 4.8, moves: 18 },

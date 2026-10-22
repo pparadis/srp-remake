@@ -108,6 +108,8 @@ test('grid setup on a phone in landscape: the menu is inside the screen and noth
   const box = (await card.boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(874);
+  // two columns on a wide screen: it fits the 348 px height without scrolling
+  expect(box.height).toBeLessThanOrEqual(348);
   for (const id of ['setup-compound-soft', 'setup-confirm']) {
     const button = page.getByTestId(id);
     await button.scrollIntoViewIfNeeded();
