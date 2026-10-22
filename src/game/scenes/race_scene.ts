@@ -31,6 +31,7 @@ import { positionAsTest, type CarEdit } from '../race/sandbox';
 import type { SandboxCommand } from '../../ui/sandbox_panel';
 import { validateTrack } from '../../validation/track_validation';
 import { PIT_PANEL, PitModal, type PitModalButton } from './ui/pit_modal';
+import { SetupPanel } from '../../ui/setup_panel';
 import { DebugButtons } from './ui/debug_buttons';
 import { makeButton } from './ui/make_button';
 import { applyCarsMovesVisibility } from './ui/cars_moves_visibility';
@@ -143,6 +144,7 @@ export class RaceScene extends Phaser.Scene {
   private dragOrigin: { x: number; y: number } | null = null;
   private pendingPit: { cell: TrackCell; origin: { x: number; y: number } } | null = null;
   private pitModal!: PitModal;
+  private setupPanel!: SetupPanel;
   private skipButton!: Phaser.GameObjects.Text;
   private setupButton!: Phaser.GameObjects.Text;
   private debugButtons!: DebugButtons;
@@ -335,7 +337,7 @@ export class RaceScene extends Phaser.Scene {
     registerRaceSceneInputHandlers({
       scene: this,
       isRaceFinished: () => this.raceFinished,
-      pitModal: this.pitModal,
+      pitModal: { isActive: () => this.modalActive() },
       getActiveToken: () => this.getActiveToken(),
       getActiveCar: () => this.activeCar,
       getDragOrigin: () => this.dragOrigin,
@@ -372,7 +374,7 @@ export class RaceScene extends Phaser.Scene {
     // Zoom and pan: pinch, a drag on the empty board, the wheel, a double tap to fit again (camera_view.ts).
     registerCameraGestures({
       scene: this,
-      enabled: () => !this.editing && !this.pitModal.isActive(),
+      enabled: () => !this.editing && !this.modalActive(),
       onPan: (dx, dy) => {
         this.viewTween?.stop();
         if (this.fit) this.setUserView(panBy(this.fit, this.userView, dx, dy));
@@ -1019,7 +1021,7 @@ export class RaceScene extends Phaser.Scene {
           tween !== this.activeHaloTween &&
           !tween.targets.some((t) => ambient.has(t))
       );
-    return moving || this.confetti?.active === true || this.pitModal.isActive();
+    return moving || this.confetti?.active === true || this.modalActive();
   }
 
   private showTrail(carId: number) {
@@ -1056,7 +1058,7 @@ export class RaceScene extends Phaser.Scene {
    * no target in reach, a tap on a car follows it, or stops following it (#135): not the car the player may drag now.
    */
   private tapBoard(x: number, y: number, tappedCarId: number | null) {
-    if (this.editing || this.pitModal.isActive() || !this.showCarsAndMoves) return;
+    if (this.editing || this.modalActive() || !this.showCarsAndMoves) return;
     const canMove = this.session.localCanControl();
     let best: { id: string; d: number } | null = null;
     for (const cellId of canMove ? this.validTargets.keys() : []) {
@@ -1083,7 +1085,7 @@ export class RaceScene extends Phaser.Scene {
     const cell = selected ? this.cellMap.get(selected.cellId) : undefined;
     const token = this.getActiveToken();
     this.session.clearSelection();
-    if (!cell || !token || this.pitModal.isActive()) {
+    if (!cell || !token || this.modalActive()) {
       this.drawTargets();
       this.emitHud();
       return;
@@ -1269,7 +1271,7 @@ export class RaceScene extends Phaser.Scene {
 
   // The Fit button only shows while the player has zoomed in.
   private updateFitButton() {
-    this.fitButton?.setVisible(this.userView.zoom > 1.01 && !this.pitModal?.isActive());
+    this.fitButton?.setVisible(this.userView.zoom > 1.01 && !this.modalActive());
   }
 
   private addLog(line: string) {
@@ -1349,6 +1351,16 @@ export class RaceScene extends Phaser.Scene {
 
   private createPitModal() {
     this.pitModal = new PitModal(this);
+    // the grid setup menu is DOM (#159), over the HUD and scrolling on a short screen
+    this.setupPanel = new SetupPanel(document.body);
+    const dispose = () => this.setupPanel.destroy();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, dispose);
+    this.events.once(Phaser.Scenes.Events.DESTROY, dispose);
+  }
+
+  /** A modal that takes the board's input is open: the pit stop (canvas) or the grid setup (DOM). */
+  private modalActive(): boolean {
+    return this.pitModal?.isActive() === true || this.setupPanel?.isActive() === true;
   }
 
   private createSkipButton() {
@@ -1390,10 +1402,9 @@ export class RaceScene extends Phaser.Scene {
 
   // Before a car's first turn: compound and wing, once and free (the car keeps the turn).
   private openGridSetup() {
-    if (!this.session.canSetup() || this.pitModal.isActive()) return;
+    if (!this.session.canSetup() || this.modalActive()) return;
     const features = this.session.setupFeatures();
-    this.pitModal.open({
-      title: 'Grid setup',
+    this.setupPanel.open({
       setup: this.activeCar.setup,
       stints: (setup) => this.session.pitStints(setup),
       pace: (setup) => this.session.paceOf(setup),
@@ -1406,10 +1417,10 @@ export class RaceScene extends Phaser.Scene {
         'Low wing is fast and hard on tires.'
       ],
       onConfirm: (setup) => {
-        this.pitModal.close();
+        this.setupPanel.close();
         this.applyLocalAction({ type: 'setup', setup });
       },
-      onCancel: () => this.pitModal.close()
+      onCancel: () => this.setupPanel.close()
     });
   }
 
@@ -1469,7 +1480,7 @@ export class RaceScene extends Phaser.Scene {
     if (!this.pitModal) return;
     if (!this.session.setupFeatures().fuelLoad || !this.session.canSetup()) return;
     const carId = this.activeCar.carId;
-    if (this.offeredSetup.has(carId) || this.pitModal.isActive()) return;
+    if (this.offeredSetup.has(carId) || this.modalActive()) return;
     this.offeredSetup.add(carId);
     this.openGridSetup();
   }

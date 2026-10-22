@@ -3,7 +3,6 @@ import { validateMoveAttempt } from '../../systems/move_validation_system';
 import type { TargetInfo } from '../../systems/movement_system';
 import type { Car } from '../../types/car';
 import type { TrackCell } from '../../types/track';
-import type { PitModal } from '../ui/pit_modal';
 import { resolvePlayerDragDrop } from '../turns/resolve_player_drag_drop';
 import { easeAngle, spriteRotation } from '../rendering/heading';
 import { onKeyDown } from './on_key_down';
@@ -17,7 +16,8 @@ const DRAG_TURN = 0.33;
 interface RegisterRaceSceneInputHandlersParams {
   scene: Phaser.Scene;
   isRaceFinished: () => boolean;
-  pitModal: PitModal;
+  /** Any modal that takes the board's input: the pit stop and the grid setup. */
+  pitModal: { isActive: () => boolean };
   getActiveToken: () => Phaser.GameObjects.Container | null;
   getActiveCar: () => Car;
   getDragOrigin: () => { x: number; y: number } | null;

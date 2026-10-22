@@ -1,16 +1,9 @@
 import { textResolution } from '../../hidpi';
 import { UI_FONT } from '../../ui_font';
-import { must } from '../../must';
 import type Phaser from 'phaser';
 import type { Car } from '../../types/car';
-import {
-  COMPOUNDS,
-  FUEL_LOAD_MIN,
-  FUEL_LOAD_STEP,
-  SETUP_LIMITS,
-  WING_LEVELS,
-  type Compound
-} from '../../constants';
+import { COMPOUNDS, type Compound } from '../../constants';
+import { fitToFeatures, nudgeFuel, nudgePsi, nudgeWing } from '../../systems/setup_edit';
 import { formatStint } from '../../../ui/hud';
 import type { StintEstimate } from '../../systems/strategy';
 import { makeButton } from './make_button';
@@ -39,8 +32,6 @@ interface PitModalTexts {
 }
 
 interface PitModalOpenOptions {
-  /** Heading of the panel; "Pit stop" when omitted (the grid setup reuses the panel). */
-  title?: string;
   setup: Car['setup'];
   bodyLines: string[];
   /** Estimated stint on fresh tires and fuel for each compound at the setup being edited. */
@@ -162,8 +153,8 @@ export class PitModal {
     const fuelValue = text(valueX, ROW.fuel + 4, '13px', '#e6edf3');
     const fuelMinus = this.createModalButton(controlX, ROW.fuel, '-').setScale(0.85);
     const fuelPlus = this.createModalButton(controlX + 40, ROW.fuel, '+').setScale(0.85);
-    fuelMinus.on('pointerdown', () => this.adjustFuel(-FUEL_LOAD_STEP));
-    fuelPlus.on('pointerdown', () => this.adjustFuel(FUEL_LOAD_STEP));
+    fuelMinus.on('pointerdown', () => this.adjustFuel(-1));
+    fuelPlus.on('pointerdown', () => this.adjustFuel(1));
     this.fuelButtons = { minus: fuelMinus, plus: fuelPlus };
     const fuelNote = text(labelX, ROW.fuelNote, '11px').setWordWrapWidth(410);
     this.fuelRow = [fuelLabel, fuelValue, fuelMinus, fuelPlus, fuelNote];
@@ -180,7 +171,7 @@ export class PitModal {
     this.suggestButton.on('pointerdown', () => {
       const suggested = this.suggest?.();
       if (!suggested || !this.modalSetup) return;
-      this.modalSetup = this.fitToFeatures(suggested);
+      this.modalSetup = fitToFeatures(suggested, this.features);
       this.refreshModalValues();
     });
 
@@ -256,11 +247,10 @@ export class PitModal {
   open(options: PitModalOpenOptions) {
     this.features = options.features;
     this.suggest = options.suggest;
-    this.modalSetup = this.fitToFeatures(options.setup);
+    this.modalSetup = fitToFeatures(options.setup, this.features);
     this.stints = options.stints;
     this.pace = options.pace;
     this.fuelNote = options.fuelNote;
-    this.modalTitle.setText(options.title ?? 'Pit stop');
     this.modalBody.setText(options.bodyLines.join('\n'));
     this.layout();
     this.refreshModalValues();
@@ -306,16 +296,6 @@ export class PitModal {
     this.panel.fillRoundedRect(x, y, width, height, 10);
     this.panel.lineStyle(1, 0x2a3642, 1);
     this.panel.strokeRoundedRect(x, y, width, height, 10);
-  }
-
-  // A setup the rules do not offer (the medium compound, a fuel load) is traded for the closest one they do; the fuel
-  // load starts from a full tank when the rules have one and the setup names none.
-  private fitToFeatures(setup: Car['setup']): Car['setup'] {
-    const fitted = structuredClone(setup);
-    if (!this.features.medium && fitted.compound === 'medium') fitted.compound = 'hard';
-    if (this.features.fuelLoad) fitted.fuelLoad ??= 100;
-    else delete fitted.fuelLoad;
-    return fitted;
   }
 
   // The fuel row and the medium line come and go with the rules; the rows below them follow.
@@ -377,33 +357,19 @@ export class PitModal {
 
   private adjustPsi(delta: number) {
     if (!this.modalSetup) return;
-    const clamp = (v: number) =>
-      Math.max(SETUP_LIMITS.psi.min, Math.min(SETUP_LIMITS.psi.max, v + delta));
-    this.modalSetup.psi.fl = clamp(this.modalSetup.psi.fl);
-    this.modalSetup.psi.fr = clamp(this.modalSetup.psi.fr);
-    this.modalSetup.psi.rl = clamp(this.modalSetup.psi.rl);
-    this.modalSetup.psi.rr = clamp(this.modalSetup.psi.rr);
+    nudgePsi(this.modalSetup, delta);
     this.refreshModalValues();
   }
 
-  // "-" is a lower wing (faster, wears more), "+" a higher one (slower, saves tires and fuel).
   private adjustWing(delta: number) {
     if (!this.modalSetup) return;
-    const index = WING_LEVELS.indexOf(this.modalSetup.wing) + delta;
-    this.modalSetup.wing = must(
-      WING_LEVELS[Math.max(0, Math.min(WING_LEVELS.length - 1, index))],
-      'wing level'
-    );
+    nudgeWing(this.modalSetup, delta);
     this.refreshModalValues();
   }
 
-  // "-" is a lighter tank (faster while it is heavy, less range), "+" a heavier one.
-  private adjustFuel(delta: number) {
+  private adjustFuel(direction: -1 | 1) {
     if (!this.modalSetup || !this.features.fuelLoad) return;
-    this.modalSetup.fuelLoad = Math.max(
-      FUEL_LOAD_MIN,
-      Math.min(100, (this.modalSetup.fuelLoad ?? 100) + delta)
-    );
+    nudgeFuel(this.modalSetup, direction);
     this.refreshModalValues();
   }
 }
