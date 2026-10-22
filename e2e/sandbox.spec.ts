@@ -7,7 +7,7 @@ test.setTimeout(90_000);
 const tid = (page: import('@playwright/test').Page, id: string) => page.getByTestId(id);
 
 async function sandboxRace(page: import('@playwright/test').Page) {
-  await page.goto('/?sandbox&seed=0');
+  await page.goto('/?sandbox&seed=0&rules=v2');
   await expect(tid(page, 'home-quick')).toBeVisible();
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
@@ -132,7 +132,7 @@ test('sandbox: dropping a car on another car swaps their places', async ({ page 
 });
 
 test('no sandbox without ?sandbox', async ({ page }) => {
-  await page.goto('/?seed=0');
+  await page.goto('/?seed=0&rules=v2');
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 1, laps: 1 });
   await startRace(page);

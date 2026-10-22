@@ -314,3 +314,35 @@ the teens. With `--laps 5,8,12 --seeds 4`:
 
 The Hard < Normal < Easy < Autopilot ordering holds, and `--setups` still passes the wing gate (no setup dominates; hard
 medium now wins a race length too).
+
+## Rules v3: the pace plan and the setup search (#148)
+
+On v3 (the default; `rulesOf(state).resources`) the bots play the resource model of `docs/movement-spec.md`, "Resources
+on rules v3". v1 and v2 keep the old behaviour; the new terms are gated on the version, so those benchmarks did not move.
+
+- **Pace plan** (`sustainablePace` in `bot_plan.ts`): the largest move size (7, 8 or 9) a car can keep to the flag, or to
+  its planned stop, with the tire and fuel it has (`sustainableSize`, with `PACE_MARGIN` 1.02 kept in hand). Normal
+  loses `paceWeight` points per move point above it (30 for most styles). `Personality.paceReserve` is the share of the
+  distance kept in hand: `pusher` (weight 12, reserve -0.06) counts on running low, `steady` (45, +0.06) saves early.
+  Hard picks it up through the Normal scores.
+- **Setup search** (`bestSetup`): compound x wing x fuel load, each one played through (cycle budget with the heavy
+  point, the cap, the pace plan, one stop at most) with `projectedMoves`, which models partial refuels
+  (`pitService`: a stop tops up to the load, no further). A tie goes to the lightest tank. `stopIsDue` and Hard use
+  `pitService` too instead of assuming a refill to 100. `strategy.ts` (`stintEstimate`, `pitAdvice`) is the same model.
+- **Bands** (`feature_reach.test.ts`, bot-only races): on 5 laps the median fuel at the flag is 15 or less and the
+  tire 30 or less; at least 15% of the moves are 7 or less (crawls left out); soft cars play 9s; a car runs dry in some
+  races and in fewer than half; no stop at 6 laps or fewer, at least one at 8 or more. Measured at 5 laps: fuel 7.8,
+  tire 5.4, 24% of moves 7 or less, soft 9s 37% of soft moves, 8 of 32 cars crawled, stops 0.0 a race; at 12 laps
+  3.0 stops a race.
+- **Setup sweep** (`--setups --rules v3`, a lone car so a tow or a block does not decide it): every compound is the
+  fastest at some race length and no setup is fastest at every one (asserted in `bot_levels.test.ts`). With
+  `TIRE_LIFE` 1.4 / 1.0 / 0.95: soft/high wins 3-7 laps, medium/high 8-9 and 13, medium/medium 10-11, hard/high 8 and 14. Medium's tire life was 1.1 first, equal to `FUEL_MARGIN`: tires and fuel ran out together, so hard never won.
+- **Levels** (4 races x 3 lengths x 8 seeds): Hard < Normal < Easy < Autopilot holds on v3; Hard's edge over Normal is
+  small, 0.02-0.08 places (adaptive inner lane 0.9, `ADAPTIVE_V3`). Do not tune a personality to help one level without
+  re-running the ordering on v1, v2 and v3: pulling Racer's `queue` in from 10 to 4 improved Racer and with it Normal,
+  and Hard no longer led it on v2 and v3.
+- **Personalities** do not dominate (no one wins 30% or more of the 5-car races), but the spread is wider than on v2: on
+  v3 the best (Pusher, 2.75) and the worst (Racer, 3.50) are 0.75 places apart, against about 0.2 on v2, because Racer
+  avoids queueing behind a car and so gives up the tow's saving. The test bound is 0.9 on v3, 0.45 on v2.
+- **Known, left open:** Low wing still wins by 0.2 moves at one length (it is not asserted); no stop at 8 laps (medium/high
+  at 7s beats a stop); `--setups` against three Normal bots (not the lone-car gate) is noisy at 8 laps.

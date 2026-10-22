@@ -16,7 +16,8 @@ function newSession(botCars: number, raceLaps: number) {
     humanCars: 1,
     botCars,
     raceLaps,
-    seed: 0
+    seed: 0,
+    rulesVersion: 'v2'
   });
 }
 

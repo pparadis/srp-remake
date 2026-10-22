@@ -309,7 +309,8 @@ test('a grid setup changes the car for free, keeps the turn, and is refused afte
   assert.equal((late.json() as { reason: string }).reason, 'setup_locked');
 });
 
-test("the server's bots set up on the grid for the distance; a human keeps the plain setup", async (t) => {
+test("rules v2: the server's bots set up on the grid for the distance; a human keeps the plain setup", async (t) => {
+  playRules(t, 'v2');
   const { app, raceState } = await startRace({
     totalCars: 3,
     humanCars: 1,
@@ -364,7 +365,19 @@ test('rules v3: the race says its rules, the human is dealt medium tires and a f
   assert.deepEqual([car.setup.compound, car.setup.fuelLoad, car.fuel], ['medium', 60, 60]);
 });
 
-test('rules v2 (the default): the medium compound and a fuel load are refused', async (t) => {
+test('a server with no RULES_VERSION plays v3, the default', async (t) => {
+  const before = process.env.RULES_VERSION;
+  delete process.env.RULES_VERSION;
+  t.after(() => {
+    if (before !== undefined) process.env.RULES_VERSION = before;
+  });
+  const { app, raceState } = await startRace();
+  t.after(() => app.close());
+  assert.equal(raceState.rulesVersion, 'v3');
+});
+
+test('rules v2 (RULES_VERSION=v2): the medium compound and a fuel load are refused', async (t) => {
+  playRules(t, 'v2');
   const { app, raceState, submit } = await startRace();
   t.after(() => app.close());
   assert.equal(raceState.rulesVersion, 'v2');

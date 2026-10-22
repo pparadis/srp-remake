@@ -231,7 +231,9 @@ describe('pass and return through the engine', () => {
         { isBot: false, ownerId: 'P1' },
         { isBot: false, ownerId: 'P2' }
       ],
-      5
+      5,
+      0,
+      'v2'
     );
     state.cars[0]!.cellId = START;
     state.cars[1]!.cellId = BLOCKER;
@@ -286,7 +288,8 @@ describe('over simulated races', () => {
             botLevel: 'normal' as const
           })),
           3,
-          seed
+          seed,
+          'v2'
         );
         for (let turn = 0; turn < 90 && state.winnerCarId === null; turn += 1) {
           const car = getActiveCar(state);

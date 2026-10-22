@@ -48,7 +48,8 @@ interface SrpStatus {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function gotoHome(page: Page) {
-  await page.goto('/?seed=0');
+  // The specs are written for v2's numbers and no automatic grid setup (v3 has its own in grid-setup.spec.ts)
+  await page.goto('/?seed=0&rules=v2');
   await expect(page.getByTestId('home-quick')).toBeVisible();
 }
 

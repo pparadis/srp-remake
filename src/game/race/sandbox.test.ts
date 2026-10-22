@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import { MOVE_BUDGET } from '../constants';
+import { DEFAULT_RULES_VERSION, type RulesVersion } from '../rules/ids';
 import { resources } from '../rules/v2/resources';
 import { buildGameDebugSnapshot } from '../scenes/debug/game_debug_snapshot';
 import type { TrackData } from '../types/track';
@@ -22,14 +23,16 @@ import {
 } from './sandbox';
 
 const ctx = createRaceContext(track as unknown as TrackData);
-const newRace = (cars = 3): RaceState =>
+const newRace = (cars = 3, rulesVersion: RulesVersion = 'v2'): RaceState =>
   createRace(
     ctx,
     Array.from({ length: cars }, (_slot, i) => ({
       isBot: i > 0,
       ownerId: i > 0 ? `BOT${i}` : 'P1'
     })),
-    5
+    5,
+    0,
+    rulesVersion
   );
 const targetsOf = (state: RaceState) => computeTargets(ctx, state, getActiveCar(state));
 
@@ -122,7 +125,8 @@ describe('sandbox positions', () => {
           botDecisionCount: 0,
           resources,
           disallowPitBoxTargets: false,
-          seed: state.seed
+          seed: state.seed,
+          ...(state.rulesVersion ? { rulesVersion: state.rulesVersion } : {})
         })
       )
     );
@@ -146,9 +150,10 @@ describe('sandbox positions', () => {
     );
     expect(JSON.stringify(a)).toBe(before);
     expect(restorePosition(ctx, a, { ...snapshotOf(newRace(3)), rulesVersion: 'v2' })).toBeNull();
-    const old = snapshotOf(newRace(3));
+    const old = snapshotOf(newRace(3, DEFAULT_RULES_VERSION));
     delete old.rulesVersion; // made before versions existed: it plays the default
-    expect(restorePosition(ctx, a, old)).toBeNull();
+    expect(restorePosition(ctx, newRace(3, DEFAULT_RULES_VERSION), old)).toBeNull();
+    expect(restorePosition(ctx, a, old)).toMatch(/this race plays v2/);
   });
 
   it('refuses a snapshot that does not fit, changing nothing', () => {

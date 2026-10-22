@@ -5,6 +5,7 @@ import { blockersSvg } from './blockers';
 import { draftingSvg } from './drafting';
 import { laneChangePriceSvg } from './lane_change_price';
 import { lapsSvg } from './laps';
+import { moveSizeSvg } from './move_size';
 import { passAndReturnSvg } from './pass_and_return';
 import { pitEntrySvg, pitLaneSvg } from './pit_lane';
 import { contextOf } from './scenario';
@@ -21,6 +22,7 @@ export function allDiagrams(track: TrackData): Map<string, string> {
     ['pit-entry.svg', pitEntrySvg(ctx)],
     ['pit-lane.svg', pitLaneSvg(ctx)],
     ['laps.svg', lapsSvg(ctx)],
-    ['drafting.svg', draftingSvg(ctx)]
+    ['drafting.svg', draftingSvg(ctx)],
+    ['move-size.svg', moveSizeSvg(ctx)]
   ]);
 }
