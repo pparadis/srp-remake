@@ -33,7 +33,7 @@ interface GameOptions {
   // Solo dev tool (`?sandbox`): start in edit mode, optionally from a "Copy debug" snapshot (JSON text).
   sandbox?: boolean;
   position?: string;
-  // `?hidpi`: draw the canvas at the screen's pixel density (hidpi.ts); off by default while it is tried on iPhone
+  // `?hidpi`: draw the canvas at the screen's pixel density (hidpi.ts); main.ts turns it on unless `?hidpi=0`
   hidpi?: boolean;
   // `?anim`: glide the cars in a test build too (they move at once there, so the specs read where cars are)
   animate?: boolean;

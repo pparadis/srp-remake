@@ -160,7 +160,7 @@ describe('main (solo flow)', () => {
         botLevel: 'hard',
         seed: expect.any(Number),
         rulesVersion: 'v3',
-        hidpi: false,
+        hidpi: true,
         animate: false
       });
     });

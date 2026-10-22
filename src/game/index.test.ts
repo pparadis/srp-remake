@@ -115,4 +115,17 @@ describe('startGame', () => {
     const [config] = gameCtor.mock.calls[0] ?? [];
     expect(config).toMatchObject({ width: 1748, height: 804, scale: { mode: 'NONE', zoom: 0.5 } });
   });
+
+  it('?hidpi: a 3x screen gets 3x pixels, a 4x screen is capped at 3x', async () => {
+    gameCtor.mockReturnValue(mockGameInstance());
+    const { startGame } = await import('./index');
+    const parent = document.createElement('div');
+    parent.getBoundingClientRect = () => new DOMRect(0, 0, 874, 402);
+    Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 4 });
+
+    startGame(parent, { totalCars: 4, humanCars: 1, botCars: 3, raceLaps: 5, hidpi: true });
+
+    const [config] = gameCtor.mock.calls[0] ?? [];
+    expect(config).toMatchObject({ width: 2622, height: 1206 });
+  });
 });

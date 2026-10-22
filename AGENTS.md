@@ -120,14 +120,15 @@ Project guide for Codex and other automation.
   (`transparent: true`, `style.css`), not a Phaser `tileSprite`. A 4000x3000 `tileSprite` was redrawn each frame and
   Firefox on a real display (X11) fell to 9 fps while Chromium was at 60 (#79; headless Firefox did not show it, so
   check a real window with the `P` readout). Draw big static layers once (the track is baked with `generateTexture`).
-- Sharpness on phones (opt-in, `?hidpi`): Phaser 3.90 has no `resolution` option, so the canvas is 1x and a phone
-  stretches it (blurry). With `?hidpi` (read once in `main.ts`, passed to `startGame`) the game uses `Scale.NONE` with a
-  canvas `renderScale()` times its container (`src/game/hidpi.ts`, capped at 2) shown at `zoom: 1 / renderScale()`;
-  `keepGameSizeInSync` resizes it. Scene code works in canvas pixels: CSS sizes are multiplied by `renderScale()` and every
-  `add.text` style takes `resolution: textResolution()`; both are 1 without the flag. Turned on for everyone (#58), the
-  race scene never started on an iPhone 17 (reverted in #59), so it stays opt-in until it works there; `?hidpi` also
-  shows a probe line (`src/ui/diagnostics.ts`). Uncaught errors always show in the `crash-report` box (phones have no
-  console).
+- Sharpness on phones (on by default since #157, `?hidpi=0` turns it off): Phaser 3.90 has no `resolution` option, so
+  the canvas would be 1x and a phone stretches it (blurry). `main.ts` reads the flag once and passes it to `startGame`:
+  the game uses `Scale.NONE` with a canvas `renderScale()` times its container (`src/game/hidpi.ts`, capped at 3) shown
+  at `zoom: 1 / renderScale()`; `keepGameSizeInSync` resizes it. Scene code works in canvas pixels: CSS sizes are
+  multiplied by `renderScale()` and every `add.text` style takes `resolution: textResolution()` and
+  `fontFamily: UI_FONT` (`src/game/ui_font.ts`, the system monospace: SF Mono on iOS, the generic `monospace` is
+  Courier there; `style.css` uses the same stack); both scales are 1 at dpr 1 or with `?hidpi=0`. The first try (#58) left the race scene blank on an
+  iPhone 17 (reverted in #59); it runs there since #88. A bare `?hidpi` also shows a probe line
+  (`src/ui/diagnostics.ts`). Uncaught errors always show in the `crash-report` box (phones have no console).
 - What repeats is baked once, never drawn or rasterised per frame (#88): the track at `renderScale()` pixels per unit
   (`drawTrack`: `generateTexture` replays `scaleCanvas`, shown at `1 / k`, so `?hidpi` is sharp), and the target rings,
   car bodies, number badges and confetti swatches as canvas textures (`rendering/baked_textures.ts`, at `renderScale()`
