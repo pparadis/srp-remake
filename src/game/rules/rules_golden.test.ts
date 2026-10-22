@@ -57,8 +57,16 @@ describe('v3', () => {
   it('has resource rules that are not v2', () => {
     expect(RULES.v3.rules.resources).not.toBe(RULES.v2.rules.resources);
     const race = { raceLaps: 5, spineLen: 28 };
-    expect(RULES.v3.rules.resources(race).features).toEqual({ medium: true, fuelLoad: true });
-    expect(RULES.v2.rules.resources(race).features).toEqual({ medium: false, fuelLoad: false });
+    expect(RULES.v3.rules.resources(race).features).toEqual({
+      medium: true,
+      fuelLoad: true,
+      psi: false
+    });
+    expect(RULES.v2.rules.resources(race).features).toEqual({
+      medium: false,
+      fuelLoad: false,
+      psi: true
+    });
   });
 });
 

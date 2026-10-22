@@ -1058,9 +1058,9 @@ describe('RaceSession: following a car (#135)', () => {
 describe('setup panel data on rules v3', () => {
   const v3 = () => solo({ botCars: 1, raceLaps: 5, rulesVersion: 'v3' });
 
-  it('offers the medium compound and the fuel load on v3 and neither on v2', () => {
-    expect(v3().setupFeatures()).toEqual({ medium: true, fuelLoad: true });
-    expect(solo().setupFeatures()).toEqual({ medium: false, fuelLoad: false });
+  it('offers the medium compound and the fuel load on v3 and the pressures on v2 (v3 ignores them, #163)', () => {
+    expect(v3().setupFeatures()).toEqual({ medium: true, fuelLoad: true, psi: false });
+    expect(solo().setupFeatures()).toEqual({ medium: false, fuelLoad: false, psi: true });
   });
 
   it('estimates a stint for each compound from the tank the load gives, not from a full one', () => {
@@ -1111,7 +1111,7 @@ describe('setup panel data on rules v3', () => {
     expect(session.setupFeatures().fuelLoad).toBe(false);
     const race = createRace(session.ctx, SEATS, 5, 0, 'v3');
     expect(session.applyServerState(lobbyOf(race), 'host')).toMatchObject({ applied: true });
-    expect(session.setupFeatures()).toEqual({ medium: true, fuelLoad: true });
+    expect(session.setupFeatures()).toEqual({ medium: true, fuelLoad: true, psi: false });
     expect(session.canSetup()).toBe(true);
     const mine = session
       .hudSnapshot(view())!

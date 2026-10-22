@@ -56,6 +56,7 @@ import { buildGameDebugSnapshot } from '../scenes/debug/game_debug_snapshot';
 import type { HudCar, HudHover, HudMove, HudSnapshot } from '../../ui/hud';
 import type { SandboxSnapshot } from '../../ui/sandbox_panel';
 import type { PitStints } from '../scenes/ui/pit_modal';
+import type { SetupFeatures } from '../systems/setup_edit';
 import type { AppliedTurnSummary, PublicLobby, TurnSource } from '../../net/backend_api';
 import { toEngineRace } from '../../net/race_sync';
 
@@ -710,7 +711,7 @@ export class RaceSession {
   }
 
   /** What the rules offer the setup panel: the medium compound and a fuel load. */
-  setupFeatures(): { medium: boolean; fuelLoad: boolean } {
+  setupFeatures(): SetupFeatures {
     return this.resources().features;
   }
 
@@ -937,7 +938,7 @@ export class RaceSession {
       ? `${HUD_LABELS.targetPrefix} d${targetInfo.distance}  tire-${targetInfo.tireCost}  fuel-${targetInfo.fuelCost}${targetInfo.isPitTrigger ? '  PIT' : ''}`
       : null;
     const factorLine = factors
-      ? `${HUD_LABELS.factorsPrefix} aeroT x${factors.aeroT.toFixed(2)}  aeroF x${factors.aeroF.toFixed(2)}  psi x${factors.psi.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
+      ? `${HUD_LABELS.factorsPrefix} aeroT x${factors.aeroT.toFixed(2)}  aeroF x${factors.aeroF.toFixed(2)}  laneT x${factors.laneT.toFixed(2)}  laneF x${factors.laneF.toFixed(2)}`
       : null;
     return [
       `cell: ${cell.id}`,
@@ -952,9 +953,9 @@ export class RaceSession {
   }
 
   private computeCostFactors(laneIndex: number) {
-    const { aeroTire, aeroFuel, psiFactor } = setupFactors(this.activeCar.setup);
+    const { aeroTire, aeroFuel } = setupFactors(this.activeCar.setup);
     const lane = laneWearFactors(laneIndex);
-    return { aeroT: aeroTire, aeroF: aeroFuel, psi: psiFactor, laneT: lane.tire, laneF: lane.fuel };
+    return { aeroT: aeroTire, aeroF: aeroFuel, laneT: lane.tire, laneF: lane.fuel };
   }
 
   // ---- debug -----------------------------------------------------------------------------------------------------
