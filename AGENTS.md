@@ -136,7 +136,9 @@ Project guide for Codex and other automation.
   layer in `targetLayers`, not a Graphics call.
 - The HUD (car card, turn banner, standings, hover tooltip, race feed, results table) is DOM, not canvas:
   `src/ui/hud.ts` renders the `srp:hud` snapshot that `RaceSession.hudSnapshot()` builds (`RaceScene.emitHud()`
-  sends it). Add HUD data to the snapshot there; keep `hud.ts` free of Phaser. Pit modal, Skip and Copy debug buttons stay in the canvas.
+  sends it). Add HUD data to the snapshot there; keep `hud.ts` free of Phaser. The grid setup menu is DOM too (`src/ui/setup_panel.ts`, #159: a modal over the HUD that
+  scrolls on a short screen; its edits are `src/game/systems/setup_edit.ts`, shared with the pit modal). The pit modal
+  (until its move, #159 step 2), Skip and Copy debug buttons stay in the canvas.
 - Phones (issue #49): the page is sized with `100dvh` (`body` in `style.css`; `100vh` is only the fallback): on iOS
   Safari `100vh` is the screen without the browser bars, and `overflow: hidden` would cut off the bottom of the race
   screen while they show. Phaser can stay at the old size after a phone rotation (its `orientationchange` handler eats
