@@ -1078,13 +1078,13 @@ describe('setup panel data on rules v3', () => {
     const session = v3();
     const setup = session.activeCar.setup;
     expect(session.fuelNote({ ...setup, fuelLoad: 100 })).toMatch(
-      /^covers about 5\.\d laps at 8s · heavy for the first 1\.\d laps$/
+      /^5\.\d laps at 8s · heavy 1\.\d laps$/
     );
     expect(session.fuelNote({ ...setup, fuelLoad: 70 })).toMatch(/not heavy$/);
     // after the first move the setup is closed: a panel from here on is a stop, which tops up to the load
     session.activeCar.setupLocked = true;
     session.activeCar.fuel = 20;
-    expect(session.fuelNote({ ...setup, fuelLoad: 80 })).toMatch(/^refuels to 80% · covers about/);
+    expect(session.fuelNote({ ...setup, fuelLoad: 80 })).toMatch(/^refuels to 80% · \d\.\d laps/);
     expect(session.fuelNote({ ...setup, fuelLoad: 60 })).toMatch(/^refuels to 60% · /);
     session.activeCar.fuel = 90;
     expect(session.fuelNote({ ...setup, fuelLoad: 60 })).toMatch(/^refuels to 90% · /);

@@ -721,10 +721,10 @@ export class RaceSession {
     const perCell = wearPerCell(setup, resources).fuel;
     const laps = (cells: number) => (cells / this.ctx.trackIndex.spineLen).toFixed(1);
     const heavy = isHeavy(fitted)
-      ? `heavy for the first ${laps((fitted.fuel - HEAVY_FUEL) / perCell)} laps`
+      ? `heavy ${laps((fitted.fuel - HEAVY_FUEL) / perCell)} laps`
       : 'not heavy';
     const refuel = this.canSetup() ? '' : `refuels to ${Math.round(fitted.fuel)}% · `;
-    return `${refuel}covers about ${laps(fitted.fuel / perCell)} laps at 8s · ${heavy}`;
+    return `${refuel}${laps(fitted.fuel / perCell)} laps at 8s · ${heavy}`;
   }
 
   /** The setup the bots would take for what is left of the race (the Suggested button of the setup panel). */

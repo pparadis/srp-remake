@@ -58,8 +58,7 @@ a stop uses:
   (`bestSetup`) for this race.
 - **Compound:** a three-way selector, and a stint line for each (cells, laps and moves until tire or fuel runs out at
   that compound with the tank the load gives, not a full one). Medium is only offered where the rules have it.
-- **Fuel load:** a -/+ row in steps of 5 with what the load buys: "covers about 5.4 laps at 8s · heavy for the first
-  1.2 laps" (`RaceSession.fuelNote`); in a stop it says "refuels to N%".
+- **Fuel load:** a -/+ row in steps of 5 with what the load buys: "5.4 laps at 8s · heavy 1.2 laps" (`RaceSession.fuelNote`); in a stop it says "refuels to N%".
 - **Car card:** a `MED` chip next to `SOFT` and `HARD`, the cap of a move, `HEAVY` while the tank is over 70, and "pace
   to the flag: 7/8/9", the largest move size the car can keep to the end (the bots' `sustainablePace`).
 - **Target tooltip:** the fuel and tire a move uses and the fuel a cell ("2.70 fuel a cell").
