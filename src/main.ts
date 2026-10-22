@@ -98,8 +98,11 @@ const hudDrawerDot = hudPart('[data-testid="hud-drawer-dot"]');
 const hudDrawerToggle = hudPart('[data-testid="hud-drawer-toggle"]');
 // `?sandbox` (solo only): a dev tool to place cars by hand; `?pos=<base64 of a Copy debug snapshot>` starts from one.
 const sandbox = new URLSearchParams(window.location.search).has('sandbox');
-// `?hidpi`: sharp canvas on a high-density screen plus a probe line (src/game/hidpi.ts); read once, the router drops it
-const hidpi = new URLSearchParams(window.location.search).has('hidpi');
+// Sharp canvas on a high-density screen (src/game/hidpi.ts), on by default; `?hidpi=0` turns it off and a bare `?hidpi`
+// adds a probe line. Read once, the router drops the query.
+const hidpiParam = new URLSearchParams(window.location.search).get('hidpi');
+const hidpi = hidpiParam !== '0';
+const hidpiProbe = hidpiParam !== null && hidpiParam !== '0';
 // `?anim`: glide the cars in a test build too (the e2e build moves them at once; one spec turns this on)
 const animate = new URLSearchParams(window.location.search).has('anim');
 // `?fps` starts the frame-rate readout on; the P key (or the touch button) toggles it during a race (issue #79)
@@ -555,7 +558,7 @@ async function ensureGameStarted() {
     if (document.body.dataset.screen !== 'race' || game) return;
     game = startGame(app, { ...getComposition(), hidpi, animate });
     // `?hidpi` (src/game/hidpi.ts): a line with what the browser really draws, to compare on a phone
-    if (hidpi) stopRenderProbe = startRenderProbe(el('renderProbe'), game);
+    if (hidpiProbe) stopRenderProbe = startRenderProbe(el('renderProbe'), game);
     applyFps();
   } finally {
     gameStarting = false;

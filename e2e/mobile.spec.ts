@@ -398,7 +398,7 @@ test('phone held upright: the race asks to turn it, carries on once it is turned
   expect(track.t, JSON.stringify(track)).toBeGreaterThanOrEqual(0);
 });
 
-test("phone, ?hidpi: the canvas is drawn at the screen's pixel density (capped at 2x), and the race plays", async ({
+test("phone, ?hidpi: the canvas is drawn at the screen's pixel density (capped at 3x), the probe shows, and the race plays", async ({
   page
 }) => {
   const errors = collectErrors(page);
@@ -419,9 +419,9 @@ test("phone, ?hidpi: the canvas is drawn at the screen's pixel density (capped a
     };
   });
   expect(size.dpr).toBe(3);
-  // 3x screen, rendered at 2x: twice the CSS pixels, shown at the CSS size
-  expect(Math.abs(size.w - size.cssW * 2)).toBeLessThanOrEqual(2);
-  expect(Math.abs(size.h - size.cssH * 2)).toBeLessThanOrEqual(2);
+  // 3x screen, rendered at 3x: three times the CSS pixels, shown at the CSS size
+  expect(Math.abs(size.w - size.cssW * 3)).toBeLessThanOrEqual(3);
+  expect(Math.abs(size.h - size.cssH * 3)).toBeLessThanOrEqual(3);
   await expect(tid(page, 'render-probe')).toContainText(`dpr 3 · canvas ${size.w}x${size.h}`);
   await expect(tid(page, 'render-probe')).toContainText('RaceScene on');
   await playMyTurn(page);
@@ -429,7 +429,7 @@ test("phone, ?hidpi: the canvas is drawn at the screen's pixel density (capped a
   expect(errors).toEqual([]);
 });
 
-test('phone, default: the canvas stays 1x (sharp rendering is opt-in) and there is no probe line', async ({
+test('phone, default: the canvas is drawn at the screen density and there is no probe line', async ({
   page
 }) => {
   await quickRace(page, { bots: 2, laps: 1 });
@@ -437,6 +437,18 @@ test('phone, default: the canvas stays 1x (sharp rendering is opt-in) and there 
     const canvas = document.querySelector('canvas')!;
     return canvas.width / canvas.getBoundingClientRect().width;
   });
-  expect(ratio).toBeCloseTo(1, 1);
+  expect(ratio).toBeCloseTo(3, 1);
   await expect(tid(page, 'render-probe')).toBeHidden();
+});
+
+test('phone, ?hidpi=0: the canvas stays 1x', async ({ page }) => {
+  await page.goto('/?seed=0&hidpi=0&rules=v2');
+  await tid(page, 'home-quick').click();
+  await setLobbySettings(page, { bots: 2, laps: 1 });
+  await startRace(page);
+  const ratio = await page.evaluate(() => {
+    const canvas = document.querySelector('canvas')!;
+    return canvas.width / canvas.getBoundingClientRect().width;
+  });
+  expect(ratio).toBeCloseTo(1, 1);
 });
