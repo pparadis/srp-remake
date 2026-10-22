@@ -1682,3 +1682,23 @@ body[data-screen='home'] #screen-home {
   justify-content: space-between;
   gap: 8px;
 }
+
+/* Wide screens (a phone in landscape): the controls on the left, the stint estimates on the right, so it scrolls less. */
+@media (min-width: 640px) {
+  .setup-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 20px;
+    width: min(760px, 100%);
+  }
+
+  .setup-card h2,
+  .setup-actions {
+    grid-column: 1 / -1;
+  }
+
+  .setup-stints {
+    align-self: start;
+    margin: 6px 0;
+  }
+}
