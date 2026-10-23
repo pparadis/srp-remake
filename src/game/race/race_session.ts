@@ -59,6 +59,7 @@ import type { PitStints } from '../scenes/ui/pit_modal';
 import type { SetupFeatures } from '../systems/setup_edit';
 import type { AppliedTurnSummary, PublicLobby, TurnSource } from '../../net/backend_api';
 import { toEngineRace } from '../../net/race_sync';
+import { logAction, startRaceLog, type RaceLog } from './race_log';
 
 export interface RaceSessionSetup {
   totalCars: number;
@@ -162,6 +163,8 @@ export class RaceSession {
   private raceFinishedAnnounced = false;
   private feel = createFeelMemory();
   private feelSeededOnline = false;
+  // The race as data (#169): null online (the server keeps it) and once the sandbox has changed the race by hand.
+  private log: RaceLog | null = null;
 
   constructor(track: TrackData, setup: RaceSessionSetup) {
     this.track = track;
@@ -248,7 +251,14 @@ export class RaceSession {
   }
 
   private startRace(raceLaps: number) {
-    this.race = createRace(this.ctx, this.buildSeats(), raceLaps, this.seed, this.rulesVersion);
+    const seats = this.buildSeats();
+    this.race = createRace(this.ctx, seats, raceLaps, this.seed, this.rulesVersion);
+    this.log = startRaceLog(seats, raceLaps, this.seed, this.rulesVersion);
+  }
+
+  /** The race so far as an action log (#169); null online and after a sandbox edit, which no action describes. */
+  raceLog(): RaceLog | null {
+    return this.log;
   }
 
   private respawnForComposition(totalCars: number, humanCars: number, botCars: number) {
@@ -335,6 +345,7 @@ export class RaceSession {
       this.addLog(`Action rejected (${result.reason}).`);
       return false;
     }
+    if (this.log) logAction(this.log, action);
     this.addFeed(before);
     this.noteMoved(before, result.carId, result.moveSpend);
     return true;
@@ -377,6 +388,7 @@ export class RaceSession {
       this.addLog(`Bot action rejected (${result.reason}).`);
       return false;
     }
+    if (this.log) logAction(this.log, decision.action);
     const action = decision.action;
     this.botDecisionSeq = appendBotDecisionEntry(
       this.botDecisionLog,
@@ -451,6 +463,7 @@ export class RaceSession {
     this.selectedCellId = null;
     const before = this.feelSeededOnline ? this.race : null;
     this.race = toEngineRace(raceState);
+    this.log = null;
     this.carNames = new Map(raceState.cars.map((car) => [car.carId, car.name]));
     if (before) {
       this.addFeed(before);
@@ -1013,6 +1026,7 @@ export class RaceSession {
   sandboxEdit(carId: number, edit: CarEdit) {
     const refused = editCar(this.ctx, this.race, carId, edit);
     if (refused) this.addLog(refused);
+    else this.log = null;
     this.resetFeel();
     this.carMoves.clear(); // a teleport is no move: the history starts over from the edited position
   }
@@ -1021,6 +1035,7 @@ export class RaceSession {
   sandboxDrop(carId: number, cellId: string | null) {
     const refused = cellId ? placeCar(this.ctx, this.race, carId, cellId) : null;
     if (refused) this.addLog(refused);
+    else if (cellId) this.log = null;
     this.resetFeel();
     this.carMoves.clear();
   }
@@ -1028,6 +1043,7 @@ export class RaceSession {
   /** False when nothing changed (already active, or no such car). */
   sandboxSelect(carId: number): boolean {
     if (carId === this.activeCar.carId || !setActiveCar(this.race, carId)) return false;
+    this.log = null;
     this.resetFeel();
     return true;
   }
@@ -1049,7 +1065,10 @@ export class RaceSession {
       return;
     }
     const refused = restorePosition(this.ctx, this.race, snapshot);
-    if (!refused) this.carMoves.clear();
+    if (!refused) {
+      this.carMoves.clear();
+      this.log = null;
+    }
     this.addLog(refused ? `Load refused: ${refused}` : 'Position loaded.');
   }
 }

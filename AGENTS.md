@@ -8,6 +8,11 @@ Project guide for Codex and other automation.
 - Race engine in `src/game/race/race_engine.ts` (no Phaser): validates and applies a turn, bots, pit penalties,
   laps and winner. Single-player (`RaceScene`) and the multiplayer server (`backend/`) both run it, so a rule
   change goes in `src/game/systems/*` or the engine, with tests, and applies to both.
+- Race log in `src/game/race/race_log.ts` (#169): a race is `{ seats, raceLaps, seed, rulesVersion, actions }`, and
+  `replayRace` rebuilds every state from it (the engine is deterministic). The solo session (`raceLog()`, null online
+  and after a sandbox edit) and the server (`ServerRace.log`, never in the public lobby) log each action `applyAction`
+  accepts. A new way to change a race must be a logged action, or the replay tests (`race_log.test.ts`, the session
+  test, `backend/test/race_log.contract.test.ts`) fail.
 - Race session in `src/game/race/race_session.ts` (no Phaser): one page's view of the race. The solo turn loop (the
   player's action, then the bots), the online server state and its input hold, who controls the active car, the HUD
   snapshot, feel events, the finish and the sandbox edits. `RaceScene` owns one and only draws it (tokens, targets,

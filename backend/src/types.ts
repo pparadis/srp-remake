@@ -3,6 +3,7 @@ import type {
   RaceState as EngineRaceState,
   RejectReason
 } from '../../src/game/race/race_engine';
+import type { RaceLog } from '../../src/game/race/race_log';
 import type { RulesVersion } from '../../src/game/rules/ids';
 import { BOT_LEVELS, type BotLevel, type Car } from '../../src/game/types/car';
 
@@ -40,6 +41,8 @@ export interface RaceState {
 // Server-side race: the engine's state plus seat ownership (carId = seatIndex + 1).
 export interface ServerRace {
   engine: EngineRaceState;
+  // Every accepted action since the grid (#169): rebuilds the race with replayRace. Never sent with the lobby.
+  log: RaceLog;
   seats: RaceSeatInfo[];
   turnIndex: number;
   // Epoch ms at which the active human seat is auto-played; set by the server while a timer runs.
