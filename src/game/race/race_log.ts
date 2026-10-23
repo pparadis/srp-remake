@@ -2,6 +2,7 @@ import type { RulesVersion } from '../rules/ids';
 import {
   applyAction,
   createRace,
+  type ApplyResult,
   type RaceAction,
   type RaceContext,
   type RaceSeat,
@@ -36,17 +37,33 @@ export function logAction(log: RaceLog, action: RaceAction): void {
   log.actions.push(structuredClone(action));
 }
 
+/** One logged action replayed: the race before and after it (`before` is the previous step's `after`) and the engine's answer. */
+export interface ReplayStep {
+  action: RaceAction;
+  before: RaceState;
+  after: RaceState;
+  result: Extract<ApplyResult, { ok: true }>;
+}
+
 /**
- * Every state of the race: `states[0]` is the grid, `states[i]` the race after `actions[i - 1]`. Throws when the engine
- * refuses an action, which means the log does not match the race it was recorded from.
+ * The race one action at a time. Throws when the engine refuses an action, which means the log does not match the race
+ * it was recorded from.
  */
-export function replayRace(ctx: RaceContext, log: RaceLog): RaceState[] {
+export function replaySteps(ctx: RaceContext, log: RaceLog): ReplayStep[] {
   const state = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion);
-  const states = [structuredClone(state)];
-  log.actions.forEach((action, i) => {
+  let before = structuredClone(state);
+  return log.actions.map((action, i) => {
     const result = applyAction(ctx, state, action);
     if (!result.ok) throw new Error(`Race log action ${i} refused on replay (${result.reason}).`);
-    states.push(structuredClone(state));
+    const after = structuredClone(state);
+    const step = { action, before, after, result };
+    before = after;
+    return step;
   });
-  return states;
+}
+
+/** Every state of the race: `states[0]` is the grid, `states[i]` the race after `actions[i - 1]`. */
+export function replayRace(ctx: RaceContext, log: RaceLog): RaceState[] {
+  const grid = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion);
+  return [grid, ...replaySteps(ctx, log).map((step) => step.after)];
 }
