@@ -46,6 +46,13 @@ body[data-screen='race'] #screen-race {
   display: flex;
 }
 
+body[data-screen='recap'] #screen-recap {
+  display: block;
+  overflow-y: auto;
+  padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+}
+
 #app {
   flex: 1 1 auto;
   min-width: 0;
@@ -1703,4 +1710,108 @@ body[data-screen='home'] #screen-home {
     align-self: start;
     margin: 6px 0;
   }
+}
+
+/* Race recap (src/ui/recap_page.ts, #169) */
+.recap {
+  max-width: 980px;
+  margin: 0 auto;
+  /* the status and version lines sit over the bottom of the screen */
+  padding-bottom: 36px;
+}
+
+.recap-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.recap-head h1 {
+  margin: 0;
+  font-size: 18px;
+  color: #e6edf3;
+}
+
+.recap h2 {
+  margin: 16px 0 6px;
+  font-size: 15px;
+  color: #e6edf3;
+}
+
+.recap button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 4px;
+  background: #c7d1db;
+  color: #0b0f14;
+  font: inherit;
+  cursor: pointer;
+}
+
+.recap button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.recap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.recap-table th,
+.recap-table td {
+  padding: 5px 8px;
+  text-align: left;
+  border-bottom: 1px solid #2a3642;
+}
+
+.recap-table th {
+  color: #9fb0bf;
+  font-weight: normal;
+}
+
+.recap-click {
+  cursor: pointer;
+}
+
+.recap-click:hover,
+.recap-table .is-current {
+  background: rgba(255, 224, 102, 0.12);
+}
+
+.recap-hint {
+  margin: 8px 0;
+  color: #9fb0bf;
+  font-size: 12px;
+}
+
+.recap-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.recap-detail {
+  margin: 8px 0 12px;
+  padding: 8px 10px;
+  background: #0f141b;
+  border: 1px solid #2a3642;
+  border-radius: 8px;
+}
+
+.home-races ul {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-races button {
+  width: 100%;
+  min-height: 36px;
+  margin: 3px 0;
+  text-align: left;
 }

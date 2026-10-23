@@ -18,6 +18,9 @@ import { randomPlayerName } from './ui/player_name';
 import { createChat, isChatMessage } from './ui/chat';
 import { isCompactHud } from './ui/layout';
 import { isTypingTarget } from './ui/typing';
+import type { RaceLog } from './game/race/race_log';
+import { mountRecapPage } from './ui/recap_page';
+import { listSavedRaces, loadSavedRace, saveRace } from './ui/recap_store';
 import { renderHomeTrack, setHomeTrackRunning } from './ui/home_track';
 import { mountVersion, renderVersion, type ServerVersion } from './ui/version';
 import { showUncaughtErrors, startRenderProbe } from './ui/diagnostics';
@@ -90,6 +93,9 @@ const resultsWait = el('resultsWait');
 const lobbyLeaveBtn = el<HTMLButtonElement>('lobbyLeaveBtn');
 const results = el('results');
 const resultsWinner = el('resultsWinner');
+const resultsRecapBtn = el<HTMLButtonElement>('resultsRecapBtn');
+const homeRaces = el('homeRaces');
+const homeRaceList = el('homeRaceList');
 const hud = el('hud');
 mountHud(hud);
 function hudPart<T extends HTMLElement>(selector: string): T {
@@ -479,6 +485,60 @@ function showScreen(screen: Screen) {
 
 function renderHome() {
   for (const button of homeButtons) button.disabled = backendBusy;
+  const races = listSavedRaces();
+  homeRaces.hidden = races.length === 0;
+  homeRaceList.replaceChildren(
+    ...races.map((race) => {
+      const item = document.createElement('li');
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.dataset.testid = 'home-race';
+      open.textContent = race.label;
+      open.addEventListener('click', () => navigate({ name: 'recap', id: race.id }));
+      item.append(open);
+      return item;
+    })
+  );
+}
+
+// ---- recap (#169) --------------------------------------------------------------------------
+
+const recapPage = mountRecapPage(el('recapPage'), () => navigate({ name: 'home' }));
+// The saved race the results screen offers a recap of (none: online, sandbox, or nothing could be kept).
+let lastSavedRaceId: string | null = null;
+
+interface FinishedRaceRecap {
+  log: RaceLog;
+  names: Record<number, string>;
+}
+
+function saveFinishedRace(recap: FinishedRaceRecap, winnerCarId: number | null) {
+  const winner = winnerCarId === null ? undefined : recap.names[winnerCarId];
+  const laps = recap.log.raceLaps;
+  const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  const kept = saveRace({
+    id,
+    finishedAt: Date.now(),
+    trackId: 'oval16_3lanes',
+    label: `Solo, ${laps} ${laps === 1 ? 'lap' : 'laps'}, ${winner === 'You' ? 'you won' : `${winner ?? 'nobody'} won`}`,
+    names: Object.fromEntries(Object.entries(recap.names).map(([id, name]) => [String(id), name])),
+    log: recap.log
+  });
+  lastSavedRaceId = kept ? id : null;
+}
+
+async function openRecap(id: string) {
+  const saved = loadSavedRace(id);
+  if (!saved) {
+    kickToHome('That race is no longer saved.');
+    return;
+  }
+  try {
+    const { buildRecap } = await import('./ui/recap_load');
+    recapPage.show(await buildRecap(saved, import.meta.env.BASE_URL), saved.label);
+  } catch (error) {
+    kickToHome(`Could not open the recap (${toErrorText(error)}).`);
+  }
 }
 
 function renderLobby() {
@@ -587,6 +647,7 @@ function showResults(winnerCarId: number | null) {
   const isHost = mode === 'online' && backendSession !== null ? backendSession.isHost : null;
   resultsPlayAgainBtn.hidden = isHost !== true;
   resultsWait.hidden = isHost !== false;
+  resultsRecapBtn.hidden = lastSavedRaceId === null;
   results.hidden = false;
 }
 
@@ -647,6 +708,11 @@ async function handleRoute(route: Route, source: 'push' | 'replace' | 'pop') {
       }
       showScreen('race');
       await ensureGameStarted();
+      return;
+    case 'recap':
+      leaveOnline();
+      showScreen('recap');
+      await openRecap(route.id);
       return;
     case 'lobby':
     case 'lobbyRace':
@@ -1293,8 +1359,16 @@ window.addEventListener('srp:toast', (event) => {
 });
 
 window.addEventListener('srp:race-finished', (event) => {
-  const winner = (event as CustomEvent<{ winnerCarId: number | null }>).detail?.winnerCarId ?? null;
+  const detail = (
+    event as CustomEvent<{ winnerCarId: number | null; recap?: FinishedRaceRecap | null }>
+  ).detail;
+  const winner = detail?.winnerCarId ?? null;
+  lastSavedRaceId = null;
+  if (detail?.recap) saveFinishedRace(detail.recap, winner);
   showResults(winner);
+});
+resultsRecapBtn.addEventListener('click', () => {
+  if (lastSavedRaceId) navigate({ name: 'recap', id: lastSavedRaceId });
 });
 
 // The scene starts listening only after it is built: hand it the latest lobby state.

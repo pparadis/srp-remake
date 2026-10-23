@@ -1,6 +1,16 @@
 /** @vitest-environment jsdom */
 import indexHtml from '../index.html?raw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import track from '../public/tracks/oval16_3lanes.json';
+import {
+  applyAction,
+  createRace,
+  createRaceContext,
+  decideBotAction,
+  getActiveCar
+} from './game/race/race_engine';
+import { logAction, startRaceLog } from './game/race/race_log';
+import type { TrackData } from './game/types/track';
 
 const startGame = vi.fn();
 
@@ -234,6 +244,90 @@ describe('main (solo flow)', () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(document.body.dataset.screen).toBe('lobby');
     expect(byId('results').hidden).toBe(true);
+  });
+
+  describe('the race recap (#169)', () => {
+    // a few real bot turns: enough for a log that replays
+    function shortLog() {
+      const ctx = createRaceContext(track as unknown as TrackData);
+      const seats = [
+        { isBot: false, ownerId: 'P1' },
+        { isBot: true, ownerId: 'BOT1', botLevel: 'normal' as const }
+      ];
+      const state = createRace(ctx, seats, 5, 0, 'v3');
+      const log = startRaceLog(seats, 5, 0, 'v3');
+      for (let i = 0; i < 8; i += 1) {
+        const action = decideBotAction(
+          ctx,
+          state,
+          getActiveCar(state).isBot ? undefined : 'autopilot'
+        ).action;
+        applyAction(ctx, state, action);
+        logAction(log, action);
+      }
+      return log;
+    }
+    const finish = (recap: unknown) =>
+      window.dispatchEvent(
+        new CustomEvent('srp:race-finished', { detail: { winnerCarId: 1, recap } })
+      );
+
+    it('offers the recap of a finished solo race, saves it, and lists it on the home screen', async () => {
+      startGame.mockReturnValue({ destroy: vi.fn() });
+      await import('./main');
+      await startSoloRace();
+      expect(byId('resultsRecapBtn').hidden).toBe(true);
+      finish({ log: shortLog(), names: { 1: 'You', 2: 'Car 2' } });
+      expect(byId('resultsRecapBtn').hidden).toBe(false);
+      const saved = JSON.parse(window.localStorage.getItem('srp:races')!) as Array<{
+        label: string;
+      }>;
+      expect(saved).toHaveLength(1);
+      expect(saved[0]!.label).toBe('Solo, 5 laps, you won');
+
+      byId('resultsHomeBtn').click();
+      expect(byId('homeRaces').hidden).toBe(false);
+      expect(tid('home-race').textContent).toBe('Solo, 5 laps, you won');
+    });
+
+    it('has no recap button for a race with no log (online, or edited in the sandbox)', async () => {
+      startGame.mockReturnValue({ destroy: vi.fn() });
+      await import('./main');
+      await startSoloRace();
+      finish(null);
+      expect(byId('resultsRecapBtn').hidden).toBe(true);
+      expect(window.localStorage.getItem('srp:races')).toBeNull();
+    });
+
+    it('opens the recap page from the results screen and from the home list', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => new Response(JSON.stringify(track), { status: 200 }))
+      );
+      startGame.mockReturnValue({ destroy: vi.fn() });
+      await import('./main');
+      await startSoloRace();
+      finish({ log: shortLog(), names: { 1: 'You', 2: 'Car 2' } });
+
+      byId('resultsRecapBtn').click();
+      await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
+      expect(document.body.dataset.screen).toBe('recap');
+      expect(window.location.pathname).toMatch(/^\/recap\//);
+      expect(tid('recap-title').textContent).toBe('Solo, 5 laps, you won');
+
+      tid('recap-back').click();
+      expect(document.body.dataset.screen).toBe('home');
+      tid('home-race').click();
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe('recap'));
+      await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
+    });
+
+    it('goes home with a notice for a recap that is no longer saved', async () => {
+      window.history.replaceState({}, '', '/recap/gone');
+      await import('./main');
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe('home'));
+      expect(byId('homeNotice').textContent).toContain('no longer saved');
+    });
   });
 
   it('has no chat in a solo race', async () => {

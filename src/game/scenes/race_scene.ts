@@ -611,7 +611,9 @@ export class RaceScene extends Phaser.Scene {
     this.maybeFollowMyCar();
     if (this.session.takeFinish()) {
       window.dispatchEvent(
-        new CustomEvent('srp:race-finished', { detail: { winnerCarId: this.session.winnerCarId } })
+        new CustomEvent('srp:race-finished', {
+          detail: { winnerCarId: this.session.winnerCarId, recap: this.session.recapInfo() }
+        })
       );
     }
   }
