@@ -196,6 +196,14 @@ export class BackendApiClient {
     });
   }
 
+  // Only while the lobby is waiting (409 after); the answer is the new lobby state, also broadcast on the socket.
+  renamePlayer(lobbyId: string, playerToken: string, name: string): Promise<StartRaceResponse> {
+    return this.request('PATCH', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/player`, {
+      playerToken,
+      name
+    });
+  }
+
   startRace(lobbyId: string, playerToken: string): Promise<StartRaceResponse> {
     return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/start`, {
       playerToken

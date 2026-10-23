@@ -101,6 +101,11 @@ const joinLobbySchema = z.object({
   playerToken: playerTokenSchema.optional()
 });
 
+const renamePlayerSchema = z.object({
+  playerToken: playerTokenSchema,
+  name: playerNameSchema
+});
+
 const updateLobbySchema = z.object({
   playerToken: playerTokenSchema,
   settings: lobbySettingsPatchSchema
@@ -601,6 +606,16 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       playerToken: player.playerToken,
       isReconnect
     };
+  });
+
+  // A rename, not a join: `/join` also marks the player connected and is the reconnect path.
+  app.patch(`${API_V1_PREFIX}/lobbies/:lobbyId/player`, { config: limit(60) }, async (request) => {
+    const params = lobbyPathSchema.parse(request.params);
+    const body = renamePlayerSchema.parse(request.body);
+    const lobby = lobbyStore.renamePlayer(params.lobbyId, body.playerToken, body.name);
+    const publicLobby = toPublicLobby(lobby);
+    broadcast(lobby.lobbyId, 'lobby.state', publicLobby);
+    return { lobby: publicLobby };
   });
 
   app.patch(
