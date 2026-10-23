@@ -40,11 +40,13 @@ const all = (id: string) => [...document.querySelectorAll<HTMLElement>(`[data-te
 describe('recap page (#169)', () => {
   const recap = recapOfARace();
   const onBack = vi.fn();
+  const onWatch = vi.fn();
 
   beforeEach(() => {
     document.body.innerHTML = '<div id="root"></div>';
     onBack.mockReset();
-    mountRecapPage(document.getElementById('root')!, onBack).show(recap, 'Solo, 8 laps');
+    onWatch.mockReset();
+    mountRecapPage(document.getElementById('root')!, onBack, onWatch).show(recap, 'Solo, 8 laps');
   });
 
   it('opens on the summary: one row per car in finishing order, and the title', () => {
@@ -91,6 +93,15 @@ describe('recap page (#169)', () => {
     all('recap-turn')[4]!.click();
     expect(tid('recap-turn-count').textContent).toBe(`5 / ${recap.turns.length}`);
     expect(tid('recap-turn-detail').textContent).toContain('Turn 5');
+  });
+
+  it('offers the board: from the grid on the summary, and from the turn on show in the turn list', () => {
+    tid('recap-watch').click();
+    expect(onWatch).toHaveBeenLastCalledWith(0);
+    tid('recap-open-turns').click();
+    all('recap-turn')[4]!.click(); // turn 5: the race after the 5th action
+    tid('recap-watch-turn').click();
+    expect(onWatch).toHaveBeenLastCalledWith(recap.turns[4]!.index + 1);
   });
 
   it("a car's own turns list only its turns, and Back climbs one level at a time", () => {

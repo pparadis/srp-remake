@@ -19,6 +19,7 @@ import { createChat, isChatMessage } from './ui/chat';
 import { isCompactHud } from './ui/layout';
 import { isTypingTarget } from './ui/typing';
 import type { RaceLog } from './game/race/race_log';
+import type { Replay } from './ui/replay_load';
 import { mountRecapPage } from './ui/recap_page';
 import { listSavedRaces, loadSavedRace, saveRace } from './ui/recap_store';
 import { renderHomeTrack, setHomeTrackRunning } from './ui/home_track';
@@ -421,8 +422,21 @@ function getPlayerName(): string {
   return raw.length > 0 ? raw : defaultName;
 }
 
+interface RaceComposition {
+  totalCars: number;
+  humanCars: number;
+  botCars: number;
+  raceLaps: number;
+  botLevel: BotLevel;
+  seed: number;
+  rulesVersion?: RulesVersion;
+  sandbox?: boolean;
+  position?: string;
+}
+
 // What the game scene is built from: the lobby's settings online, the lobby card offline.
-function getComposition() {
+function getComposition(): RaceComposition {
+  if (replayRun) return replayRun.composition;
   if (mode === 'online' && lastLobby) {
     const { totalCars, humanCars, botCars, raceLaps, botLevel } = lastLobby.settings;
     return {
@@ -470,6 +484,7 @@ function showScreen(screen: Screen) {
     destroyGame();
     results.hidden = true;
     raceOver = false;
+    stopReplay();
   }
   setHomeTrackRunning(homeTrack, screen === 'home');
   // the race screen can leave the page (or the home screen) scrolled; a screen opens at its top. Only on a change:
@@ -503,9 +518,18 @@ function renderHome() {
 
 // ---- recap (#169) --------------------------------------------------------------------------
 
-const recapPage = mountRecapPage(el('recapPage'), () =>
-  navigate(backendSession ? { name: 'lobby', id: backendSession.lobbyId } : { name: 'home' })
+const recapPage = mountRecapPage(
+  el('recapPage'),
+  () => navigate(backendSession ? { name: 'lobby', id: backendSession.lobbyId } : { name: 'home' }),
+  (state) => {
+    if (!openRecapId) return;
+    replayStart = state;
+    navigate({ name: 'recapBoard', id: openRecapId });
+  }
 );
+// The saved race the recap page shows, and the state a board replay opens at (0 = the grid).
+let openRecapId: string | null = null;
+let replayStart = 0;
 // The saved race the results screen offers a recap of (none: online, sandbox, or nothing could be kept).
 let lastSavedRaceId: string | null = null;
 
@@ -564,10 +588,143 @@ async function openRecap(id: string) {
   try {
     const { buildRecap } = await import('./ui/recap_load');
     recapPage.show(await buildRecap(saved, import.meta.env.BASE_URL), saved.label);
+    openRecapId = id;
   } catch (error) {
     kickToHome(`Could not open the recap (${toErrorText(error)}).`);
   }
 }
+
+// ---- board replay (#169) -------------------------------------------------------------------
+// A saved race on the real board: the race scene watches it like an online race it takes no part in, and each state of the
+// race is sent to it as the lobby state the server would have sent.
+
+interface ReplayRun {
+  raceId: string;
+  replay: Replay;
+  at: number;
+  composition: RaceComposition;
+  timer: number | null;
+}
+let replayRun: ReplayRun | null = null;
+const replayBar = el('replayBar');
+const replayPrevBtn = el<HTMLButtonElement>('replayPrevBtn');
+const replayNextBtn = el<HTMLButtonElement>('replayNextBtn');
+const replayPlayBtn = el<HTMLButtonElement>('replayPlayBtn');
+const REPLAY_STEP_MS = 1100;
+
+function renderReplayBar() {
+  replayBar.hidden = replayRun === null;
+  if (!replayRun) return;
+  const last = replayRun.replay.count - 1;
+  el('replayCount').textContent = `${replayRun.at} / ${last}`;
+  el('replayText').textContent = replayRun.replay.textAt(replayRun.at) || 'On the grid';
+  replayPrevBtn.disabled = replayRun.at <= 0;
+  replayNextBtn.disabled = replayRun.at >= last;
+  replayPlayBtn.textContent = replayRun.timer === null ? 'Play' : 'Pause';
+}
+
+function sendReplayState() {
+  if (!replayRun) return;
+  window.dispatchEvent(
+    new CustomEvent<BackendLobbyStateEventDetail>('srp:backend-lobby-state', {
+      detail: { lobby: replayRun.replay.lobbyAt(replayRun.at), source: 'replay', localPlayerId: '' }
+    })
+  );
+  renderReplayBar();
+}
+
+function pauseReplay() {
+  if (replayRun?.timer != null) window.clearInterval(replayRun.timer);
+  if (replayRun) replayRun.timer = null;
+}
+
+function stopReplay() {
+  pauseReplay();
+  replayRun = null;
+  renderReplayBar();
+}
+
+/** Moves the replay to state `to` (clamped); the scene glides the cars that moved. */
+function stepReplay(to: number) {
+  if (!replayRun) return;
+  const at = Math.max(0, Math.min(replayRun.replay.count - 1, to));
+  if (at === replayRun.at) return;
+  replayRun.at = at;
+  if (at >= replayRun.replay.count - 1) pauseReplay();
+  sendReplayState();
+}
+
+function toggleReplayPlay() {
+  if (!replayRun) return;
+  if (replayRun.timer !== null) {
+    pauseReplay();
+    renderReplayBar();
+    return;
+  }
+  if (replayRun.at >= replayRun.replay.count - 1) replayRun.at = 0;
+  replayRun.timer = window.setInterval(() => {
+    if (replayRun) stepReplay(replayRun.at + 1);
+  }, REPLAY_STEP_MS);
+  sendReplayState();
+}
+
+async function openReplay(id: string) {
+  const saved = loadSavedRace(id);
+  if (!saved) {
+    kickToHome('That race is no longer saved.');
+    return;
+  }
+  try {
+    const { buildReplay } = await import('./ui/replay_load');
+    const replay = await buildReplay(saved, import.meta.env.BASE_URL);
+    const cars = saved.log.seats.length;
+    destroyGame();
+    results.hidden = true;
+    raceOver = false;
+    stopReplay();
+    replayRun = {
+      raceId: id,
+      replay,
+      at: Math.max(0, Math.min(replay.count - 1, replayStart)),
+      timer: null,
+      composition: {
+        totalCars: cars,
+        humanCars: cars,
+        botCars: 0,
+        raceLaps: saved.log.raceLaps,
+        botLevel: 'normal',
+        seed: saved.log.seed,
+        rulesVersion: saved.log.rulesVersion
+      }
+    };
+    replayStart = 0;
+    renderReplayBar();
+    await ensureGameStarted();
+  } catch (error) {
+    kickToHome(`Could not open the replay (${toErrorText(error)}).`);
+  }
+}
+
+replayPrevBtn.addEventListener('click', () => {
+  pauseReplay();
+  if (replayRun) stepReplay(replayRun.at - 1);
+});
+replayNextBtn.addEventListener('click', () => {
+  pauseReplay();
+  if (replayRun) stepReplay(replayRun.at + 1);
+});
+replayPlayBtn.addEventListener('click', toggleReplayPlay);
+el('replayRecapBtn').addEventListener('click', () => {
+  if (replayRun) navigate({ name: 'recap', id: replayRun.raceId });
+});
+window.addEventListener('keydown', (event) => {
+  if (!replayRun || isTypingTarget() || event.ctrlKey || event.metaKey) return;
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    pauseReplay();
+    stepReplay(replayRun.at + (event.key === 'ArrowRight' ? 1 : -1));
+    event.preventDefault();
+  }
+});
 
 function renderLobby() {
   const online = mode === 'online';
@@ -742,6 +899,10 @@ async function handleRoute(route: Route, source: 'push' | 'replace' | 'pop') {
       showScreen('recap');
       await openRecap(route.id);
       return;
+    case 'recapBoard':
+      showScreen('race');
+      await openReplay(route.id);
+      return;
     case 'lobby':
     case 'lobbyRace':
       mode = 'online';
@@ -805,11 +966,14 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
     status: lobby.status,
     players: lobby.players.length
   });
-  window.dispatchEvent(
-    new CustomEvent<BackendLobbyStateEventDetail>('srp:backend-lobby-state', {
-      detail: { lobby, source, localPlayerId: backendSession.playerId }
-    })
-  );
+  // a board replay owns the scene: the live race must not reach it
+  if (!replayRun) {
+    window.dispatchEvent(
+      new CustomEvent<BackendLobbyStateEventDetail>('srp:backend-lobby-state', {
+        detail: { lobby, source, localPlayerId: backendSession.playerId }
+      })
+    );
+  }
   if (document.body.dataset.screen === 'lobby') renderLobby();
   renderConnectionBanner();
   renderTurnTimer();
@@ -906,22 +1070,24 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
             applied.type === 'setup') &&
           (applied.targetCellId === undefined || typeof applied.targetCellId === 'string')
         ) {
-          window.dispatchEvent(
-            new CustomEvent<BackendTurnAppliedEventDetail>('srp:backend-turn-applied', {
-              detail: {
-                lobbyId: turnPayload.lobbyId,
-                playerId: turnPayload.playerId,
-                revision: turnPayload.revision,
-                applied: {
-                  type: applied.type,
-                  ...(applied.targetCellId ? { targetCellId: applied.targetCellId } : {})
-                },
-                ...(source === 'bot' || source === 'timeout' || source === 'force_skip'
-                  ? { source }
-                  : {})
-              }
-            })
-          );
+          if (!replayRun) {
+            window.dispatchEvent(
+              new CustomEvent<BackendTurnAppliedEventDetail>('srp:backend-turn-applied', {
+                detail: {
+                  lobbyId: turnPayload.lobbyId,
+                  playerId: turnPayload.playerId,
+                  revision: turnPayload.revision,
+                  applied: {
+                    type: applied.type,
+                    ...(applied.targetCellId ? { targetCellId: applied.targetCellId } : {})
+                  },
+                  ...(source === 'bot' || source === 'timeout' || source === 'force_skip'
+                    ? { source }
+                    : {})
+                }
+              })
+            );
+          }
         }
       }
     }
@@ -1387,6 +1553,7 @@ window.addEventListener('srp:toast', (event) => {
 });
 
 window.addEventListener('srp:race-finished', (event) => {
+  if (replayRun) return; // the replay reaching the flag is not a race ending
   const detail = (
     event as CustomEvent<{ winnerCarId: number | null; recap?: FinishedRaceRecap | null }>
   ).detail;
@@ -1404,6 +1571,10 @@ resultsRecapBtn.addEventListener('click', () => {
 
 // The scene starts listening only after it is built: hand it the latest lobby state.
 window.addEventListener('srp:scene-ready', () => {
+  if (replayRun) {
+    sendReplayState();
+    return;
+  }
   if (mode !== 'online' || !backendSession || !lastLobby) return;
   window.dispatchEvent(
     new CustomEvent<BackendLobbyStateEventDetail>('srp:backend-lobby-state', {

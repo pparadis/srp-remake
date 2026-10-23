@@ -8,7 +8,9 @@ export type Route =
   | { name: 'lobby'; id: string }
   | { name: 'lobbyRace'; id: string }
   /** The recap of a saved race (#169). */
-  | { name: 'recap'; id: string };
+  | { name: 'recap'; id: string }
+  /** The race of a saved recap replayed on the board (#169). */
+  | { name: 'recapBoard'; id: string };
 
 export type Screen = 'home' | 'lobby' | 'race' | 'recap';
 
@@ -24,9 +26,10 @@ export function parseRoute(pathname: string, base = DEFAULT_BASE): Route {
   const path = stripBase(pathname, base);
   if (path === '/solo') return { name: 'solo' };
   if (path === '/solo/race') return { name: 'soloRace' };
-  const recap = /^\/recap\/([^/]+)$/.exec(path);
+  const recap = /^\/recap\/([^/]+)(\/board)?$/.exec(path);
   if (recap) {
-    return { name: 'recap', id: decodeURIComponent(must(recap[1], 'race id in the path')) };
+    const id = decodeURIComponent(must(recap[1], 'race id in the path'));
+    return recap[2] ? { name: 'recapBoard', id } : { name: 'recap', id };
   }
   const match = /^\/lobby\/([^/]+)(\/race)?$/.exec(path);
   if (match) {
@@ -51,6 +54,8 @@ export function routePath(route: Route, base = DEFAULT_BASE): string {
       return `${root}/lobby/${encodeURIComponent(route.id)}/race`;
     case 'recap':
       return `${root}/recap/${encodeURIComponent(route.id)}`;
+    case 'recapBoard':
+      return `${root}/recap/${encodeURIComponent(route.id)}/board`;
     default:
       return route satisfies never; // a new route that is not handled above fails to compile
   }
@@ -59,6 +64,7 @@ export function routePath(route: Route, base = DEFAULT_BASE): string {
 export function screenOf(route: Route): Screen {
   if (route.name === 'home') return 'home';
   if (route.name === 'recap') return 'recap';
+  if (route.name === 'recapBoard') return 'race';
   return route.name === 'solo' || route.name === 'lobby' ? 'lobby' : 'race';
 }
 

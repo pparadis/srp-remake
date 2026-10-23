@@ -101,7 +101,11 @@ function pitRows(stops: PitChoice[]): HTMLElement[] {
   );
 }
 
-export function renderSummary(recap: RaceRecap, go: (view: RecapView) => void): HTMLElement {
+export function renderSummary(
+  recap: RaceRecap,
+  go: (view: RecapView) => void,
+  watch: (state: number) => void
+): HTMLElement {
   const rows = recap.cars.map((car) => {
     const row = h(
       'tr',
@@ -127,7 +131,12 @@ export function renderSummary(recap: RaceRecap, go: (view: RecapView) => void): 
       'recap-summary'
     ),
     h('p', { class: 'recap-hint' }, 'Select a car for its moves and pit choices.'),
-    button('Turn by turn', 'recap-open-turns', () => go({ kind: 'turns', carId: null, at: 0 }))
+    h(
+      'div',
+      { class: 'recap-nav' },
+      button('Turn by turn', 'recap-open-turns', () => go({ kind: 'turns', carId: null, at: 0 })),
+      button('Watch on the board', 'recap-watch', () => watch(0))
+    )
   );
 }
 
@@ -191,7 +200,8 @@ function turnText(turn: RecapTurn, nameOf: (id: number) => string): string {
 export function renderTurns(
   recap: RaceRecap,
   view: Extract<RecapView, { kind: 'turns' }>,
-  go: (view: RecapView) => void
+  go: (view: RecapView) => void,
+  watch: (state: number) => void
 ): HTMLElement {
   const nameOf = (id: number) => recap.cars.find((c) => c.carId === id)?.name ?? `Car ${id}`;
   const shown = recap.turns.filter((turn) => view.carId === null || turn.carId === view.carId);
@@ -255,7 +265,11 @@ export function renderTurns(
         'span',
         { 'data-testid': 'recap-turn-count' },
         `${shown.length > 0 ? at + 1 : 0} / ${shown.length}`
-      )
+      ),
+      // state n of a replay is the race after the n-th action (0 is the grid)
+      current
+        ? button('Watch on the board', 'recap-watch-turn', () => watch(current.index + 1))
+        : null
     ),
     detail,
     table(['#', 'Car', 'What happened'], rows, 'recap-turns')
@@ -265,7 +279,8 @@ export function renderTurns(
 /** Builds the recap page inside `root`. `show` fills it; Back goes up one level, and from the summary calls `onBack`. */
 export function mountRecapPage(
   root: HTMLElement,
-  onBack: () => void
+  onBack: () => void,
+  onWatch: (state: number) => void
 ): { show: (recap: RaceRecap, title: string) => void } {
   const parts: Parts = {
     back: h('button', { type: 'button', 'data-testid': 'recap-back' }, 'Back') as HTMLButtonElement,
@@ -295,10 +310,10 @@ export function mountRecapPage(
             : `Turn by turn: ${carName(view.carId)}`;
     parts.body.replaceChildren(
       view.kind === 'summary'
-        ? renderSummary(recap, go)
+        ? renderSummary(recap, go, onWatch)
         : view.kind === 'car'
           ? renderCar(recap, view.carId, go)
-          : renderTurns(recap, view, go)
+          : renderTurns(recap, view, go, onWatch)
     );
   };
 
