@@ -200,6 +200,11 @@ Project guide for Codex and other automation.
 - A new lobby setting must be threaded through every site: `backend/src/types.ts`, the zod patch schema AND
   `toSettingsPatch` in `server.ts`, `DEFAULT_SETTINGS` + `normalizeSettings` in `lobby_store.ts`, the client type
   in `src/net/backend_api.ts`, `index.html`, `src/main.ts`, and tests that assert on settings.
+- Rename (#78): every player has a "Racing as" field in the lobby card (`lobby-name`); `PATCH /lobbies/:id/player`
+  `{ playerToken, name }` (same 1-32 name rule, 60 a minute, 401 bad token, 409 once the race has started: names are
+  copied into the race) broadcasts `lobby.state`. The name goes to `srp:name` and the home field, so a reload rejoins
+  with it. A guest with no saved name gets the field focused with a hint, after the join's busy state clears (a
+  disabled field cannot take focus). Not `/join`: that is the reconnect path.
 - Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player.
 - Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).

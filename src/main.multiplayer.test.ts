@@ -11,6 +11,7 @@ const submitTurnMock = vi.fn();
 const forceSkipMock = vi.fn();
 const updateSettingsMock = vi.fn();
 const sendChatMock = vi.fn();
+const renamePlayerMock = vi.fn();
 
 vi.mock('./game', () => ({
   startGame: (...args: unknown[]) => startGame(...args)
@@ -63,6 +64,10 @@ vi.mock('./net/backend_api', () => ({
 
     sendChat(...args: unknown[]) {
       return sendChatMock(...args);
+    }
+
+    renamePlayer(...args: unknown[]) {
+      return renamePlayerMock(...args);
     }
   },
   BackendApiError: MockBackendApiError,
@@ -197,6 +202,8 @@ describe('main multiplayer screens', () => {
     submitTurnMock.mockReset();
     forceSkipMock.mockReset();
     sendChatMock.mockReset();
+    renamePlayerMock.mockReset();
+    window.localStorage.clear();
     FakeWebSocket.instances = [];
     window.sessionStorage.clear();
     startGame.mockReturnValue({ destroy: vi.fn() });
@@ -490,6 +497,83 @@ describe('main multiplayer screens', () => {
       expect(byId<HTMLSelectElement>('lobbyBotLevel').value).toBe('hard');
       expect(byId<HTMLSelectElement>('lobbyBotLevel').disabled).toBe(true);
       expect(byId<HTMLButtonElement>('lobbyPlayAgainBtn').hidden).toBe(true);
+    });
+
+    describe('the player name in the lobby (#78)', () => {
+      const nameInput = () => byId<HTMLInputElement>('lobbyName');
+      const type = (value: string) => {
+        nameInput().value = value;
+        nameInput().dispatchEvent(new Event('change'));
+      };
+
+      it('is prefilled with the name the player joined with, and listed as "(you)"', async () => {
+        window.localStorage.setItem('srp:name', 'Guest');
+        await enter('guest', makeLobby('name'));
+        expect(byId('lobbyNameField').hidden).toBe(false);
+        expect(nameInput().value).toBe('Guest');
+        expect(nameInput().disabled).toBe(false);
+        expect(byId('lobbyNameHint').hidden).toBe(true);
+      });
+
+      it('renames through the API, remembers the name and shows it in the list', async () => {
+        window.localStorage.setItem('srp:name', 'Guest');
+        await enter('guest', makeLobby('name'));
+        const renamed = makeLobby('name');
+        renamed.players[1]!.name = 'Speedy';
+        renamePlayerMock.mockResolvedValue({ lobby: renamed });
+
+        type('  Speedy ');
+
+        await vi.waitFor(() =>
+          expect(renamePlayerMock).toHaveBeenCalledWith('name', 'guest-token', 'Speedy')
+        );
+        expect(window.localStorage.getItem('srp:name')).toBe('Speedy');
+        expect(byId<HTMLInputElement>('homeName').value).toBe('Speedy');
+        await vi.waitFor(() => expect(byId('lobbyPlayers').textContent).toContain('Speedy (you)'));
+      });
+
+      it('puts the old name back when the field is emptied, without asking the server', async () => {
+        await enter('guest', makeLobby('name'));
+        type('   ');
+        expect(renamePlayerMock).not.toHaveBeenCalled();
+        expect(nameInput().value).toBe('Guest');
+      });
+
+      it('says so and keeps the list when the server refuses', async () => {
+        await enter('guest', makeLobby('name'));
+        renamePlayerMock.mockRejectedValue(new MockBackendApiError(409, { error: 'conflict' }));
+        type('Late');
+        await vi.waitFor(() => expect(byId('statusLine').textContent).toContain('name rejected'));
+        expect(nameInput().value).toBe('Guest');
+      });
+
+      it('cannot be edited once the race has started', async () => {
+        await enter('guest', makeLobby('name'));
+        send('race.started', makeRaceLobby('name', 0));
+        send('lobby.state', { ...makeRaceLobby('name', 0), status: 'FINISHED' });
+        expect(nameInput().disabled).toBe(true);
+      });
+
+      it('asks a first-time guest to pick a name: the hint shows and the field has the focus', async () => {
+        await enter('guest', makeLobby('name'));
+        expect(byId('lobbyNameHint').hidden).toBe(false);
+        expect(document.activeElement).toBe(nameInput());
+      });
+
+      it('rejoins with the new name after a reload', async () => {
+        window.localStorage.setItem('srp:name', 'Guest');
+        await enter('guest', makeLobby('name'));
+        renamePlayerMock.mockResolvedValue({ lobby: makeLobby('name') });
+        type('Speedy');
+        await vi.waitFor(() => expect(renamePlayerMock).toHaveBeenCalled());
+
+        FakeWebSocket.instances = [];
+        vi.resetModules();
+        setupDom();
+        window.history.replaceState({}, '', '/lobby/name');
+        await import('./main');
+        await vi.waitFor(() => expect(joinLobbyMock.mock.calls.at(-1)?.[1]).toBe('Speedy'));
+      });
     });
 
     it('the race start takes both pages to the race screen', async () => {

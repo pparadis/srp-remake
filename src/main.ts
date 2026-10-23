@@ -63,6 +63,9 @@ const lobbyTitle = el('lobbyTitle');
 const lobbyNote = el('lobbyNote');
 const lobbyPlayersBlock = el('lobbyPlayersBlock');
 const lobbyPlayers = el('lobbyPlayers');
+const lobbyName = el<HTMLInputElement>('lobbyName');
+const lobbyNameField = el('lobbyNameField');
+const lobbyNameHint = el('lobbyNameHint');
 const lobbyChatBlock = el('lobbyChatBlock');
 const lobbyChatSlot = el('lobbyChatSlot');
 const lobbyHumans = el<HTMLSelectElement>('lobbyHumans');
@@ -539,6 +542,11 @@ function renderLobby() {
       return item;
     })
   );
+  // The player's own name (#78): editable while the lobby waits, and not overwritten while it is being typed
+  lobbyNameField.hidden = !online;
+  lobbyName.disabled = !waiting || backendBusy;
+  const me = lobby?.players.find((player) => player.playerId === backendSession?.playerId);
+  if (me && document.activeElement !== lobbyName) lobbyName.value = me.name;
   lobbyInviteLink.value = lobby ? buildLobbyInviteUrl(lobby.lobbyId) : '';
   lobbyCopyBtn.disabled = !lobby;
 }
@@ -959,11 +967,13 @@ async function joinLobbyById(lobbyId: string) {
   setBackendBusy(true);
   setStatus(`joining ${lobbyId}...`);
   logMultiplayerClient('lobby.join.start', { requestedLobbyId: lobbyId });
+  let askName = false;
   try {
     const joined = await withWakeNotice(
       backendClient.joinLobby(lobbyId, getPlayerName(), loadStoredToken(lobbyId))
     );
     openSession(joined, 'join');
+    askName = !nameWasSaved && !joined.isReconnect;
     logMultiplayerClient('lobby.join.success');
   } catch (error) {
     // Only a definite "your seat is gone" answer drops the stored seat. A network error or a
@@ -976,6 +986,12 @@ async function joinLobbyById(lobbyId: string) {
   } finally {
     joining = false;
     setBackendBusy(false);
+  }
+  // after the busy state clears: a disabled field cannot take the focus
+  if (askName) {
+    lobbyNameHint.hidden = false;
+    lobbyName.focus();
+    lobbyName.select();
   }
 }
 
@@ -1185,13 +1201,47 @@ el('homeJoinBtn').addEventListener('click', () => {
   showNotice(null);
   navigate({ name: 'lobby', id });
 });
-homeName.addEventListener('change', () => {
+// A name picked in the lobby (#78) goes back to the home field too, so a reload rejoins with it.
+function rememberName() {
+  nameWasSaved = true;
   try {
     window.localStorage.setItem('srp:name', getPlayerName());
   } catch {
     // ignore
   }
-});
+}
+homeName.addEventListener('change', rememberName);
+
+// The name the lobby holds for this player, put back in the field (renderLobby leaves a field that has the focus alone).
+function restoreName() {
+  const me = lastLobby?.players.find((player) => player.playerId === backendSession?.playerId);
+  if (me) lobbyName.value = me.name;
+  renderLobby();
+}
+
+// Enter or leaving the field. An empty name puts the old one back.
+async function renameSelf() {
+  const name = lobbyName.value.trim();
+  lobbyNameHint.hidden = true;
+  if (!backendSession || name.length === 0) {
+    restoreName();
+    return;
+  }
+  homeName.value = name;
+  rememberName();
+  try {
+    const renamed = await backendClient.renamePlayer(
+      backendSession.lobbyId,
+      backendSession.playerToken,
+      name
+    );
+    applyLobbyState(renamed.lobby, 'rename');
+  } catch (error) {
+    setStatus(`name rejected (${toErrorText(error)})`);
+    restoreName();
+  }
+}
+lobbyName.addEventListener('change', () => void renameSelf());
 
 for (const input of [
   lobbyHumans,
@@ -1272,8 +1322,12 @@ window.addEventListener('beforeunload', () => {
   disconnectBackendSocket();
 });
 
+// A guest who opens an invite with no saved name joins as "Player" and is asked to pick one (#78).
+let nameWasSaved = false;
 try {
-  homeName.value = window.localStorage.getItem('srp:name') || homeName.value;
+  const saved = window.localStorage.getItem('srp:name');
+  nameWasSaved = Boolean(saved);
+  homeName.value = saved || homeName.value;
 } catch {
   // ignore
 }

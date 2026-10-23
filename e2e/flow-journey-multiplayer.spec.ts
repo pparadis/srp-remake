@@ -35,6 +35,13 @@ test('multiplayer: host and guest play a 1-lap race, play again, and finish a se
   await joinByInvite(guest, invite, 'Guest');
   await expect(host.getByTestId('lobby-player')).toHaveCount(2);
 
+  // The guest renames in the lobby (#78): the host's list follows over the socket, and a reload keeps the name.
+  await guest.getByTestId('lobby-name').fill('Speedy');
+  await guest.getByTestId('lobby-name').press('Enter');
+  await expect(host.getByTestId('lobby-players')).toContainText('Speedy');
+  await guest.reload();
+  await expect(guest.getByTestId('lobby-player').filter({ hasText: 'Speedy (you)' })).toBeVisible();
+
   // Chat in the lobby: the host's message (with an emoji) reaches the guest over the real socket.
   await host.getByTestId('chat-input').fill('hello 👋');
   await host.getByTestId('chat-send').click();

@@ -419,6 +419,21 @@ export class LobbyStore {
     return lobby;
   }
 
+  // Only while waiting: the names are copied into the race (the car names) when it starts.
+  renamePlayer(lobbyId: string, playerToken: string, name: string): Lobby {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    const player = this.findPlayerByToken(lobby, playerToken);
+    if (!player) {
+      throw new LobbyError(401, 'Invalid player token for this lobby.');
+    }
+    if (lobby.status !== 'WAITING') {
+      throw new LobbyError(409, 'Names can only change while the lobby is waiting.');
+    }
+    player.name = name;
+    lobby.updatedAt = Date.now();
+    return lobby;
+  }
+
   startRace(lobbyId: string, hostToken: string): Lobby {
     const lobby = this.getLobbyOrThrow(lobbyId);
     if (lobby.status !== 'WAITING') {

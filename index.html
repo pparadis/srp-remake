@@ -112,6 +112,20 @@
         <div id="lobbyPlayersBlock">
           <h2>Players</h2>
           <ul id="lobbyPlayers" data-testid="lobby-players"></ul>
+          <label class="field" id="lobbyNameField">
+            <span>Racing as</span>
+            <input
+              id="lobbyName"
+              data-testid="lobby-name"
+              type="text"
+              maxlength="24"
+              placeholder="Pick a name"
+              autocomplete="nickname"
+            />
+          </label>
+          <p id="lobbyNameHint" class="notice" data-testid="lobby-name-hint" hidden>
+            Pick a name: the others see it in the list.
+          </p>
         </div>
         <div id="lobbyChatBlock" data-testid="lobby-chat" hidden>
           <h2>Chat</h2>
