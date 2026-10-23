@@ -10,6 +10,7 @@ import {
   getActiveCar
 } from './game/race/race_engine';
 import { logAction, startRaceLog } from './game/race/race_log';
+import { saveRace } from './ui/recap_store';
 import type { TrackData } from './game/types/track';
 
 const startGame = vi.fn();
@@ -322,11 +323,127 @@ describe('main (solo flow)', () => {
       await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
     });
 
+    describe('the board replay', () => {
+      const states: Array<{ revision: number; source: string; localPlayerId: string }> = [];
+      const onState = (event: Event) => {
+        const detail = (
+          event as CustomEvent<(typeof states)[number] & { lobby: { revision: number } }>
+        ).detail;
+        states.push({
+          revision: detail.lobby.revision,
+          source: detail.source,
+          localPlayerId: detail.localPlayerId
+        });
+      };
+
+      async function openBoard(at?: number) {
+        vi.stubGlobal(
+          'fetch',
+          vi.fn(async () => new Response(JSON.stringify(track), { status: 200 }))
+        );
+        startGame.mockReturnValue({ destroy: vi.fn() });
+        states.length = 0;
+        window.addEventListener('srp:backend-lobby-state', onState);
+        saveRace({
+          id: 'saved-1',
+          finishedAt: 1,
+          trackId: 'oval16_3lanes',
+          label: 'Solo, 5 laps, you won',
+          names: { '1': 'You', '2': 'Car 2' },
+          log: shortLog()
+        });
+        await import('./main');
+        if (at === undefined) {
+          window.history.pushState({}, '', '/recap/saved-1/board');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        } else {
+          window.history.pushState({}, '', '/recap/saved-1');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+          await vi.waitFor(() => expect(tid('recap-open-turns')).not.toBeNull());
+          tid('recap-open-turns').click();
+          for (let i = 0; i < at; i += 1) tid('recap-next').click();
+          tid('recap-watch-turn').click();
+        }
+        await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
+        window.dispatchEvent(new Event('srp:scene-ready'));
+      }
+
+      afterEach(() => {
+        window.removeEventListener('srp:backend-lobby-state', onState);
+        vi.useRealTimers();
+      });
+
+      it('starts a scene for the race with nobody in control, and shows the grid first', async () => {
+        await openBoard();
+        expect(document.body.dataset.screen).toBe('race');
+        expect(startGame).toHaveBeenCalledWith(
+          byId('app'),
+          expect.objectContaining({ totalCars: 2, humanCars: 2, botCars: 0, raceLaps: 5, seed: 0 })
+        );
+        expect(byId('replayBar').hidden).toBe(false);
+        expect(states.at(-1)).toEqual({ revision: 0, source: 'replay', localPlayerId: '' });
+        expect(tid('replay-count').textContent).toBe('0 / 8');
+        expect(tid('replay-text').textContent).toBe('On the grid');
+        expect(tid('replay-prev')).toHaveProperty('disabled', true);
+      });
+
+      it('steps with the buttons and the arrow keys, and stops at both ends', async () => {
+        await openBoard();
+        tid('replay-next').click();
+        expect(states.at(-1)!.revision).toBe(1);
+        expect(tid('replay-count').textContent).toBe('1 / 8');
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+        expect(states.at(-1)!.revision).toBe(2);
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+        tid('replay-prev').click();
+        expect(states.at(-1)!.revision).toBe(0);
+        const before = states.length;
+        tid('replay-prev').click(); // already on the grid
+        expect(states).toHaveLength(before);
+        for (let i = 0; i < 12; i += 1) tid('replay-next').click();
+        expect(states.at(-1)!.revision).toBe(8);
+        expect(tid('replay-next')).toHaveProperty('disabled', true);
+      });
+
+      it('plays on by itself and pauses at the end', async () => {
+        await openBoard();
+        vi.useFakeTimers();
+        tid('replay-play').click();
+        expect(tid('replay-play').textContent).toBe('Pause');
+        vi.advanceTimersByTime(1200 * 3);
+        expect(states.at(-1)!.revision).toBeGreaterThanOrEqual(2);
+        vi.advanceTimersByTime(1200 * 20);
+        expect(states.at(-1)!.revision).toBe(8);
+        expect(tid('replay-play').textContent).toBe('Play');
+      });
+
+      it('opens at the turn picked in the recap', async () => {
+        await openBoard(4);
+        expect(states.at(-1)!.revision).toBe(5); // the race after the 5th action
+        expect(tid('replay-count').textContent).toBe('5 / 8');
+      });
+
+      it('does not take the replay reaching the flag for a race ending, and goes back to the recap', async () => {
+        await openBoard();
+        window.dispatchEvent(
+          new CustomEvent('srp:race-finished', { detail: { winnerCarId: 1, recap: null } })
+        );
+        expect(byId('results').hidden).toBe(true);
+        tid('replay-recap').click();
+        await vi.waitFor(() => expect(document.body.dataset.screen).toBe('recap'));
+        expect(window.location.pathname).toBe('/recap/saved-1');
+        expect(byId('replayBar').hidden).toBe(true);
+        // let the recap finish loading: a request still on its way would reach into the next test
+        await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
+      });
+    });
+
     it('goes home with a notice for a recap that is no longer saved', async () => {
       window.history.replaceState({}, '', '/recap/gone');
       await import('./main');
-      await vi.waitFor(() => expect(document.body.dataset.screen).toBe('home'));
-      expect(byId('homeNotice').textContent).toContain('no longer saved');
+      // the page starts on home: wait for the notice itself, not for the screen
+      await vi.waitFor(() => expect(byId('homeNotice').textContent).toContain('no longer saved'));
+      expect(document.body.dataset.screen).toBe('home');
     });
   });
 

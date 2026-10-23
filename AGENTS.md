@@ -22,8 +22,13 @@ Project guide for Codex and other automation.
   recap lazily so the engine is not in the first bundle. Online: `GET /lobbies/:id/recap?playerToken=` gives `{ log,
 names, trackId }` to a seated player once somebody has won (409 before, 401 bad token); the client asks for it as
   `srp:race-finished` arrives (`saveOnlineRace` in `main.ts`) and saves it like a solo race, so the Recap button shows
-  once it is there. Reading a recap keeps the online session: Back returns to the lobby. The board replay is a later
-  phase of #169.
+  once it is there. Reading a recap keeps the online session: Back returns to the lobby. The board replay (route
+  `/recap/:id/board`, "Watch on the board" on the recap page) runs the race scene as a spectator of an online race:
+  `replay_load.ts` dresses every replayed state as the server's lobby state (round-trips through `toEngineRace`), and
+  `main.ts` sends them as `srp:backend-lobby-state` (`localPlayerId` empty: nobody is in control) from the replay bar
+  (buttons, Left/Right, Play). While a replay runs the live online events are not forwarded to the scene and the scene's
+  `srp:race-finished` is ignored. Stepping back is a state change like any other: the cars glide back, the feed is the
+  live feed's diff.
 - Race session in `src/game/race/race_session.ts` (no Phaser): one page's view of the race. The solo turn loop (the
   player's action, then the bots), the online server state and its input hold, who controls the active car, the HUD
   snapshot, feel events, the finish and the sandbox edits. `RaceScene` owns one and only draws it (tokens, targets,

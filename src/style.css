@@ -1815,3 +1815,50 @@ body[data-screen='home'] #screen-home {
   margin: 3px 0;
   text-align: left;
 }
+
+/* Board replay controls (#169): a bar over the bottom of the board, under the HUD panels' own dock. */
+.replay-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 16px);
+  padding: 6px 10px;
+  background: rgba(15, 20, 27, 0.94);
+  border: 1px solid #2a3642;
+  border-radius: 8px;
+  color: #c7d1db;
+  font-size: 13px;
+}
+
+.replay-bar[hidden] {
+  display: none;
+}
+
+.replay-bar button {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 4px;
+  background: #c7d1db;
+  color: #0b0f14;
+  font: inherit;
+  cursor: pointer;
+}
+
+.replay-bar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.replay-bar #replayText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}

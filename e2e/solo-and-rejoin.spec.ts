@@ -82,6 +82,46 @@ test('solo: the recap of a finished race, from the results and from the home lis
   expect(errors).toEqual([]);
 });
 
+// The board replay of a recap (#169): the real scene watches the saved race, state by state, cars moving forward and back.
+test('solo: the recap replays the race on the board, forward and back', async ({ page }) => {
+  const errors = guard(page);
+  await quickRace(page, { bots: 2, laps: 1 });
+  await playUntilFinished(page);
+  await page.getByTestId('results-recap').click();
+  await page.getByTestId('recap-watch').click();
+
+  await expect(page).toHaveURL(/\/recap\/[^/]+\/board$/);
+  await expect(page.getByTestId('replay-bar')).toBeVisible();
+  await expect(page.locator('canvas')).toHaveCount(1);
+  await expect(page.getByTestId('replay-count')).toContainText('0 / ');
+  const cells = () =>
+    page.evaluate(() => window.__srp?.state().cars.map((c) => `${c.carId}:${c.cellId}`) ?? []);
+  await expect.poll(async () => (await cells()).length).toBe(3);
+  const grid = await cells();
+
+  for (let i = 0; i < 3; i += 1) await page.getByTestId('replay-next').click();
+  await expect(page.getByTestId('replay-count')).toContainText('3 / ');
+  await expect.poll(cells).not.toEqual(grid);
+  const afterThree = await cells();
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByTestId('replay-count')).toContainText('2 / ');
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(cells).toEqual(afterThree);
+  for (let i = 0; i < 3; i += 1) await page.getByTestId('replay-prev').click();
+  await expect.poll(cells).toEqual(grid);
+
+  // the replay reaching the flag is not a race ending: no results screen
+  const total = Number(
+    /\/ (\d+)/.exec((await page.getByTestId('replay-count').textContent())!)![1]
+  );
+  for (let i = 0; i < total; i += 1) await page.getByTestId('replay-next').click();
+  await expect(page.getByTestId('replay-next')).toBeDisabled();
+  await expect(page.getByTestId('results')).toBeHidden();
+  await page.getByTestId('replay-recap').click();
+  await expect(page.getByTestId('recap-car')).toHaveCount(3);
+  expect(errors).toEqual([]);
+});
+
 test('resilience: the guest reloads mid-race and rejoins with the same state', async ({
   browser
 }) => {
