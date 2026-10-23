@@ -549,6 +549,13 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     });
   });
 
+  // The log of the finished race (#169); 409 until somebody has won. Fetched once, at the end of the race.
+  app.get(`${API_V1_PREFIX}/lobbies/:lobbyId/recap`, { config: limit(60) }, async (request) => {
+    const params = lobbyPathSchema.parse(request.params);
+    const query = lobbyReadQuerySchema.parse(request.query);
+    return lobbyStore.getRaceRecap(params.lobbyId, query.playerToken);
+  });
+
   app.get(`${API_V1_PREFIX}/lobbies/:lobbyId`, { config: limit(240) }, async (request) => {
     const params = lobbyPathSchema.parse(request.params);
     const query = lobbyReadQuerySchema.parse(request.query);

@@ -96,6 +96,18 @@ test('multiplayer: host and guest play a 1-lap race, play again, and finish a se
   expect(secondWinner).toMatch(/^Car \d+/);
   await expect(guest.getByTestId('results-winner')).toHaveText(secondWinner!);
 
+  // The recap of the online race (#169): both players get it from the server, the guest opens it and goes back to the
+  // lobby, still seated.
+  await expect(host.getByTestId('results-recap')).toBeVisible();
+  await guest.getByTestId('results-recap').click();
+  await expect(guest.getByTestId('recap-car')).toHaveCount(3);
+  await guest.getByTestId('recap-car').first().click();
+  await expect(guest.getByTestId('recap-move').first()).toBeVisible();
+  await guest.getByTestId('recap-back').click();
+  await guest.getByTestId('recap-back').click();
+  await expect(guest).toHaveURL(/\/lobby\/[^/]+$/);
+  await expect(guest.getByTestId('lobby-player')).toHaveCount(2);
+
   await guest.goto('/');
   expect([...hostErrors, ...guestErrors]).toEqual([]);
   await close();

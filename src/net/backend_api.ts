@@ -1,4 +1,5 @@
 import type { RaceAction, RejectReason } from '../game/race/race_engine';
+import type { RaceLog } from '../game/race/race_log';
 import type { RulesVersion } from '../game/rules/ids';
 import type { BotLevel, Car } from '../game/types/car';
 
@@ -92,6 +93,13 @@ interface JoinLobbyResponse {
 
 interface StartRaceResponse {
   lobby: PublicLobby;
+}
+
+/** The finished race as data (#169): the log that replays it, the car names by car id, and the track. */
+export interface RaceRecapResponse {
+  log: RaceLog;
+  names: Record<string, string>;
+  trackId: string;
 }
 
 interface ReadLobbyResponse {
@@ -230,6 +238,12 @@ export class BackendApiClient {
 
   readLobby(lobbyId: string, playerToken: string): Promise<ReadLobbyResponse> {
     const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}?playerToken=${encodeURIComponent(playerToken)}`;
+    return this.request('GET', path);
+  }
+
+  // The finished race as data (#169), for the recap: 409 until somebody has won, 401 for a bad token.
+  readRecap(lobbyId: string, playerToken: string): Promise<RaceRecapResponse> {
+    const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/recap?playerToken=${encodeURIComponent(playerToken)}`;
     return this.request('GET', path);
   }
 

@@ -9,7 +9,7 @@ import {
   type BotTurnDecision
 } from '../../src/game/race/race_engine';
 import { normalizeChatText } from '../../src/game/chat_text';
-import { logAction, startRaceLog } from '../../src/game/race/race_log';
+import { logAction, startRaceLog, type RaceLog } from '../../src/game/race/race_log';
 import { must } from '../../src/game/must';
 import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from '../../src/game/rules/ids';
 import { MAX_SEED, normalizeSeed } from '../../src/game/systems/bot_style';
@@ -416,6 +416,32 @@ export class LobbyStore {
     lobby.settings = nextSettings;
     lobby.updatedAt = Date.now();
     return lobby;
+  }
+
+  // The finished race as data (#169): the action log that replays it, the car names and the track. Only once somebody
+  // has crossed the line, so nobody studies the others' moves mid-race. Only for a seated player.
+  getRaceRecap(
+    lobbyId: string,
+    playerToken: string
+  ): { log: RaceLog; names: Record<string, string>; trackId: string } {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    if (!this.findPlayerByToken(lobby, playerToken)) {
+      throw new LobbyError(401, 'Invalid player token for this lobby.');
+    }
+    const race = lobby.race;
+    if (!race || race.engine.winnerCarId === null) {
+      throw new LobbyError(409, 'The recap is there once the race is finished.');
+    }
+    return {
+      log: race.log,
+      names: Object.fromEntries(
+        race.engine.cars.map((car) => [
+          String(car.carId),
+          race.seats[car.carId - 1]?.name ?? `Car ${car.carId}`
+        ])
+      ),
+      trackId: lobby.settings.trackId
+    };
   }
 
   // Only while waiting: the names are copied into the race (the car names) when it starts.
