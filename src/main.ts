@@ -14,6 +14,7 @@ import { must } from './game/must';
 import { fpsText, startFpsMeter } from './ui/fps_meter';
 import { currentlyMuted, initSound, setMuted } from './ui/sound';
 import { mountSandboxPanel } from './ui/sandbox_panel';
+import { randomPlayerName } from './ui/player_name';
 import { createChat, isChatMessage } from './ui/chat';
 import { isCompactHud } from './ui/layout';
 import { isTypingTarget } from './ui/typing';
@@ -405,9 +406,13 @@ function placeChat() {
   renderChatBadges();
 }
 
+// The name a player who has not picked one races as, like Docker's container names ("steady_hairpin"). Stable for the page
+// load: it is also what an emptied name field falls back to.
+const defaultName = randomPlayerName();
+
 function getPlayerName(): string {
   const raw = homeName.value.trim();
-  return raw.length > 0 ? raw : 'Player';
+  return raw.length > 0 ? raw : defaultName;
 }
 
 // What the game scene is built from: the lobby's settings online, the lobby card offline.
@@ -1206,6 +1211,7 @@ function rememberName() {
   nameWasSaved = true;
   try {
     window.localStorage.setItem('srp:name', getPlayerName());
+    window.localStorage.removeItem('srp:name-auto');
   } catch {
     // ignore
   }
@@ -1322,14 +1328,21 @@ window.addEventListener('beforeunload', () => {
   disconnectBackendSocket();
 });
 
-// A guest who opens an invite with no saved name joins as "Player" and is asked to pick one (#78).
+// A player who never picked a name gets a generated one, kept in `srp:name` (flagged `srp:name-auto`) so a reload keeps
+// it. A guest who opens an invite with such a name is asked to pick one (#78).
 let nameWasSaved = false;
 try {
   const saved = window.localStorage.getItem('srp:name');
-  nameWasSaved = Boolean(saved);
-  homeName.value = saved || homeName.value;
+  if (saved) {
+    homeName.value = saved;
+    nameWasSaved = window.localStorage.getItem('srp:name-auto') !== '1';
+  } else {
+    homeName.value = defaultName;
+    window.localStorage.setItem('srp:name', defaultName);
+    window.localStorage.setItem('srp:name-auto', '1');
+  }
 } catch {
-  // ignore
+  homeName.value = defaultName;
 }
 setStatus(`ready (${backendApiBaseUrl})`);
 // Wake a sleeping server in the background; its answer says which commit it runs.
