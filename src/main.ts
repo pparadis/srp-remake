@@ -503,7 +503,9 @@ function renderHome() {
 
 // ---- recap (#169) --------------------------------------------------------------------------
 
-const recapPage = mountRecapPage(el('recapPage'), () => navigate({ name: 'home' }));
+const recapPage = mountRecapPage(el('recapPage'), () =>
+  navigate(backendSession ? { name: 'lobby', id: backendSession.lobbyId } : { name: 'home' })
+);
 // The saved race the results screen offers a recap of (none: online, sandbox, or nothing could be kept).
 let lastSavedRaceId: string | null = null;
 
@@ -512,19 +514,45 @@ interface FinishedRaceRecap {
   names: Record<number, string>;
 }
 
-function saveFinishedRace(recap: FinishedRaceRecap, winnerCarId: number | null) {
+function saveFinishedRace(
+  recap: FinishedRaceRecap & { trackId: string },
+  winnerCarId: number | null,
+  kind: 'Solo' | 'Online',
+  myCarId: number | null
+): boolean {
   const winner = winnerCarId === null ? undefined : recap.names[winnerCarId];
   const laps = recap.log.raceLaps;
+  const who =
+    winnerCarId !== null && winnerCarId === myCarId ? 'you won' : `${winner ?? 'nobody'} won`;
   const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const kept = saveRace({
     id,
     finishedAt: Date.now(),
-    trackId: 'oval16_3lanes',
-    label: `Solo, ${laps} ${laps === 1 ? 'lap' : 'laps'}, ${winner === 'You' ? 'you won' : `${winner ?? 'nobody'} won`}`,
+    trackId: recap.trackId,
+    label: `${kind}, ${laps} ${laps === 1 ? 'lap' : 'laps'}, ${who}`,
     names: Object.fromEntries(Object.entries(recap.names).map(([id, name]) => [String(id), name])),
     log: recap.log
   });
   lastSavedRaceId = kept ? id : null;
+  return kept;
+}
+
+// An online race: the server holds the log (only once somebody has won), so the client asks for it as the race ends.
+async function saveOnlineRace(winnerCarId: number | null) {
+  const session = backendSession;
+  if (!session) return;
+  const myCarId =
+    lastLobby?.raceState?.cars.find((car) => car.playerId === session.playerId)?.carId ?? null;
+  try {
+    const recap = await backendClient.readRecap(session.lobbyId, session.playerToken);
+    const names: Record<number, string> = {};
+    for (const [carId, name] of Object.entries(recap.names)) names[Number(carId)] = name;
+    // the player may have left the results screen while it was on its way
+    if (!saveFinishedRace({ ...recap, names }, winnerCarId, 'Online', myCarId)) return;
+    if (!results.hidden) resultsRecapBtn.hidden = false;
+  } catch {
+    // no recap this time (the lobby went, the server restarted): the results screen simply has no button
+  }
 }
 
 async function openRecap(id: string) {
@@ -710,7 +738,7 @@ async function handleRoute(route: Route, source: 'push' | 'replace' | 'pop') {
       await ensureGameStarted();
       return;
     case 'recap':
-      leaveOnline();
+      // an online player keeps the lobby while reading it: Back returns there
       showScreen('recap');
       await openRecap(route.id);
       return;
@@ -1364,8 +1392,11 @@ window.addEventListener('srp:race-finished', (event) => {
   ).detail;
   const winner = detail?.winnerCarId ?? null;
   lastSavedRaceId = null;
-  if (detail?.recap) saveFinishedRace(detail.recap, winner);
+  if (detail?.recap) {
+    saveFinishedRace({ ...detail.recap, trackId: 'oval16_3lanes' }, winner, 'Solo', 1);
+  }
   showResults(winner);
+  if (!detail?.recap && mode === 'online') void saveOnlineRace(winner);
 });
 resultsRecapBtn.addEventListener('click', () => {
   if (lastSavedRaceId) navigate({ name: 'recap', id: lastSavedRaceId });

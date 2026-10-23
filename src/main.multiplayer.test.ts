@@ -1,6 +1,15 @@
 /** @vitest-environment jsdom */
 import indexHtml from '../index.html?raw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import track from '../public/tracks/oval16_3lanes.json';
+import {
+  applyAction,
+  createRace,
+  createRaceContext,
+  decideBotAction
+} from './game/race/race_engine';
+import { logAction, startRaceLog } from './game/race/race_log';
+import type { TrackData } from './game/types/track';
 
 const startGame = vi.fn();
 const createLobbyMock = vi.fn();
@@ -12,6 +21,7 @@ const forceSkipMock = vi.fn();
 const updateSettingsMock = vi.fn();
 const sendChatMock = vi.fn();
 const renamePlayerMock = vi.fn();
+const readRecapMock = vi.fn();
 
 vi.mock('./game', () => ({
   startGame: (...args: unknown[]) => startGame(...args)
@@ -68,6 +78,10 @@ vi.mock('./net/backend_api', () => ({
 
     renamePlayer(...args: unknown[]) {
       return renamePlayerMock(...args);
+    }
+
+    readRecap(...args: unknown[]) {
+      return readRecapMock(...args);
     }
   },
   BackendApiError: MockBackendApiError,
@@ -203,6 +217,7 @@ describe('main multiplayer screens', () => {
     forceSkipMock.mockReset();
     sendChatMock.mockReset();
     renamePlayerMock.mockReset();
+    readRecapMock.mockReset();
     window.localStorage.clear();
     FakeWebSocket.instances = [];
     window.sessionStorage.clear();
@@ -497,6 +512,81 @@ describe('main multiplayer screens', () => {
       expect(byId<HTMLSelectElement>('lobbyBotLevel').value).toBe('hard');
       expect(byId<HTMLSelectElement>('lobbyBotLevel').disabled).toBe(true);
       expect(byId<HTMLButtonElement>('lobbyPlayAgainBtn').hidden).toBe(true);
+    });
+
+    describe('the recap of an online race (#169)', () => {
+      // a few real turns, as the server would send them
+      function shortLog() {
+        const ctx = createRaceContext(track as unknown as TrackData);
+        const seats = [
+          { isBot: false, ownerId: 'host-player-id' },
+          { isBot: false, ownerId: 'guest-player-id' }
+        ];
+        const state = createRace(ctx, seats, 5, 0, 'v3');
+        const log = startRaceLog(seats, 5, 0, 'v3');
+        for (let i = 0; i < 8; i += 1) {
+          const action = decideBotAction(ctx, state, 'autopilot').action;
+          applyAction(ctx, state, action);
+          logAction(log, action);
+        }
+        return log;
+      }
+      const recapBody = () => ({
+        log: shortLog(),
+        names: { '1': 'Host', '2': 'Guest' },
+        trackId: 'oval16_3lanes'
+      });
+      const finishRace = async () => {
+        await enter('guest', makeLobby('end'));
+        send('race.started', makeRaceLobby('end', 0));
+        window.dispatchEvent(
+          new CustomEvent('srp:race-finished', { detail: { winnerCarId: 2, recap: null } })
+        );
+      };
+
+      it('fetches the race as it ends, saves it, and offers the recap', async () => {
+        readRecapMock.mockResolvedValue(recapBody());
+        await finishRace();
+        await vi.waitFor(() => expect(byId('resultsRecapBtn').hidden).toBe(false));
+        expect(readRecapMock).toHaveBeenCalledWith('end', 'guest-token');
+        const saved = JSON.parse(window.localStorage.getItem('srp:races')!) as Array<{
+          label: string;
+          names: Record<string, string>;
+        }>;
+        // the guest's car (2) won: the label says "you"
+        expect(saved[0]!.label).toBe('Online, 5 laps, you won');
+        expect(saved[0]!.names).toEqual({ '1': 'Host', '2': 'Guest' });
+      });
+
+      it('has no recap button when the server has no log to give', async () => {
+        readRecapMock.mockRejectedValue(new MockBackendApiError(409, { error: 'conflict' }));
+        await finishRace();
+        await vi.waitFor(() => expect(readRecapMock).toHaveBeenCalled());
+        expect(byId('results').hidden).toBe(false);
+        expect(byId('resultsRecapBtn').hidden).toBe(true);
+        expect(window.localStorage.getItem('srp:races')).toBeNull();
+      });
+
+      it('keeps the lobby while the recap is read, and Back returns to it', async () => {
+        vi.stubGlobal(
+          'fetch',
+          vi.fn(async () => new Response(JSON.stringify(track), { status: 200 }))
+        );
+        readRecapMock.mockResolvedValue(recapBody());
+        await finishRace();
+        // the server says so too: a finished race
+        send('lobby.state', { ...makeRaceLobby('end', 0), status: 'FINISHED' });
+        await vi.waitFor(() => expect(byId('resultsRecapBtn').hidden).toBe(false));
+
+        byId('resultsRecapBtn').click();
+        await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
+        expect(document.body.dataset.screen).toBe('recap');
+        expect(FakeWebSocket.instances.at(-1)!.readyState).not.toBe(3);
+
+        tid('recap-back').click();
+        expect(window.location.pathname).toBe('/lobby/end');
+        expect(document.body.dataset.screen).toBe('lobby');
+      });
     });
 
     describe('the player name in the lobby (#78)', () => {
