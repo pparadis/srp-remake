@@ -1589,7 +1589,9 @@ body[data-screen='home'] #screen-home {
   background: rgba(0, 0, 0, 0.5);
 }
 
-.setup-panel[hidden] {
+/* a class that sets `display` (the rows) would otherwise beat the `hidden` attribute */
+.setup-panel[hidden],
+.setup-card [hidden] {
   display: none;
 }
 

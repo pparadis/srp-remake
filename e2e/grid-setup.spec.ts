@@ -64,6 +64,8 @@ test('rules v3: the grid setup opens by itself, picks a compound and a fuel load
   await expect(page.getByTestId('hud-pace')).toContainText('HEAVY');
   // nobody pressed Setup: the panel is already open
   await expect(panel).toBeVisible();
+  // v3 ignores the tire pressures (#163): no row for them (visibility is computed from the CSS, `hidden` alone is not enough)
+  await expect(page.getByTestId('setup-psi-row')).toBeHidden();
 
   await press('compound-soft');
   await press('fuel-minus');
