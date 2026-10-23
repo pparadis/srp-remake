@@ -52,6 +52,36 @@ test('solo: a full 1-lap game against 2 Hard bots, then race again', async ({ pa
   expect(errors).toEqual([]);
 });
 
+// The recap of a race just played (#169): the summary, a car's moves, the turn by turn, and the home list (the recap is a
+// page of its own, saved in the browser). Needs a real race, real navigation and a reload.
+test('solo: the recap of a finished race, from the results and from the home list', async ({
+  page
+}) => {
+  const errors = guard(page);
+  await quickRace(page, { bots: 2, laps: 1 });
+  await playUntilFinished(page);
+  await expect(page.getByTestId('results')).toBeVisible();
+
+  await page.getByTestId('results-recap').click();
+  await expect(page).toHaveURL(/\/recap\//);
+  await expect(page.getByTestId('recap-car')).toHaveCount(3);
+  await page.getByTestId('recap-car').first().click();
+  await expect(page.getByTestId('recap-move').first()).toBeVisible();
+  await page.getByTestId('recap-car-turns').click();
+  await expect(page.getByTestId('recap-turn-detail')).toBeVisible();
+  await page.getByTestId('recap-next').click();
+  await expect(page.getByTestId('recap-turn-count')).toContainText('2 /');
+
+  // a reload keeps the page (the race is saved), and Back climbs to the home screen, which lists the race
+  await page.reload();
+  await expect(page.getByTestId('recap-car')).toHaveCount(3);
+  await page.getByTestId('recap-back').click();
+  await expect(page.getByTestId('home-race')).toHaveCount(1);
+  await page.getByTestId('home-race').click();
+  await expect(page.getByTestId('recap-car')).toHaveCount(3);
+  expect(errors).toEqual([]);
+});
+
 test('resilience: the guest reloads mid-race and rejoins with the same state', async ({
   browser
 }) => {

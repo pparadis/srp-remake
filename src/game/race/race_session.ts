@@ -261,6 +261,15 @@ export class RaceSession {
     return this.log;
   }
 
+  /** What the recap needs to be kept: the log and the car names (null when there is no log). */
+  recapInfo(): { log: RaceLog; names: Record<number, string> } | null {
+    if (!this.log) return null;
+    return {
+      log: this.log,
+      names: Object.fromEntries(this.race.cars.map((car) => [car.carId, this.nameOf(car)]))
+    };
+  }
+
   private respawnForComposition(totalCars: number, humanCars: number, botCars: number) {
     this.totalCars = Math.max(1, Math.min(11, Math.trunc(totalCars)));
     this.humanCars = Math.max(0, Math.min(this.totalCars, Math.trunc(humanCars)));

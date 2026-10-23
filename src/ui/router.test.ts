@@ -7,7 +7,8 @@ describe('router', () => {
     { name: 'solo' },
     { name: 'soloRace' },
     { name: 'lobby', id: 'abc-123' },
-    { name: 'lobbyRace', id: 'abc-123' }
+    { name: 'lobbyRace', id: 'abc-123' },
+    { name: 'recap', id: 'r-1' }
   ];
 
   it.each(['/', '/repo/'])('round-trips every route under base %s', (base) => {
@@ -25,10 +26,11 @@ describe('router', () => {
     expect(parseRoute('/solo/', '/')).toEqual({ name: 'solo' });
     expect(parseRoute('/nope/at/all', '/')).toEqual({ name: 'home' });
     expect(parseRoute('/lobby/', '/')).toEqual({ name: 'home' });
+    expect(parseRoute('/recap', '/')).toEqual({ name: 'home' });
   });
 
   it('maps routes to screens', () => {
-    expect(routes.map(screenOf)).toEqual(['home', 'lobby', 'race', 'lobby', 'race']);
+    expect(routes.map(screenOf)).toEqual(['home', 'lobby', 'race', 'lobby', 'race', 'recap']);
   });
 
   it('redirects old ?lobby=ID links', () => {

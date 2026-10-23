@@ -57,6 +57,11 @@
           </div>
         </div>
 
+        <div id="homeRaces" class="card home-races" data-testid="home-races" hidden>
+          <h2>Recent races</h2>
+          <ul id="homeRaceList"></ul>
+        </div>
+
         <svg
           id="homeTrack"
           class="home-track"
@@ -228,6 +233,10 @@
       </div>
     </section>
 
+    <section id="screen-recap" data-screen="recap" class="screen">
+      <div id="recapPage" class="recap" data-testid="recap-page"></div>
+    </section>
+
     <section id="screen-race" data-screen="race" class="screen">
       <div id="app" data-testid="race-canvas"></div>
       <div id="hud" data-testid="hud"></div>
@@ -268,6 +277,9 @@
               hidden
             >
               Play again
+            </button>
+            <button id="resultsRecapBtn" data-testid="results-recap" type="button" hidden>
+              Recap
             </button>
             <button id="resultsHomeBtn" data-testid="results-home" type="button">Home</button>
           </div>

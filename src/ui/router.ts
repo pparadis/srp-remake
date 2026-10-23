@@ -6,9 +6,11 @@ export type Route =
   | { name: 'solo' }
   | { name: 'soloRace' }
   | { name: 'lobby'; id: string }
-  | { name: 'lobbyRace'; id: string };
+  | { name: 'lobbyRace'; id: string }
+  /** The recap of a saved race (#169). */
+  | { name: 'recap'; id: string };
 
-export type Screen = 'home' | 'lobby' | 'race';
+export type Screen = 'home' | 'lobby' | 'race' | 'recap';
 
 const DEFAULT_BASE = import.meta.env.BASE_URL;
 
@@ -22,6 +24,10 @@ export function parseRoute(pathname: string, base = DEFAULT_BASE): Route {
   const path = stripBase(pathname, base);
   if (path === '/solo') return { name: 'solo' };
   if (path === '/solo/race') return { name: 'soloRace' };
+  const recap = /^\/recap\/([^/]+)$/.exec(path);
+  if (recap) {
+    return { name: 'recap', id: decodeURIComponent(must(recap[1], 'race id in the path')) };
+  }
   const match = /^\/lobby\/([^/]+)(\/race)?$/.exec(path);
   if (match) {
     const id = decodeURIComponent(must(match[1], 'lobby id in the path'));
@@ -43,6 +49,8 @@ export function routePath(route: Route, base = DEFAULT_BASE): string {
       return `${root}/lobby/${encodeURIComponent(route.id)}`;
     case 'lobbyRace':
       return `${root}/lobby/${encodeURIComponent(route.id)}/race`;
+    case 'recap':
+      return `${root}/recap/${encodeURIComponent(route.id)}`;
     default:
       return route satisfies never; // a new route that is not handled above fails to compile
   }
@@ -50,6 +58,7 @@ export function routePath(route: Route, base = DEFAULT_BASE): string {
 
 export function screenOf(route: Route): Screen {
   if (route.name === 'home') return 'home';
+  if (route.name === 'recap') return 'recap';
   return route.name === 'solo' || route.name === 'lobby' ? 'lobby' : 'race';
 }
 

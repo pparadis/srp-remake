@@ -15,7 +15,12 @@ Project guide for Codex and other automation.
   test, `backend/test/race_log.contract.test.ts`) fail. `replaySteps` gives each step's before, after and engine
   result; `raceRecap(ctx, log, nameOf)` (`src/game/systems/race_recap.ts`) turns that into the recap data: per car
   (place, grid setup, pit choices, moves with exact move points, passes) and per turn (the feed lines too, from
-  `feedLines`). The recap page that shows it is the rest of #169.
+  `feedLines`). The recap page (`src/ui/recap_page.ts`, route `/recap/:id`, screen `recap`) shows the summary, a car's
+  moves and pit choices and the turn by turn; names go in with `textContent`. A finished solo race is saved by
+  `main.ts` (`saveRace` in `src/ui/recap_store.ts`: the last 10 in `localStorage["srp:races"]`, the scene sends the log
+  in `srp:race-finished`), listed on the home screen and opened from the results screen; `recap_load.ts` builds the
+  recap lazily so the engine is not in the first bundle. Online races have no recap yet (#169, the server must send the
+  log), and the board replay is a later phase.
 - Race session in `src/game/race/race_session.ts` (no Phaser): one page's view of the race. The solo turn loop (the
   player's action, then the bots), the online server state and its input hold, who controls the active car, the HUD
   snapshot, feel events, the finish and the sandbox edits. `RaceScene` owns one and only draws it (tokens, targets,
