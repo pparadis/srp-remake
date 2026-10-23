@@ -13,8 +13,8 @@
     <meta name="apple-mobile-web-app-title" content="Street Racing" />
     <link rel="apple-touch-icon" href="/srp-remake/icons/apple-touch-icon.png" />
     <title>srp-remake</title>
-    <script type="module" crossorigin src="/srp-remake/assets/index-CuOmouUy.js"></script>
-    <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-Dx8A_VF0.css">
+    <script type="module" crossorigin src="/srp-remake/assets/index-B0YZT13D.js"></script>
+    <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-DaV__w8_.css">
   </head>
   <body data-screen="home">
     <section id="screen-home" data-screen="home" class="screen">
@@ -57,6 +57,11 @@
             />
             <button id="homeJoinBtn" data-testid="home-join" type="button">Join with code</button>
           </div>
+        </div>
+
+        <div id="homeRaces" class="card home-races" data-testid="home-races" hidden>
+          <h2>Recent races</h2>
+          <ul id="homeRaceList"></ul>
         </div>
 
         <svg
@@ -230,6 +235,10 @@
       </div>
     </section>
 
+    <section id="screen-recap" data-screen="recap" class="screen">
+      <div id="recapPage" class="recap" data-testid="recap-page"></div>
+    </section>
+
     <section id="screen-race" data-screen="race" class="screen">
       <div id="app" data-testid="race-canvas"></div>
       <div id="hud" data-testid="hud"></div>
@@ -270,6 +279,9 @@
               hidden
             >
               Play again
+            </button>
+            <button id="resultsRecapBtn" data-testid="results-recap" type="button" hidden>
+              Recap
             </button>
             <button id="resultsHomeBtn" data-testid="results-home" type="button">Home</button>
           </div>
