@@ -560,6 +560,36 @@ describe('main multiplayer screens', () => {
         expect(document.activeElement).toBe(nameInput());
       });
 
+      it('gives a player with no saved name a generated one, kept for the next visit', async () => {
+        await enter('guest', makeLobby('name'));
+        const name = window.localStorage.getItem('srp:name');
+        expect(name).toMatch(/^[a-z]+_[a-z]+$/);
+        expect(window.localStorage.getItem('srp:name-auto')).toBe('1');
+        expect(byId<HTMLInputElement>('homeName').value).toBe(name);
+        expect(joinLobbyMock.mock.calls.at(-1)?.[1]).toBe(name);
+      });
+
+      it('keeps a name the player picked, with no hint, and drops the generated flag on a pick', async () => {
+        window.localStorage.setItem('srp:name', 'Guest');
+        await enter('guest', makeLobby('name'));
+        expect(byId<HTMLInputElement>('homeName').value).toBe('Guest');
+        expect(window.localStorage.getItem('srp:name-auto')).toBeNull();
+
+        window.localStorage.clear();
+        window.localStorage.setItem('srp:name', 'swift_apex');
+        window.localStorage.setItem('srp:name-auto', '1');
+        FakeWebSocket.instances = [];
+        vi.resetModules();
+        setupDom();
+        window.history.replaceState({}, '', '/lobby/name');
+        await import('./main');
+        await vi.waitFor(() => expect(byId('lobbyNameHint').hidden).toBe(false));
+        renamePlayerMock.mockResolvedValue({ lobby: makeLobby('name') });
+        type('Speedy');
+        await vi.waitFor(() => expect(renamePlayerMock).toHaveBeenCalled());
+        expect(window.localStorage.getItem('srp:name-auto')).toBeNull();
+      });
+
       it('rejoins with the new name after a reload', async () => {
         window.localStorage.setItem('srp:name', 'Guest');
         await enter('guest', makeLobby('name'));

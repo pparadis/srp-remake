@@ -204,7 +204,9 @@ Project guide for Codex and other automation.
   `{ playerToken, name }` (same 1-32 name rule, 60 a minute, 401 bad token, 409 once the race has started: names are
   copied into the race) broadcasts `lobby.state`. The name goes to `srp:name` and the home field, so a reload rejoins
   with it. A guest with no saved name gets the field focused with a hint, after the join's busy state clears (a
-  disabled field cannot take focus). Not `/join`: that is the reconnect path.
+  disabled field cannot take focus). Not `/join`: that is the reconnect path. A player with no saved name gets a
+  Docker-style one (`src/ui/player_name.ts`, "steady_hairpin"), kept in `srp:name` and flagged `srp:name-auto` until
+  they pick one, so the guest hint still shows for it.
 - Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player.
 - Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).
