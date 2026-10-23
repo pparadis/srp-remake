@@ -14,6 +14,7 @@ import {
   type RaceSeat,
   type RaceState
 } from './race_engine';
+import { replayRace } from './race_log';
 import { RaceSession, SERVER_WAIT_MS, type HudView, type RaceSessionSetup } from './race_session';
 
 const TRACK = track as unknown as TrackData;
@@ -493,6 +494,20 @@ describe('RaceSession: solo', () => {
     expect(session.drainFeel().filter((e) => e.type === 'slingshot')).toHaveLength(1);
     expect(session.logLines.filter((line) => /^You .*slingshot$/.test(line.text))).toHaveLength(1);
     expect(session.drainFeel().filter((e) => e.type === 'slingshot')).toHaveLength(0);
+  });
+
+  it('keeps a race log that replays to the race it played, and drops it once the sandbox edits the race (#169)', () => {
+    const session = solo({ botCars: 3, raceLaps: 2, botLevel: 'normal', rulesVersion: 'v3' });
+    for (let turn = 0; turn < 120 && !session.finished; turn += 1) playMyTurn(session);
+    expect(session.finished).toBe(true);
+    const log = session.raceLog()!;
+    expect(log.actions.length).toBeGreaterThan(10);
+    expect(replayRace(session.ctx, log).at(-1)).toEqual(session.race);
+
+    const edited = solo({ botCars: 1, raceLaps: 2, sandbox: true });
+    expect(edited.raceLog()).not.toBeNull();
+    edited.sandboxEdit(edited.activeCar.carId, { tire: 50 });
+    expect(edited.raceLog()).toBeNull();
   });
 
   it('a full race against bots plays to the end through the session and announces the finish once', () => {

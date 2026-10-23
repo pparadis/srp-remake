@@ -9,6 +9,7 @@ import {
   type BotTurnDecision
 } from '../../src/game/race/race_engine';
 import { normalizeChatText } from '../../src/game/chat_text';
+import { logAction, startRaceLog } from '../../src/game/race/race_log';
 import { must } from '../../src/game/must';
 import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from '../../src/game/rules/ids';
 import { MAX_SEED, normalizeSeed } from '../../src/game/systems/bot_style';
@@ -224,18 +225,16 @@ export class LobbyStore {
       }
     );
 
-    const engine = createRace(
-      ctx,
-      seats.map((seat) => ({
-        isBot: seat.playerId === null,
-        ownerId: seat.playerId ?? `BOT${seat.seatIndex + 1}`,
-        botLevel: lobby.settings.botLevel
-      })),
-      lobby.settings.raceLaps,
-      newRaceSeed(),
-      raceRulesVersion()
-    );
-    return { engine, seats, turnIndex: 0 };
+    const raceSeats = seats.map((seat) => ({
+      isBot: seat.playerId === null,
+      ownerId: seat.playerId ?? `BOT${seat.seatIndex + 1}`,
+      botLevel: lobby.settings.botLevel
+    }));
+    const seed = newRaceSeed();
+    const rulesVersion = raceRulesVersion();
+    const engine = createRace(ctx, raceSeats, lobby.settings.raceLaps, seed, rulesVersion);
+    const log = startRaceLog(raceSeats, lobby.settings.raceLaps, seed, rulesVersion);
+    return { engine, log, seats, turnIndex: 0 };
   }
 
   findPlayerByToken(lobby: Lobby, playerToken: string): LobbyPlayer | undefined {
@@ -517,6 +516,7 @@ export class LobbyStore {
 
     const result = applyAction(ctx, race.engine, action);
     if (!result.ok) return result;
+    logAction(race.log, action);
 
     // A grid setup is not a turn: the same car plays on, and the turn timer keeps running.
     if (action.type !== 'setup') race.turnIndex += 1;
