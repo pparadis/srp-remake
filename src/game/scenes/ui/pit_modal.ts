@@ -68,6 +68,8 @@ const ROW = {
   buttons: 568
 };
 const FUEL_ROWS_HEIGHT = 56;
+/** What the pressure row takes: where the rules ignore pressures (v3, #163) the rows below move up by this. */
+const PSI_ROW_HEIGHT = ROW.wing - ROW.psi;
 const FULL_HEIGHT = 405;
 
 /** The panel, in the modal's own coordinates; the scene centres and scales the modal from it. */
@@ -88,9 +90,13 @@ export class PitModal {
   private readonly compoundButtons: Record<Compound, Phaser.GameObjects.Text>;
   private readonly wingButtons: { minus: Phaser.GameObjects.Text; plus: Phaser.GameObjects.Text };
   private readonly fuelButtons: { minus: Phaser.GameObjects.Text; plus: Phaser.GameObjects.Text };
+  private readonly psiButtons: { minus: Phaser.GameObjects.Text; plus: Phaser.GameObjects.Text };
   /** Everything the fuel row owns, and the stint block and buttons that move with the layout. */
   private readonly fuelRow: Phaser.GameObjects.Text[];
   private readonly lower: Array<{ item: Phaser.GameObjects.Text; row: number }>;
+  /** The pressure row, and the wing and fuel items below it with the y they were made at. */
+  private readonly psiRow: Phaser.GameObjects.Text[];
+  private readonly belowPsi: Array<{ item: Phaser.GameObjects.Text; y: number }>;
   private modalSetup: Car['setup'] | null = null;
   private stints: PitModalOpenOptions['stints'] | null = null;
   private pace: PitModalOpenOptions['pace'] | null = null;
@@ -148,6 +154,7 @@ export class PitModal {
     const psiValue = text(labelX, ROW.psi + 12, '13px', '#e6edf3');
     const psiMinus = this.createModalButton(controlX, ROW.psi + 8, '-').setScale(0.85);
     const psiPlus = this.createModalButton(controlX + 40, ROW.psi + 8, '+').setScale(0.85);
+    this.psiButtons = { minus: psiMinus, plus: psiPlus };
     psiMinus.on('pointerdown', () => this.adjustPsi(-1));
     psiPlus.on('pointerdown', () => this.adjustPsi(1));
 
@@ -168,6 +175,11 @@ export class PitModal {
     this.fuelButtons = { minus: fuelMinus, plus: fuelPlus };
     const fuelNote = text(labelX, ROW.fuelNote, '11px').setWordWrapWidth(410);
     this.fuelRow = [fuelLabel, fuelValue, fuelMinus, fuelPlus, fuelNote];
+    this.psiRow = [psiLabel, psiValue, psiMinus, psiPlus];
+    this.belowPsi = [wingLabel, wingValue, wingMinus, wingPlus, ...this.fuelRow].map((item) => ({
+      item,
+      y: item.y
+    }));
 
     const stintTitle = label(labelX, ROW.stintTitle, 'Stint on fresh tires and fuel');
     const stintText = () => text(labelX, 0, '13px', '#e6edf3');
@@ -310,8 +322,13 @@ export class PitModal {
 
   // The fuel row and the medium line come and go with the rules; the rows below them follow.
   private layout() {
-    const { medium, fuelLoad } = this.features;
-    const shift = fuelLoad ? 0 : -FUEL_ROWS_HEIGHT;
+    const { medium, fuelLoad, psi } = this.features;
+    const psiShift = psi ? 0 : -PSI_ROW_HEIGHT;
+    const shift = (fuelLoad ? 0 : -FUEL_ROWS_HEIGHT) + psiShift;
+    for (const item of this.psiRow) item.setVisible(psi);
+    this.showButton(this.psiButtons.minus, psi);
+    this.showButton(this.psiButtons.plus, psi);
+    for (const { item, y } of this.belowPsi) item.setY(y + psiShift);
     for (const item of this.fuelRow) item.setVisible(fuelLoad);
     this.showButton(this.fuelButtons.minus, fuelLoad);
     this.showButton(this.fuelButtons.plus, fuelLoad);
