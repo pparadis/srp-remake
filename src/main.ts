@@ -21,7 +21,8 @@ import { isTypingTarget } from './ui/typing';
 import type { RaceLog } from './game/race/race_log';
 import type { Replay } from './ui/replay_load';
 import { mountRecapPage } from './ui/recap_page';
-import { listSavedRaces, loadSavedRace, saveRace } from './ui/recap_store';
+import { mountHistoryPage } from './ui/history_page';
+import { listSavedRaces, loadSavedRace, saveRace, type SavedRace } from './ui/recap_store';
 import { renderHomeTrack, setHomeTrackRunning } from './ui/home_track';
 import { mountVersion, renderVersion, type ServerVersion } from './ui/version';
 import { showUncaughtErrors, startRenderProbe } from './ui/diagnostics';
@@ -523,15 +524,22 @@ function renderHome() {
 
 const recapPage = mountRecapPage(
   el('recapPage'),
-  () => navigate(backendSession ? { name: 'lobby', id: backendSession.lobbyId } : { name: 'home' }),
+  () => {
+    if (openRecapRemote) {
+      navigate({ name: 'history' });
+      return;
+    }
+    navigate(backendSession ? { name: 'lobby', id: backendSession.lobbyId } : { name: 'home' });
+  },
   (state) => {
     if (!openRecapId) return;
     replayStart = state;
-    navigate({ name: 'recapBoard', id: openRecapId });
+    navigate({ name: 'recapBoard', id: openRecapId, ...(openRecapRemote ? { remote: true } : {}) });
   }
 );
 // The saved race the recap page shows, and the state a board replay opens at (0 = the grid).
 let openRecapId: string | null = null;
+let openRecapRemote = false;
 let replayStart = 0;
 // The saved race the results screen offers a recap of (none: online, sandbox, or nothing could be kept).
 let lastSavedRaceId: string | null = null;
@@ -614,16 +622,75 @@ async function saveOnlineRace(winnerCarId: number | null) {
   }
 }
 
-async function openRecap(id: string) {
-  const saved = loadSavedRace(id);
-  if (!saved) {
-    kickToHome('That race is no longer saved.');
-    return;
+// ---- public history (#170) -----------------------------------------------------------------
+
+const historyPage = mountHistoryPage(el('historyPage'), {
+  onBack: () => navigate({ name: 'home' }),
+  onOpen: (raceId) => navigate({ name: 'recap', id: raceId, remote: true }),
+  onRetry: () => void openHistory()
+});
+el('homeHistoryBtn').addEventListener('click', () => navigate({ name: 'history' }));
+
+async function openHistory() {
+  historyPage.showLoading();
+  try {
+    historyPage.showRaces((await backendClient.listRaces(50)).races);
+  } catch (error) {
+    const down = error instanceof BackendApiError && error.status === 503;
+    historyPage.showError(
+      down
+        ? 'The race history is not available right now.'
+        : `Could not load the history (${toErrorText(error)}).`
+    );
   }
+}
+
+// A race of the public history, as the recap and the replay take it: the log has no names, so cars are told apart by seat.
+async function loadRemoteRace(id: string): Promise<SavedRace> {
+  const race = await backendClient.readRace(id);
+  const names: Record<string, string> = {};
+  race.log.seats.forEach((seat, i) => {
+    names[String(i + 1)] = seat.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
+  });
+  const laps = race.log.raceLaps;
+  return {
+    id: race.id,
+    finishedAt: race.finishedAt,
+    trackId: race.trackId,
+    label: `${race.source === 'online' ? 'Online' : 'Solo'}, ${laps} ${laps === 1 ? 'lap' : 'laps'}, ${names[String(race.winnerCarId)] ?? 'someone'} won`,
+    names,
+    log: race.log
+  };
+}
+
+// null: not there (a race of this browser that was dropped, or an id the server does not know); it has been said.
+async function loadRace(id: string, remote: boolean): Promise<SavedRace | null> {
+  if (!remote) {
+    const saved = loadSavedRace(id);
+    if (!saved) kickToHome('That race is no longer saved.');
+    return saved;
+  }
+  try {
+    return await loadRemoteRace(id);
+  } catch (error) {
+    const missing = error instanceof BackendApiError && error.status === 404;
+    kickToHome(
+      missing
+        ? 'That race is not in the history.'
+        : `Could not load the race (${toErrorText(error)}).`
+    );
+    return null;
+  }
+}
+
+async function openRecap(id: string, remote: boolean) {
+  const saved = await loadRace(id, remote);
+  if (!saved) return;
   try {
     const { buildRecap } = await import('./ui/recap_load');
     recapPage.show(await buildRecap(saved, import.meta.env.BASE_URL), saved.label);
     openRecapId = id;
+    openRecapRemote = remote;
   } catch (error) {
     kickToHome(`Could not open the recap (${toErrorText(error)}).`);
   }
@@ -635,6 +702,7 @@ async function openRecap(id: string) {
 
 interface ReplayRun {
   raceId: string;
+  remote: boolean;
   replay: Replay;
   at: number;
   composition: RaceComposition;
@@ -703,12 +771,9 @@ function toggleReplayPlay() {
   sendReplayState();
 }
 
-async function openReplay(id: string) {
-  const saved = loadSavedRace(id);
-  if (!saved) {
-    kickToHome('That race is no longer saved.');
-    return;
-  }
+async function openReplay(id: string, remote: boolean) {
+  const saved = await loadRace(id, remote);
+  if (!saved) return;
   try {
     const { buildReplay } = await import('./ui/replay_load');
     const replay = await buildReplay(saved, import.meta.env.BASE_URL);
@@ -719,6 +784,7 @@ async function openReplay(id: string) {
     stopReplay();
     replayRun = {
       raceId: id,
+      remote,
       replay,
       at: Math.max(0, Math.min(replay.count - 1, replayStart)),
       timer: null,
@@ -750,7 +816,13 @@ replayNextBtn.addEventListener('click', () => {
 });
 replayPlayBtn.addEventListener('click', toggleReplayPlay);
 el('replayRecapBtn').addEventListener('click', () => {
-  if (replayRun) navigate({ name: 'recap', id: replayRun.raceId });
+  if (replayRun) {
+    navigate({
+      name: 'recap',
+      id: replayRun.raceId,
+      ...(replayRun.remote ? { remote: true } : {})
+    });
+  }
 });
 window.addEventListener('keydown', (event) => {
   if (!replayRun || isTypingTarget() || event.ctrlKey || event.metaKey) return;
@@ -935,11 +1007,15 @@ async function handleRoute(route: Route, source: 'push' | 'replace' | 'pop') {
     case 'recap':
       // an online player keeps the lobby while reading it: Back returns there
       showScreen('recap');
-      await openRecap(route.id);
+      await openRecap(route.id, route.remote === true);
       return;
     case 'recapBoard':
       showScreen('race');
-      await openReplay(route.id);
+      await openReplay(route.id, route.remote === true);
+      return;
+    case 'history':
+      showScreen('history');
+      await openHistory();
       return;
     case 'lobby':
     case 'lobbyRace':

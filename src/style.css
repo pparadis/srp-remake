@@ -46,7 +46,8 @@ body[data-screen='race'] #screen-race {
   display: flex;
 }
 
-body[data-screen='recap'] #screen-recap {
+body[data-screen='recap'] #screen-recap,
+body[data-screen='history'] #screen-history {
   display: block;
   overflow-y: auto;
   padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))

@@ -123,6 +123,22 @@ test('solo: a finished race is shared to the public history only when the settin
     }
   ).races;
   expect(races[0]).toMatchObject({ source: 'solo', laps: 1 });
+
+  // the public history page lists it; it opens as a recap (fetched from the server), and replays on the board
+  await gotoHome(page);
+  await page.getByTestId('home-history').click();
+  await expect(page).toHaveURL(/\/history$/);
+  await expect(page.getByTestId('history-race')).toHaveCount(before + 1);
+  await page.getByTestId('history-race').first().click();
+  await expect(page).toHaveURL(/\/history\/[^/]+$/);
+  await expect(page.getByTestId('recap-car')).toHaveCount(3);
+  await page.getByTestId('recap-watch').click();
+  await expect(page.getByTestId('replay-bar')).toBeVisible();
+  await page.getByTestId('replay-next').click();
+  await expect(page.getByTestId('replay-count')).toContainText('1 / ');
+  await page.getByTestId('replay-recap').click();
+  await page.getByTestId('recap-back').click();
+  await expect(page.getByTestId('history-race')).toHaveCount(before + 1);
   expect(errors).toEqual([]);
 });
 
