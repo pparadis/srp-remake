@@ -7,12 +7,14 @@ export type Route =
   | { name: 'soloRace' }
   | { name: 'lobby'; id: string }
   | { name: 'lobbyRace'; id: string }
-  /** The recap of a saved race (#169). */
-  | { name: 'recap'; id: string }
-  /** The race of a saved recap replayed on the board (#169). */
-  | { name: 'recapBoard'; id: string };
+  /** The recap of a saved race (#169); `remote`: a race of the public history, fetched from the server (#170). */
+  | { name: 'recap'; id: string; remote?: boolean }
+  /** The race of a recap replayed on the board (#169). */
+  | { name: 'recapBoard'; id: string; remote?: boolean }
+  /** The public history of races (#170). */
+  | { name: 'history' };
 
-export type Screen = 'home' | 'lobby' | 'race' | 'recap';
+export type Screen = 'home' | 'lobby' | 'race' | 'recap' | 'history';
 
 const DEFAULT_BASE = import.meta.env.BASE_URL;
 
@@ -26,10 +28,13 @@ export function parseRoute(pathname: string, base = DEFAULT_BASE): Route {
   const path = stripBase(pathname, base);
   if (path === '/solo') return { name: 'solo' };
   if (path === '/solo/race') return { name: 'soloRace' };
-  const recap = /^\/recap\/([^/]+)(\/board)?$/.exec(path);
+  if (path === '/history') return { name: 'history' };
+  // /recap/<id>: a race saved in this browser; /history/<id>: one of the public history
+  const recap = /^\/(recap|history)\/([^/]+)(\/board)?$/.exec(path);
   if (recap) {
-    const id = decodeURIComponent(must(recap[1], 'race id in the path'));
-    return recap[2] ? { name: 'recapBoard', id } : { name: 'recap', id };
+    const id = decodeURIComponent(must(recap[2], 'race id in the path'));
+    const remote = recap[1] === 'history' ? { remote: true } : {};
+    return recap[3] ? { name: 'recapBoard', id, ...remote } : { name: 'recap', id, ...remote };
   }
   const match = /^\/lobby\/([^/]+)(\/race)?$/.exec(path);
   if (match) {
@@ -53,9 +58,11 @@ export function routePath(route: Route, base = DEFAULT_BASE): string {
     case 'lobbyRace':
       return `${root}/lobby/${encodeURIComponent(route.id)}/race`;
     case 'recap':
-      return `${root}/recap/${encodeURIComponent(route.id)}`;
+      return `${root}/${route.remote ? 'history' : 'recap'}/${encodeURIComponent(route.id)}`;
     case 'recapBoard':
-      return `${root}/recap/${encodeURIComponent(route.id)}/board`;
+      return `${root}/${route.remote ? 'history' : 'recap'}/${encodeURIComponent(route.id)}/board`;
+    case 'history':
+      return `${root}/history`;
     default:
       return route satisfies never; // a new route that is not handled above fails to compile
   }
@@ -65,6 +72,7 @@ export function screenOf(route: Route): Screen {
   if (route.name === 'home') return 'home';
   if (route.name === 'recap') return 'recap';
   if (route.name === 'recapBoard') return 'race';
+  if (route.name === 'history') return 'history';
   return route.name === 'solo' || route.name === 'lobby' ? 'lobby' : 'race';
 }
 

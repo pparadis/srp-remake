@@ -433,6 +433,99 @@ describe('main (solo flow)', () => {
       });
     });
 
+    describe('the public history (#170)', () => {
+      const summary = {
+        id: 'srv-1',
+        finishedAt: 1_700_000_000_000,
+        source: 'solo',
+        trackId: 'oval16_3lanes',
+        rulesVersion: 'v3',
+        laps: 5,
+        cars: 2,
+        winnerCarId: 1
+      };
+      function stubServer(routes: Record<string, () => Response>) {
+        vi.stubGlobal(
+          'fetch',
+          vi.fn(async (url: string) => {
+            // the path without the origin (the test backend may be relative) and without the query
+            const path =
+              String(url)
+                .replace(/^https?:\/\/[^/]+/, '')
+                .split('?')[0] ?? '';
+            if (path.endsWith('.json')) return new Response(JSON.stringify(track), { status: 200 });
+            const answer = routes[path];
+            return answer ? answer() : new Response('{"error":"not_found"}', { status: 404 });
+          })
+        );
+      }
+      const json =
+        (body: unknown, status = 200) =>
+        () =>
+          new Response(JSON.stringify(body), { status });
+
+      it('lists the server races from the home button, and opens one as a recap fetched from the server', async () => {
+        stubServer({
+          '/api/v1/races': json({ races: [summary] }),
+          '/api/v1/races/srv-1': json({ ...summary, log: shortLog() })
+        });
+        await import('./main');
+        tid('home-history').click();
+        await vi.waitFor(() => expect(tid('history-race')).not.toBeNull());
+        expect(document.body.dataset.screen).toBe('history');
+        expect(window.location.pathname).toBe('/history');
+
+        tid('history-race').click();
+        await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
+        expect(document.body.dataset.screen).toBe('recap');
+        expect(window.location.pathname).toBe('/history/srv-1');
+        expect(tid('recap-title').textContent).toBe('Solo, 5 laps, Player 1 won');
+
+        // Back from a public race goes to the list; the race was not kept in this browser
+        tid('recap-back').click();
+        expect(document.body.dataset.screen).toBe('history');
+        expect(window.localStorage.getItem('srp:races')).toBeNull();
+      });
+
+      it('replays a public race on the board and returns to its recap', async () => {
+        stubServer({
+          '/api/v1/races/srv-1': json({ ...summary, log: shortLog() })
+        });
+        startGame.mockReturnValue({ destroy: vi.fn() });
+        window.history.replaceState({}, '', '/history/srv-1');
+        await import('./main');
+        await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
+        tid('recap-watch').click();
+        await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
+        expect(window.location.pathname).toBe('/history/srv-1/board');
+        expect(byId('replayBar').hidden).toBe(false);
+        tid('replay-recap').click();
+        await vi.waitFor(() => expect(document.body.dataset.screen).toBe('recap'));
+        expect(window.location.pathname).toBe('/history/srv-1');
+        await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
+      });
+
+      it('says when the history is down and tries again on request', async () => {
+        stubServer({ '/api/v1/races': json({ error: 'down' }, 503) });
+        await import('./main');
+        tid('home-history').click();
+        await vi.waitFor(() => expect(tid('history-error').textContent).toContain('not available'));
+        stubServer({ '/api/v1/races': json({ races: [summary] }) });
+        tid('history-retry').click();
+        await vi.waitFor(() => expect(tid('history-race')).not.toBeNull());
+      });
+
+      it('goes home with a notice for a race the server does not know', async () => {
+        stubServer({});
+        window.history.replaceState({}, '', '/history/nope');
+        await import('./main');
+        await vi.waitFor(() =>
+          expect(byId('homeNotice').textContent).toContain('not in the history')
+        );
+        expect(document.body.dataset.screen).toBe('home');
+      });
+    });
+
     describe('the board replay', () => {
       const states: Array<{ revision: number; source: string; localPlayerId: string }> = [];
       const onState = (event: Event) => {
