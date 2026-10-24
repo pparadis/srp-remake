@@ -233,8 +233,10 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   no names). The server stores each finished online race after the broadcast (not awaited, a failure is logged) and
   `POST /api/v1/races` takes a solo race, replaying it with `replayRace` first. The id is a hash of the log, so a
   race is stored once. Tested with `pg-mem` standing in for Postgres (it differs from Postgres on `returning` after
-  `on conflict do nothing`, so duplicates are found by a select first). The client side of the solo upload is not
-  there yet.
+  `on conflict do nothing`, so duplicates are found by a select first). On Neon: `DATABASE_URL` is the pooled URL (the
+  app's queries), `DATABASE_URL_UNPOOLED` the direct one (only the `create table`); `neon.ts` / `.neon` / `.env.local`
+  are the Neon CLI's (`.neon` and `.env.local` stay out of git); work against the `dev` branch, not `production`.
+  The client side of the solo upload is not there yet.
 - Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player.
 - Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).
@@ -353,7 +355,7 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
   ignored destructured name; the bare `_` does not), and a top-level named function is a `function` declaration (a
   nested one may be an arrow, and so may an arrow with a type annotation).
 - Tests (`*.test.ts`, `backend/test`, `e2e`) may use top-level arrow helpers.
-- Deviation: `export default` in the three config files (`vite`, `vitest`, `playwright`), which the tools require.
+- Deviation: `export default` in the config files (`vite`, `vitest`, `playwright`, and `neon.ts`), which the tools require.
 - Type-aware rules run only on `src/**` and `backend/src/**` (the files a tsconfig covers); they add about 3 s to lint.
 - Single quotes (#74) and the rest of the layout are Prettier's (`.prettierrc.json`): lint-staged runs it on every
   staged file and CI runs `npm run format:check`. The one-off reformat commit is in `.git-blame-ignore-revs`

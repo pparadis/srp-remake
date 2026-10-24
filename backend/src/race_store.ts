@@ -149,11 +149,24 @@ const COLUMNS =
 export class PgRaceStore implements RaceStore {
   private ready: Promise<void> | null = null;
 
-  constructor(private readonly pool: Pick<pg.Pool, 'query' | 'end'>) {}
+  /**
+   * `pool`: the app's queries (on Neon the pooled URL: a web server's many short requests). `migrationPool`: the schema
+   * step, on Neon the direct URL as Neon advises for migrations; it is closed once the schema is there.
+   */
+  constructor(
+    private readonly pool: Pick<pg.Pool, 'query' | 'end'>,
+    private migrationPool: Pick<pg.Pool, 'query' | 'end'> | null = null
+  ) {}
 
   private schema(): Promise<void> {
     this.ready ??= (async () => {
-      for (const statement of SCHEMA) await this.pool.query(statement);
+      const target = this.migrationPool ?? this.pool;
+      for (const statement of SCHEMA) await target.query(statement);
+      if (this.migrationPool) {
+        const done = this.migrationPool;
+        this.migrationPool = null;
+        await done.end();
+      }
     })().catch((error: unknown) => {
       this.ready = null; // try again on the next call (a database that was asleep)
       throw error;
@@ -210,8 +223,17 @@ export class PgRaceStore implements RaceStore {
   }
 }
 
-/** Postgres when `DATABASE_URL` is set (Neon: `sslmode=require` in the URL), memory otherwise. */
-export function createRaceStore(databaseUrl: string | undefined): RaceStore {
+/**
+ * Postgres when `DATABASE_URL` is set (Neon: the pooled URL, `sslmode=require` in it), memory otherwise. `directUrl`
+ * (Neon's `DATABASE_URL_UNPOOLED`) is used for the schema step only, when given.
+ *
+ * node-postgres, not Neon's serverless driver: this is one long-running Node server (Render), which keeps its pool across
+ * requests; the serverless driver is for runtimes that cannot.
+ */
+export function createRaceStore(
+  databaseUrl: string | undefined,
+  directUrl?: string | undefined
+): RaceStore {
   if (!databaseUrl) return new MemoryRaceStore();
   return new PgRaceStore(
     new pg.Pool({
@@ -220,6 +242,9 @@ export function createRaceStore(databaseUrl: string | undefined): RaceStore {
       idleTimeoutMillis: 30_000,
       // a database that suspends takes a few seconds to wake
       connectionTimeoutMillis: 15_000
-    })
+    }),
+    directUrl
+      ? new pg.Pool({ connectionString: directUrl, max: 1, connectionTimeoutMillis: 15_000 })
+      : null
   );
 }

@@ -245,7 +245,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       config.PLAYER_TOKEN_TTL_SECONDS * 1000,
       config.MAX_LOBBIES ?? DEFAULT_MAX_LOBBIES
     );
-  const raceStore = options.raceStore ?? createRaceStore(config.DATABASE_URL);
+  const raceStore =
+    options.raceStore ?? createRaceStore(config.DATABASE_URL, config.DATABASE_URL_UNPOOLED);
   app.addHook('onClose', async () => {
     await raceStore.close();
   });

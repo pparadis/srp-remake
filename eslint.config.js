@@ -133,8 +133,8 @@ export default [
     }
   },
   {
-    // The tools require a default export here.
-    files: ['*.config.{js,ts,mjs,cjs}'],
+    // The tools require a default export here (`neon.ts`: the Neon CLI's).
+    files: ['*.config.{js,ts,mjs,cjs}', 'neon.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
