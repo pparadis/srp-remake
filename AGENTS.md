@@ -236,7 +236,10 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   `on conflict do nothing`, so duplicates are found by a select first). On Neon: `DATABASE_URL` is the pooled URL (the
   app's queries), `DATABASE_URL_UNPOOLED` the direct one (only the `create table`); `neon.ts` / `.neon` / `.env.local`
   are the Neon CLI's (`.neon` and `.env.local` stay out of git); work against the `dev` branch, not `production`.
-  The client side of the solo upload is not there yet.
+  The solo upload is opt-in: the "Share my races anonymously" checkbox of the Quick race card (`srp:share-solo`, off by
+  default, solo only) makes `main.ts` send each finished solo race with `backendClient.uploadRace` after the results are
+  up (`results-shared` says how it went; a failure never touches the local recap). Online races need no setting: the
+  server stores them.
 - Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player.
 - Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).

@@ -323,6 +323,116 @@ describe('main (solo flow)', () => {
       await vi.waitFor(() => expect(tid('recap-car')).not.toBeNull());
     });
 
+    describe('sharing solo races (#170)', () => {
+      const shared = { log: undefined as unknown, calls: 0 };
+      function stubUpload(answer: () => Response | Promise<Response>) {
+        shared.calls = 0;
+        shared.log = undefined;
+        vi.stubGlobal(
+          'fetch',
+          vi.fn(async (url: string, init?: { body?: string }) => {
+            if (String(url).endsWith('/api/v1/races')) {
+              shared.calls += 1;
+              shared.log = JSON.parse(init?.body ?? '{}');
+              return answer();
+            }
+            return new Response('{}', { status: 404 });
+          })
+        );
+      }
+      const quickRace = async () => {
+        startGame.mockReturnValue({ destroy: vi.fn() });
+        await import('./main');
+        byId('homeQuickBtn').click();
+      };
+      const share = () => tid('lobby-share') as HTMLInputElement;
+
+      it('is off by default, remembers the choice, and is solo only', async () => {
+        await quickRace();
+        expect(share().checked).toBe(false);
+        expect(byId('lobbyShareField').hidden).toBe(false);
+        share().checked = true;
+        share().dispatchEvent(new Event('change'));
+        expect(window.localStorage.getItem('srp:share-solo')).toBe('1');
+        share().checked = false;
+        share().dispatchEvent(new Event('change'));
+        expect(window.localStorage.getItem('srp:share-solo')).toBeNull();
+
+        window.localStorage.setItem('srp:share-solo', '1');
+        vi.resetModules();
+        loadBody();
+        await quickRace();
+        expect(share().checked).toBe(true);
+      });
+
+      it('uploads the finished race when it is on, and says so', async () => {
+        stubUpload(
+          () => new Response(JSON.stringify({ id: 'x', duplicate: false }), { status: 201 })
+        );
+        window.localStorage.setItem('srp:share-solo', '1');
+        await quickRace();
+        byId('lobbyStartBtn').click();
+        await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
+        const log = shortLog();
+        window.dispatchEvent(
+          new CustomEvent('srp:race-finished', {
+            detail: { winnerCarId: 1, recap: { log, names: { 1: 'You', 2: 'Car 2' } } }
+          })
+        );
+        await vi.waitFor(() => expect(byId('resultsShared').hidden).toBe(false));
+        expect(shared.calls).toBe(1);
+        expect(shared.log).toEqual({ trackId: 'oval16_3lanes', log });
+        expect(byId('resultsShared').textContent).toContain('Shared in the public history');
+      });
+
+      it('says when the race is already there, and when it could not be shared', async () => {
+        stubUpload(
+          () => new Response(JSON.stringify({ id: 'x', duplicate: true }), { status: 200 })
+        );
+        window.localStorage.setItem('srp:share-solo', '1');
+        await quickRace();
+        byId('lobbyStartBtn').click();
+        await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
+        const finish = () =>
+          window.dispatchEvent(
+            new CustomEvent('srp:race-finished', {
+              detail: {
+                winnerCarId: 1,
+                recap: { log: shortLog(), names: { 1: 'You', 2: 'Car 2' } }
+              }
+            })
+          );
+        finish();
+        await vi.waitFor(() => expect(byId('resultsShared').textContent).toContain('Already in'));
+
+        stubUpload(() => new Response('{"error":"down"}', { status: 503 }));
+        finish();
+        await vi.waitFor(() =>
+          expect(byId('resultsShared').textContent).toContain('Could not share')
+        );
+        expect(byId('resultsRecapBtn').hidden).toBe(false); // the local recap is not affected
+      });
+
+      it('does not upload when it is off, nor a race with no log', async () => {
+        stubUpload(() => new Response('{}', { status: 201 }));
+        await quickRace();
+        byId('lobbyStartBtn').click();
+        await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
+        window.dispatchEvent(
+          new CustomEvent('srp:race-finished', {
+            detail: { winnerCarId: 1, recap: { log: shortLog(), names: { 1: 'You' } } }
+          })
+        );
+        window.localStorage.setItem('srp:share-solo', '1');
+        window.dispatchEvent(
+          new CustomEvent('srp:race-finished', { detail: { winnerCarId: 1, recap: null } })
+        );
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(shared.calls).toBe(0);
+        expect(byId('resultsShared').hidden).toBe(true);
+      });
+    });
+
     describe('the board replay', () => {
       const states: Array<{ revision: number; source: string; localPlayerId: string }> = [];
       const onState = (event: Event) => {

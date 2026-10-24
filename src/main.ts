@@ -81,6 +81,8 @@ const lobbyBotLevel = el<HTMLSelectElement>('lobbyBotLevel');
 const lobbyBotLevelField = el('lobbyBotLevelField');
 const lobbyRules = el<HTMLSelectElement>('lobbyRules');
 const lobbyRulesField = el('lobbyRulesField');
+const lobbyShareField = el('lobbyShareField');
+const lobbyShare = el<HTMLInputElement>('lobbyShare');
 const lobbyTurnTimer = el<HTMLSelectElement>('lobbyTurnTimer');
 const lobbyTurnTimerField = el('lobbyTurnTimerField');
 const connectionBanner = el('connectionBanner');
@@ -95,6 +97,7 @@ const lobbyLeaveBtn = el<HTMLButtonElement>('lobbyLeaveBtn');
 const results = el('results');
 const resultsWinner = el('resultsWinner');
 const resultsRecapBtn = el<HTMLButtonElement>('resultsRecapBtn');
+const resultsShared = el('resultsShared');
 const homeRaces = el('homeRaces');
 const homeRaceList = el('homeRaceList');
 const hud = el('hud');
@@ -561,6 +564,38 @@ function saveFinishedRace(
   return kept;
 }
 
+// Opt-in (#170): a finished solo race goes to the server's public history, anonymous (the log holds no name). The server
+// replays it before keeping it. Never in the way: it runs after the results are up, and a failure only says so.
+const SHARE_KEY = 'srp:share-solo';
+let shareSolo = false;
+try {
+  shareSolo = window.localStorage.getItem(SHARE_KEY) === '1';
+} catch {
+  // storage unavailable: not sharing
+}
+
+async function shareSoloRace(log: RaceLog) {
+  try {
+    const stored = await backendClient.uploadRace('oval16_3lanes', log);
+    resultsShared.textContent = stored.duplicate
+      ? 'Already in the public history.'
+      : 'Shared in the public history, anonymously.';
+  } catch {
+    resultsShared.textContent = 'Could not share this race now.';
+  }
+  if (!results.hidden) resultsShared.hidden = false;
+}
+
+lobbyShare.addEventListener('change', () => {
+  shareSolo = lobbyShare.checked;
+  try {
+    if (shareSolo) window.localStorage.setItem(SHARE_KEY, '1');
+    else window.localStorage.removeItem(SHARE_KEY);
+  } catch {
+    // ignore
+  }
+});
+
 // An online race: the server holds the log (only once somebody has won), so the client asks for it as the race ends.
 async function saveOnlineRace(winnerCarId: number | null) {
   const session = backendSession;
@@ -745,6 +780,9 @@ function renderLobby() {
   lobbyBotLevel.value = settings?.botLevel ?? soloSettings.botLevel;
   // Solo only: an online race plays the server's rules, and v1 is not offered there.
   lobbyRulesField.hidden = online;
+  // Solo only: an online race goes to the history by itself (the server keeps it)
+  lobbyShareField.hidden = online;
+  lobbyShare.checked = shareSolo;
   lobbyRules.value = soloSettings.rulesVersion;
   // The select stays in the DOM; with no bots there is nothing for it to set.
   lobbyBotLevelField.hidden = Number(lobbyBots.value) === 0;
@@ -1559,8 +1597,10 @@ window.addEventListener('srp:race-finished', (event) => {
   ).detail;
   const winner = detail?.winnerCarId ?? null;
   lastSavedRaceId = null;
+  resultsShared.hidden = true;
   if (detail?.recap) {
     saveFinishedRace({ ...detail.recap, trackId: 'oval16_3lanes' }, winner, 'Solo', 1);
+    if (shareSolo) void shareSoloRace(detail.recap.log);
   }
   showResults(winner);
   if (!detail?.recap && mode === 'online') void saveOnlineRace(winner);

@@ -198,6 +198,15 @@
               <option value="v1">v1 (before #114)</option>
             </select>
           </label>
+          <label class="field check" id="lobbyShareField">
+            <span>
+              <input id="lobbyShare" data-testid="lobby-share" type="checkbox" />
+              Share my races anonymously
+            </span>
+            <small>
+              The moves of each finished solo race go to the public history: no name, no account.
+            </small>
+          </label>
           <label class="field" id="lobbyTurnTimerField">
             <span>Turn timer</span>
             <select id="lobbyTurnTimer" data-testid="lobby-turn-timer">
@@ -274,6 +283,7 @@
             </thead>
             <tbody></tbody>
           </table>
+          <p id="resultsShared" data-testid="results-shared" class="notice" hidden></p>
           <p id="resultsWait" data-testid="results-wait" hidden>
             Waiting for host to start another race
           </p>
