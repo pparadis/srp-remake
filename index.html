@@ -13,8 +13,8 @@
     <meta name="apple-mobile-web-app-title" content="Street Racing" />
     <link rel="apple-touch-icon" href="/srp-remake/icons/apple-touch-icon.png" />
     <title>srp-remake</title>
-    <script type="module" crossorigin src="/srp-remake/assets/index-CB1N6wo0.js"></script>
-    <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-y6dpPBYi.css">
+    <script type="module" crossorigin src="/srp-remake/assets/index-CoVSVetc.js"></script>
+    <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-BnOSgcuf.css">
   </head>
   <body data-screen="home">
     <section id="screen-home" data-screen="home" class="screen">
@@ -200,6 +200,15 @@
               <option value="v1">v1 (before #114)</option>
             </select>
           </label>
+          <label class="field check" id="lobbyShareField">
+            <span>
+              <input id="lobbyShare" data-testid="lobby-share" type="checkbox" />
+              Share my races anonymously
+            </span>
+            <small>
+              The moves of each finished solo race go to the public history: no name, no account.
+            </small>
+          </label>
           <label class="field" id="lobbyTurnTimerField">
             <span>Turn timer</span>
             <select id="lobbyTurnTimer" data-testid="lobby-turn-timer">
@@ -276,6 +285,7 @@
             </thead>
             <tbody></tbody>
           </table>
+          <p id="resultsShared" data-testid="results-shared" class="notice" hidden></p>
           <p id="resultsWait" data-testid="results-wait" hidden>
             Waiting for host to start another race
           </p>
