@@ -12,7 +12,12 @@ import {
   type BackendConfig
 } from './config.js';
 import { LobbyError, LobbyStore, toPublicLobby } from './lobby_store.js';
+import { createRaceStore, type RaceStore } from './race_store.js';
+import { getRaceContext } from './tracks.js';
 import { activeSeatIndex } from '../../src/game/race/race_engine';
+import { replayRace, type RaceLog } from '../../src/game/race/race_log';
+import { RULES_VERSIONS } from '../../src/game/rules/ids';
+import { MAX_SEED } from '../../src/game/systems/bot_style';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
 import {
   BOT_LEVEL_CHOICES,
@@ -58,6 +63,8 @@ interface CreateAppOptions {
   logStream?: { write(line: string): void };
   // Lets tests set up lobby state directly (e.g. park a car in the pit lane).
   lobbyStore?: LobbyStore;
+  // The race history (#170); default: Postgres when DATABASE_URL is set, memory otherwise.
+  raceStore?: RaceStore;
 }
 
 const lobbySettingsPatchSchema = z.object({
@@ -151,6 +158,37 @@ const submitTurnSchema = z.object({
   action: turnActionSchema
 });
 
+// A race log sent by a client (#170). Shape only; `replayRace` is the real check: the engine must accept every action.
+// Bounds keep the replay's work small (a real 6-car, 12-lap race is about 300 actions).
+const MAX_UPLOADED_ACTIONS = 2000;
+const raceLogSchema = z.object({
+  seats: z
+    .array(
+      z.object({
+        isBot: z.boolean(),
+        ownerId: z.string().max(64),
+        botLevel: z.enum(BOT_LEVEL_CHOICES).optional()
+      })
+    )
+    .min(1)
+    .max(11),
+  raceLaps: z.number().int().min(1).max(50),
+  seed: z.number().int().min(0).max(MAX_SEED),
+  rulesVersion: z.enum(RULES_VERSIONS),
+  actions: z.array(turnActionSchema).max(MAX_UPLOADED_ACTIONS)
+});
+
+const uploadRaceSchema = z.object({
+  trackId: z.string().min(1).max(64).default('oval16_3lanes'),
+  log: raceLogSchema
+});
+
+const raceListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20)
+});
+
+const racePathSchema = z.object({ raceId: z.string().min(1).max(64) });
+
 const chatSchema = z.object({
   playerToken: playerTokenSchema,
   // Generous: normalizeChatText applies the real limit (100 graphemes, 400 code units); this only bounds the work.
@@ -207,6 +245,10 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       config.PLAYER_TOKEN_TTL_SECONDS * 1000,
       config.MAX_LOBBIES ?? DEFAULT_MAX_LOBBIES
     );
+  const raceStore = options.raceStore ?? createRaceStore(config.DATABASE_URL);
+  app.addHook('onClose', async () => {
+    await raceStore.close();
+  });
   // lobby -> "player:clientCommandId" -> result. Dropped with the lobby when it is reaped.
   const dedupedResults = new Map<string, Map<string, TurnCommandResult>>();
   const lobbyIdleMs = (config.LOBBY_IDLE_SECONDS ?? DEFAULT_LOBBY_IDLE_SECONDS) * 1000;
@@ -422,7 +464,29 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         winnerCarId,
         lobby: toPublicLobby(lobby)
       });
+      storeOnlineRace(lobby, winnerCarId);
     }
+  }
+
+  // The history keeps every finished online race (#170). After the broadcast and never awaited: a database that is waking
+  // up must not delay anyone, and a failure only loses a history entry.
+  function storeOnlineRace(lobby: Lobby, winnerCarId: number) {
+    const race = lobby.race;
+    if (!race || race.stored) return;
+    race.stored = true;
+    raceStore
+      .insert({
+        source: 'online',
+        trackId: lobby.settings.trackId,
+        log: race.log,
+        winnerCarId
+      })
+      .catch((error: unknown) => {
+        app.log.warn(
+          { err: error, lobbyId: lobby.lobbyId },
+          'race history: online race not stored'
+        );
+      });
   }
 
   // Plays one turn for the active seat with a bot policy and announces it. Bots play at their own
@@ -613,6 +677,67 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       playerToken: player.playerToken,
       isReconnect
     };
+  });
+
+  // The race history (#170). Anonymous: nothing identifies who raced. A solo race is uploaded by its player (opt-in); the
+  // server replays the log first, so only races the engine accepts are kept.
+  app.post(
+    `${API_V1_PREFIX}/races`,
+    { config: limit(10), bodyLimit: 128 * 1024 },
+    async (request, reply) => {
+      const body = uploadRaceSchema.parse(request.body);
+      const ctx = getRaceContext(body.trackId);
+      if (!ctx) throw new LobbyError(400, `Unknown track ${body.trackId}.`);
+      // zod's optional is `T | undefined`, the engine's seat is `T` or absent
+      const log: RaceLog = {
+        ...body.log,
+        seats: body.log.seats.map((seat) => ({
+          isBot: seat.isBot,
+          ownerId: seat.ownerId,
+          ...(seat.botLevel ? { botLevel: seat.botLevel } : {})
+        }))
+      };
+      let winnerCarId: number | null;
+      try {
+        winnerCarId = replayRace(ctx, log).at(-1)?.winnerCarId ?? null;
+      } catch {
+        throw new LobbyError(400, 'The race log does not replay on this track.');
+      }
+      if (winnerCarId === null) throw new LobbyError(400, 'The race is not finished.');
+      try {
+        const stored = await raceStore.insert({
+          source: 'solo',
+          trackId: body.trackId,
+          log,
+          winnerCarId
+        });
+        return reply.code(stored.duplicate ? 200 : 201).send(stored);
+      } catch (error) {
+        app.log.warn({ err: error }, 'race history: solo race not stored');
+        throw new LobbyError(503, 'The race history is not available right now.');
+      }
+    }
+  );
+
+  app.get(`${API_V1_PREFIX}/races`, { config: limit(120) }, async (request) => {
+    const query = raceListQuerySchema.parse(request.query);
+    try {
+      return { races: await raceStore.list(query.limit) };
+    } catch {
+      throw new LobbyError(503, 'The race history is not available right now.');
+    }
+  });
+
+  app.get(`${API_V1_PREFIX}/races/:raceId`, { config: limit(120) }, async (request) => {
+    const params = racePathSchema.parse(request.params);
+    let race;
+    try {
+      race = await raceStore.get(params.raceId);
+    } catch {
+      throw new LobbyError(503, 'The race history is not available right now.');
+    }
+    if (!race) throw new LobbyError(404, 'Race not found.');
+    return race;
   });
 
   // A rename, not a join: `/join` also marks the player connected and is the reconnect path.

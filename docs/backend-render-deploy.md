@@ -63,6 +63,29 @@ Optional, with their defaults:
   actions 240). Over the limit answers `429` with `Retry-After`. Counters live in memory, which is right for one
   instance; several instances would need a shared store (Redis).
 - `TRUST_PROXY=false`: `true` (or a hop count) makes the server take the client address from `X-Forwarded-For`.
+- `DATABASE_URL`: the race history (#170). Absent, the history lives in memory and is gone at a restart (fine for
+  development). With a Postgres URL the server keeps every finished online race, and the solo races their players
+  upload, in one table `races` (created on first use). See "Race history (Neon)" below.
+
+## Race history (Neon)
+
+The history is anonymous and append-only: one row per race, holding the race log (a few KB, under 1 KB gzipped) and
+nothing that identifies a player (the names and the player ids are not kept). It runs on a free Neon Postgres project:
+
+1. Create a Neon project (free plan: 0.5 GB, enough for about a hundred thousand races), and copy its connection string,
+   which ends in `?sslmode=require`.
+2. In the Render service, add the environment variable `DATABASE_URL` with that string, and redeploy.
+3. Check: `GET /api/v1/races` answers `{ "races": [] }`; after a finished online race it lists it.
+
+Neon suspends the database after 5 minutes without a query, so the first write after a quiet spell takes a few
+seconds; the server never waits for it (an online race is stored after its end, and a failure only loses that entry).
+`POST /api/v1/races` (a solo upload) answers `503` while the database cannot be reached. The store is behind the
+`RaceStore` interface (`backend/src/race_store.ts`), so another database can replace Neon.
+
+- `POST /api/v1/races` `{ trackId?, log }`: the server **replays the log with the engine** and keeps it only if every
+  action is legal and the race has a winner (`400` otherwise, `413` over 128 KB). Same race twice: `200 { duplicate }`.
+  10 a minute per IP.
+- `GET /api/v1/races?limit=` (newest first, up to 100) and `GET /api/v1/races/:id` (the whole log).
 
 ## Security notes
 
