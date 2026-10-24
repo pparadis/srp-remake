@@ -13,8 +13,8 @@
     <meta name="apple-mobile-web-app-title" content="Street Racing" />
     <link rel="apple-touch-icon" href="/srp-remake/icons/apple-touch-icon.png" />
     <title>srp-remake</title>
-    <script type="module" crossorigin src="/srp-remake/assets/index-DLE1lAqw.js"></script>
-    <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-DaV__w8_.css">
+    <script type="module" crossorigin src="/srp-remake/assets/index-BRmH4TQ4.js"></script>
+    <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-y6dpPBYi.css">
   </head>
   <body data-screen="home">
     <section id="screen-home" data-screen="home" class="screen">
@@ -242,6 +242,23 @@
     <section id="screen-race" data-screen="race" class="screen">
       <div id="app" data-testid="race-canvas"></div>
       <div id="hud" data-testid="hud"></div>
+      <div id="replayBar" class="replay-bar" data-testid="replay-bar" hidden>
+        <button id="replayRecapBtn" data-testid="replay-recap" type="button">Recap</button>
+        <button
+          id="replayPrevBtn"
+          data-testid="replay-prev"
+          type="button"
+          aria-label="Previous turn"
+        >
+          ◀
+        </button>
+        <button id="replayPlayBtn" data-testid="replay-play" type="button">Play</button>
+        <button id="replayNextBtn" data-testid="replay-next" type="button" aria-label="Next turn">
+          ▶
+        </button>
+        <span id="replayCount" data-testid="replay-count"></span>
+        <span id="replayText" data-testid="replay-text"></span>
+      </div>
       <div id="results" data-testid="results" hidden>
         <div class="card">
           <h1>Race finished</h1>
