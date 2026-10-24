@@ -1862,3 +1862,21 @@ body[data-screen='home'] #screen-home {
   white-space: nowrap;
   min-width: 0;
 }
+
+/* A checkbox with a line of explanation (the "share my races" setting). */
+.field.check {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.field.check span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #c7d1db;
+  font-size: 13px;
+}
+
+.field.check small {
+  max-width: 28em;
+}

@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 // eslint-disable-next-line no-undef -- Node-side Playwright code
-const BACKEND_ORIGIN = `http://localhost:${process.env.E2E_BACKEND_PORT ?? '3001'}`;
+export const BACKEND_ORIGIN = `http://localhost:${process.env.E2E_BACKEND_PORT ?? '3001'}`;
 
 /**
  * Set on CI. Screenshot baselines match only the Chromium build CI installs for the locked Playwright, so pixel checks

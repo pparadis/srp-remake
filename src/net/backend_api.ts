@@ -102,6 +102,23 @@ export interface RaceRecapResponse {
   trackId: string;
 }
 
+/** A race of the public history (#170), without its log. */
+export interface RaceSummary {
+  id: string;
+  /** Epoch ms. */
+  finishedAt: number;
+  source: 'online' | 'solo';
+  trackId: string;
+  rulesVersion: RulesVersion;
+  laps: number;
+  cars: number;
+  winnerCarId: number;
+}
+
+export interface StoredRaceResponse extends RaceSummary {
+  log: RaceLog;
+}
+
 interface ReadLobbyResponse {
   lobby: PublicLobby;
   playerId: string;
@@ -245,6 +262,21 @@ export class BackendApiClient {
   readRecap(lobbyId: string, playerToken: string): Promise<RaceRecapResponse> {
     const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/recap?playerToken=${encodeURIComponent(playerToken)}`;
     return this.request('GET', path);
+  }
+
+  // A finished solo race into the public history (#170, opt-in). The server replays the log first: 400 when the engine
+  // refuses it, 200 `duplicate` when it already has it, 503 while its database is down.
+  uploadRace(trackId: string, log: RaceLog): Promise<{ id: string; duplicate: boolean }> {
+    return this.request('POST', '/api/v1/races', { trackId, log });
+  }
+
+  // The public history, newest first.
+  listRaces(limit = 20): Promise<{ races: RaceSummary[] }> {
+    return this.request('GET', `/api/v1/races?limit=${limit}`);
+  }
+
+  readRace(id: string): Promise<StoredRaceResponse> {
+    return this.request('GET', `/api/v1/races/${encodeURIComponent(id)}`);
   }
 
   // Host only: the server plays one autopilot turn for the stuck human seat.

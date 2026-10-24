@@ -1,13 +1,16 @@
 import { expect, test, type Browser } from '@playwright/test';
 import {
+  BACKEND_ORIGIN,
   createLobby,
   expectSameCars,
+  gotoHome,
   guard,
   joinByInvite,
   playMyTurn,
   playOnlineRace,
   playUntilFinished,
   quickRace,
+  setLobbySettings,
   startRace,
   waitForRace
 } from './support/game';
@@ -79,6 +82,47 @@ test('solo: the recap of a finished race, from the results and from the home lis
   await expect(page.getByTestId('home-race')).toHaveCount(1);
   await page.getByTestId('home-race').click();
   await expect(page.getByTestId('recap-car')).toHaveCount(3);
+  expect(errors).toEqual([]);
+});
+
+// Sharing a solo race (#170): with the setting on, the finished race goes to the real server, which replays it and lists it.
+// Needs the page, the CORS call to the backend and its history together.
+test('solo: a finished race is shared to the public history only when the setting is on', async ({
+  page,
+  request
+}) => {
+  const errors = guard(page);
+  const backend = BACKEND_ORIGIN;
+  const listed = async () =>
+    (
+      (await (await request.get(`${backend}/api/v1/races`)).json()) as {
+        races: Array<{ source: string }>;
+      }
+    ).races.length;
+  const before = await listed();
+
+  // off by default: nothing is sent
+  await quickRace(page, { bots: 2, laps: 1 });
+  await playUntilFinished(page);
+  await expect(page.getByTestId('results')).toBeVisible();
+  await expect(page.getByTestId('results-shared')).toBeHidden();
+  expect(await listed()).toBe(before);
+
+  // on: the next race is shared, once
+  await gotoHome(page);
+  await page.getByTestId('home-quick').click();
+  await page.getByTestId('lobby-share').check();
+  await setLobbySettings(page, { bots: 2, laps: 1 });
+  await startRace(page);
+  await playUntilFinished(page);
+  await expect(page.getByTestId('results-shared')).toContainText('Shared in the public history');
+  await expect.poll(listed).toBe(before + 1);
+  const races = (
+    (await (await request.get(`${backend}/api/v1/races?limit=1`)).json()) as {
+      races: Array<{ source: string; laps: number }>;
+    }
+  ).races;
+  expect(races[0]).toMatchObject({ source: 'solo', laps: 1 });
   expect(errors).toEqual([]);
 });
 
