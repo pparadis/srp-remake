@@ -72,10 +72,22 @@ Optional, with their defaults:
 The history is anonymous and append-only: one row per race, holding the race log (a few KB, under 1 KB gzipped) and
 nothing that identifies a player (the names and the player ids are not kept). It runs on a free Neon Postgres project:
 
-1. Create a Neon project (free plan: 0.5 GB, enough for about a hundred thousand races), and copy its connection string,
-   which ends in `?sslmode=require`.
-2. In the Render service, add the environment variable `DATABASE_URL` with that string, and redeploy.
+1. The Neon project is set up with the Neon CLI (`neon.ts` at the root, `.neon` for the linked project and branch, both
+   from `neon init`; `.neon` and `.env.local` are not committed). `neon login` (or `NEON_API_KEY` for a key) and then
+   `neon deploy` pull the branch's variables into `.env.local`: `DATABASE_URL` (the **pooled** URL, for the app's
+   queries) and `DATABASE_URL_UNPOOLED` (the **direct** URL, used only to create the table).
+2. In the Render service, set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to the **production** branch's values
+   (`neon env pull` on that branch, or the Neon console), and redeploy.
 3. Check: `GET /api/v1/races` answers `{ "races": [] }`; after a finished online race it lists it.
+
+Locally, `npm --prefix backend run dev` loads `../.env.local` when it exists, so the backend then talks to the checked-out
+Neon branch. Use a **dev branch** for that (`neon checkout dev --create`: it expires after 7 days, per `neon.ts`), not
+`production`. The tests and the e2e do not load it: they use the in-memory store.
+
+The driver is node-postgres (`pg`): the backend is one long-running Node server that keeps its pool, which is the case
+Neon's guidance gives `pg` for (the serverless driver is for runtimes that cannot keep a connection). `pg` currently treats
+`sslmode=require` as `verify-full` and prints a warning about the change planned for pg 9; use `sslmode=verify-full` in the
+URL to say what is meant.
 
 Neon suspends the database after 5 minutes without a query, so the first write after a quiet spell takes a few
 seconds; the server never waits for it (an online race is stored after its end, and a failure only loses that entry).

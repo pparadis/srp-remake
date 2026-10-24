@@ -36,6 +36,8 @@ const configSchema = z.object({
   TURN_TIMER_TIME_SCALE: z.coerce.number().positive().default(1),
   // Postgres (Neon) for the race history (#170), `postgres://...?sslmode=require`. Absent: the history is kept in memory.
   DATABASE_URL: z.string().min(1).optional(),
+  // Neon's direct (not pooled) URL, used only to create the table, as Neon advises for schema changes. Optional.
+  DATABASE_URL_UNPOOLED: z.string().min(1).optional(),
   // The commit this server runs, reported by /health (the web page shows it next to its own).
   GIT_SHA: z.string().optional()
 });

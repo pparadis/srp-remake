@@ -29,6 +29,8 @@
     "backend:build": "npm --prefix backend run build"
   },
   "devDependencies": {
+    "@neon/config": "^1.9.3",
+    "@neon/env": "^1.6.4",
     "@playwright/test": "^1.63.0",
     "@typescript-eslint/parser": "^8.26.0",
     "@vitest/coverage-v8": "^4.0.18",
