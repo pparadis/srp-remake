@@ -228,6 +228,13 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   disabled field cannot take focus). Not `/join`: that is the reconnect path. A player with no saved name gets a
   Docker-style one (`src/ui/player_name.ts`, "steady_hairpin"), kept in `srp:name` and flagged `srp:name-auto` until
   they pick one, so the guest hint still shows for it.
+- Race history (#170): `backend/src/race_store.ts`, a `RaceStore` (`insert`, `list`, `get`): `MemoryRaceStore` without
+  `DATABASE_URL`, `PgRaceStore` (Neon) with it. Anonymous: a race is its scrubbed log (`scrubLog` replaces the owner ids,
+  no names). The server stores each finished online race after the broadcast (not awaited, a failure is logged) and
+  `POST /api/v1/races` takes a solo race, replaying it with `replayRace` first. The id is a hash of the log, so a
+  race is stored once. Tested with `pg-mem` standing in for Postgres (it differs from Postgres on `returning` after
+  `on conflict do nothing`, so duplicates are found by a select first). The client side of the solo upload is not
+  there yet.
 - Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player.
 - Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).

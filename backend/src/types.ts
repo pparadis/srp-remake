@@ -43,6 +43,8 @@ export interface ServerRace {
   engine: EngineRaceState;
   // Every accepted action since the grid (#169): rebuilds the race with replayRace. Never sent with the lobby.
   log: RaceLog;
+  // Set once the finished race has been handed to the race history (#170), so it is stored once.
+  stored?: boolean;
   seats: RaceSeatInfo[];
   turnIndex: number;
   // Epoch ms at which the active human seat is auto-played; set by the server while a timer runs.
