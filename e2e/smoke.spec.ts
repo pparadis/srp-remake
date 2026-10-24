@@ -40,6 +40,8 @@ test('home page looks welcoming', async ({ page }) => {
   // reduced motion is the static grid: the SMIL laps would put the cars somewhere else on every run
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 800 });
+  // a player with no saved name is given a random one (#78): fix it, or the picture differs on every run
+  await page.addInitScript(() => window.localStorage.setItem('srp:name', 'Player'));
   await gotoHome(page);
   await expect(page.getByTestId('home-track')).toBeVisible();
   // The baseline was rendered by another Chromium build than CI's (text and curve edges differ by about 1% of
