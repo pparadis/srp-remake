@@ -888,17 +888,22 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         return deduped;
       }
 
-      let result: TurnCommandResult;
-      if (lobby.status !== 'IN_RACE') {
-        result = {
+      // A refused command is remembered like an applied one, so a resend gets the same answer.
+      const reject = (
+        error: Extract<TurnCommandResult, { ok: false }>['error'],
+        logExtra: Record<string, unknown> = {},
+        reason?: Extract<TurnCommandResult, { ok: false }>['reason']
+      ) => {
+        const refused: TurnCommandResult = {
           ok: false,
           lobbyId: lobby.lobbyId,
           playerId: player.playerId,
           clientCommandId: body.clientCommandId,
           revision: lobby.revision,
-          error: 'lobby_not_in_race'
+          error,
+          ...(reason ? { reason } : {})
         };
-        lobbyDeduped.set(dedupeKey, result);
+        lobbyDeduped.set(dedupeKey, refused);
         logMultiplayer('turn.submit.rejected', {
           lobbyId: lobby.lobbyId,
           playerId: player.playerId,
@@ -906,90 +911,42 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
           revision: lobby.revision,
           turnIndex: lobby.race?.turnIndex ?? null,
           clientCommandId: body.clientCommandId,
-          reason: 'lobby_not_in_race'
+          reason: error,
+          ...logExtra
         });
-        return reply.code(409).send(result);
-      }
+        return reply.code(409).send(refused);
+      };
+
+      if (lobby.status !== 'IN_RACE') return reject('lobby_not_in_race');
 
       if (body.revision !== lobby.revision) {
-        result = {
-          ok: false,
-          lobbyId: lobby.lobbyId,
-          playerId: player.playerId,
-          clientCommandId: body.clientCommandId,
-          revision: lobby.revision,
-          error: 'stale_revision'
-        };
-        lobbyDeduped.set(dedupeKey, result);
-        logMultiplayer('turn.submit.rejected', {
-          lobbyId: lobby.lobbyId,
-          playerId: player.playerId,
-          seatIndex: player.seatIndex,
-          revision: lobby.revision,
-          turnIndex: lobby.race?.turnIndex ?? null,
-          clientCommandId: body.clientCommandId,
-          reason: 'stale_revision',
+        return reject('stale_revision', {
           expectedRevision: lobby.revision,
           receivedRevision: body.revision,
           raceSummary: summarizeRaceState(lobby.lobbyId)
         });
-        return reply.code(409).send(result);
       }
 
       const activeSeat = lobbyStore.getActiveRaceSeat(lobby.lobbyId);
       if (!activeSeat || activeSeat.playerId !== player.playerId) {
-        result = {
-          ok: false,
-          lobbyId: lobby.lobbyId,
-          playerId: player.playerId,
-          clientCommandId: body.clientCommandId,
-          revision: lobby.revision,
-          error: 'not_active_player'
-        };
-        lobbyDeduped.set(dedupeKey, result);
-        logMultiplayer('turn.submit.rejected', {
-          lobbyId: lobby.lobbyId,
-          playerId: player.playerId,
-          seatIndex: player.seatIndex,
-          revision: lobby.revision,
-          turnIndex: lobby.race?.turnIndex ?? null,
-          clientCommandId: body.clientCommandId,
-          reason: 'not_active_player',
+        return reject('not_active_player', {
           activeSeatIndex: seatOf(lobby),
           raceSummary: summarizeRaceState(lobby.lobbyId)
         });
-        return reply.code(409).send(result);
       }
 
       // The shared race engine validates the move against the real rules.
       const applied = lobbyStore.applyTurnAction(lobby.lobbyId, body.action);
       if (!applied.ok) {
-        result = {
-          ok: false,
-          lobbyId: lobby.lobbyId,
-          playerId: player.playerId,
-          clientCommandId: body.clientCommandId,
-          revision: lobby.revision,
-          error: 'invalid_action',
-          reason: applied.reason
-        };
-        lobbyDeduped.set(dedupeKey, result);
-        logMultiplayer('turn.submit.rejected', {
-          lobbyId: lobby.lobbyId,
-          playerId: player.playerId,
-          seatIndex: player.seatIndex,
-          revision: lobby.revision,
-          turnIndex: lobby.race?.turnIndex ?? null,
-          clientCommandId: body.clientCommandId,
-          reason: 'invalid_action',
-          engineReason: applied.reason,
-          action: body.action.type
-        });
-        return reply.code(409).send(result);
+        return reject(
+          'invalid_action',
+          { engineReason: applied.reason, action: body.action.type },
+          applied.reason
+        );
       }
 
       const updatedLobby = lobbyStore.incrementRevision(lobby.lobbyId);
-      result = {
+      const result: TurnCommandResult = {
         ok: true,
         lobbyId: lobby.lobbyId,
         playerId: player.playerId,
