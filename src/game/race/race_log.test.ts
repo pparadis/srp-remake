@@ -11,7 +11,7 @@ import {
   type RaceAction,
   type RaceSeat
 } from './race_engine';
-import { logAction, replayRace, startRaceLog } from './race_log';
+import { logAction, replayEnd, replayRace, startRaceLog } from './race_log';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 
@@ -54,6 +54,7 @@ describe('race log (#169)', () => {
       const states = replayRace(ctx, log);
       expect(states).toHaveLength(log.actions.length + 1);
       expect(states.at(-1)).toEqual(state);
+      expect(replayEnd(ctx, log)).toEqual(state);
     }
   );
 
@@ -83,5 +84,6 @@ describe('race log (#169)', () => {
     const { log } = playLogged('v2', 1, 1);
     const broken = { ...log, actions: [{ type: 'move', targetCellId: 'nowhere' } as const] };
     expect(() => replayRace(ctx, broken)).toThrow(/action 0 refused/);
+    expect(() => replayEnd(ctx, broken)).toThrow(/action 0 refused/);
   });
 });

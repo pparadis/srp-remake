@@ -15,7 +15,7 @@ import { LobbyError, LobbyStore, toPublicLobby } from './lobby_store.js';
 import { createRaceStore, type RaceStore } from './race_store.js';
 import { getRaceContext } from './tracks.js';
 import { activeSeatIndex } from '../../src/game/race/race_engine';
-import { replayRace, type RaceLog } from '../../src/game/race/race_log';
+import { replayEnd, type RaceLog } from '../../src/game/race/race_log';
 import { RULES_VERSIONS } from '../../src/game/rules/ids';
 import { MAX_SEED } from '../../src/game/systems/bot_style';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
@@ -708,7 +708,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       };
       let winnerCarId: number | null;
       try {
-        winnerCarId = replayRace(ctx, log).at(-1)?.winnerCarId ?? null;
+        winnerCarId = replayEnd(ctx, log).winnerCarId;
       } catch {
         throw new LobbyError(400, 'The race log does not replay on this track.');
       }

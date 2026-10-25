@@ -62,6 +62,19 @@ export function replaySteps(ctx: RaceContext, log: RaceLog): ReplayStep[] {
   });
 }
 
+/**
+ * Only the last state, on one state with no copies: the server's check of an uploaded log, which runs on its event loop.
+ * Throws as `replaySteps` does.
+ */
+export function replayEnd(ctx: RaceContext, log: RaceLog): RaceState {
+  const state = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion);
+  log.actions.forEach((action, i) => {
+    const result = applyAction(ctx, state, action);
+    if (!result.ok) throw new Error(`Race log action ${i} refused on replay (${result.reason}).`);
+  });
+  return state;
+}
+
 /** Every state of the race: `states[0]` is the grid, `states[i]` the race after `actions[i - 1]`. */
 export function replayRace(ctx: RaceContext, log: RaceLog): RaceState[] {
   const grid = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion);
