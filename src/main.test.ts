@@ -169,6 +169,10 @@ describe('main (solo flow)', () => {
     track.value = 'oval32_3lanes';
     track.dispatchEvent(new Event('change'));
     expect(track.value).toBe('oval32_3lanes');
+    // the track proposes its own laps (3 on the big oval, the oval's 5 is about as far); they can still be changed
+    expect(laps.value).toBe('3');
+    laps.value = '2';
+    laps.dispatchEvent(new Event('change'));
 
     byId('lobbyStartBtn').click();
     expect(window.location.pathname).toBe('/solo/race');

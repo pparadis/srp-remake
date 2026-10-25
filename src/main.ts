@@ -29,7 +29,7 @@ import { mountVersion, renderVersion, type ServerVersion } from './ui/version';
 import { showUncaughtErrors, startRenderProbe } from './ui/diagnostics';
 import { MAX_SEED, normalizeSeed } from './game/systems/bot_style';
 import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from './game/rules/ids';
-import { DEFAULT_TRACK_ID, TRACK_CHOICES, isTrackId } from './game/track_ids';
+import { DEFAULT_TRACK_ID, TRACK_CHOICES, isTrackId, trackLaps } from './game/track_ids';
 import {
   BackendApiClient,
   BackendApiError,
@@ -1639,6 +1639,10 @@ async function renameSelf() {
 }
 lobbyName.addEventListener('change', () => void renameSelf());
 
+// A track proposes its own number of laps (the host can still change it); this runs before the settings are read.
+lobbyTrack.addEventListener('change', () => {
+  lobbyLaps.value = String(trackLaps(lobbyTrack.value));
+});
 for (const input of [
   lobbyHumans,
   lobbyBots,

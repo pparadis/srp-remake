@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { knownTrackIds } from '../../backend/src/tracks';
-import { DEFAULT_TRACK_ID, TRACK_CHOICES, isTrackId, trackName } from './track_ids';
+import { DEFAULT_TRACK_ID, TRACK_CHOICES, isTrackId, trackLaps, trackName } from './track_ids';
 
 describe('track choices', () => {
   const files = Object.keys(import.meta.glob('../../public/tracks/*.json')).map((path) =>
@@ -23,6 +23,12 @@ describe('track choices', () => {
     expect(isTrackId(undefined)).toBe(false);
     expect(trackName('oval32_3lanes')).toBe('Big oval');
     expect(trackName('from_the_future')).toBe('from_the_future');
+  });
+
+  it('proposes the laps of a track, and the oval laps for an unknown one', () => {
+    expect(trackLaps('oval16_3lanes')).toBe(5);
+    expect(trackLaps('oval32_3lanes')).toBe(3);
+    expect(trackLaps('from_the_future')).toBe(5);
   });
 
   it('gives every track its own name', () => {

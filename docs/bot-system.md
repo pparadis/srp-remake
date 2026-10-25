@@ -245,6 +245,11 @@ Hard beats Normal by 0.13 places in the 4-car mix (short of the 0.15 aimed for; 
 tried) and by 0.40 in the 8-car mix. Heads-up Hard vs Normal (84 races) is decided by the grid slot, 1.54 vs 1.46: the
 heads-up criterion was dropped.
 
+The big oval (#175, `--track oval32_3lanes`, 56 cells a lap) keeps the order. Rules v2, laps 5/8, 4 seeds (32 races):
+Hard 1.38, Normal 1.63, Easy 3.00, Autopilot 4.00 (`bot_levels.test.ts` asserts it). Rules v3, laps 5/8/12, 4 seeds (48
+races): Normal 1.48, Hard 1.69, Easy 2.83, Autopilot 4.00, which is what the oval gives too (Hard no better than Normal
+on v3 there either), so it is not the track. Bots pit as often on both (4.4 and 4.5 stops in a 12-lap race, 4 and 8 cars mixed).
+
 Personalities, five Normal cars with one style each rotated through all seats (210 races, laps 3/4/5/6/8/10/12, 6 seeds,
 the seed shuffles the grid): strategist 2.84, defender 3.01, pusher 3.04, racer 3.04, steady 3.07 average finish
 (spread 0.23), win rates 17-25 % against a fair 20 %. `bot_personalities.test.ts` bounds the spread at 0.45 places
