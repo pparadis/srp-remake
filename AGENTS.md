@@ -254,7 +254,8 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   Docker-style one (`src/ui/player_name.ts`, "steady_hairpin"), kept in `srp:name` and flagged `srp:name-auto` until
   they pick one, so the guest hint still shows for it.
 - Race history (#170): `backend/src/race_store.ts`, a `RaceStore` (`insert`, `list`, `get`): `MemoryRaceStore` without
-  `DATABASE_URL`, `PgRaceStore` (Neon) with it. Anonymous: a race is its scrubbed log (`scrubLog` replaces the owner ids,
+  `DATABASE_URL`, `PgRaceStore` (Neon) with it; both keep only the newest races (500 in memory, 2000 in Postgres: the table is public
+  and anonymous, so one uploader must not fill the database). Anonymous: a race is its scrubbed log (`scrubLog` replaces the owner ids,
   no names). The server stores each finished online race after the broadcast (not awaited, a failure is logged) and
   `POST /api/v1/races` takes a solo race, replaying it with `replayRace` first. The id is a hash of the log, so a
   race is stored once. Tested with `pg-mem` standing in for Postgres (it differs from Postgres on `returning` after

@@ -136,3 +136,15 @@ test('postgres: a database that fails at first is asked again, and the schema is
   await store.list(1);
   assert.equal(queries.filter((q) => q.startsWith('create table')).length, 2); // the failed try, then the real one
 });
+
+test('postgres: only the newest races are kept, the oldest go first', async (t) => {
+  const store = new PgRaceStore(new (newDb().adapters.createPg().Pool)(), null, 2);
+  t.after(() => store.close());
+  const ids: string[] = [];
+  for (const seed of [1, 2, 3]) ids.push((await store.insert(finishedRace(seed))).id);
+  assert.deepEqual(
+    (await store.list(10)).map((race) => race.id),
+    [ids[2], ids[1]]
+  );
+  assert.equal(await store.get(ids[0]!), null);
+});
