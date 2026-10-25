@@ -2,6 +2,8 @@ import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import { createHash, randomBytes } from 'node:crypto';
+import type { IncomingHttpHeaders } from 'node:http';
+import { isIP } from 'node:net';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import {
@@ -262,6 +264,14 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     typeof trustProxyConfig === 'number'
       ? (_address: string, hop: number) => hop < trustProxyConfig
       : trustProxyConfig;
+  const clientIpHeader = config.CLIENT_IP_HEADER?.toLowerCase();
+  // The client's address: the edge's header when one is configured and holds an IP, else what trustProxy made of the socket.
+  function clientIpOf(request: { ip: string; headers: IncomingHttpHeaders }): string {
+    if (!clientIpHeader) return request.ip;
+    const value = request.headers[clientIpHeader];
+    const first = (Array.isArray(value) ? value[0] : value)?.split(',')[0]?.trim();
+    return first && isIP(first) ? first : request.ip;
+  }
   const app = Fastify({
     logger:
       (options.logger ?? true)
@@ -273,15 +283,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
                 method: request.method,
                 url: redactTokens(request.url),
                 host: request.host,
-                remoteAddress: request.ip,
-                // shortcut: temporary (#210), to learn which header carries the client address behind Render; remove with the fix.
-                socketAddress: request.socket?.remoteAddress,
-                forwarded: {
-                  xff: request.headers['x-forwarded-for'],
-                  cf: request.headers['cf-connecting-ip'],
-                  tci: request.headers['true-client-ip'],
-                  xri: request.headers['x-real-ip']
-                }
+                remoteAddress: clientIpOf(request)
               })
             }
           }
@@ -647,7 +649,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   // shortcut: in-memory counters, right for the one instance we run; several instances need a shared store (Redis).
   const rateLimitEnabled = config.RATE_LIMIT_ENABLED ?? false;
   if (rateLimitEnabled) {
-    await app.register(rateLimit, { global: false });
+    await app.register(rateLimit, { global: false, keyGenerator: clientIpOf });
   }
   // Per IP and minute; sized above what several players behind one router do (see issue #69).
   const limit = (max: number, timeWindow = '1 minute') => ({ rateLimit: { max, timeWindow } });

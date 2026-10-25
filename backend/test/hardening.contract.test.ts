@@ -305,6 +305,57 @@ test('TRUST_PROXY with a hop count trusts that many proxies from the right', asy
   assert.equal((await create('7.7.7.7, 5.5.5.6')).statusCode, 201);
 });
 
+// The Render setup (#210): the socket is always 127.0.0.1 (a sidecar), X-Forwarded-For holds a client-made prefix, then the
+// real client, then two proxies, and the edge sets `cf-connecting-ip` to the client (a spoofed one is a 403 there).
+test('CLIENT_IP_HEADER: the edge header picks the bucket, not the socket or X-Forwarded-For', async (t) => {
+  const app = await startApp(t, {
+    RATE_LIMIT_ENABLED: true,
+    CLIENT_IP_HEADER: 'CF-Connecting-IP'
+  });
+  const create = (headers: Record<string, string>) =>
+    app.inject({
+      method: 'POST',
+      url: '/api/v1/lobbies',
+      payload: { name: 'Host' },
+      headers,
+      remoteAddress: '127.0.0.1'
+    });
+  // Faking X-Forwarded-For buys no new bucket: the same client, ten faked prefixes.
+  for (let i = 0; i < 10; i += 1) {
+    const res = await create({
+      'cf-connecting-ip': '24.53.22.30',
+      'x-forwarded-for': `9.9.9.${i}, 24.53.22.30, 172.71.190.72, 10.31.11.9`
+    });
+    assert.equal(res.statusCode, 201);
+  }
+  assert.equal((await create({ 'cf-connecting-ip': '24.53.22.30' })).statusCode, 429);
+  // Another client has its own bucket, an IPv6 one too.
+  assert.equal((await create({ 'cf-connecting-ip': '24.53.22.31' })).statusCode, 201);
+  assert.equal((await create({ 'cf-connecting-ip': '2001:db8::1' })).statusCode, 201);
+  // No header, or one that is not an address, falls back to the socket's: one shared bucket, as without the setting.
+  const fallbacks: Array<Record<string, string>> = [{}, { 'cf-connecting-ip': 'not-an-ip' }];
+  for (const headers of fallbacks) {
+    for (let i = 0; i < 5; i += 1) assert.equal((await create(headers)).statusCode, 201);
+  }
+  assert.equal((await create({})).statusCode, 429);
+});
+
+test('CLIENT_IP_HEADER is the address in the request log', async (t) => {
+  const lines: string[] = [];
+  const app = await createApp(
+    { ...TEST_CONFIG, CLIENT_IP_HEADER: 'cf-connecting-ip' },
+    { logStream: { write: (line) => lines.push(line) } }
+  );
+  t.after(() => app.close());
+  await app.inject({
+    method: 'GET',
+    url: '/health',
+    headers: { 'cf-connecting-ip': '24.53.22.30' },
+    remoteAddress: '127.0.0.1'
+  });
+  assert.ok(lines.join('').includes('"remoteAddress":"24.53.22.30"'));
+});
+
 test('TRUST_PROXY and the other limits are read from the environment', () => {
   const env = { GIT_SHA: 'x' };
   const defaults = loadConfig(env);
@@ -318,6 +369,12 @@ test('TRUST_PROXY and the other limits are read from the environment', () => {
   assert.equal(loadConfig({ ...env, RATE_LIMIT_ENABLED: 'false' }).RATE_LIMIT_ENABLED, false);
   assert.equal(loadConfig({ ...env, MAX_LOBBIES: '5' }).MAX_LOBBIES, 5);
   assert.throws(() => loadConfig({ ...env, TRUST_PROXY: 'banana' }));
+  assert.equal(defaults.CLIENT_IP_HEADER, undefined);
+  assert.equal(
+    loadConfig({ ...env, CLIENT_IP_HEADER: 'cf-connecting-ip' }).CLIENT_IP_HEADER,
+    'cf-connecting-ip'
+  );
+  assert.throws(() => loadConfig({ ...env, CLIENT_IP_HEADER: 'x forwarded' }));
 });
 
 // Each route has its own limit; the limiter runs before validation, so any request counts.

@@ -27,6 +27,14 @@ const configSchema = z.object({
   // Read the client address from X-Forwarded-For. Only behind a proxy that sets it (Render); never when the
   // backend is reachable directly, or a client could fake the header to dodge the rate limit.
   TRUST_PROXY: trustProxy.default(false),
+  // A header the platform's edge sets to the client's address and a client cannot fake (#210): on Render
+  // `cf-connecting-ip` (Cloudflare answers 403 to a request that sets it). When set, it is the rate-limit key and the
+  // logged address; absent or not an IP, the address comes from TRUST_PROXY as before. Never set it where the
+  // backend is reachable without that edge, or a client could choose its own bucket.
+  CLIENT_IP_HEADER: z
+    .string()
+    .regex(/^[A-Za-z0-9-]+$/, 'CLIENT_IP_HEADER must be a header name')
+    .optional(),
   // Per-IP rate limit. Tests switch it off; a partial test config (field absent) is also off.
   RATE_LIMIT_ENABLED: z
     .enum(['true', 'false'])
