@@ -94,6 +94,8 @@ export interface HudSnapshot {
   activeCarId: number;
   /** The local player may drag the active car right now. */
   canControl: boolean;
+  /** The board still plays earlier moves (cars gliding): the race is ahead of it and input waits. */
+  carsMoving: boolean;
   /** All cars in standings order. */
   cars: HudCar[];
   hover: HudHover | null;
@@ -399,6 +401,7 @@ export function bannerText(s: HudSnapshot): string {
     }
     return `Boxed in - squeeze past (+${SQUEEZE_SURCHARGE_PER_CAR} points per car)`;
   }
+  if (s.carsMoving && active.carId === s.myCarId) return 'The other cars are moving';
   if (active.carId === s.myCarId) {
     return s.canControl ? 'Your turn - drag your car' : 'Waiting for the server';
   }

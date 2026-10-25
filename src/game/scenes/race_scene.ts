@@ -323,7 +323,10 @@ export class RaceScene extends Phaser.Scene {
     if (!isFrameLimit(loop)) throw new Error('Phaser loop has no _limitRate (#82).');
     const governor = new FrameGovernor(loop);
     const stopWatching = governor.watch(window);
-    const onUpdate = () => governor.tick(this.isAnimating());
+    const onUpdate = () => {
+      governor.tick(this.isAnimating());
+      if (this.session.carsMoving() && this.glides.size === 0) this.settleBoard();
+    };
     this.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
     const stopGoverning = () => {
       stopWatching();
@@ -602,6 +605,17 @@ export class RaceScene extends Phaser.Scene {
     });
   }
 
+  // The last car has arrived: whoever is on turn may act now (rings, halo, banner, the "your turn" chime).
+  private settleBoard() {
+    this.session.setCarsMoving(false);
+    this.recomputeTargets();
+    this.updateActiveCarVisuals();
+    this.drawTargets();
+    this.updateSkipButtonState();
+    this.emitHud();
+    this.reactToRace();
+  }
+
   private refreshAfterTurn() {
     this.processBotsUntilHuman();
     this.syncTokens();
@@ -808,6 +822,8 @@ export class RaceScene extends Phaser.Scene {
     const cap = glideCap(moving.length);
     let delay = 0;
     for (const car of moving) delay += this.glideTo(car.carId, car.cellId, delay, cap);
+    // The race is already ahead of the board: nobody acts until the last car has arrived (see settleBoard).
+    if (this.glides.size > 0) this.session.setCarsMoving(true);
     // a car that moved but did not glide (a drop is its own motion; instant moves) still leaves its trail
     for (const carId of order) {
       if (!moving.some((car) => car.carId === carId)) this.showTrail(carId);
@@ -920,7 +936,7 @@ export class RaceScene extends Phaser.Scene {
   private drawTargets() {
     this.drawPreview();
     this.drawTow();
-    if (!this.showCarsAndMoves) return this.targetMarkers.clear();
+    if (!this.showCarsAndMoves || this.session.carsMoving()) return this.targetMarkers.clear();
     const markers: TargetMarker[] = [];
     for (const [cellId, info] of this.validTargets) {
       const cell = this.cellMap.get(cellId);

@@ -223,6 +223,11 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   feeds rules). Instant in the e2e build (`?anim` turns it on) and under `prefers-reduced-motion`; a spec that reads
   token positions right after a turn relies on that. A dragged car turns with the road under the finger (`easeAngle`,
   #110), a dropped drag glides from the drop point and a refused one glides back. Details: `docs/strategy-and-feel.md`.
+  The race is ahead of the board (the bots play at once, the cars glide after), so nobody acts until the last glide has
+  ended (#189): `syncTokens` sets `RaceSession.setCarsMoving(true)` when it starts glides, which makes
+  `canControlActiveCar` / `localCanControl` / `canSkip` / `canSetup` false and hides the rings (`HudSnapshot.carsMoving`:
+  "The other cars are moving"), and the scene's `UPDATE` hook calls `settleBoard()` once `glides` is empty (targets, halo,
+  banner, the grid setup offer, the "your turn" chime). Input never waits on a flag the scene can lose: it is the glides.
 - Camera (#87): the fit (`centerTrack`) plus the player's zoom 1 to 3 and pan (`rendering/camera_view.ts`, pure and
   tested); pinch, pan, wheel, double tap and the `Fit` button in `input/register_camera_gestures.ts`; the camera follows
   the player's car after its move while zoomed. The camera's matrix is refreshed at once (`cam.preRender()`) so a tap
