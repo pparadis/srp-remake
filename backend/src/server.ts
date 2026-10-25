@@ -273,7 +273,15 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
                 method: request.method,
                 url: redactTokens(request.url),
                 host: request.host,
-                remoteAddress: request.ip
+                remoteAddress: request.ip,
+                // shortcut: temporary (#210), to learn which header carries the client address behind Render; remove with the fix.
+                socketAddress: request.socket?.remoteAddress,
+                forwarded: {
+                  xff: request.headers['x-forwarded-for'],
+                  cf: request.headers['cf-connecting-ip'],
+                  tci: request.headers['true-client-ip'],
+                  xri: request.headers['x-real-ip']
+                }
               })
             }
           }
