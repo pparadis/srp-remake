@@ -832,7 +832,9 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       if (body.revision !== undefined && body.revision !== lobby.revision) {
         throw new LobbyError(409, 'The race moved on; nothing was skipped.');
       }
-      playBotTurnFor(lobby.lobbyId, 'autopilot', 'force_skip');
+      if (!playBotTurnFor(lobby.lobbyId, 'autopilot', 'force_skip')) {
+        throw new LobbyError(409, 'The autopilot could not play this turn; nothing was skipped.');
+      }
       await runPendingBotTurns(lobby.lobbyId);
       return { lobby: toPublicLobby(lobby) };
     }
