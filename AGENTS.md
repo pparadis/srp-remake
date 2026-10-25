@@ -297,8 +297,9 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   `reset` and `force-skip` take no body, and the WebSocket keeps `?playerToken=` (a browser sets no header on one). For
   one release the body and query fields still work, for a page loaded before the deploy: then delete the
   `optionalPlayerTokenSchema` fields, `playerTokenOf`'s second argument, the `legacy` half of
-  `backend/test/player_token.contract.test.ts` and the old-form usages in the other contract tests. The store checks a
-  lobby's state before the token on `start` and `reset` (a 409 can come before a 401).
+  `backend/test/player_token.contract.test.ts` and the old-form usages in the other contract tests. The store checks
+  in one order on every host action (`start`, `reset`, settings): lobby (404), token (401), host (403), then the lobby's
+  state (409, #208), so a stranger learns nothing about the race.
 - Backend hardening (#69): request logs redact `playerToken` (`redactTokens`); lobbies with no open socket are reaped
   (`LOBBY_IDLE_SECONDS`, finished ones after 10 min); inputs are bounded (names 32, body 16 KiB, WS frames 1 KiB,
   `MAX_LOBBIES`); routes are rate limited per IP (`@fastify/rate-limit`, limits at the route in `server.ts`). Behind a
