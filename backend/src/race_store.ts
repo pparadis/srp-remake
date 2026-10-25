@@ -101,6 +101,9 @@ export class MemoryRaceStore implements RaceStore {
   }
 }
 
+// About 20-90 KB a log: this keeps the table far under a free Neon database (0.5 GB) whoever uploads.
+const MAX_STORED_RACES = 2000;
+
 const SCHEMA = [
   `create table if not exists races (
      id text primary key,
@@ -155,7 +158,8 @@ export class PgRaceStore implements RaceStore {
    */
   constructor(
     private readonly pool: Pick<pg.Pool, 'query' | 'end'>,
-    private migrationPool: Pick<pg.Pool, 'query' | 'end'> | null = null
+    private migrationPool: Pick<pg.Pool, 'query' | 'end'> | null = null,
+    private readonly limit = MAX_STORED_RACES
   ) {}
 
   private schema(): Promise<void> {
@@ -196,6 +200,12 @@ export class PgRaceStore implements RaceStore {
         race.winnerCarId,
         JSON.stringify(log)
       ]
+    );
+    // The table is public and anonymous, so it stays a window on the newest races like the memory store. Chosen by
+    // `offset` and not by `seq` arithmetic: the serial skips numbers (a conflict uses one up).
+    await this.pool.query(
+      'delete from races where id in (select id from races order by seq desc offset $1)',
+      [this.limit]
     );
     return { id, duplicate: false };
   }
