@@ -102,6 +102,11 @@ button {
   align-items: end;
 }
 
+/* The lobby settings: seven selects do not fit a phone's width on one line. */
+.row.wrap {
+  flex-wrap: wrap;
+}
+
 .row > input[type='text'] {
   flex: 1 1 auto;
   min-width: 0;
