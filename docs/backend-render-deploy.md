@@ -91,6 +91,12 @@ keeps a short hash of the device (the `device` column, never returned by the API
 the next one replacing that device's own oldest. It limits how much of the history one browser can fill, and clearing
 the browser's storage makes a new device.
 
+When the history is over its 2000 races, it drops the oldest race of whoever holds the most: a device, or an online
+race (which counts as its own owner). A script that mints many tokens therefore takes races from its own tokens before
+anyone else's. To see whether someone is doing that, read the Render request logs: every request is logged with the
+client address, the URL and the status, so `POST /api/v1/devices` answering `429` (the 20-a-day limit) or one address
+posting to `/api/v1/races` all day shows up there.
+
 Locally, `npm --prefix backend run dev` loads `../.env.local` when it exists, so the backend then talks to the checked-out
 Neon branch. Use a **dev branch** for that (`neon checkout dev --create`: it expires after 7 days, per `neon.ts`), not
 `production`. The tests and the e2e do not load it: they use the in-memory store.
