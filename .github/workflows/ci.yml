@@ -60,17 +60,13 @@ jobs:
         id: pw
         run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
-        id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
-      - name: Install Playwright (cache miss)
-        if: steps.pw-cache.outputs.cache-hit != 'true'
+      # Skips the download when the cached browser is there; the system deps (apt) are never cached.
+      - name: Install Playwright
         run: npx playwright install --with-deps chromium
-      - name: Install Playwright system deps (cache hit)
-        if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
       - name: E2E
         run: npm run test:e2e -- --shard=${{ matrix.shard }}
       - name: Upload Playwright report
