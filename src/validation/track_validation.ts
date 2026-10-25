@@ -2,6 +2,9 @@ import type { TrackData } from '../game/types/track';
 import { MAIN_LANES, PIT_LANE } from '../game/constants';
 import { must } from '../game/must';
 
+/** The closest two cells may be (the lanes are 24 apart on the bundled tracks). */
+const MIN_CELL_DISTANCE = 20;
+
 export function validateTrack(track: TrackData): string[] {
   const errors: string[] = [];
   const cells = track.cells ?? [];
@@ -173,6 +176,17 @@ export function validateTrack(track: TrackData): string[] {
       const diff = Math.abs(nextCell.laneIndex - cell.laneIndex);
       if (diff > 1) {
         errors.push(`invalid lane change from ${cell.id} to ${nextId}`);
+      }
+    }
+  }
+
+  // Two cells on top of each other: lanes that cross or lie too close in a bend (a track made from a centre line).
+  for (let i = 0; i < cells.length; i += 1) {
+    const a = must(cells[i], 'cell');
+    for (let j = i + 1; j < cells.length; j += 1) {
+      const b = must(cells[j], 'cell');
+      if (Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y) < MIN_CELL_DISTANCE) {
+        errors.push(`cells ${a.id} and ${b.id} are closer than ${MIN_CELL_DISTANCE}`);
       }
     }
   }

@@ -10,6 +10,7 @@ export default defineConfig({
     include: [
       'src/**/*.test.ts',
       'tools/diagrams/**/*.test.ts',
+      'tools/gen_track.test.ts',
       'tools/make404.test.ts',
       'tools/file_names.test.ts'
     ],
