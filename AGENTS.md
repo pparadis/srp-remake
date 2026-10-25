@@ -51,8 +51,8 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   the stretches being cut alike in every lane so the straights stay in line; an outer lane has more cells in a bend,
   like the oval. A track is a spec in `tools/track_specs.ts` and `npm run gen:tracks` writes its JSON (a test fails on a
   stale file); a lane that does not fit in a bend, a start line off the straight or corners too close for their radii
-  throw. `validateTrack` also rejects two cells closer than 20. `oval16_3lanes.json` is older (`gen:track`) and stays as
-  it is, since the rule goldens and diagrams are made on it; `OVAL16` in the specs rebuilds it, and a test compares
+  throw. `validateTrack` also rejects two cells closer than 20. `oval16_3lanes.json` is older (its script is gone) and stays
+  as it is, since the rule goldens and diagrams are made on it; `OVAL16` in the specs rebuilds it, and a test compares
   positions, zones, tags and the pit. `oval32_3lanes` is the same oval twice as big (56 cells a lap). A bigger track is
   a longer lap, not smaller cells: cars and cells keep their size, the camera fits the whole board, and the baked track
   texture is capped (`MAX_TRACK_TEXTURE_PIXELS`) so it stays under the iOS canvas limit.
@@ -362,7 +362,7 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 
 ## Common Tasks
 
-1. Regenerate tracks: `npm run gen:tracks` (the specs in `tools/track_specs.ts`), the older oval with `npm run gen:track`; app icons from `public/icons/icon.svg`: `npm run gen:icons`
+1. Regenerate tracks: `npm run gen:tracks` (the specs in `tools/track_specs.ts`; `oval16_3lanes.json` is not rewritten); app icons from `public/icons/icon.svg`: `npm run gen:icons`
 2. Validate track: `npm run validate:track`
 3. Run tests: `npm test` (frontend), `npm run backend:test` (backend)
 4. Multiplayer: run the backend next to the dev server (`npm --prefix backend run dev`); check it with

@@ -12,7 +12,7 @@ function stadium(cx: number, cy: number, straight: number, r: number): Corner[] 
   ];
 }
 
-/** The shape of public/tracks/oval16_3lanes.json (made by the older genOval16_3lanes.mjs), to test this generator. */
+/** The shape of public/tracks/oval16_3lanes.json (an older, hand-run generator made it), to test this generator. */
 export const OVAL16: TrackSpec = {
   trackId: 'oval16_3lanes',
   corners: stadium(560, 350, 520, 120),
