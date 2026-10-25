@@ -160,6 +160,33 @@ test('solo: a finished race is shared to the public history unless the setting i
   expect(errors).toEqual([]);
 });
 
+// A deploy removes the old hashed chunks: a page loaded before it asks for a recap chunk that is gone (Safari: "Importing a
+// module script failed"). The page reloads once to get the new files; if the chunk is still missing it says what to do.
+test('solo: a recap chunk that is gone makes the page reload once, then say to reload', async ({
+  page
+}) => {
+  await quickRace(page, { bots: 2, laps: 1 });
+  await playUntilFinished(page);
+  await expect(page.getByTestId('results-recap')).toBeVisible();
+
+  let asked = 0;
+  await page.route('**/assets/recap_load-*.js', (route) => {
+    asked += 1;
+    return route.fulfill({ status: 404, body: 'gone' });
+  });
+  let loads = 0;
+  page.on('load', () => (loads += 1));
+  await page.getByTestId('results-recap').click();
+
+  // the first miss reloads the page (a new load), and the second one, soon after, is told to the player
+  await expect(page.getByTestId('home-notice')).toContainText('A new version was deployed', {
+    timeout: 20_000
+  });
+  expect(loads).toBeGreaterThanOrEqual(1);
+  expect(asked).toBeGreaterThanOrEqual(2);
+  await expect(page).toHaveURL(/\/$/);
+});
+
 // The board replay of a recap (#169): the real scene watches the saved race, state by state, cars moving forward and back.
 test('solo: the recap replays the race on the board, forward and back', async ({ page }) => {
   const errors = guard(page);
