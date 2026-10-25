@@ -356,6 +356,20 @@ test("phone, zoomed in and panned away: the camera brings the car back to the mi
   expect(errors).toEqual([]);
 });
 
+test('phone held upright: the lobby settings wrap inside the card, none runs off the screen (#175)', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 430, height: 932 });
+  await page.goto('/solo');
+  const card = (await tid(page, 'lobby-bots')
+    .locator('xpath=ancestor::div[contains(@class,"card")]')
+    .boundingBox())!;
+  for (const id of ['lobby-bots', 'lobby-laps', 'lobby-track', 'lobby-bot-level', 'lobby-rules']) {
+    const box = (await tid(page, id).boundingBox())!;
+    expect(box.x + box.width, id).toBeLessThanOrEqual(card.x + card.width);
+  }
+});
+
 test('phone with the browser bars showing (a short screen): the whole track stays on screen', async ({
   page
 }) => {
