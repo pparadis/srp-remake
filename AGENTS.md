@@ -302,8 +302,10 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   state (409, #208), so a stranger learns nothing about the race.
 - Backend hardening (#69): request logs redact `playerToken` (`redactTokens`); lobbies with no open socket are reaped
   (`LOBBY_IDLE_SECONDS`, finished ones after 10 min); inputs are bounded (names 32, body 16 KiB, WS frames 1 KiB,
-  `MAX_LOBBIES`); routes are rate limited per IP (`@fastify/rate-limit`, limits at the route in `server.ts`). Behind a
-  proxy set `TRUST_PROXY`. Tests and e2e run with `RATE_LIMIT_ENABLED` off (a partial test config is off too); the
+  `MAX_LOBBIES`); routes are rate limited per IP (`@fastify/rate-limit`, limits at the route in `server.ts`, keyed by
+  `clientIpOf`). On Render the socket is always `127.0.0.1`, so the limits were one world-wide bucket until #210: set
+  `CLIENT_IP_HEADER=cf-connecting-ip` there (the edge sets it and refuses a client-set one); never `TRUST_PROXY=true`,
+  which takes the client's own `X-Forwarded-For` entry. Tests and e2e run with `RATE_LIMIT_ENABLED` off (a partial test config is off too); the
   limit and reaper tests are in `backend/test/hardening.contract.test.ts`. See `docs/backend-render-deploy.md`.
 
 ## Bots

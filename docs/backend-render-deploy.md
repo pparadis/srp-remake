@@ -62,6 +62,8 @@ Optional, with their defaults:
 - `RATE_LIMIT_ENABLED=true`: per-IP, per-minute limits (lobby create 10, join 30, reads, WebSocket and turn/host
   actions 240). Over the limit answers `429` with `Retry-After`. Counters live in memory, which is right for one
   instance; several instances would need a shared store (Redis).
+- `CLIENT_IP_HEADER`: a header the platform's edge sets to the client's address (on Render `cf-connecting-ip`); the
+  rate-limit key and the logged address. **Set it on Render**, see "The client address on Render" below (#210).
 - `TRUST_PROXY=false`: `true` (or a hop count) makes the server take the client address from `X-Forwarded-For`.
 - `DATABASE_URL`: the race history (#170). Absent, the history lives in memory and is gone at a restart (fine for
   development). With a Postgres URL the server keeps every finished online race, and the solo races their players
@@ -127,15 +129,32 @@ seconds; the server never waits for it (an online race is stored after its end, 
   (CORS is not an auth boundary here, but there is no reason to leave it open).
 - Inputs are bounded: names 32 characters, request bodies 16 KiB, WebSocket frames 1 KiB.
 
-### TRUST_PROXY on Render
+### The client address on Render (`CLIENT_IP_HEADER`, #210)
 
-Render puts a proxy in front of the service, so without `TRUST_PROXY` every request comes from the proxy's address
-and shares one rate-limit bucket: the first busy minute would lock every player out. Set `TRUST_PROXY=true` on
-Render, then check in the logs (`remoteAddress` of a request) that it is the client's address and not a Render
-internal one (10.x). If it is the proxy's, use a hop count (`TRUST_PROXY=2`) instead.
+Render puts Cloudflare and its own proxy in front of the service, and a sidecar inside the pod: the socket address is
+always `127.0.0.1`. With nothing set, every request shares one rate-limit bucket (the lobby create limit of 10 a minute,
+the 20 device tokens a day, all world-wide): one busy minute, or one script, locks every player out.
 
-Never set it where the backend is reachable directly (the docker-compose stack): a client could then send a fake
-`X-Forwarded-For` to dodge the limit.
+Set `CLIENT_IP_HEADER=cf-connecting-ip` on Render. Cloudflare sets that header to the client's address and answers 403 to
+a request that sets it itself, so a client cannot choose its bucket. When it is set, the server keys the limits on it and
+logs it as `remoteAddress`; a missing header, or one that is not an IP, falls back to the socket address.
+
+What a probe of the live service showed (2026-10-25, a request with its own headers set):
+
+| Header             | What the app received                                                                                                                                                                           |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CF-Connecting-IP` | the real client address; a client-set one is refused with 403 by the edge                                                                                                                       |
+| `True-Client-IP`   | the real client address (the edge overwrites a client-set one)                                                                                                                                  |
+| `X-Real-IP`        | absent                                                                                                                                                                                          |
+| `X-Forwarded-For`  | the client's own value first, then `client, Cloudflare, Render's proxy`: the real client is the 4th from the right, so `TRUST_PROXY=3` would also work, but breaks if a hop is added or removed |
+
+Check after a deploy: the request log's `remoteAddress` is the client's address (not `127.0.0.1` or `10.x`), and
+`x-ratelimit-remaining` on `GET /api/v1/races` drops only for your own address.
+
+`TRUST_PROXY` (`true`, `false` or a hop count) still sets `request.ip` when no header is configured. Never use `true` on
+Render: it takes the leftmost `X-Forwarded-For` entry, which the client writes. And never set either option where the
+backend is reachable without the platform's edge (the docker-compose stack): a client could then send a fake header to
+dodge the limit.
 
 ## Health Check
 
