@@ -14,6 +14,7 @@ import {
 import { LobbyError, LobbyStore, toPublicLobby } from './lobby_store.js';
 import { createRaceStore, type RaceStore } from './race_store.js';
 import { getRaceContext } from './tracks.js';
+import { must } from '../../src/game/must';
 import { activeSeatIndex } from '../../src/game/race/race_engine';
 import { replayRace, type RaceLog } from '../../src/game/race/race_log';
 import { RULES_VERSIONS } from '../../src/game/rules/ids';
@@ -32,6 +33,17 @@ const API_V1_PREFIX = '/api/v1';
 const REAP_INTERVAL_MS = 60_000;
 // A finished lobby only stays this long (after its last socket closes) for a late reload to see the results.
 const FINISHED_LINGER_MS = 10 * 60_000;
+
+// A resent command id gets its first answer back (a lost response, a double tap); only the newest ones are worth keeping.
+export const MAX_DEDUPED_RESULTS = 200;
+
+class RecentResults extends Map<string, TurnCommandResult> {
+  override set(key: string, value: TurnCommandResult): this {
+    super.set(key, value);
+    if (this.size > MAX_DEDUPED_RESULTS) this.delete(must(this.keys().next().value, 'oldest key'));
+    return this;
+  }
+}
 
 // The player token travels in the URL of the lobby read and the WebSocket; keep it out of the request log.
 export function redactTokens(url: string): string {
@@ -872,8 +884,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       }
 
       const dedupeKey = `${player.playerId}:${body.clientCommandId}`;
-      const lobbyDeduped =
-        dedupedResults.get(lobby.lobbyId) ?? new Map<string, TurnCommandResult>();
+      const lobbyDeduped = dedupedResults.get(lobby.lobbyId) ?? new RecentResults();
       dedupedResults.set(lobby.lobbyId, lobbyDeduped);
       const deduped = lobbyDeduped.get(dedupeKey);
       if (deduped) {
