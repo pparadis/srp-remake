@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { BackendConfig } from '../src/config.js';
 import { LobbyStore } from '../src/lobby_store.js';
-import { createApp } from '../src/server.js';
+import { createApp, MAX_DEDUPED_RESULTS } from '../src/server.js';
 import type { RaceState } from '../src/types.js';
 import { legalMove, playRaceToEnd, readLobby } from './helpers.js';
 
@@ -436,4 +436,17 @@ test('rules v3: a pit stop fits fresh tires and refuels to the load, and never t
     const car = (await readLobby(app, lobbyId, created.playerToken)).raceState.cars[0]!;
     assert.deepEqual([car.tire, car.fuel], [100, fuelAfter]);
   }
+});
+
+test('only the newest command results are remembered for resends', async (t) => {
+  const { app, submit } = await startRace();
+  t.after(() => app.close());
+  const illegal = { type: 'move', targetCellId: 'Z16_L3_00' } as const;
+
+  assert.equal((await submit(illegal, 'c-0')).statusCode, 409);
+  for (let i = 1; i <= MAX_DEDUPED_RESULTS; i += 1) await submit(illegal, `c-${i}`);
+
+  // c-0 is the 201st result: forgotten, so it is judged again (409); the newest is still replayed (200).
+  assert.equal((await submit(illegal, 'c-0')).statusCode, 409);
+  assert.equal((await submit(illegal, `c-${MAX_DEDUPED_RESULTS}`)).statusCode, 200);
 });
