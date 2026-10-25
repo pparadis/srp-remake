@@ -111,6 +111,11 @@ test('solo: a finished race is shared to the public history only when the settin
   // on: the next race is shared, once
   await gotoHome(page);
   await page.getByTestId('home-quick').click();
+  // the setting is inside the Quick race card, not hanging off its side
+  const card = (await page.locator('#screen-lobby .card').boundingBox())!;
+  const box = (await page.getByTestId('lobby-share').boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(card.x);
+  expect(box.x + box.width).toBeLessThanOrEqual(card.x + card.width);
   await page.getByTestId('lobby-share').check();
   await setLobbySettings(page, { bots: 2, laps: 1 });
   await startRace(page);
