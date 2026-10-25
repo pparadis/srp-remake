@@ -16,6 +16,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -40,9 +41,14 @@ jobs:
         run: npm run backend:test
       - name: Backend Build
         run: npm run backend:build
+      # Render builds this image from the repo root and copies only some folders, so a new backend import outside them
+      # passes backend:build above and fails there.
+      - name: Backend Docker image
+        run: docker build -f backend/Dockerfile .
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
