@@ -147,7 +147,7 @@ test("a token that is not this lobby's is a 401 on every route (the header gives
     ['PATCH', `${base}/settings`, { settings: { raceLaps: 2 } }],
     ['POST', `${base}/chat`, { text: 'hi' }],
     ['POST', `${base}/start`],
-    // not /reset: the store answers 409 "only a finished race can be reset" before it looks at the token
+    ['POST', `${base}/reset`],
     ['POST', `${base}/force-skip`],
     ['POST', `${base}/turns`, { clientCommandId: 'c', revision: 0, action: { type: 'skip' } }]
   ];

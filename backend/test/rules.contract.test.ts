@@ -227,6 +227,29 @@ test('reset: only the host may reset, only a naturally finished lobby, and a res
   await post(id, 'start', playerToken);
   assert.equal((await post(id, 'reset', playerToken)).statusCode, 409);
 
+  // The token and the host come before the state (#208): a stranger or a guest learns nothing about the race.
+  for (const action of ['start', 'reset']) {
+    assert.equal(
+      (await post(id, action, 'bogus')).statusCode,
+      401,
+      `${action}, in race, bad token`
+    );
+    assert.equal(
+      (await post(id, action, guest.playerToken)).statusCode,
+      403,
+      `${action}, in race, guest`
+    );
+  }
+  const settings = (playerToken: string) =>
+    app.inject({
+      method: 'PATCH',
+      url: `/api/v1/lobbies/${id}/settings`,
+      payload: { playerToken, settings: { raceLaps: 2 } }
+    });
+  assert.equal((await settings('bogus')).statusCode, 401);
+  assert.equal((await settings(guest.playerToken)).statusCode, 403);
+  assert.equal((await settings(playerToken)).statusCode, 409);
+
   // Finish the race by hand (two humans alternate; seat 2 is a bot played by the server).
   const tokens = [playerToken, guest.playerToken];
   for (let i = 0; i < 600; i += 1) {
@@ -271,9 +294,9 @@ test('reset: only the host may reset, only a naturally finished lobby, and a res
   // a terminated lobby stays dead
   const dead = await create();
   store.terminateLobby(dead.lobby.lobbyId, 'host_disconnected');
+  // (closing revokes every token, so the host is turned away at the token check)
   const refused = await post(dead.lobby.lobbyId, 'reset', dead.playerToken);
-  assert.equal(refused.statusCode, 409);
-  assert.match((refused.json() as { error: string }).error, /closed/);
+  assert.equal(refused.statusCode, 401);
   assert.equal(store.getLobby(dead.lobby.lobbyId)?.status, 'FINISHED');
 });
 
