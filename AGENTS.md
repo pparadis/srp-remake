@@ -19,7 +19,7 @@ Project guide for Codex and other automation.
   moves and pit choices and the turn by turn; names go in with `textContent`. A finished solo race is saved by
   `main.ts` (`saveRace` in `src/ui/recap_store.ts`: the last 10 in `localStorage["srp:races"]`, the scene sends the log
   in `srp:race-finished`), listed on the home screen and opened from the results screen; `recap_load.ts` builds the
-  recap lazily so the engine is not in the first bundle. Online: `GET /lobbies/:id/recap?playerToken=` gives `{ log,
+  recap lazily so the engine is not in the first bundle. Online: `GET /lobbies/:id/recap` (bearer player token) gives `{ log,
 names, trackId }` to a seated player once somebody has won (409 before, 401 bad token); the client asks for it as
   `srp:race-finished` arrives (`saveOnlineRace` in `main.ts`) and saves it like a solo race, so the Recap button shows
   once it is there. Reading a recap keeps the online session: Back returns to the lobby. The board replay (route
@@ -248,7 +248,7 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   `toSettingsPatch` in `server.ts`, `DEFAULT_SETTINGS` + `normalizeSettings` in `lobby_store.ts`, the client type
   in `src/net/backend_api.ts`, `index.html`, `src/main.ts`, and tests that assert on settings.
 - Rename (#78): every player has a "Racing as" field in the lobby card (`lobby-name`); `PATCH /lobbies/:id/player`
-  `{ playerToken, name }` (same 1-32 name rule, 60 a minute, 401 bad token, 409 once the race has started: names are
+  `{ name }` (same 1-32 name rule, 60 a minute, 401 bad token, 409 once the race has started: names are
   copied into the race) broadcasts `lobby.state`. The name goes to `srp:name` and the home field, so a reload rejoins
   with it. A guest with no saved name gets the field focused with a hint, after the join's busy state clears (a
   disabled field cannot take focus). Not `/join`: that is the reconnect path. A player with no saved name gets a
@@ -291,6 +291,14 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   400 UTF-16 units), shared by the client and the server. The panel is `src/ui/chat.ts`: one element that `main.ts`
   moves between the lobby card and the race HUD; messages go in with `textContent` only. Keys typed in any form field
   are skipped by `onKeyDown` and the C/M handler (`isTypingTarget`). Solo has no chat.
+- Player token in a header (#194 step 3): every lobby route reads it from `Authorization: Bearer` through
+  `playerTokenOf` in `server.ts` (the header wins; none, or over 64 characters, is a 401), so a new lobby route calls
+  that and never reads `playerToken` from its body or query. `BackendApiClient` sends it that way (`bearer()`), `start`,
+  `reset` and `force-skip` take no body, and the WebSocket keeps `?playerToken=` (a browser sets no header on one). For
+  one release the body and query fields still work, for a page loaded before the deploy: then delete the
+  `optionalPlayerTokenSchema` fields, `playerTokenOf`'s second argument, the `legacy` half of
+  `backend/test/player_token.contract.test.ts` and the old-form usages in the other contract tests. The store checks a
+  lobby's state before the token on `start` and `reset` (a 409 can come before a 401).
 - Backend hardening (#69): request logs redact `playerToken` (`redactTokens`); lobbies with no open socket are reaped
   (`LOBBY_IDLE_SECONDS`, finished ones after 10 min); inputs are bounded (names 32, body 16 KiB, WS frames 1 KiB,
   `MAX_LOBBIES`); routes are rate limited per IP (`@fastify/rate-limit`, limits at the route in `server.ts`). Behind a

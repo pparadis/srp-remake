@@ -47,7 +47,8 @@ class RecentResults extends Map<string, TurnCommandResult> {
   }
 }
 
-// The player token travels in the URL of the lobby read and the WebSocket; keep it out of the request log.
+// The player token travels in the URL of the WebSocket (a browser cannot set headers on one) and, for a page from before
+// #194 step 3, of the lobby read; keep it out of the request log.
 export function redactTokens(url: string): string {
   return url.replace(/([?&]playerToken=)[^&#]*/g, '$1[redacted]');
 }
@@ -116,6 +117,29 @@ function toSettingsPatch(
 const playerNameSchema = z.string().trim().min(1).max(32);
 const playerTokenSchema = z.string().min(1).max(64);
 
+// The player's token (#194 step 3) comes in `Authorization: Bearer`. The body or query field of the schemas below still
+// works for one release, for a page loaded before the deploy; then those fields and `playerTokenOf`'s second argument go.
+const optionalPlayerTokenSchema = playerTokenSchema.optional();
+
+interface BearerRequest {
+  headers: { authorization?: string | undefined };
+}
+
+// `Authorization: Bearer <token>`: the device token (#194) and the player token.
+function bearerOf(request: BearerRequest): string | undefined {
+  return /^Bearer (\S+)$/.exec(request.headers.authorization ?? '')?.[1];
+}
+
+// The header wins; `fromBodyOrQuery` is the one-release fallback. No token, or one that is too long, is a 401 like a token
+// the lobby does not know.
+function playerTokenOf(request: BearerRequest, fromBodyOrQuery: string | undefined): string {
+  const token = bearerOf(request) ?? fromBodyOrQuery;
+  if (!token || !playerTokenSchema.safeParse(token).success) {
+    throw new LobbyError(401, 'A player token is required.');
+  }
+  return token;
+}
+
 const createLobbySchema = z.object({
   name: playerNameSchema,
   settings: lobbySettingsPatchSchema.optional()
@@ -123,27 +147,28 @@ const createLobbySchema = z.object({
 
 const joinLobbySchema = z.object({
   name: playerNameSchema.optional(),
-  playerToken: playerTokenSchema.optional()
+  playerToken: optionalPlayerTokenSchema
 });
 
 const renamePlayerSchema = z.object({
-  playerToken: playerTokenSchema,
+  playerToken: optionalPlayerTokenSchema,
   name: playerNameSchema
 });
 
 const updateLobbySchema = z.object({
-  playerToken: playerTokenSchema,
+  playerToken: optionalPlayerTokenSchema,
   settings: lobbySettingsPatchSchema
 });
 
+// No body at all is fine now: the token is in the header.
 const startRaceSchema = z.object({
-  playerToken: playerTokenSchema
+  playerToken: optionalPlayerTokenSchema
 });
 
 const resetLobbySchema = startRaceSchema;
 
 const forceSkipSchema = z.object({
-  playerToken: playerTokenSchema,
+  playerToken: optionalPlayerTokenSchema,
   // The revision the host saw; refuses the skip if the stuck player moved in the meantime.
   revision: z.number().int().min(0).optional()
 });
@@ -170,7 +195,7 @@ const turnActionSchema = z.discriminatedUnion('type', [
 ]);
 
 const submitTurnSchema = z.object({
-  playerToken: playerTokenSchema,
+  playerToken: optionalPlayerTokenSchema,
   clientCommandId: z.string().min(1).max(64),
   revision: z.number().int().min(0),
   action: turnActionSchema
@@ -208,7 +233,7 @@ const raceListQuerySchema = z.object({
 const racePathSchema = z.object({ raceId: z.string().min(1).max(64) });
 
 const chatSchema = z.object({
-  playerToken: playerTokenSchema,
+  playerToken: optionalPlayerTokenSchema,
   // Generous: normalizeChatText applies the real limit (100 graphemes, 400 code units); this only bounds the work.
   text: z.string().max(2000)
 });
@@ -223,7 +248,7 @@ const wsQuerySchema = z.object({
 });
 
 const lobbyReadQuerySchema = z.object({
-  playerToken: playerTokenSchema
+  playerToken: optionalPlayerTokenSchema
 });
 
 function seatOf(lobby: Lobby) {
@@ -620,8 +645,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   const limit = (max: number, timeWindow = '1 minute') => ({ rateLimit: { max, timeWindow } });
 
   // The uploader's device (#194): a token this server signed, in `Authorization: Bearer`. What the history keeps is the hash.
-  function deviceOf(request: { headers: { authorization?: string | undefined } }): string {
-    const token = /^Bearer (\S+)$/.exec(request.headers.authorization ?? '')?.[1];
+  function deviceOf(request: BearerRequest): string {
+    const token = bearerOf(request);
     const id = token ? verifyDeviceToken(deviceSecret, token) : null;
     if (!id) throw new LobbyError(401, 'A device token is required.');
     return deviceHash(id);
@@ -656,22 +681,23 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   app.get(`${API_V1_PREFIX}/lobbies/:lobbyId/recap`, { config: limit(60) }, async (request) => {
     const params = lobbyPathSchema.parse(request.params);
     const query = lobbyReadQuerySchema.parse(request.query);
-    return lobbyStore.getRaceRecap(params.lobbyId, query.playerToken);
+    return lobbyStore.getRaceRecap(params.lobbyId, playerTokenOf(request, query.playerToken));
   });
 
   app.get(`${API_V1_PREFIX}/lobbies/:lobbyId`, { config: limit(240) }, async (request) => {
     const params = lobbyPathSchema.parse(request.params);
     const query = lobbyReadQuerySchema.parse(request.query);
+    const playerToken = playerTokenOf(request, query.playerToken);
     const lobby = lobbyStore.getLobby(params.lobbyId);
     if (!lobby) {
       throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
     }
 
-    const player = lobbyStore.findPlayerByToken(lobby, query.playerToken);
+    const player = lobbyStore.findPlayerByToken(lobby, playerToken);
     if (!player) {
       logMultiplayer('lobby.read.rejected', {
         lobbyId: params.lobbyId,
-        tokenFingerprint: tokenFingerprint(query.playerToken),
+        tokenFingerprint: tokenFingerprint(playerToken),
         reason: 'invalid_token'
       });
       throw new LobbyError(401, 'Invalid player token for this lobby.');
@@ -694,10 +720,11 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/join`, { config: limit(30) }, async (request) => {
     const params = lobbyPathSchema.parse(request.params);
     const body = joinLobbySchema.parse(request.body);
+    // A reconnect carries its token, a new player none; too long a token is refused like any other field.
     const { lobby, player, isReconnect } = lobbyStore.joinLobby(
       params.lobbyId,
       body.name,
-      body.playerToken
+      optionalPlayerTokenSchema.parse(bearerOf(request) ?? body.playerToken)
     );
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, 'lobby.state', publicLobby);
@@ -791,7 +818,11 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   app.patch(`${API_V1_PREFIX}/lobbies/:lobbyId/player`, { config: limit(60) }, async (request) => {
     const params = lobbyPathSchema.parse(request.params);
     const body = renamePlayerSchema.parse(request.body);
-    const lobby = lobbyStore.renamePlayer(params.lobbyId, body.playerToken, body.name);
+    const lobby = lobbyStore.renamePlayer(
+      params.lobbyId,
+      playerTokenOf(request, body.playerToken),
+      body.name
+    );
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, 'lobby.state', publicLobby);
     return { lobby: publicLobby };
@@ -805,7 +836,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       const body = updateLobbySchema.parse(request.body);
       const lobby = lobbyStore.updateSettings(
         params.lobbyId,
-        body.playerToken,
+        playerTokenOf(request, body.playerToken),
         toSettingsPatch(body.settings) ?? {}
       );
       const publicLobby = toPublicLobby(lobby);
@@ -822,8 +853,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/start`, { config: limit(240) }, async (request) => {
     const params = lobbyPathSchema.parse(request.params);
-    const body = startRaceSchema.parse(request.body);
-    const lobby = lobbyStore.startRace(params.lobbyId, body.playerToken);
+    const body = startRaceSchema.parse(request.body ?? {});
+    const lobby = lobbyStore.startRace(params.lobbyId, playerTokenOf(request, body.playerToken));
     armTurnTimer(lobby.lobbyId);
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, 'race.started', publicLobby);
@@ -841,8 +872,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   app.post(`${API_V1_PREFIX}/lobbies/:lobbyId/reset`, { config: limit(240) }, async (request) => {
     const params = lobbyPathSchema.parse(request.params);
-    const body = resetLobbySchema.parse(request.body);
-    const lobby = lobbyStore.resetLobby(params.lobbyId, body.playerToken);
+    const body = resetLobbySchema.parse(request.body ?? {});
+    const lobby = lobbyStore.resetLobby(params.lobbyId, playerTokenOf(request, body.playerToken));
     clearTurnTimer(lobby.lobbyId);
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, 'lobby.state', publicLobby);
@@ -859,12 +890,13 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     { config: limit(240) },
     async (request) => {
       const params = lobbyPathSchema.parse(request.params);
-      const body = forceSkipSchema.parse(request.body);
+      const body = forceSkipSchema.parse(request.body ?? {});
+      const playerToken = playerTokenOf(request, body.playerToken);
       const lobby = lobbyStore.getLobby(params.lobbyId);
       if (!lobby) {
         throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
       }
-      const host = lobbyStore.findPlayerByToken(lobby, body.playerToken);
+      const host = lobbyStore.findPlayerByToken(lobby, playerToken);
       if (!host) {
         throw new LobbyError(401, 'Invalid player token for this lobby.');
       }
@@ -892,7 +924,11 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     async (request, reply) => {
       const params = lobbyPathSchema.parse(request.params);
       const body = chatSchema.parse(request.body);
-      const message = lobbyStore.addChatMessage(params.lobbyId, body.playerToken, body.text);
+      const message = lobbyStore.addChatMessage(
+        params.lobbyId,
+        playerTokenOf(request, body.playerToken),
+        body.text
+      );
       broadcast(params.lobbyId, 'chat.message', message);
       return reply.code(201).send({ message });
     }
@@ -904,16 +940,17 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     async (request, reply) => {
       const params = lobbyPathSchema.parse(request.params);
       const body = submitTurnSchema.parse(request.body);
+      const playerToken = playerTokenOf(request, body.playerToken);
       const lobby = lobbyStore.getLobby(params.lobbyId);
       if (!lobby) {
         throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
       }
-      const player = lobbyStore.findPlayerByToken(lobby, body.playerToken);
+      const player = lobbyStore.findPlayerByToken(lobby, playerToken);
       if (!player) {
         logMultiplayer('turn.submit.rejected', {
           lobbyId: params.lobbyId,
           clientCommandId: body.clientCommandId,
-          tokenFingerprint: tokenFingerprint(body.playerToken),
+          tokenFingerprint: tokenFingerprint(playerToken),
           reason: 'invalid_token'
         });
         throw new LobbyError(401, 'Invalid player token for this lobby.');

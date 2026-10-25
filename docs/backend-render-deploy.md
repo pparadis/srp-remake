@@ -119,8 +119,10 @@ seconds; the server never waits for it (an online race is stored after its end, 
 ## Security notes
 
 - A player token is a bearer secret: whoever has it plays that seat until it expires (`PLAYER_TOKEN_TTL_SECONDS`,
-  24 h) or the lobby ends. It travels in the URL of the lobby read and the WebSocket, so the request log replaces
-  `playerToken=` values with `[redacted]`. App log lines carry a short fingerprint instead.
+  24 h) or the lobby ends. It travels in `Authorization: Bearer` (#194), which the request log never records; only the
+  WebSocket URL still carries it (a browser cannot set a header there), and a page from before that change put it in the
+  URL of the lobby read too, so the request log replaces `playerToken=` values with `[redacted]`. App log lines carry a
+  short fingerprint instead.
 - Set `CORS_ALLOWED_ORIGINS` to the frontend origin in production. The default `*` is for local development
   (CORS is not an auth boundary here, but there is no reason to leave it open).
 - Inputs are bounded: names 32 characters, request bodies 16 KiB, WebSocket frames 1 KiB.

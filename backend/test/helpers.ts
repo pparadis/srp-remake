@@ -27,10 +27,14 @@ export function legalMove(raceState: RaceState): RaceAction {
 
 type InjectApp = Awaited<ReturnType<typeof import('../src/server.js').createApp>>;
 
+// The player's token as the client sends it (#194 step 3).
+export const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
 export async function readLobby(app: InjectApp, lobbyId: string, playerToken: string) {
   const res = await app.inject({
     method: 'GET',
-    url: `/api/v1/lobbies/${lobbyId}?playerToken=${encodeURIComponent(playerToken)}`
+    url: `/api/v1/lobbies/${lobbyId}`,
+    headers: bearer(playerToken)
   });
   return (
     res.json() as {
@@ -52,8 +56,8 @@ export async function playRaceToEnd(
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/lobbies/${lobbyId}/turns`,
+      headers: bearer(playerToken),
       payload: {
-        playerToken,
         clientCommandId: `${idPrefix}-${i}`,
         revision: lobby.revision,
         action: legalMove(lobby.raceState)

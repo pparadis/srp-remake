@@ -110,7 +110,7 @@ Rationale:
 
 1. On first join, client submits nickname and receives `playerId` (lobby-scoped identity) and `playerToken` (opaque secret).
 2. Client stores the session (`lobbyId`, `playerId`, `playerToken`) in `sessionStorage` under `srp:session:{lobbyId}`: it survives a reload of the tab (which rejoins with the same token) but a second tab is a new player.
-3. On reconnect, client sends `lobbyId + playerToken` (`POST /join` with `playerToken`, then the WebSocket).
+3. On reconnect, client sends `lobbyId + playerToken` (`POST /join` with the bearer token, then the WebSocket).
 4. Server maps token to existing player seat and restores control.
 5. Tokens are invalidated when the lobby expires, host destroys the lobby, or player is removed/kicked.
 
@@ -142,25 +142,31 @@ Authoritative match state should include:
 
 ## Network Protocol
 
-REST under `/api/v1` (JSON), plus a WebSocket at `/ws?lobbyId=&playerToken=` for server pushes. Commands
-are always REST; the socket only carries events to the client.
+REST under `/api/v1` (JSON), plus a WebSocket at `/ws?lobbyId=&playerToken=` for server pushes (a browser cannot set a
+header on a WebSocket, so it is the one place the token stays in a URL). Commands are always REST; the socket only
+carries events to the client.
+
+The player token (#194) travels in `Authorization: Bearer <playerToken>` on every REST route below that has a seat to
+speak for, so it is never in a URL or a body (and not in a proxy's log). A missing token, or one over 64 characters, is
+`401`. For one release the old forms still work, for a page loaded before the deploy: `playerToken` in the body, or in
+the query of the two `GET`s. The header wins when both are sent. Those fields go in the release after.
 
 REST:
 
 - `GET /health` (also used by the client to wake a sleeping server).
 - `POST /lobbies` `{ name, settings? }` creates a lobby (`201`, returns `playerId` + `playerToken`).
-- `GET /lobbies/:lobbyId?playerToken=` reads the lobby (`401` for a bad token, `404` unknown lobby).
-- `POST /lobbies/:lobbyId/join` `{ name?, playerToken? }` joins, or rejoins with a token.
-- `PATCH /lobbies/:lobbyId/settings` `{ playerToken, settings }` (host, while `WAITING`).
-- `POST /lobbies/:lobbyId/start` `{ playerToken }` (host).
-- `POST /lobbies/:lobbyId/reset` `{ playerToken }` (host, play again).
-- `POST /lobbies/:lobbyId/force-skip` `{ playerToken, revision? }` (host): the server plays one autopilot
+- `GET /lobbies/:lobbyId` reads the lobby (`401` for a bad token, `404` unknown lobby).
+- `POST /lobbies/:lobbyId/join` `{ name? }` joins; with the bearer token it rejoins as that player.
+- `PATCH /lobbies/:lobbyId/settings` `{ settings }` (host, while `WAITING`).
+- `POST /lobbies/:lobbyId/start` (host, no body).
+- `POST /lobbies/:lobbyId/reset` (host, play again, no body).
+- `POST /lobbies/:lobbyId/force-skip` `{ revision? }` (host, the body is optional): the server plays one autopilot
   turn for the active human seat. `401` bad token, `403` non-host, `404` unknown lobby, `409` unless the race
   is `IN_RACE` with a human seat to play (or `revision` is stale).
-- `POST /lobbies/:lobbyId/chat` `{ playerToken, text }` (`201` with the `message`). Any lobby status. `401` bad
+- `POST /lobbies/:lobbyId/chat` `{ text }` (`201` with the `message`). Any lobby status. `401` bad
   token, `400` when `normalizeChatText` (`src/game/chat_text.ts`) refuses the text (empty, over 100 graphemes or 400
   UTF-16 units), `429` for a second message within 1 s of the player's last (plus the per-IP limit).
-- `POST /lobbies/:lobbyId/turns` `{ playerToken, clientCommandId, revision, action }` where `action` is
+- `POST /lobbies/:lobbyId/turns` `{ clientCommandId, revision, action }` where `action` is
   `{ type: "move", targetCellId }`, `{ type: "pit", targetCellId, setup }`, `{ type: "skip" }` or
   `{ type: "setup", setup }` (grid setup: free, before the car's first move, does not end the turn or advance
   `turnIndex`; refused with `setup_locked` afterwards).
@@ -312,7 +318,7 @@ Built:
   the client renders it as-is (non-optimistic: input is locked until the server answers).
 - WebSocket sync (`lobby.state`, `race.started`, `race.state`, `turn.applied`, `race.ended`) with client
   reconnect and rehydrate.
-- Play again: `POST /api/v1/lobbies/:lobbyId/reset` (host only, body `{ playerToken }`) returns a lobby that
+- Play again: `POST /api/v1/lobbies/:lobbyId/reset` (host only, bearer token, no body) returns a lobby that
   finished by `race_finished` to `WAITING` (race state, winner and `terminationReason` cleared, `revision`
   bumped; players, tokens and settings kept) and broadcasts `lobby.state`. `409` if the lobby is not
   `FINISHED` or was closed (host disconnect: tokens are revoked, it stays dead); `403` for a non-host.
