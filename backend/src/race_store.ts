@@ -76,7 +76,11 @@ function summaryOf(id: string, finishedAt: number, race: NewRace): StoredRaceSum
 // One device may hold this many races of the history; its next one replaces its own oldest, never another device's.
 export const MAX_RACES_PER_DEVICE = 50;
 
-/** Dev and tests, and the server when no `DATABASE_URL` is set: kept until the process ends, the newest `limit` only. */
+// Over its limit, the history drops the oldest race of the owner holding the most (#194). An owner is a device, or a race
+// with no device (an online one) on its own, so those go only when nobody holds more than one. A tie goes to the owner whose
+// oldest race is oldest. So a script that mints tokens takes races from its own tokens, not from real players'.
+
+/** Dev and tests, and the server when no `DATABASE_URL` is set: kept until the process ends, `limit` races at most. */
 export class MemoryRaceStore implements RaceStore {
   private readonly races: Array<{ race: StoredRace; device: string | undefined }> = [];
 
@@ -101,8 +105,32 @@ export class MemoryRaceStore implements RaceStore {
         this.races.splice(this.races.indexOf(stored), 1);
       }
     }
-    this.races.length = Math.min(this.races.length, this.limit);
+    while (this.races.length > this.limit) this.evictFromHeaviest();
     return Promise.resolve({ id, duplicate: false });
+  }
+
+  private evictFromHeaviest(): void {
+    // `races` is newest first, so the last index an owner turns up at is its oldest race.
+    const owners = new Map<string, { count: number; oldest: number }>();
+    this.races.forEach(({ race, device }, index) => {
+      const owner = device ?? race.id;
+      const entry = owners.get(owner);
+      if (entry) {
+        entry.count += 1;
+        entry.oldest = index;
+      } else {
+        owners.set(owner, { count: 1, oldest: index });
+      }
+    });
+    let heaviest = 0;
+    let oldest = -1;
+    for (const entry of owners.values()) {
+      if (entry.count > heaviest || (entry.count === heaviest && entry.oldest > oldest)) {
+        heaviest = entry.count;
+        oldest = entry.oldest;
+      }
+    }
+    this.races.splice(oldest, 1);
   }
 
   list(limit: number): Promise<StoredRaceSummary[]> {
@@ -232,13 +260,29 @@ export class PgRaceStore implements RaceStore {
         [race.device, this.perDevice]
       );
     }
-    // The table is public and anonymous, so it stays a window on the newest races like the memory store. Chosen by
-    // `offset` and not by `seq` arithmetic: the serial skips numbers (a conflict uses one up).
-    await this.pool.query(
-      'delete from races where id in (select id from races order by seq desc offset $1)',
-      [this.limit]
-    );
+    // The table is public and anonymous, so it stays under `limit` like the memory store.
+    await this.evictOverLimit();
     return { id, duplicate: false };
+  }
+
+  // Plain selects and a delete by id, not one delete over a subquery: pg-mem deletes every matching row for that form
+  // (it is right on Postgres), and `group by 1` crashes it (#206). `count(*)` is a string from `pg`.
+  private async evictOverLimit(): Promise<void> {
+    for (;;) {
+      const total = await this.pool.query<{ n: string }>('select count(*) as n from races');
+      if (Number(total.rows[0]?.n) <= this.limit) return;
+      const owner = await this.pool.query<{ owner: string }>(
+        `select coalesce(device, id) as owner from races
+         group by coalesce(device, id) order by count(*) desc, min(seq) asc limit 1`
+      );
+      const victim = await this.pool.query<{ id: string }>(
+        'select id from races where coalesce(device, id) = $1 order by seq asc limit 1',
+        [owner.rows[0]?.owner]
+      );
+      const id = victim.rows[0]?.id;
+      if (!id) return;
+      await this.pool.query('delete from races where id = $1', [id]);
+    }
   }
 
   async list(limit: number): Promise<StoredRaceSummary[]> {

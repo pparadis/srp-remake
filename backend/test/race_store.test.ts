@@ -175,3 +175,53 @@ for (const [name, make] of perDeviceStores) {
     assert.equal((await store.list(10)).length, 4);
   });
 }
+
+// Over its limit, the history drops the oldest race of the owner holding the most (a race with no device is its own owner).
+const limitedStores = (limit: number): Array<[string, () => RaceStore]> => [
+  ['memory', () => new MemoryRaceStore(limit)],
+  [
+    'postgres (pg-mem)',
+    () => new PgRaceStore(new (newDb().adapters.createPg().Pool)(), null, limit)
+  ]
+];
+const insertFrom = (store: RaceStore, device: string | undefined, seed: number) =>
+  store.insert({ ...finishedRace(seed), ...(device ? { device } : {}) }).then(({ id }) => id);
+const keptIds = async (store: RaceStore) => (await store.list(10)).map((race) => race.id).sort();
+
+for (const [name, make] of limitedStores(5)) {
+  test(`${name}: a device that floods the history loses its own races, not other people's`, async (t) => {
+    const store = make();
+    t.after(() => store.close());
+    const online = await insertFrom(store, undefined, 10);
+    const x = await insertFrom(store, 'xxxx', 11);
+    const y = await insertFrom(store, 'yyyy', 12);
+    const flood: string[] = [];
+    for (const seed of [1, 2, 3, 4]) flood.push(await insertFrom(store, 'ffff', seed));
+    assert.deepEqual(await keptIds(store), [online, x, y, flood[2]!, flood[3]!].sort());
+  });
+}
+
+for (const [name, make] of limitedStores(3)) {
+  test(`${name}: when nobody holds more than one, the oldest goes, a race with no device included`, async (t) => {
+    const store = make();
+    t.after(() => store.close());
+    await insertFrom(store, undefined, 1);
+    const a = await insertFrom(store, 'aaaa', 2);
+    const online = await insertFrom(store, undefined, 3);
+    const b = await insertFrom(store, 'bbbb', 4); // the one just stored is never the one that goes
+    assert.deepEqual(await keptIds(store), [a, online, b].sort());
+  });
+}
+
+for (const [name, make] of limitedStores(4)) {
+  test(`${name}: a tie goes to the owner whose oldest race is the oldest`, async (t) => {
+    const store = make();
+    t.after(() => store.close());
+    await insertFrom(store, 'bbbb', 1);
+    const a1 = await insertFrom(store, 'aaaa', 2);
+    const a2 = await insertFrom(store, 'aaaa', 3);
+    const b2 = await insertFrom(store, 'bbbb', 4);
+    const c = await insertFrom(store, 'cccc', 5); // a and b hold two each; b's first race is older than a's
+    assert.deepEqual(await keptIds(store), [a1, a2, b2, c].sort());
+  });
+}
