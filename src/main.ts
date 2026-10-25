@@ -19,7 +19,8 @@ import { createChat, isChatMessage } from './ui/chat';
 import { isCompactHud } from './ui/layout';
 import { isTypingTarget } from './ui/typing';
 import type { RaceLog } from './game/race/race_log';
-import type { Replay } from './ui/replay_load';
+import { mountReplayBar } from './ui/replay_bar';
+import { loadRemoteRace } from './ui/remote_race';
 import { mountRecapPage } from './ui/recap_page';
 import { mountHistoryPage } from './ui/history_page';
 import { importFresh } from './ui/lazy';
@@ -449,7 +450,8 @@ interface RaceComposition {
 
 // What the game scene is built from: the lobby's settings online, the lobby card offline.
 function getComposition(): RaceComposition {
-  if (replayRun) return replayRun.composition;
+  const replaying = replayBar.current();
+  if (replaying) return replaying.composition;
   if (mode === 'online' && lastLobby) {
     const { trackId, totalCars, humanCars, botCars, raceLaps, botLevel } = lastLobby.settings;
     return {
@@ -499,7 +501,7 @@ function showScreen(screen: Screen) {
     destroyGame();
     results.hidden = true;
     raceOver = false;
-    stopReplay();
+    replayBar.stop();
   }
   setHomeTrackRunning(homeTrack, screen === 'home');
   // the race screen can leave the page (or the home screen) scrolled; a screen opens at its top. Only on a change:
@@ -656,24 +658,6 @@ async function openHistory() {
   }
 }
 
-// A race of the public history, as the recap and the replay take it: the log has no names, so cars are told apart by seat.
-async function loadRemoteRace(id: string): Promise<SavedRace> {
-  const race = await backendClient.readRace(id);
-  const names: Record<string, string> = {};
-  race.log.seats.forEach((seat, i) => {
-    names[String(i + 1)] = seat.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
-  });
-  const laps = race.log.raceLaps;
-  return {
-    id: race.id,
-    finishedAt: race.finishedAt,
-    trackId: race.trackId,
-    label: `${race.source === 'online' ? 'Online' : 'Solo'}, ${laps} ${laps === 1 ? 'lap' : 'laps'}, ${names[String(race.winnerCarId)] ?? 'someone'} won`,
-    names,
-    log: race.log
-  };
-}
-
 // null: not there (a race of this browser that was dropped, or an id the server does not know); it has been said.
 async function loadRace(id: string, remote: boolean): Promise<SavedRace | null> {
   if (!remote) {
@@ -682,7 +666,7 @@ async function loadRace(id: string, remote: boolean): Promise<SavedRace | null> 
     return saved;
   }
   try {
-    return await loadRemoteRace(id);
+    return await loadRemoteRace(backendClient, id);
   } catch (error) {
     const missing = error instanceof BackendApiError && error.status === 404;
     kickToHome(
@@ -711,76 +695,16 @@ async function openRecap(id: string, remote: boolean) {
 // A saved race on the real board: the race scene watches it like an online race it takes no part in, and each state of the
 // race is sent to it as the lobby state the server would have sent.
 
-interface ReplayRun {
-  raceId: string;
-  remote: boolean;
-  replay: Replay;
-  at: number;
-  composition: RaceComposition;
-  timer: number | null;
-}
-let replayRun: ReplayRun | null = null;
-const replayBar = el('replayBar');
-const replayPrevBtn = el<HTMLButtonElement>('replayPrevBtn');
-const replayNextBtn = el<HTMLButtonElement>('replayNextBtn');
-const replayPlayBtn = el<HTMLButtonElement>('replayPlayBtn');
-const REPLAY_STEP_MS = 1100;
-
-function renderReplayBar() {
-  replayBar.hidden = replayRun === null;
-  if (!replayRun) return;
-  const last = replayRun.replay.count - 1;
-  el('replayCount').textContent = `${replayRun.at} / ${last}`;
-  el('replayText').textContent = replayRun.replay.textAt(replayRun.at) || 'On the grid';
-  replayPrevBtn.disabled = replayRun.at <= 0;
-  replayNextBtn.disabled = replayRun.at >= last;
-  replayPlayBtn.textContent = replayRun.timer === null ? 'Play' : 'Pause';
-}
-
-function sendReplayState() {
-  if (!replayRun) return;
-  window.dispatchEvent(
-    new CustomEvent<BackendLobbyStateEventDetail>('srp:backend-lobby-state', {
-      detail: { lobby: replayRun.replay.lobbyAt(replayRun.at), source: 'replay', localPlayerId: '' }
-    })
-  );
-  renderReplayBar();
-}
-
-function pauseReplay() {
-  if (replayRun?.timer != null) window.clearInterval(replayRun.timer);
-  if (replayRun) replayRun.timer = null;
-}
-
-function stopReplay() {
-  pauseReplay();
-  replayRun = null;
-  renderReplayBar();
-}
-
-/** Moves the replay to state `to` (clamped); the scene glides the cars that moved. */
-function stepReplay(to: number) {
-  if (!replayRun) return;
-  const at = Math.max(0, Math.min(replayRun.replay.count - 1, to));
-  if (at === replayRun.at) return;
-  replayRun.at = at;
-  if (at >= replayRun.replay.count - 1) pauseReplay();
-  sendReplayState();
-}
-
-function toggleReplayPlay() {
-  if (!replayRun) return;
-  if (replayRun.timer !== null) {
-    pauseReplay();
-    renderReplayBar();
-    return;
-  }
-  if (replayRun.at >= replayRun.replay.count - 1) replayRun.at = 0;
-  replayRun.timer = window.setInterval(() => {
-    if (replayRun) stepReplay(replayRun.at + 1);
-  }, REPLAY_STEP_MS);
-  sendReplayState();
-}
+// The bar, the stepping and the play timer are `src/ui/replay_bar.ts`; opening the game for the replay is here.
+const replayBar = mountReplayBar<RaceComposition>(el('replayBar'), {
+  sendState: (lobby) =>
+    window.dispatchEvent(
+      new CustomEvent<BackendLobbyStateEventDetail>('srp:backend-lobby-state', {
+        detail: { lobby, source: 'replay', localPlayerId: '' }
+      })
+    ),
+  openRecap: (id, remote) => navigate({ name: 'recap', id, ...(remote ? { remote: true } : {}) })
+});
 
 async function openReplay(id: string, remote: boolean) {
   const saved = await loadRace(id, remote);
@@ -792,13 +716,11 @@ async function openReplay(id: string, remote: boolean) {
     destroyGame();
     results.hidden = true;
     raceOver = false;
-    stopReplay();
-    replayRun = {
+    replayBar.start({
       raceId: id,
       remote,
       replay,
       at: Math.max(0, Math.min(replay.count - 1, replayStart)),
-      timer: null,
       composition: {
         trackId: saved.trackId,
         totalCars: cars,
@@ -809,41 +731,13 @@ async function openReplay(id: string, remote: boolean) {
         seed: saved.log.seed,
         rulesVersion: saved.log.rulesVersion
       }
-    };
+    });
     replayStart = 0;
-    renderReplayBar();
     await ensureGameStarted();
   } catch (error) {
     kickToHome(`Could not open the replay (${toErrorText(error)}).`);
   }
 }
-
-replayPrevBtn.addEventListener('click', () => {
-  pauseReplay();
-  if (replayRun) stepReplay(replayRun.at - 1);
-});
-replayNextBtn.addEventListener('click', () => {
-  pauseReplay();
-  if (replayRun) stepReplay(replayRun.at + 1);
-});
-replayPlayBtn.addEventListener('click', toggleReplayPlay);
-el('replayRecapBtn').addEventListener('click', () => {
-  if (replayRun) {
-    navigate({
-      name: 'recap',
-      id: replayRun.raceId,
-      ...(replayRun.remote ? { remote: true } : {})
-    });
-  }
-});
-window.addEventListener('keydown', (event) => {
-  if (!replayRun || isTypingTarget() || event.ctrlKey || event.metaKey) return;
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    pauseReplay();
-    stepReplay(replayRun.at + (event.key === 'ArrowRight' ? 1 : -1));
-    event.preventDefault();
-  }
-});
 
 function renderLobby() {
   const online = mode === 'online';
@@ -1095,7 +989,7 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
     players: lobby.players.length
   });
   // a board replay owns the scene: the live race must not reach it
-  if (!replayRun) {
+  if (!replayBar.current()) {
     window.dispatchEvent(
       new CustomEvent<BackendLobbyStateEventDetail>('srp:backend-lobby-state', {
         detail: { lobby, source, localPlayerId: backendSession.playerId }
@@ -1198,7 +1092,7 @@ function handleBackendWsEvent(eventName: string, payload: unknown) {
             applied.type === 'setup') &&
           (applied.targetCellId === undefined || typeof applied.targetCellId === 'string')
         ) {
-          if (!replayRun) {
+          if (!replayBar.current()) {
             window.dispatchEvent(
               new CustomEvent<BackendTurnAppliedEventDetail>('srp:backend-turn-applied', {
                 detail: {
@@ -1688,7 +1582,7 @@ window.addEventListener('srp:toast', (event) => {
 });
 
 window.addEventListener('srp:race-finished', (event) => {
-  if (replayRun) return; // the replay reaching the flag is not a race ending
+  if (replayBar.current()) return; // the replay reaching the flag is not a race ending
   const detail = (
     event as CustomEvent<{ winnerCarId: number | null; recap?: FinishedRaceRecap | null }>
   ).detail;
@@ -1709,8 +1603,8 @@ resultsRecapBtn.addEventListener('click', () => {
 
 // The scene starts listening only after it is built: hand it the latest lobby state.
 window.addEventListener('srp:scene-ready', () => {
-  if (replayRun) {
-    sendReplayState();
+  if (replayBar.current()) {
+    replayBar.send();
     return;
   }
   if (mode !== 'online' || !backendSession || !lastLobby) return;
