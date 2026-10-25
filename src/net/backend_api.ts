@@ -168,6 +168,11 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '');
 }
 
+// The player token and the device token both travel as a bearer token (#194), never in a URL or a body.
+function bearer(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
+}
+
 const DEVICE_KEY = 'srp:device';
 
 // A sleeping free-plan server needs about a minute for its first response.
@@ -223,31 +228,42 @@ export class BackendApiClient {
   }
 
   joinLobby(lobbyId: string, name: string, playerToken?: string): Promise<JoinLobbyResponse> {
-    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/join`, {
-      name,
-      ...(playerToken ? { playerToken } : {})
-    });
+    // A reconnect sends its token, a new player none.
+    return this.request(
+      'POST',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/join`,
+      { name },
+      playerToken ? bearer(playerToken) : undefined
+    );
   }
 
   // Only while the lobby is waiting (409 after); the answer is the new lobby state, also broadcast on the socket.
   renamePlayer(lobbyId: string, playerToken: string, name: string): Promise<StartRaceResponse> {
-    return this.request('PATCH', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/player`, {
-      playerToken,
-      name
-    });
+    return this.request(
+      'PATCH',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/player`,
+      { name },
+      bearer(playerToken)
+    );
   }
 
   startRace(lobbyId: string, playerToken: string): Promise<StartRaceResponse> {
-    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/start`, {
-      playerToken
-    });
+    return this.request(
+      'POST',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/start`,
+      undefined,
+      bearer(playerToken)
+    );
   }
 
   // Host only: a finished (not closed) lobby goes back to WAITING.
   resetLobby(lobbyId: string, playerToken: string): Promise<StartRaceResponse> {
-    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/reset`, {
-      playerToken
-    });
+    return this.request(
+      'POST',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/reset`,
+      undefined,
+      bearer(playerToken)
+    );
   }
 
   updateSettings(
@@ -255,21 +271,31 @@ export class BackendApiClient {
     playerToken: string,
     settings: Partial<PublicLobby['settings']>
   ): Promise<StartRaceResponse> {
-    return this.request('PATCH', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/settings`, {
-      playerToken,
-      settings
-    });
+    return this.request(
+      'PATCH',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/settings`,
+      { settings },
+      bearer(playerToken)
+    );
   }
 
   readLobby(lobbyId: string, playerToken: string): Promise<ReadLobbyResponse> {
-    const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}?playerToken=${encodeURIComponent(playerToken)}`;
-    return this.request('GET', path);
+    return this.request(
+      'GET',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}`,
+      undefined,
+      bearer(playerToken)
+    );
   }
 
   // The finished race as data (#169), for the recap: 409 until somebody has won, 401 for a bad token.
   readRecap(lobbyId: string, playerToken: string): Promise<RaceRecapResponse> {
-    const path = `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/recap?playerToken=${encodeURIComponent(playerToken)}`;
-    return this.request('GET', path);
+    return this.request(
+      'GET',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/recap`,
+      undefined,
+      bearer(playerToken)
+    );
   }
 
   // The anonymous device token (#194): minted once and kept in this browser. `fresh` replaces it (the server did not
@@ -301,7 +327,7 @@ export class BackendApiClient {
         'POST',
         '/api/v1/races',
         { trackId, log },
-        { Authorization: `Bearer ${await this.deviceToken(fresh)}` }
+        bearer(await this.deviceToken(fresh))
       );
     try {
       return await send(false);
@@ -322,18 +348,22 @@ export class BackendApiClient {
 
   // Host only: the server plays one autopilot turn for the stuck human seat.
   forceSkip(lobbyId: string, playerToken: string, revision?: number): Promise<StartRaceResponse> {
-    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/force-skip`, {
-      playerToken,
-      ...(revision !== undefined ? { revision } : {})
-    });
+    return this.request(
+      'POST',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/force-skip`,
+      revision !== undefined ? { revision } : undefined,
+      bearer(playerToken)
+    );
   }
 
   // The server applies the same rule as `normalizeChatText`; a 400 says the text was refused, a 429 to wait a second.
   sendChat(lobbyId: string, playerToken: string, text: string): Promise<{ message: ChatMessage }> {
-    return this.request('POST', `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/chat`, {
-      playerToken,
-      text
-    });
+    return this.request(
+      'POST',
+      `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/chat`,
+      { text },
+      bearer(playerToken)
+    );
   }
 
   // Cheap request that wakes a sleeping server; `sha` is the commit it runs (absent on an older server).
@@ -353,7 +383,8 @@ export class BackendApiClient {
       return await this.request<SubmitTurnResponse>(
         'POST',
         `/api/v1/lobbies/${encodeURIComponent(lobbyId)}/turns`,
-        { playerToken, revision, clientCommandId, action }
+        { revision, clientCommandId, action },
+        bearer(playerToken)
       );
     } catch (error) {
       if (

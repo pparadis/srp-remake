@@ -105,7 +105,7 @@ Expected shape:
 ## Minimal API Surface (Scaffold)
 
 - `POST /api/v1/lobbies`
-- `GET /api/v1/lobbies/:lobbyId?playerToken=...`
+- `GET /api/v1/lobbies/:lobbyId` (player token in `Authorization: Bearer`)
 - `POST /api/v1/lobbies/:lobbyId/join`
 - `PATCH /api/v1/lobbies/:lobbyId/settings`
 - `POST /api/v1/lobbies/:lobbyId/start`

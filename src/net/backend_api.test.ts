@@ -10,9 +10,14 @@ function stubFetch(status: number, body: string) {
 function lastCall(fetchMock: ReturnType<typeof stubFetch>) {
   const [url, init] = fetchMock.mock.calls.at(-1) as unknown as [
     string,
-    { method: string; body?: string }
+    { method: string; body?: string; headers?: Record<string, string> }
   ];
-  return { url, method: init.method, body: init.body ? JSON.parse(String(init.body)) : undefined };
+  return {
+    url,
+    method: init.method,
+    body: init.body ? JSON.parse(String(init.body)) : undefined,
+    auth: init.headers?.Authorization
+  };
 }
 
 describe('BackendApiClient', () => {
@@ -40,47 +45,89 @@ describe('BackendApiClient', () => {
       body: { name: 'Host', settings }
     });
 
+    // a new player sends no token; a reconnect sends it as a bearer token, not in the body
     await client.joinLobby('a b', 'Guest');
-    expect(lastCall(fetchMock)).toMatchObject({
+    expect(lastCall(fetchMock)).toEqual({
       url: 'http://api.test/api/v1/lobbies/a%20b/join',
+      method: 'POST',
       body: { name: 'Guest' }
     });
 
     await client.joinLobby('L1', 'Guest', 'tok');
-    expect(lastCall(fetchMock).body).toEqual({ name: 'Guest', playerToken: 'tok' });
+    expect(lastCall(fetchMock)).toMatchObject({ body: { name: 'Guest' }, auth: 'Bearer tok' });
 
     await client.startRace('L1', 'tok');
-    expect(lastCall(fetchMock)).toMatchObject({
+    expect(lastCall(fetchMock)).toEqual({
       url: 'http://api.test/api/v1/lobbies/L1/start',
-      body: { playerToken: 'tok' }
+      method: 'POST',
+      body: undefined,
+      auth: 'Bearer tok'
     });
 
     await client.resetLobby('L1', 'tok');
-    expect(lastCall(fetchMock)).toMatchObject({
+    expect(lastCall(fetchMock)).toEqual({
       url: 'http://api.test/api/v1/lobbies/L1/reset',
       method: 'POST',
-      body: { playerToken: 'tok' }
+      body: undefined,
+      auth: 'Bearer tok'
+    });
+
+    await client.renamePlayer('L1', 'tok', 'Ann');
+    expect(lastCall(fetchMock)).toEqual({
+      url: 'http://api.test/api/v1/lobbies/L1/player',
+      method: 'PATCH',
+      body: { name: 'Ann' },
+      auth: 'Bearer tok'
     });
 
     await client.updateSettings('L1', 'tok', { raceLaps: 2 });
-    expect(lastCall(fetchMock)).toMatchObject({
+    expect(lastCall(fetchMock)).toEqual({
       url: 'http://api.test/api/v1/lobbies/L1/settings',
       method: 'PATCH',
-      body: { playerToken: 'tok', settings: { raceLaps: 2 } }
+      body: { settings: { raceLaps: 2 } },
+      auth: 'Bearer tok'
     });
 
+    // reads: the token is in the header, never in the URL
     await client.readLobby('L1', 't&k');
     expect(lastCall(fetchMock)).toEqual({
-      url: 'http://api.test/api/v1/lobbies/L1?playerToken=t%26k',
+      url: 'http://api.test/api/v1/lobbies/L1',
       method: 'GET',
-      body: undefined
+      body: undefined,
+      auth: 'Bearer t&k'
+    });
+
+    await client.readRecap('L1', 'tok');
+    expect(lastCall(fetchMock)).toEqual({
+      url: 'http://api.test/api/v1/lobbies/L1/recap',
+      method: 'GET',
+      body: undefined,
+      auth: 'Bearer tok'
+    });
+
+    await client.sendChat('L1', 'tok', 'hello');
+    expect(lastCall(fetchMock)).toEqual({
+      url: 'http://api.test/api/v1/lobbies/L1/chat',
+      method: 'POST',
+      body: { text: 'hello' },
+      auth: 'Bearer tok'
     });
 
     await client.submitTurn('L1', 'tok', 4, 'cmd-1', { type: 'skip' });
-    expect(lastCall(fetchMock)).toMatchObject({
+    expect(lastCall(fetchMock)).toEqual({
       url: 'http://api.test/api/v1/lobbies/L1/turns',
-      body: { playerToken: 'tok', revision: 4, clientCommandId: 'cmd-1', action: { type: 'skip' } }
+      method: 'POST',
+      body: { revision: 4, clientCommandId: 'cmd-1', action: { type: 'skip' } },
+      auth: 'Bearer tok'
     });
+
+    // nothing token-shaped is left in any URL or body
+    for (const [url, init] of fetchMock.mock.calls as unknown as Array<
+      [string, { body?: string }]
+    >) {
+      expect(url).not.toContain('playerToken');
+      expect(init.body ?? '').not.toContain('playerToken');
+    }
   });
 
   it('returns an empty object for an empty body and wraps non-JSON text', async () => {
@@ -185,8 +232,11 @@ describe('BackendApiClient timeouts and new routes', () => {
     expect(lastCall(fetchMock)).toEqual({
       url: 'http://api.test/api/v1/lobbies/L1/force-skip',
       method: 'POST',
-      body: { playerToken: 'tok', revision: 7 }
+      body: { revision: 7 },
+      auth: 'Bearer tok'
     });
+    await client.forceSkip('L1', 'tok');
+    expect(lastCall(fetchMock)).toMatchObject({ body: undefined, auth: 'Bearer tok' });
     await client.health();
     expect(lastCall(fetchMock)).toMatchObject({ url: 'http://api.test/health', method: 'GET' });
   });
