@@ -26,7 +26,8 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   `/recap/:id/board`, "Watch on the board" on the recap page) runs the race scene as a spectator of an online race:
   `replay_load.ts` dresses every replayed state as the server's lobby state (round-trips through `toEngineRace`), and
   `main.ts` sends them as `srp:backend-lobby-state` (`localPlayerId` empty: nobody is in control) from the replay bar
-  (buttons, Left/Right, Play). While a replay runs the live online events are not forwarded to the scene and the scene's
+  (buttons, Left/Right, Play: `src/ui/replay_bar.ts`, #202; `main.ts` keeps `openReplay`, which opens the game; a public
+  race becomes a `SavedRace` in `src/ui/remote_race.ts`). While a replay runs the live online events are not forwarded to the scene and the scene's
   `srp:race-finished` is ignored. Stepping back is a state change like any other: the cars glide back, the feed is the
   live feed's diff.
 - Lazy chunks and deploys: the game, the recap and the replay are lazy chunks with hashed names, and a deploy removes the
