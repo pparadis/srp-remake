@@ -7,6 +7,7 @@
 // a personality per line-up entry (it rotates with the line-up). `--setups [--laps ..] [--seeds N]` sweeps car 1
 // over every compound and wing level at each race length (the balance gate of the wing, issue #48; from rules v3 on
 // also of the compounds, #148). `--rules v3` plays any of these on another rules version (the default's otherwise).
+// `--track oval32_3lanes` plays them on another track of public/tracks/ (#175; the lap counts are for the oval).
 import { readFileSync } from 'node:fs';
 import {
   playBenchRace,
@@ -26,8 +27,9 @@ function arg(name: string, fallback: string): string {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1]! : fallback;
 }
 
+const trackId = arg('track', 'oval16_3lanes');
 const track = JSON.parse(
-  readFileSync(new URL('../public/tracks/oval16_3lanes.json', import.meta.url), 'utf8')
+  readFileSync(new URL(`../public/tracks/${trackId}.json`, import.meta.url), 'utf8')
 ) as TrackData;
 const ctx = createRaceContext(track);
 const laps = arg('laps', '3,4,5,6').split(',').map(Number);

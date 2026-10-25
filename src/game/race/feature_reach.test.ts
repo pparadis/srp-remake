@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
+import bigOval from '../../../public/tracks/oval32_3lanes.json';
+import { parseTrack } from '../../validation/track_schema';
 import { must } from '../must';
 import type { TrackData } from '../types/track';
 import { lapAhead } from '../systems/track_index';
@@ -9,7 +11,8 @@ import {
   createRace,
   createRaceContext,
   decideBotAction,
-  getActiveCar
+  getActiveCar,
+  type RaceContext
 } from './race_engine';
 
 // Reachability: a rule that is never exercised in play passes every test that builds its own position, and the player
@@ -19,6 +22,8 @@ import {
 // The bands are wide on purpose: they fail when a rule becomes unreachable or runs all the time, not on balance noise.
 // The numbers are printed so a drift inside the band is still visible in the test output.
 const ctx = createRaceContext(track as unknown as TrackData);
+// The bigger oval (#175): the same rules must come up there too, on twice the cells a lap.
+const bigCtx = createRaceContext(parseTrack(bigOval));
 const LEVELS = ['hard', 'normal', 'easy'] as const;
 
 interface Reach {
@@ -38,7 +43,7 @@ interface Reach {
   pitStops: number;
 }
 
-function play(carCounts: number[], seeds: number[], laps: number): Reach {
+function play(ctx: RaceContext, carCounts: number[], seeds: number[], laps: number): Reach {
   const reach: Reach = {
     races: 0,
     moves: 0,
@@ -109,14 +114,17 @@ function play(carCounts: number[], seeds: number[], laps: number): Reach {
 
 const pct = (n: number, of: number) => (of === 0 ? 0 : (100 * n) / of);
 
-describe('rules come up in play', () => {
+describe.each([
+  { name: 'the oval', raceCtx: ctx },
+  { name: 'the big oval', raceCtx: bigCtx }
+])('rules come up in play on $name', ({ name, raceCtx }) => {
   // 3 laps; 4 and 8 cars (a thin field and a crowded one); 10 seeds: more than the 4 that once hid a failure.
   const seeds = Array.from({ length: 10 }, (_slot, i) => i + 1);
-  const reach = play([4, 8], seeds, 3);
+  const reach = play(raceCtx, [4, 8], seeds, 3);
 
   it('prints what the bots did, so a drift inside the bands is visible', () => {
     console.log(
-      `reach over ${reach.races} races, ${reach.moves} moves: ` +
+      `${name}: reach over ${reach.races} races, ${reach.moves} moves: ` +
         `in tow ${pct(reach.inTow, reach.moves).toFixed(1)}%, ended tucked ${pct(reach.endedTucked, reach.moves).toFixed(1)}%, ` +
         `slingshots ${(reach.slingshots / reach.races).toFixed(1)}/race, squeezes ${reach.squeezes}, ` +
         `multi lane change ${reach.multiLaneChange}, passes 2+ cars ${reach.passesTwoOrMore}, lane changes ${pct(reach.laneChanges, reach.moves).toFixed(1)}%, ` +
@@ -155,9 +163,9 @@ describe('rules come up in play', () => {
   });
 
   it('pit stops come up in a race long enough to need one (3 laps is a sprint with no stop)', () => {
-    const long = play([4], [1, 2, 3, 4], 12);
+    const long = play(raceCtx, [4], [1, 2, 3, 4], 12);
     console.log(
-      `reach over ${long.races} 12-lap races: pit stops ${(long.pitStops / long.races).toFixed(1)}/race`
+      `${name}: reach over ${long.races} 12-lap races: pit stops ${(long.pitStops / long.races).toFixed(1)}/race`
     );
     expect(long.pitStops / long.races, 'pit stops per race').toBeGreaterThanOrEqual(1);
   }, 30_000); // four 12-lap races: about 1.3 s plain, over 5 s with coverage on

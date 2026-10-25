@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
+import bigOval from '../../../public/tracks/oval32_3lanes.json';
+import { parseTrack } from '../../validation/track_schema';
 import type { BotPolicy } from '../systems/bot_system';
 import type { TrackData } from '../types/track';
 import { playBenchRace, runBench, setupSweep, setupSweepGate } from './bot_bench';
@@ -37,6 +39,18 @@ describe('bot levels benchmark', () => {
     expect(avg('normal')).toBeLessThan(avg('easy'));
     expect(avg('easy')).toBeLessThan(avg('autopilot'));
   });
+
+  it('keeps that order on the big oval (#175)', () => {
+    // rules v2, as above; no order is asserted on v3 (docs/bot-system.md has the numbers on the big oval)
+    const big = runBench(createRaceContext(parseTrack(bigOval)), {
+      lineup,
+      laps: [5, 8],
+      seeds: [1, 2, 3, 4],
+      rulesVersion: 'v2'
+    });
+    const order = lineup.map((p) => big.stats.get(p)!.avgFinish);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  }, 60_000); // 32 races: about 4 s plain, five times that with coverage on
 
   it('keeps that order on the frozen rules v1 too (#118)', () => {
     const v1 = runBench(ctx, { lineup, laps: [5, 8, 12], seeds: [1, 2, 3, 4], rulesVersion: 'v1' });
