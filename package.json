@@ -19,6 +19,7 @@
     "probe:cpu": "node tools/cpuProbe.mjs",
     "test:coverage": "vitest run --coverage",
     "gen:track": "node tools/genOval16_3lanes.mjs",
+    "gen:tracks": "tsx tools/gen_tracks.ts",
     "gen:icons": "node tools/makeIcons.mjs",
     "gen:diagrams": "tsx tools/diagrams/gen.ts",
     "backend:up": "podman-compose up --build api",

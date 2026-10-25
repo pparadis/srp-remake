@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../game/types/track';
+import { parseTrack } from './track_schema';
 import { validateTrack } from './track_validation';
 
 function cloneTrack(): TrackData {
@@ -27,6 +28,17 @@ describe('trackValidation', () => {
   it('passes for the bundled track', () => {
     const errors = validateTrack(track as unknown as TrackData);
     expect(errors).toHaveLength(0);
+  });
+
+  it('passes for every track in public/tracks', () => {
+    const files = import.meta.glob<unknown>('../../public/tracks/*.json', {
+      eager: true,
+      import: 'default'
+    });
+    expect(Object.keys(files).length).toBeGreaterThan(1);
+    for (const [file, json] of Object.entries(files)) {
+      expect(validateTrack(parseTrack(json)), file).toEqual([]);
+    }
   });
 
   it.each([
@@ -206,6 +218,13 @@ describe('trackValidation', () => {
         getCell(copy, 'Z05_L1_00').next.push('Z06_L3_00');
       },
       expected: 'invalid lane change'
+    },
+    {
+      name: 'two cells on top of each other',
+      mutate: (copy: TrackData) => {
+        getCell(copy, 'Z05_L2_00').pos = { ...getCell(copy, 'Z05_L1_00').pos };
+      },
+      expected: 'are closer than'
     }
   ])('flags %s', ({ mutate, expected }) => {
     const copy = cloneTrack();
