@@ -347,29 +347,28 @@ describe('main (solo flow)', () => {
       };
       const share = () => tid('lobby-share') as HTMLInputElement;
 
-      it('is off by default, remembers the choice, and is solo only', async () => {
+      it('is on by default, and unticking it is remembered', async () => {
         await quickRace();
-        expect(share().checked).toBe(false);
+        expect(share().checked).toBe(true);
         expect(byId('lobbyShareField').hidden).toBe(false);
-        share().checked = true;
-        share().dispatchEvent(new Event('change'));
-        expect(window.localStorage.getItem('srp:share-solo')).toBe('1');
+        expect(window.localStorage.getItem('srp:share-solo')).toBeNull(); // nothing chosen yet
         share().checked = false;
         share().dispatchEvent(new Event('change'));
-        expect(window.localStorage.getItem('srp:share-solo')).toBeNull();
+        expect(window.localStorage.getItem('srp:share-solo')).toBe('0');
 
-        window.localStorage.setItem('srp:share-solo', '1');
         vi.resetModules();
         loadBody();
         await quickRace();
-        expect(share().checked).toBe(true);
+        expect(share().checked).toBe(false);
+        share().checked = true;
+        share().dispatchEvent(new Event('change'));
+        expect(window.localStorage.getItem('srp:share-solo')).toBe('1');
       });
 
       it('uploads the finished race when it is on, and says so', async () => {
         stubUpload(
           () => new Response(JSON.stringify({ id: 'x', duplicate: false }), { status: 201 })
         );
-        window.localStorage.setItem('srp:share-solo', '1');
         await quickRace();
         byId('lobbyStartBtn').click();
         await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
@@ -389,7 +388,6 @@ describe('main (solo flow)', () => {
         stubUpload(
           () => new Response(JSON.stringify({ id: 'x', duplicate: true }), { status: 200 })
         );
-        window.localStorage.setItem('srp:share-solo', '1');
         await quickRace();
         byId('lobbyStartBtn').click();
         await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
@@ -413,8 +411,9 @@ describe('main (solo flow)', () => {
         expect(byId('resultsRecapBtn').hidden).toBe(false); // the local recap is not affected
       });
 
-      it('does not upload when it is off, nor a race with no log', async () => {
+      it('does not upload when it is off', async () => {
         stubUpload(() => new Response('{}', { status: 201 }));
+        window.localStorage.setItem('srp:share-solo', '0');
         await quickRace();
         byId('lobbyStartBtn').click();
         await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
@@ -423,7 +422,17 @@ describe('main (solo flow)', () => {
             detail: { winnerCarId: 1, recap: { log: shortLog(), names: { 1: 'You' } } }
           })
         );
-        window.localStorage.setItem('srp:share-solo', '1');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(shared.calls).toBe(0);
+        expect(byId('resultsShared').hidden).toBe(true);
+        expect(byId('resultsRecapBtn').hidden).toBe(false); // the local recap is there either way
+      });
+
+      it('does not upload a race with no log (edited in the sandbox), even when it is on', async () => {
+        stubUpload(() => new Response('{}', { status: 201 }));
+        await quickRace();
+        byId('lobbyStartBtn').click();
+        await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
         window.dispatchEvent(
           new CustomEvent('srp:race-finished', { detail: { winnerCarId: 1, recap: null } })
         );

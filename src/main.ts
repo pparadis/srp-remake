@@ -572,14 +572,15 @@ function saveFinishedRace(
   return kept;
 }
 
-// Opt-in (#170): a finished solo race goes to the server's public history, anonymous (the log holds no name). The server
-// replays it before keeping it. Never in the way: it runs after the results are up, and a failure only says so.
+// A finished solo race goes to the server's public history (#170), anonymous (the log holds no name). On by default, the
+// player can untick the box in the Quick race card; only an explicit "0" is remembered as off. The server replays the
+// log before keeping it. Never in the way: it runs after the results are up, and a failure only says so.
 const SHARE_KEY = 'srp:share-solo';
-let shareSolo = false;
+let shareSolo = true;
 try {
-  shareSolo = window.localStorage.getItem(SHARE_KEY) === '1';
+  shareSolo = window.localStorage.getItem(SHARE_KEY) !== '0';
 } catch {
-  // storage unavailable: not sharing
+  // storage unavailable: the default stands
 }
 
 async function shareSoloRace(log: RaceLog) {
@@ -597,8 +598,7 @@ async function shareSoloRace(log: RaceLog) {
 lobbyShare.addEventListener('change', () => {
   shareSolo = lobbyShare.checked;
   try {
-    if (shareSolo) window.localStorage.setItem(SHARE_KEY, '1');
-    else window.localStorage.removeItem(SHARE_KEY);
+    window.localStorage.setItem(SHARE_KEY, shareSolo ? '1' : '0');
   } catch {
     // ignore
   }
