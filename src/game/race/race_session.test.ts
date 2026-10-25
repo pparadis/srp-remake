@@ -249,6 +249,21 @@ describe('RaceSession: solo', () => {
     expect(snap.cars.find((c) => c.carId === 2)?.name).toBe('Car 2');
   });
 
+  it('waits for the board: the bots have played at once, but the player acts once their cars have arrived (#189)', () => {
+    const session = solo({ botCars: 3 });
+    session.recomputeTargets();
+    expect(session.applyLocal(furthestMove(session))).toBe(true);
+    expect(session.recomputeTargets()).toBe(3); // the bots play in the state straight away
+    expect(session.localCanControl()).toBe(true);
+    // the scene sets this while their tokens glide
+    session.setCarsMoving(true);
+    expect(session.localCanControl()).toBe(false);
+    expect(session.canControlActiveCar()).toBe(false);
+    expect(session.canSkip()).toBe(false);
+    session.setCarsMoving(false);
+    expect(session.localCanControl()).toBe(true);
+  });
+
   it('the HUD numbers follow the state after a move: lap, tire, fuel, move cycle and standings', () => {
     const session = solo();
     session.recomputeTargets();
@@ -717,6 +732,21 @@ describe('RaceSession: online', () => {
     expect(guest.logLines.filter((line) => /slingshot$/.test(line.text))).toHaveLength(1);
     // the guest's own feel: someone else's slingshot is no toast
     expect(guest.drainFeel().some((e) => e.type === 'slingshot')).toBe(false);
+  });
+
+  it('waits for the board: while the cars of earlier turns still glide, nobody may act (#189)', () => {
+    const { session } = online('host');
+    expect(session.canControlActiveCar()).toBe(true);
+    session.setCarsMoving(true);
+    expect(session.carsMoving()).toBe(true);
+    expect(session.canControlActiveCar()).toBe(false);
+    expect(session.localCanControl()).toBe(false);
+    expect(session.canSkip()).toBe(false);
+    expect(session.canSetup()).toBe(false);
+    expect(hud(session)).toMatchObject({ canControl: false, carsMoving: true });
+    session.setCarsMoving(false);
+    expect(session.canControlActiveCar()).toBe(true);
+    expect(hud(session)).toMatchObject({ canControl: true, carsMoving: false });
   });
 
   it('without a seat (spectating) nobody controls anything', () => {

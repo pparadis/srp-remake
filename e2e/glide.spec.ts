@@ -237,3 +237,39 @@ test('a dragged car turns with the road into a bend, and a refused drop sends it
   ).toBe(info.startCell);
   expect(errors).toEqual([]);
 });
+
+test("the player cannot act until the bots' cars have arrived (#189)", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/?seed=0&anim&rules=v2');
+  await page.getByTestId('home-quick').click();
+  await setLobbySettings(page, { bots: 3, laps: 3 });
+  await startRace(page);
+  await playMyTurn(page);
+
+  // The bots have played in the race at once and it is the player's turn again, but their cars are still gliding:
+  // no halo, nothing to drag, no target rings, and the banner says why.
+  const during = await page.evaluate(() => {
+    const srp = window.__srp!;
+    return {
+      active: srp.state().activeCarId,
+      canControl: srp.status().canControl,
+      draggable: srp.pointerProbe().draggableCarIds,
+      banner: document.querySelector('[data-testid="hud-banner"]')?.textContent
+    };
+  });
+  expect(during).toEqual({
+    active: 1,
+    canControl: false,
+    draggable: [],
+    banner: 'The other cars are moving'
+  });
+
+  // once the last car has arrived the player is on turn: halo, a car to drag, the banner
+  await waitForMyTurn(page);
+  const after = await page.evaluate(() => ({
+    draggable: window.__srp!.pointerProbe().draggableCarIds,
+    banner: document.querySelector('[data-testid="hud-banner"]')?.textContent
+  }));
+  expect(after).toEqual({ draggable: [1], banner: 'Your turn - drag your car' });
+  expect(errors).toEqual([]);
+});

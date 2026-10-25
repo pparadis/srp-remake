@@ -158,6 +158,7 @@ export class RaceSession {
   private readonly rulesVersion: RulesVersion;
   // Multiplayer: after sending a turn, wait for the server's race.state before accepting input.
   private awaitingServerUntil = 0;
+  private moving = false;
   private backendLobbyId: string | null = null;
   private localPlayerId: string | null = null;
   private raceFinishedAnnounced = false;
@@ -286,7 +287,20 @@ export class RaceSession {
     return Date.now() < this.awaitingServerUntil;
   }
 
+  /**
+   * The board is still playing earlier moves (the bots' and the other players' cars glide one after another, though
+   * the race has already moved on): nobody may act until it has caught up. The scene sets it (`setCarsMoving`).
+   */
+  carsMoving(): boolean {
+    return this.moving;
+  }
+
+  setCarsMoving(moving: boolean) {
+    this.moving = moving;
+  }
+
   canControlActiveCar(): boolean {
+    if (this.moving) return false;
     if (!this.online) return true;
     if (!this.localPlayerId) return false;
     if (this.isAwaitingServer()) return false;
@@ -906,6 +920,7 @@ export class RaceSession {
       myCarId: mine?.carId ?? null,
       activeCarId: this.activeCar.carId,
       canControl: this.localCanControl(),
+      carsMoving: this.moving,
       cars: ordered.map((car) => this.hudCar(car)),
       ...(this.sandbox ? { sandbox: this.editing ? ('edit' as const) : ('play' as const) } : {}),
       boxedIn: [...this.validTargets.values()].some((t) => t.squeezePassed !== undefined),

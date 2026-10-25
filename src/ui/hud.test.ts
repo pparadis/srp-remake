@@ -51,6 +51,7 @@ const snap = (over: Partial<HudSnapshot> = {}): HudSnapshot => ({
   myCarId: 2,
   activeCarId: 2,
   canControl: true,
+  carsMoving: false,
   cars: [car(1, { isBot: true }), car(2, { lap: 2 }), car(3, { isBot: true })],
   hover: null,
   debugText: null,
@@ -119,6 +120,10 @@ describe('hud', () => {
   it('picks the banner for each turn situation', () => {
     expect(bannerText(snap())).toBe('Your turn - drag your car');
     expect(bannerText(snap({ canControl: false }))).toBe('Waiting for the server');
+    // the race is ahead of the board: it is the player's turn, but the cars before it are still gliding
+    expect(bannerText(snap({ canControl: false, carsMoving: true }))).toBe(
+      'The other cars are moving'
+    );
     expect(bannerText(snap({ activeCarId: 3 }))).toBe('Car 3 (bot) is playing');
     const humans = snap({ activeCarId: 4, cars: [car(2), car(4, { name: 'Alice' })] });
     expect(bannerText(humans)).toBe('Waiting for Alice');
