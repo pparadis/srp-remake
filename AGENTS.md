@@ -268,7 +268,9 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   `src/ui/history_page.ts`, `backendClient.listRaces`); `/history/:id` and `/history/:id/board` are the same recap and
   board replay as `/recap/:id`, with `remote: true` on the route: the race comes from `backendClient.readRace` instead
   of this browser's `localStorage`, is not saved there, and names its cars by seat (the log holds no names).
-- Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player.
+- Host reload keeps the lobby for `HOST_GRACE_SECONDS` (default 45). Sockets are tracked per player. Every socket is
+  pinged every 30 s and one that has not answered the last ping is terminated, so a phone that dropped off the network
+  becomes "disconnected" (and starts the host grace) instead of holding its lobby open for good.
 - Test-only clocks: `TURN_TIMER_TIME_SCALE` (e.g. 0.1 makes "120 s" last 12 s) and `HOST_GRACE_SECONDS`;
   `playwright.config.ts` sets both for the backend it starts (e2e `createLobby` defaults the timer to Off).
   A reused local backend with real clocks breaks `e2e/afk.spec.ts`: use `E2E_BACKEND_PORT`.

@@ -30,6 +30,7 @@ import {
 const WS_OPEN = 1;
 const API_V1_PREFIX = '/api/v1';
 const REAP_INTERVAL_MS = 60_000;
+const PING_INTERVAL_MS = 30_000;
 // A finished lobby only stays this long (after its last socket closes) for a late reload to see the results.
 const FINISHED_LINGER_MS = 10 * 60_000;
 
@@ -42,7 +43,9 @@ interface LobbySocket {
   readyState: number;
   send(data: string): void;
   close(code?: number, reason?: string): void;
-  on(event: 'close', listener: () => void): void;
+  ping(): void;
+  terminate(): void;
+  on(event: 'close' | 'pong', listener: () => void): void;
 }
 
 interface AppliedTurnEvent {
@@ -65,6 +68,8 @@ interface CreateAppOptions {
   lobbyStore?: LobbyStore;
   // The race history (#170); default: Postgres when DATABASE_URL is set, memory otherwise.
   raceStore?: RaceStore;
+  // How often every socket is pinged (default 30 s); one that has not answered the last ping is dropped. For tests.
+  pingIntervalMs?: number;
 }
 
 const lobbySettingsPatchSchema = z.object({
@@ -1052,6 +1057,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     }
 
     addSocket(lobbyId, player.playerId, ws);
+    ws.on('pong', () => unanswered.delete(ws));
     const wasConnected = player.connected;
     lobbyStore.setPlayerConnected(lobbyId, playerToken, true);
     if (player.isHost) cancelHostGrace(lobbyId);
@@ -1132,10 +1138,34 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   const reaper = setInterval(reapDeadLobbies, REAP_INTERVAL_MS);
   reaper.unref();
 
+  // A phone that drops off (a tunnel, a closed lid) sends no close frame: without a ping its socket would stay "open",
+  // the player "connected", the host's grace period would never start and the reaper would never take the lobby.
+  const unanswered = new WeakSet<LobbySocket>();
+  const heartbeat = setInterval(() => {
+    for (const players of socketsByLobby.values()) {
+      for (const sockets of players.values()) {
+        for (const socket of sockets) {
+          if (unanswered.has(socket)) {
+            socket.terminate(); // its close handler does the rest
+            continue;
+          }
+          unanswered.add(socket);
+          try {
+            socket.ping();
+          } catch {
+            // The close handler drops it.
+          }
+        }
+      }
+    }
+  }, options.pingIntervalMs ?? PING_INTERVAL_MS);
+  heartbeat.unref();
+
   // preClose runs before the sockets are torn down, so closing them cannot start new timers.
   app.addHook('preClose', async () => {
     closing = true;
     clearInterval(reaper);
+    clearInterval(heartbeat);
     for (const lobbyId of [...turnTimers.keys()]) clearTurnTimer(lobbyId);
     for (const lobbyId of [...hostGraceTimers.keys()]) cancelHostGrace(lobbyId);
   });
