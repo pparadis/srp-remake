@@ -67,8 +67,11 @@ export async function setLobbySettings(
     botLevel?: 'easy' | 'normal' | 'hard';
     /** Solo only: the rules version of the Rules select. */
     rules?: 'v1' | 'v2' | 'v3';
+    /** The id of a track in public/tracks/. */
+    track?: string;
   }
 ) {
+  if (s.track !== undefined) await page.getByTestId('lobby-track').selectOption(s.track);
   if (s.rules !== undefined) await page.getByTestId('lobby-rules').selectOption(s.rules);
   if (s.timer !== undefined) {
     await page.getByTestId('lobby-turn-timer').selectOption(String(s.timer));
@@ -103,6 +106,7 @@ export async function quickRace(
     laps?: number;
     botLevel?: 'easy' | 'normal' | 'hard';
     rules?: 'v1' | 'v2' | 'v3';
+    track?: string;
   } = {}
 ) {
   await gotoHome(page);
@@ -111,7 +115,8 @@ export async function quickRace(
     bots: opts.bots ?? 2,
     laps: opts.laps ?? 1,
     ...(opts.botLevel ? { botLevel: opts.botLevel } : {}),
-    ...(opts.rules ? { rules: opts.rules } : {})
+    ...(opts.rules ? { rules: opts.rules } : {}),
+    ...(opts.track ? { track: opts.track } : {})
   });
   await startRace(page);
 }

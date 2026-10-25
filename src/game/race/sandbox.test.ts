@@ -156,6 +156,21 @@ describe('sandbox positions', () => {
     expect(restorePosition(ctx, a, old)).toMatch(/this race plays v2/);
   });
 
+  it('refuses a snapshot from another track, and takes one without a track (#175)', () => {
+    const a = newRace(3);
+    const before = JSON.stringify(a);
+    expect(
+      restorePosition(ctx, a, { ...snapshotOf(newRace(3)), trackId: 'oval32_3lanes' })
+    ).toMatch(/from track oval32_3lanes, this race is on oval16_3lanes/);
+    expect(JSON.stringify(a)).toBe(before);
+    expect(
+      restorePosition(ctx, a, { ...snapshotOf(newRace(3)), trackId: ctx.track.trackId })
+    ).toBeNull();
+    const old = snapshotOf(newRace(3));
+    delete old.trackId;
+    expect(restorePosition(ctx, a, old)).toBeNull();
+  });
+
   it('refuses a snapshot that does not fit, changing nothing', () => {
     const a = newRace(3);
     const before = JSON.stringify(a);

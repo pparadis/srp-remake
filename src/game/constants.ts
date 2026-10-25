@@ -3,6 +3,7 @@ export const REG_HUMAN_CARS = 'humanCars';
 export const REG_BOT_CARS = 'botCars';
 export const REG_RACE_LAPS = 'raceLaps';
 export const REG_BOT_LEVEL = 'botLevel';
+export const REG_TRACK_ID = 'trackId';
 export const REG_SEED = 'seed';
 export const REG_RULES_VERSION = 'rulesVersion';
 export const REG_SANDBOX = 'sandbox';

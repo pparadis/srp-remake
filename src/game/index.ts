@@ -15,12 +15,16 @@ import {
   REG_SANDBOX,
   REG_RULES_VERSION,
   REG_SEED,
-  REG_TOTAL_CARS
+  REG_TOTAL_CARS,
+  REG_TRACK_ID
 } from './constants';
+import { DEFAULT_TRACK_ID } from './track_ids';
 import { DEFAULT_RULES_VERSION, type RulesVersion } from './rules/versions';
 import type { BotLevel } from './types/car';
 
 interface GameOptions {
+  // The board (public/tracks/<trackId>.json); the first one when omitted.
+  trackId?: string;
   totalCars: number;
   humanCars: number;
   botCars: number;
@@ -73,6 +77,7 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   const game = new Phaser.Game(config);
   keepCanvasBoundsFresh(game, Phaser.Core.Events.DESTROY);
   keepGameSizeInSync(game, parent, scale, Phaser.Core.Events.DESTROY);
+  game.registry.set(REG_TRACK_ID, options.trackId ?? DEFAULT_TRACK_ID);
   game.registry.set(REG_TOTAL_CARS, options.totalCars);
   game.registry.set(REG_HUMAN_CARS, options.humanCars);
   game.registry.set(REG_BOT_CARS, options.botCars);

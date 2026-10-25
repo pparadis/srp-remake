@@ -116,6 +116,9 @@ declare global {
 
 type CellMap = Map<string, TrackCell>;
 
+// The baked track is one canvas; iOS refuses one over 16 777 216 px, so keep well under (2x the big oval is 7M).
+const MAX_TRACK_TEXTURE_PIXELS = 14_000_000;
+
 export class RaceScene extends Phaser.Scene {
   private static readonly UI = {
     padding: 10,
@@ -1593,8 +1596,12 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private drawTrack() {
-    // shortcut: no cap on the texture size; at 2x this track is 2176x1236, a canvas limit (iOS ~16M px) is far off
-    const k = renderScale();
+    const xs = this.track.cells.map((c) => c.pos.x);
+    const ys = this.track.cells.map((c) => c.pos.y);
+    const w = Math.ceil(Math.max(...xs) + 100);
+    const h = Math.ceil(Math.max(...ys) + 100);
+    // A bigger track at 3x would pass the canvas limit of iOS (about 16M px): a little less sharp, not blank.
+    const k = Math.min(renderScale(), Math.sqrt(MAX_TRACK_TEXTURE_PIXELS / (w * h)));
     drawTrackGraphics({
       graphics: this.gTrack,
       track: this.track,
@@ -1608,10 +1615,6 @@ export class RaceScene extends Phaser.Scene {
     const key = 'track-baked';
     this.trackImage?.destroy();
     if (this.textures.exists(key)) this.textures.remove(key);
-    const xs = this.track.cells.map((c) => c.pos.x);
-    const ys = this.track.cells.map((c) => c.pos.y);
-    const w = Math.ceil(Math.max(...xs) + 100);
-    const h = Math.ceil(Math.max(...ys) + 100);
     this.gTrack.generateTexture(key, Math.ceil(w * k), Math.ceil(h * k));
     this.gTrack.clear();
     this.trackImage = this.add

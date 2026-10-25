@@ -155,8 +155,13 @@ export function restorePosition(
     cars?: SnapshotCar[];
     activeCarId?: number;
     rulesVersion?: string;
+    trackId?: string;
   } | null;
   if (!snap || !Array.isArray(snap.cars)) return 'Not a debug snapshot (no cars).';
+  // A snapshot from before tracks could be chosen has no track: its cells decide below.
+  if (snap.trackId !== undefined && snap.trackId !== ctx.track.trackId) {
+    return `The snapshot is from track ${snap.trackId}, this race is on ${ctx.track.trackId}: pick it under Track.`;
+  }
   // A snapshot without a version is from before versions existed: it plays the default.
   const snapRules = snap.rulesVersion ?? DEFAULT_RULES_VERSION;
   const raceRules = state.rulesVersion ?? DEFAULT_RULES_VERSION;

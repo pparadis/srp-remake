@@ -458,6 +458,32 @@ describe('main multiplayer screens', () => {
       await vi.waitFor(() => expect(select.value).toBe('hard'));
     });
 
+    it('lets the host pick the track, and the guest see it (#175)', async () => {
+      const lobby = makeLobby('track-lobby');
+      createLobbyMock.mockResolvedValue({
+        lobby,
+        playerId: 'host-player-id',
+        playerToken: 'host-token'
+      });
+      updateSettingsMock.mockImplementation(
+        async (_id: string, _token: string, patch: { trackId: string }) => ({
+          lobby: { ...lobby, settings: { ...lobby.settings, trackId: patch.trackId } }
+        })
+      );
+      await import('./main');
+      byId('homeCreateBtn').click();
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe('lobby'));
+
+      const select = byId<HTMLSelectElement>('lobbyTrack');
+      expect(select.value).toBe('oval16_3lanes');
+      expect(select.disabled).toBe(false);
+      select.value = 'oval32_3lanes';
+      select.dispatchEvent(new Event('change'));
+      await vi.waitFor(() => expect(updateSettingsMock).toHaveBeenCalled());
+      expect(updateSettingsMock.mock.calls.at(-1)?.[2]).toMatchObject({ trackId: 'oval32_3lanes' });
+      await vi.waitFor(() => expect(select.value).toBe('oval32_3lanes'));
+    });
+
     it('offers the host a turn timer select defaulting to 60 s', async () => {
       const lobby = makeLobby('timer-lobby');
       createLobbyMock.mockResolvedValue({
