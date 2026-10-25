@@ -38,6 +38,9 @@ const configSchema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
   // Neon's direct (not pooled) URL, used only to create the table, as Neon advises for schema changes. Optional.
   DATABASE_URL_UNPOOLED: z.string().min(1).optional(),
+  // Signs the anonymous device tokens (#194), at least 32 characters. Absent, a random one is made per process: tokens
+  // die at a restart (the client mints a new one), fine for development and tests.
+  DEVICE_TOKEN_SECRET: z.string().min(32).optional(),
   // The commit this server runs, reported by /health (the web page shows it next to its own).
   GIT_SHA: z.string().optional()
 });

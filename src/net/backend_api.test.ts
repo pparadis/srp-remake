@@ -191,3 +191,84 @@ describe('BackendApiClient timeouts and new routes', () => {
     expect(lastCall(fetchMock)).toMatchObject({ url: 'http://api.test/health', method: 'GET' });
   });
 });
+
+describe('uploadRace device token (#194)', () => {
+  const log = { seats: [], raceLaps: 1, seed: 0, rulesVersion: 'v3', actions: [] } as never;
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+
+  // `races` answers each upload in turn; every call is recorded as "METHOD path auth".
+  function stubServer(races: Response[]) {
+    const calls: string[] = [];
+    let minted = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: { method: string; headers?: Record<string, string> }) => {
+        const path = new URL(url).pathname;
+        calls.push(`${init.method} ${path} ${init.headers?.Authorization ?? ''}`.trim());
+        if (path === '/api/v1/devices') {
+          minted += 1;
+          return json({ deviceToken: `token-${minted}` }, 201);
+        }
+        return races.shift() ?? json({ error: 'no more answers' }, 500);
+      })
+    );
+    return calls;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
+  });
+
+  it('mints a token on the first upload, keeps it, and sends it as a bearer token', async () => {
+    const calls = stubServer([
+      json({ id: 'a', duplicate: false }, 201),
+      json({ id: 'b', duplicate: false }, 201)
+    ]);
+    const client = new BackendApiClient('http://api.test');
+    await client.uploadRace('t', log);
+    await client.uploadRace('t', log);
+    expect(calls).toEqual([
+      'POST /api/v1/devices',
+      'POST /api/v1/races Bearer token-1',
+      'POST /api/v1/races Bearer token-1'
+    ]);
+    expect(window.localStorage.getItem('srp:device')).toBe('token-1');
+  });
+
+  it('uses the token already in storage', async () => {
+    window.localStorage.setItem('srp:device', 'kept');
+    const calls = stubServer([json({ id: 'a', duplicate: false }, 201)]);
+    await new BackendApiClient('http://api.test').uploadRace('t', log);
+    expect(calls).toEqual(['POST /api/v1/races Bearer kept']);
+  });
+
+  it('replaces a token the server does not know and tries once more, but only once', async () => {
+    window.localStorage.setItem('srp:device', 'stale');
+    const calls = stubServer([
+      json({ error: 'A device token is required.' }, 401),
+      json({ id: 'a', duplicate: false }, 201)
+    ]);
+    const client = new BackendApiClient('http://api.test');
+    await client.uploadRace('t', log);
+    expect(calls).toEqual([
+      'POST /api/v1/races Bearer stale',
+      'POST /api/v1/devices',
+      'POST /api/v1/races Bearer token-1'
+    ]);
+    expect(window.localStorage.getItem('srp:device')).toBe('token-1');
+
+    const again = stubServer([json({ error: 'no' }, 401), json({ error: 'no' }, 401)]);
+    await expect(client.uploadRace('t', log)).rejects.toMatchObject({ status: 401 });
+    expect(again.filter((call) => call.includes('/races'))).toHaveLength(2);
+  });
+
+  it('does not retry other failures', async () => {
+    window.localStorage.setItem('srp:device', 'kept');
+    const calls = stubServer([json({ error: 'down' }, 503)]);
+    await expect(
+      new BackendApiClient('http://api.test').uploadRace('t', log)
+    ).rejects.toMatchObject({ status: 503 });
+    expect(calls).toHaveLength(1);
+  });
+});
