@@ -29,6 +29,11 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   (buttons, Left/Right, Play). While a replay runs the live online events are not forwarded to the scene and the scene's
   `srp:race-finished` is ignored. Stepping back is a state change like any other: the cars glide back, the feed is the
   live feed's diff.
+- Lazy chunks and deploys: the game, the recap and the replay are lazy chunks with hashed names, and a deploy removes the
+  old ones, so a page loaded before it (an open tab, a home-screen app on an older copy) fails with "Importing a module
+  script failed". Every lazy `import()` in `main.ts` goes through `importFresh` (`src/ui/lazy.ts`): it reloads the page
+  once (the guard is a timestamp in `sessionStorage`), and if the chunk is still missing a moment later it says "A new
+  version was deployed: reload the page." instead of looping. A new lazy import uses it too.
 - Race session in `src/game/race/race_session.ts` (no Phaser): one page's view of the race. The solo turn loop (the
   player's action, then the bots), the online server state and its input hold, who controls the active car, the HUD
   snapshot, feel events, the finish and the sandbox edits. `RaceScene` owns one and only draws it (tokens, targets,

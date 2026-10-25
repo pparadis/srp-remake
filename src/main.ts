@@ -22,6 +22,7 @@ import type { RaceLog } from './game/race/race_log';
 import type { Replay } from './ui/replay_load';
 import { mountRecapPage } from './ui/recap_page';
 import { mountHistoryPage } from './ui/history_page';
+import { importFresh } from './ui/lazy';
 import { listSavedRaces, loadSavedRace, saveRace, type SavedRace } from './ui/recap_store';
 import { renderHomeTrack, setHomeTrackRunning } from './ui/home_track';
 import { mountVersion, renderVersion, type ServerVersion } from './ui/version';
@@ -687,7 +688,7 @@ async function openRecap(id: string, remote: boolean) {
   const saved = await loadRace(id, remote);
   if (!saved) return;
   try {
-    const { buildRecap } = await import('./ui/recap_load');
+    const { buildRecap } = await importFresh(() => import('./ui/recap_load'));
     recapPage.show(await buildRecap(saved, import.meta.env.BASE_URL), saved.label);
     openRecapId = id;
     openRecapRemote = remote;
@@ -775,7 +776,7 @@ async function openReplay(id: string, remote: boolean) {
   const saved = await loadRace(id, remote);
   if (!saved) return;
   try {
-    const { buildReplay } = await import('./ui/replay_load');
+    const { buildReplay } = await importFresh(() => import('./ui/replay_load'));
     const replay = await buildReplay(saved, import.meta.env.BASE_URL);
     const cars = saved.log.seats.length;
     destroyGame();
@@ -921,7 +922,7 @@ async function ensureGameStarted() {
   if (game || gameStarting) return;
   gameStarting = true;
   try {
-    const { startGame } = await import('./game');
+    const { startGame } = await importFresh(() => import('./game'));
     // The player may have left while the chunk loaded.
     if (document.body.dataset.screen !== 'race' || game) return;
     game = startGame(app, { ...getComposition(), hidpi, animate });
