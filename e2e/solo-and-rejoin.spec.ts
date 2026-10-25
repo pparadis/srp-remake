@@ -87,55 +87,68 @@ test('solo: the recap of a finished race, from the results and from the home lis
 
 // Sharing a solo race (#170): with the setting on, the finished race goes to the real server, which replays it and lists it.
 // Needs the page, the CORS call to the backend and its history together.
-test('solo: a finished race is shared to the public history only when the setting is on', async ({
+test('solo: a finished race is shared to the public history unless the setting is off', async ({
   page,
   request
 }) => {
   const errors = guard(page);
-  const backend = BACKEND_ORIGIN;
-  const listed = async () =>
-    (
-      (await (await request.get(`${backend}/api/v1/races`)).json()) as {
-        races: Array<{ source: string }>;
-      }
-    ).races.length;
-  const before = await listed();
+  // Other specs finish solo races at the same time and share them too: this one follows only the uploads of its own page
+  const uploads: string[] = [];
+  page.on('request', (req) => {
+    if (req.method() === 'POST' && req.url().endsWith('/api/v1/races')) uploads.push(req.url());
+  });
 
-  // off by default: nothing is sent
-  await quickRace(page, { bots: 2, laps: 1 });
-  await playUntilFinished(page);
-  await expect(page.getByTestId('results')).toBeVisible();
-  await expect(page.getByTestId('results-shared')).toBeHidden();
-  expect(await listed()).toBe(before);
-
-  // on: the next race is shared, once
+  // on by default: the race is shared, once
   await gotoHome(page);
   await page.getByTestId('home-quick').click();
+  await expect(page.getByTestId('lobby-share')).toBeChecked();
   // the setting is inside the Quick race card, not hanging off its side
   const card = (await page.locator('#screen-lobby .card').boundingBox())!;
   const box = (await page.getByTestId('lobby-share').boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(card.x);
   expect(box.x + box.width).toBeLessThanOrEqual(card.x + card.width);
-  await page.getByTestId('lobby-share').check();
+  await setLobbySettings(page, { bots: 2, laps: 1 });
+  await startRace(page);
+  const sent = page.waitForResponse(
+    (res) => res.request().method() === 'POST' && res.url().endsWith('/api/v1/races')
+  );
+  await playUntilFinished(page);
+  const { id } = (await (await sent).json()) as { id: string };
+  // the e2e races are deterministic (seed 0): another spec may have shared the very same race a moment before
+  await expect(page.getByTestId('results-shared')).toContainText(
+    /(Shared in|Already in) the public history/
+  );
+  expect(uploads).toHaveLength(1);
+  const stored = (await (await request.get(`${BACKEND_ORIGIN}/api/v1/races/${id}`)).json()) as {
+    source: string;
+    laps: number;
+    cars: number;
+  };
+  expect(stored).toMatchObject({ source: 'solo', laps: 1, cars: 3 });
+
+  // unticked: nothing is sent, and the choice is remembered for the next page
+  await gotoHome(page);
+  await page.getByTestId('home-quick').click();
+  await page.getByTestId('lobby-share').uncheck();
   await setLobbySettings(page, { bots: 2, laps: 1 });
   await startRace(page);
   await playUntilFinished(page);
-  await expect(page.getByTestId('results-shared')).toContainText('Shared in the public history');
-  await expect.poll(listed).toBe(before + 1);
-  const races = (
-    (await (await request.get(`${backend}/api/v1/races?limit=1`)).json()) as {
-      races: Array<{ source: string; laps: number }>;
-    }
-  ).races;
-  expect(races[0]).toMatchObject({ source: 'solo', laps: 1 });
+  await expect(page.getByTestId('results')).toBeVisible();
+  await expect(page.getByTestId('results-shared')).toBeHidden();
+  await page.waitForTimeout(500);
+  expect(uploads).toHaveLength(1);
+  await gotoHome(page);
+  await page.getByTestId('home-quick').click();
+  await expect(page.getByTestId('lobby-share')).not.toBeChecked();
 
-  // the public history page lists it; it opens as a recap (fetched from the server), and replays on the board
+  // the public history page lists the shared race; it opens as a recap (fetched from the server), and replays on the board
   await gotoHome(page);
   await page.getByTestId('home-history').click();
   await expect(page).toHaveURL(/\/history$/);
-  await expect(page.getByTestId('history-race')).toHaveCount(before + 1);
-  await page.getByTestId('history-race').first().click();
-  await expect(page).toHaveURL(/\/history\/[^/]+$/);
+  const row = page.locator(`[data-testid="history-race"][data-race="${id}"]`);
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(page).toHaveURL(new RegExp(`/history/${id}$`));
   await expect(page.getByTestId('recap-car')).toHaveCount(3);
   await page.getByTestId('recap-watch').click();
   await expect(page.getByTestId('replay-bar')).toBeVisible();
@@ -143,7 +156,7 @@ test('solo: a finished race is shared to the public history only when the settin
   await expect(page.getByTestId('replay-count')).toContainText('1 / ');
   await page.getByTestId('replay-recap').click();
   await page.getByTestId('recap-back').click();
-  await expect(page.getByTestId('history-race')).toHaveCount(before + 1);
+  await expect(row).toBeVisible();
   expect(errors).toEqual([]);
 });
 
