@@ -17,6 +17,21 @@ test('dragging the active car to a target moves it and advances the turn', async
   expect(after.cars.some((c, i) => i !== idx && c.cellId !== before.cells[i])).toBe(true);
 });
 
+test('a race on the big oval loads that board, and a dragged car moves on it (#175)', async ({
+  page
+}) => {
+  await quickRace(page, { bots: 1, laps: 1, track: 'oval32_3lanes' });
+  const board = await page.evaluate(() => {
+    const s = window.__srp!.state();
+    return { trackId: s.trackId, lane1: s.spineLength };
+  });
+  expect(board).toEqual({ trackId: 'oval32_3lanes', lane1: 56 });
+  const before = await page.evaluate(() => window.__srp!.state().cars.map((c) => c.cellId));
+  await playMyTurn(page);
+  const after = await page.evaluate(() => window.__srp!.state().cars.map((c) => c.cellId));
+  expect(after[0]).not.toBe(before[0]);
+});
+
 test('the mouse finds the token right after the board moves (issue #41)', async ({ page }) => {
   await quickRace(page, { bots: 1, laps: 1 });
   // Move the board (a transform: its size, and so the game's, stays the same), let Phaser's own 500 ms check pick up

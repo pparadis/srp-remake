@@ -1,11 +1,13 @@
 import oval16 from '../../public/tracks/oval16_3lanes.json';
+import oval32 from '../../public/tracks/oval32_3lanes.json';
 import { createRaceContext, type RaceContext } from '../../src/game/race/race_engine';
 import type { TrackData } from '../../src/game/types/track';
 import { parseTrack } from '../../src/validation/track_schema';
 
 // Tracks the server can race on, keyed by lobby `settings.trackId`.
 const TRACKS: Record<string, TrackData> = {
-  oval16_3lanes: parseTrack(oval16)
+  oval16_3lanes: parseTrack(oval16),
+  oval32_3lanes: parseTrack(oval32)
 };
 
 const contexts = new Map<string, RaceContext>();

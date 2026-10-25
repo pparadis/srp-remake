@@ -159,11 +159,22 @@ describe('main (solo flow)', () => {
     expect(byId('lobbyBotLevelField').hidden).toBe(false);
     level.value = 'hard';
     level.dispatchEvent(new Event('change'));
+    // the track list is the one in src/game/track_ids.ts, the first one chosen
+    const track = byId<HTMLSelectElement>('lobbyTrack');
+    expect([...track.options].map((option) => option.value)).toEqual([
+      'oval16_3lanes',
+      'oval32_3lanes'
+    ]);
+    expect(track.value).toBe('oval16_3lanes');
+    track.value = 'oval32_3lanes';
+    track.dispatchEvent(new Event('change'));
+    expect(track.value).toBe('oval32_3lanes');
 
     byId('lobbyStartBtn').click();
     expect(window.location.pathname).toBe('/solo/race');
     await vi.waitFor(() => {
       expect(startGame).toHaveBeenCalledWith(byId('app'), {
+        trackId: 'oval32_3lanes',
         totalCars: 3,
         humanCars: 1,
         botCars: 2,

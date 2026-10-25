@@ -29,6 +29,7 @@ import { mountVersion, renderVersion, type ServerVersion } from './ui/version';
 import { showUncaughtErrors, startRenderProbe } from './ui/diagnostics';
 import { MAX_SEED, normalizeSeed } from './game/systems/bot_style';
 import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from './game/rules/ids';
+import { DEFAULT_TRACK_ID, TRACK_CHOICES, isTrackId } from './game/track_ids';
 import {
   BackendApiClient,
   BackendApiError,
@@ -79,6 +80,10 @@ const lobbyHumans = el<HTMLSelectElement>('lobbyHumans');
 const lobbyHumansField = el('lobbyHumansField');
 const lobbyBots = el<HTMLSelectElement>('lobbyBots');
 const lobbyLaps = el<HTMLInputElement>('lobbyLaps');
+const lobbyTrack = el<HTMLSelectElement>('lobbyTrack');
+lobbyTrack.replaceChildren(
+  ...TRACK_CHOICES.map((track) => new Option(track.name, track.id, track.id === DEFAULT_TRACK_ID))
+);
 const lobbyBotLevel = el<HTMLSelectElement>('lobbyBotLevel');
 const lobbyBotLevelField = el('lobbyBotLevelField');
 const lobbyRules = el<HTMLSelectElement>('lobbyRules');
@@ -182,12 +187,14 @@ let mode: 'solo' | 'online' = 'solo';
 let soloRaceRequested = false;
 let raceOver = false;
 const soloSettings: {
+  trackId: string;
   botCars: number;
   raceLaps: number;
   botLevel: BotLevel;
   seed: number;
   rulesVersion: RulesVersion;
 } = {
+  trackId: DEFAULT_TRACK_ID,
   seed: 0,
   rulesVersion: isRulesVersion(rulesParam) ? rulesParam : DEFAULT_RULES_VERSION,
   botCars: 3,
@@ -428,6 +435,7 @@ function getPlayerName(): string {
 }
 
 interface RaceComposition {
+  trackId: string;
   totalCars: number;
   humanCars: number;
   botCars: number;
@@ -443,8 +451,9 @@ interface RaceComposition {
 function getComposition(): RaceComposition {
   if (replayRun) return replayRun.composition;
   if (mode === 'online' && lastLobby) {
-    const { totalCars, humanCars, botCars, raceLaps, botLevel } = lastLobby.settings;
+    const { trackId, totalCars, humanCars, botCars, raceLaps, botLevel } = lastLobby.settings;
     return {
+      trackId,
       totalCars,
       humanCars,
       botCars,
@@ -454,6 +463,7 @@ function getComposition(): RaceComposition {
     };
   }
   return {
+    trackId: soloSettings.trackId,
     totalCars: 1 + soloSettings.botCars,
     humanCars: 1,
     botCars: soloSettings.botCars,
@@ -584,9 +594,9 @@ try {
   // storage unavailable: the default stands
 }
 
-async function shareSoloRace(log: RaceLog) {
+async function shareSoloRace(trackId: string, log: RaceLog) {
   try {
-    const stored = await backendClient.uploadRace('oval16_3lanes', log);
+    const stored = await backendClient.uploadRace(trackId, log);
     resultsShared.textContent = stored.duplicate
       ? 'Already in the public history.'
       : 'Shared in the public history, anonymously.';
@@ -790,6 +800,7 @@ async function openReplay(id: string, remote: boolean) {
       at: Math.max(0, Math.min(replay.count - 1, replayStart)),
       timer: null,
       composition: {
+        trackId: saved.trackId,
         totalCars: cars,
         humanCars: cars,
         botCars: 0,
@@ -851,6 +862,7 @@ function renderLobby() {
   lobbyBots.value = String(settings?.botCars ?? soloSettings.botCars);
   lobbyLaps.value = String(settings?.raceLaps ?? soloSettings.raceLaps);
   lobbyBotLevel.value = settings?.botLevel ?? soloSettings.botLevel;
+  lobbyTrack.value = settings?.trackId ?? soloSettings.trackId;
   // Solo only: an online race plays the server's rules, and v1 is not offered there.
   lobbyRulesField.hidden = online;
   // Solo only: an online race goes to the history by itself (the server keeps it)
@@ -865,6 +877,7 @@ function renderLobby() {
     lobbyLaps.disabled =
     lobbyTurnTimer.disabled =
     lobbyBotLevel.disabled =
+    lobbyTrack.disabled =
     lobbyRules.disabled =
       !editable;
   lobbyStartBtn.disabled = backendBusy || !isHost || !waiting;
@@ -1319,7 +1332,7 @@ async function hostLobby() {
   try {
     const created = await withWakeNotice(
       backendClient.createLobby(getPlayerName(), {
-        trackId: 'oval16_3lanes',
+        trackId: DEFAULT_TRACK_ID,
         totalCars: 2,
         humanCars: 2,
         botCars: 0,
@@ -1438,7 +1451,9 @@ async function changeSettings() {
   const raceLaps = Math.max(1, Math.min(999, Math.trunc(Number(lobbyLaps.value)) || 1));
   const turnTimerSec = Number(lobbyTurnTimer.value) as TurnTimerSec;
   const botLevel = lobbyBotLevel.value as BotLevel;
+  const trackId = lobbyTrack.value;
   if (mode === 'solo') {
+    if (isTrackId(trackId)) soloSettings.trackId = trackId;
     soloSettings.botCars = botCars;
     soloSettings.raceLaps = raceLaps;
     soloSettings.botLevel = botLevel;
@@ -1451,7 +1466,7 @@ async function changeSettings() {
     const updated = await backendClient.updateSettings(
       backendSession.lobbyId,
       backendSession.playerToken,
-      { humanCars, botCars, raceLaps, turnTimerSec, botLevel }
+      { trackId, humanCars, botCars, raceLaps, turnTimerSec, botLevel }
     );
     applyLobbyState(updated.lobby, 'settings');
   } catch (error) {
@@ -1630,6 +1645,7 @@ for (const input of [
   lobbyLaps,
   lobbyTurnTimer,
   lobbyBotLevel,
+  lobbyTrack,
   lobbyRules
 ]) {
   input.addEventListener('change', () => void changeSettings());
@@ -1676,8 +1692,9 @@ window.addEventListener('srp:race-finished', (event) => {
   lastSavedRaceId = null;
   resultsShared.hidden = true;
   if (detail?.recap) {
-    saveFinishedRace({ ...detail.recap, trackId: 'oval16_3lanes' }, winner, 'Solo', 1);
-    if (shareSolo) void shareSoloRace(detail.recap.log);
+    const { trackId } = getComposition();
+    saveFinishedRace({ ...detail.recap, trackId }, winner, 'Solo', 1);
+    if (shareSolo) void shareSoloRace(trackId, detail.recap.log);
   }
   showResults(winner);
   if (!detail?.recap && mode === 'online') void saveOnlineRace(winner);
