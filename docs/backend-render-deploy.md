@@ -67,6 +67,11 @@ Optional, with their defaults:
   development). With a Postgres URL the server keeps every finished online race, and the solo races their players
   upload, in one table `races` (created on first use). See "Race history (Neon)" below.
 
+- `DEVICE_TOKEN_SECRET` (#194): signs the anonymous device tokens that `POST /api/v1/races` requires, at least 32
+  characters (`openssl rand -hex 32`). Set it in production: absent, the server makes a random one per process (and
+  logs a warning), so every restart turns the tokens away until each browser asks for a new one (it does, once, by
+  itself). Changing it does the same.
+
 ## Race history (Neon)
 
 The history is anonymous and append-only: one row per race, holding the race log (a few KB, under 1 KB gzipped) and
@@ -79,6 +84,12 @@ nothing that identifies a player (the names and the player ids are not kept). It
 2. In the Render service, set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to the **production** branch's values
    (`neon env pull` on that branch, or the Neon console), and redeploy.
 3. Check: `GET /api/v1/races` answers `{ "races": [] }`; after a finished online race it lists it.
+
+Uploading a solo race needs a device token (#194): `POST /api/v1/devices` (20 a day per IP) gives one, signed with
+`DEVICE_TOKEN_SECRET`, and the upload sends it as `Authorization: Bearer`. There is no account behind it: the history
+keeps a short hash of the device (the `device` column, never returned by the API) and at most 50 races of one device,
+the next one replacing that device's own oldest. It limits how much of the history one browser can fill, and clearing
+the browser's storage makes a new device.
 
 Locally, `npm --prefix backend run dev` loads `../.env.local` when it exists, so the backend then talks to the checked-out
 Neon branch. Use a **dev branch** for that (`neon checkout dev --create`: it expires after 7 days, per `neon.ts`), not

@@ -259,7 +259,12 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   and anonymous, so one uploader must not fill the database). Anonymous: a race is its scrubbed log (`scrubLog` replaces the owner ids,
   no names). The server stores each finished online race after the broadcast (not awaited, a failure is logged) and
   `POST /api/v1/races` takes a solo race, replaying it with `replayRace` first. The id is a hash of the log, so a
-  race is stored once. Tested with `pg-mem` standing in for Postgres (it differs from Postgres on `returning` after
+  race is stored once. Device tokens (#194): `POST /api/v1/devices` (20 a day per IP) gives an anonymous token signed
+  with `DEVICE_TOKEN_SECRET` (`backend/src/device_token.ts`, stateless, no account), `POST /api/v1/races` needs it as
+  `Authorization: Bearer` (401 before any replay), and the store keeps `deviceHash(id)` in a `device` column, never
+  given back, with at most `MAX_RACES_PER_DEVICE` (50) races per device (the next replaces its own oldest). The client
+  keeps the token in `localStorage["srp:device"]` (`BackendApiClient.uploadRace` mints it, and on a 401 takes a new one
+  and retries once). Tested with `pg-mem` standing in for Postgres (it differs from Postgres on `returning` after
   `on conflict do nothing`, so duplicates are found by a select first). On Neon: `DATABASE_URL` is the pooled URL (the
   app's queries), `DATABASE_URL_UNPOOLED` the direct one (only the `create table`); `neon.ts` / `.neon` / `.env.local`
   are the Neon CLI's (`.neon` and `.env.local` stay out of git); work against the `dev` branch, not `production`.

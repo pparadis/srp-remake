@@ -11,6 +11,8 @@ export interface NewRace {
   trackId: string;
   log: RaceLog;
   winnerCarId: number;
+  /** `deviceHash` of the uploader (#194); none for a race the server stores itself. Never given back by `list` or `get`. */
+  device?: string;
 }
 
 export interface StoredRaceSummary {
@@ -71,29 +73,46 @@ function summaryOf(id: string, finishedAt: number, race: NewRace): StoredRaceSum
   };
 }
 
+// One device may hold this many races of the history; its next one replaces its own oldest, never another device's.
+export const MAX_RACES_PER_DEVICE = 50;
+
 /** Dev and tests, and the server when no `DATABASE_URL` is set: kept until the process ends, the newest `limit` only. */
 export class MemoryRaceStore implements RaceStore {
-  private readonly races: StoredRace[] = [];
+  private readonly races: Array<{ race: StoredRace; device: string | undefined }> = [];
 
-  constructor(private readonly limit = 500) {}
+  constructor(
+    private readonly limit = 500,
+    private readonly perDevice = MAX_RACES_PER_DEVICE
+  ) {}
 
   insert(race: NewRace): Promise<{ id: string; duplicate: boolean }> {
     const log = scrubLog(race.log);
     const id = raceId(log);
-    if (this.races.some((stored) => stored.id === id)) {
+    if (this.races.some((stored) => stored.race.id === id)) {
       return Promise.resolve({ id, duplicate: true });
     }
-    this.races.unshift({ ...summaryOf(id, Date.now(), { ...race, log }), log });
+    this.races.unshift({
+      race: { ...summaryOf(id, Date.now(), { ...race, log }), log },
+      device: race.device
+    });
+    if (race.device) {
+      const mine = this.races.filter((stored) => stored.device === race.device);
+      for (const stored of mine.slice(this.perDevice)) {
+        this.races.splice(this.races.indexOf(stored), 1);
+      }
+    }
     this.races.length = Math.min(this.races.length, this.limit);
     return Promise.resolve({ id, duplicate: false });
   }
 
   list(limit: number): Promise<StoredRaceSummary[]> {
-    return Promise.resolve(this.races.slice(0, limit).map(({ log: _log, ...summary }) => summary));
+    return Promise.resolve(
+      this.races.slice(0, limit).map(({ race: { log: _log, ...summary } }) => summary)
+    );
   }
 
   get(id: string): Promise<StoredRace | null> {
-    return Promise.resolve(this.races.find((race) => race.id === id) ?? null);
+    return Promise.resolve(this.races.find((stored) => stored.race.id === id)?.race ?? null);
   }
 
   close(): Promise<void> {
@@ -117,7 +136,10 @@ const SCHEMA = [
      winner_car integer not null,
      log jsonb not null
    )`,
-  'create index if not exists races_seq_idx on races (seq desc)'
+  'create index if not exists races_seq_idx on races (seq desc)',
+  // #194: a table made before the device tokens has no column; null for the races the server stored itself.
+  'alter table races add column if not exists device text',
+  'create index if not exists races_device_idx on races (device, seq desc)'
 ];
 
 interface Row {
@@ -159,7 +181,8 @@ export class PgRaceStore implements RaceStore {
   constructor(
     private readonly pool: Pick<pg.Pool, 'query' | 'end'>,
     private migrationPool: Pick<pg.Pool, 'query' | 'end'> | null = null,
-    private readonly limit = MAX_STORED_RACES
+    private readonly limit = MAX_STORED_RACES,
+    private readonly perDevice = MAX_RACES_PER_DEVICE
   ) {}
 
   private schema(): Promise<void> {
@@ -187,8 +210,8 @@ export class PgRaceStore implements RaceStore {
     const known = await this.pool.query('select 1 from races where id = $1', [id]);
     if (known.rows.length > 0) return { id, duplicate: true };
     await this.pool.query(
-      `insert into races (id, source, track_id, rules_version, laps, cars, winner_car, log)
-       values ($1, $2, $3, $4, $5, $6, $7, $8)
+      `insert into races (id, source, track_id, rules_version, laps, cars, winner_car, log, device)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        on conflict (id) do nothing`,
       [
         id,
@@ -198,9 +221,17 @@ export class PgRaceStore implements RaceStore {
         log.raceLaps,
         log.seats.length,
         race.winnerCarId,
-        JSON.stringify(log)
+        JSON.stringify(log),
+        race.device ?? null
       ]
     );
+    if (race.device) {
+      await this.pool.query(
+        `delete from races where id in
+           (select id from races where device = $1 order by seq desc offset $2)`,
+        [race.device, this.perDevice]
+      );
+    }
     // The table is public and anonymous, so it stays a window on the newest races like the memory store. Chosen by
     // `offset` and not by `seq` arithmetic: the serial skips numbers (a conflict uses one up).
     await this.pool.query(

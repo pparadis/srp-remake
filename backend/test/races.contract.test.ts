@@ -47,9 +47,22 @@ async function start(
 ) {
   const app = await createApp({ ...TEST_CONFIG, ...config }, { logger: false, raceStore });
   t.after(() => app.close());
-  const upload = (payload: unknown) =>
-    app.inject({ method: 'POST', url: '/api/v1/races', payload: payload as object });
-  return { app, raceStore, upload };
+  const mint = async () =>
+    (
+      (await app.inject({ method: 'POST', url: '/api/v1/devices' })).json() as {
+        deviceToken: string;
+      }
+    ).deviceToken;
+  const device = await mint();
+  // `token`: another device's, or none at all (null)
+  const upload = (payload: unknown, token: string | null = device) =>
+    app.inject({
+      method: 'POST',
+      url: '/api/v1/races',
+      payload: payload as object,
+      headers: token ? { authorization: `Bearer ${token}` } : {}
+    });
+  return { app, raceStore, upload, mint };
 }
 
 test('a finished solo race is stored once, listed and given back, with no owner ids', async (t) => {
@@ -178,6 +191,81 @@ test('a store that is down costs a solo upload a 503 and an online race nothing'
   });
   const finished = await playRaceToEnd(app, lobby.lobbyId, playerToken, 'down');
   assert.equal(finished.status, 'FINISHED');
+});
+
+test('an upload needs a device token this server signed (401), checked before any replay', async (t) => {
+  const { upload, raceStore } = await start(t, undefined, {
+    DEVICE_TOKEN_SECRET: 'the-secret-of-this-server-0123456789'
+  });
+  const other = await start(t, undefined, {
+    DEVICE_TOKEN_SECRET: 'the-secret-of-another-one-0123456789'
+  });
+  const log = soloLog();
+  const [id, signature] = (await other.mint()).split('.') as [string, string];
+  const refused = [
+    await upload({ log }, null),
+    await upload({ log }, 'nope'),
+    await upload({ log }, `${id}.${signature}`), // signed by another server
+    await upload({ log: { ...log, seed: log.seed + 1 } }, null), // would not replay, but never gets there
+    await upload({ log }, `${id}.`)
+  ];
+  assert.deepEqual(
+    refused.map((res) => res.statusCode),
+    [401, 401, 401, 401, 401]
+  );
+  assert.equal((await raceStore.list(10)).length, 0);
+  assert.equal((await upload({ log })).statusCode, 201);
+});
+
+test('the token is read from Authorization: Bearer only, not from the body or the query', async (t) => {
+  const { app, mint } = await start(t);
+  const deviceToken = await mint();
+  const log = soloLog();
+  const inBody = await app.inject({
+    method: 'POST',
+    url: '/api/v1/races',
+    payload: { log, deviceToken }
+  });
+  const inQuery = await app.inject({
+    method: 'POST',
+    url: `/api/v1/races?deviceToken=${deviceToken}`,
+    payload: { log }
+  });
+  const basic = await app.inject({
+    method: 'POST',
+    url: '/api/v1/races',
+    payload: { log },
+    headers: { authorization: `Basic ${deviceToken}` }
+  });
+  assert.deepEqual([inBody.statusCode, inQuery.statusCode, basic.statusCode], [401, 401, 401]);
+});
+
+test('a device holds a bounded share of the history: its next race replaces its own oldest, nobody else is touched', async (t) => {
+  const raceStore = new MemoryRaceStore(500, 2);
+  const { app, upload, mint } = await start(t, raceStore);
+  const other = await mint();
+  const otherRace = (await upload({ log: soloLog(1, 90) }, other)).json() as { id: string };
+  const ids: string[] = [];
+  for (const seed of [1, 2, 3]) {
+    ids.push(((await upload({ log: soloLog(1, seed) })).json() as { id: string }).id);
+  }
+  const kept = (await raceStore.list(10)).map((race) => race.id).sort();
+  assert.deepEqual(kept, [otherRace.id, ids[1]!, ids[2]!].sort());
+  // the device is not in what the API gives back
+  const listed = (await app.inject({ method: 'GET', url: '/api/v1/races' })).body;
+  const whole = (await app.inject({ method: 'GET', url: `/api/v1/races/${ids[2]}` })).body;
+  for (const body of [listed, whole]) {
+    assert.ok(!body.includes('device'));
+    assert.ok(!body.includes(other.split('.')[0]!));
+  }
+});
+
+test('device tokens are minted at 20 a day per IP: the 21st is 429', async (t) => {
+  const { app } = await start(t, new MemoryRaceStore(), { RATE_LIMIT_ENABLED: true }); // minted one already
+  for (let i = 0; i < 19; i += 1) {
+    assert.equal((await app.inject({ method: 'POST', url: '/api/v1/devices' })).statusCode, 201);
+  }
+  assert.equal((await app.inject({ method: 'POST', url: '/api/v1/devices' })).statusCode, 429);
 });
 
 test('uploads are rate limited: the 11th in a minute is 429', async (t) => {

@@ -346,6 +346,9 @@ describe('main (solo flow)', () => {
         vi.stubGlobal(
           'fetch',
           vi.fn(async (url: string, init?: { body?: string }) => {
+            if (String(url).endsWith('/api/v1/devices')) {
+              return new Response(JSON.stringify({ deviceToken: 'device-1' }), { status: 201 });
+            }
             if (String(url).endsWith('/api/v1/races')) {
               shared.calls += 1;
               shared.log = JSON.parse(init?.body ?? '{}');

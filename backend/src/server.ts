@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import {
@@ -11,6 +11,7 @@ import {
   loadConfig,
   type BackendConfig
 } from './config.js';
+import { deviceHash, mintDeviceToken, verifyDeviceToken } from './device_token.js';
 import { LobbyError, LobbyStore, toPublicLobby } from './lobby_store.js';
 import { createRaceStore, type RaceStore } from './race_store.js';
 import { getRaceContext } from './tracks.js';
@@ -267,6 +268,10 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   app.addHook('onClose', async () => {
     await raceStore.close();
   });
+  const deviceSecret = config.DEVICE_TOKEN_SECRET ?? randomBytes(32).toString('hex');
+  if (!config.DEVICE_TOKEN_SECRET) {
+    app.log.warn('DEVICE_TOKEN_SECRET is not set: device tokens will not survive a restart.');
+  }
   // lobby -> "player:clientCommandId" -> result. Dropped with the lobby when it is reaped.
   const dedupedResults = new Map<string, Map<string, TurnCommandResult>>();
   const lobbyIdleMs = (config.LOBBY_IDLE_SECONDS ?? DEFAULT_LOBBY_IDLE_SECONDS) * 1000;
@@ -612,7 +617,15 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     await app.register(rateLimit, { global: false });
   }
   // Per IP and minute; sized above what several players behind one router do (see issue #69).
-  const limit = (max: number) => ({ rateLimit: { max, timeWindow: '1 minute' } });
+  const limit = (max: number, timeWindow = '1 minute') => ({ rateLimit: { max, timeWindow } });
+
+  // The uploader's device (#194): a token this server signed, in `Authorization: Bearer`. What the history keeps is the hash.
+  function deviceOf(request: { headers: { authorization?: string | undefined } }): string {
+    const token = /^Bearer (\S+)$/.exec(request.headers.authorization ?? '')?.[1];
+    const id = token ? verifyDeviceToken(deviceSecret, token) : null;
+    if (!id) throw new LobbyError(401, 'A device token is required.');
+    return deviceHash(id);
+  }
 
   app.get('/health', async () => ({
     ok: true,
@@ -705,12 +718,19 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     };
   });
 
-  // The race history (#170). Anonymous: nothing identifies who raced. A solo race is uploaded by its player (opt-in); the
-  // server replays the log first, so only races the engine accepts are kept.
+  // An anonymous device identity (#194): no account, so this only raises the cost of filling the history. A person needs one
+  // token, ever; the per-IP day limit is what bounds how many a script can make.
+  app.post(`${API_V1_PREFIX}/devices`, { config: limit(20, '1 day') }, async (_request, reply) =>
+    reply.code(201).send({ deviceToken: mintDeviceToken(deviceSecret) })
+  );
+
+  // The race history (#170). Anonymous: nothing identifies who raced. A solo race is uploaded by its player (opt-in) with a
+  // device token (#194); the server replays the log first, so only races the engine accepts are kept.
   app.post(
     `${API_V1_PREFIX}/races`,
     { config: limit(10), bodyLimit: 128 * 1024 },
     async (request, reply) => {
+      const device = deviceOf(request);
       const body = uploadRaceSchema.parse(request.body);
       const ctx = getRaceContext(body.trackId);
       if (!ctx) throw new LobbyError(400, `Unknown track ${body.trackId}.`);
@@ -735,7 +755,8 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
           source: 'solo',
           trackId: body.trackId,
           log,
-          winnerCarId
+          winnerCarId,
+          device
         });
         return reply.code(stored.duplicate ? 200 : 201).send(stored);
       } catch (error) {

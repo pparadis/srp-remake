@@ -168,6 +168,8 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '');
 }
 
+const DEVICE_KEY = 'srp:device';
+
 // A sleeping free-plan server needs about a minute for its first response.
 const REQUEST_TIMEOUT_MS = 90_000;
 
@@ -180,12 +182,18 @@ export class BackendApiClient {
     this.timeoutMs = timeoutMs;
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>
+  ): Promise<T> {
     const init: { method: string; headers?: Record<string, string>; body?: string } = { method };
     if (body !== undefined) {
       init.headers = { 'Content-Type': 'application/json' };
       init.body = JSON.stringify(body);
     }
+    if (headers) init.headers = { ...init.headers, ...headers };
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     let res: Response;
@@ -264,10 +272,43 @@ export class BackendApiClient {
     return this.request('GET', path);
   }
 
+  // The anonymous device token (#194): minted once and kept in this browser. `fresh` replaces it (the server did not
+  // recognise it: a restart without DEVICE_TOKEN_SECRET, or a new secret). Without storage every call mints one.
+  private async deviceToken(fresh: boolean): Promise<string> {
+    if (!fresh) {
+      try {
+        const stored = window.localStorage.getItem(DEVICE_KEY);
+        if (stored) return stored;
+      } catch {
+        // storage blocked: mint below
+      }
+    }
+    const { deviceToken } = await this.request<{ deviceToken: string }>('POST', '/api/v1/devices');
+    try {
+      window.localStorage.setItem(DEVICE_KEY, deviceToken);
+    } catch {
+      // not kept: the next call mints another
+    }
+    return deviceToken;
+  }
+
   // A finished solo race into the public history (#170, opt-in). The server replays the log first: 400 when the engine
-  // refuses it, 200 `duplicate` when it already has it, 503 while its database is down.
-  uploadRace(trackId: string, log: RaceLog): Promise<{ id: string; duplicate: boolean }> {
-    return this.request('POST', '/api/v1/races', { trackId, log });
+  // refuses it, 200 `duplicate` when it already has it, 503 while its database is down, 401 when it does not know the
+  // device token (we get a new one and try once more).
+  async uploadRace(trackId: string, log: RaceLog): Promise<{ id: string; duplicate: boolean }> {
+    const send = async (fresh: boolean) =>
+      this.request<{ id: string; duplicate: boolean }>(
+        'POST',
+        '/api/v1/races',
+        { trackId, log },
+        { Authorization: `Bearer ${await this.deviceToken(fresh)}` }
+      );
+    try {
+      return await send(false);
+    } catch (error) {
+      if (error instanceof BackendApiError && error.status === 401) return send(true);
+      throw error;
+    }
   }
 
   // The public history, newest first.

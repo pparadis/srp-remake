@@ -148,3 +148,30 @@ test('postgres: only the newest races are kept, the oldest go first', async (t) 
   );
   assert.equal(await store.get(ids[0]!), null);
 });
+
+const perDeviceStores: Array<[string, () => RaceStore]> = [
+  ['memory', () => new MemoryRaceStore(500, 2)],
+  [
+    'postgres (pg-mem)',
+    () => new PgRaceStore(new (newDb().adapters.createPg().Pool)(), null, 2000, 2)
+  ]
+];
+
+for (const [name, make] of perDeviceStores) {
+  test(`${name}: a device keeps its newest races only, and nobody else loses one`, async (t) => {
+    const store = make();
+    t.after(() => store.close());
+    const mine = (seed: number) => store.insert({ ...finishedRace(seed), device: 'aaaa' });
+    const online = await store.insert(finishedRace(10)); // no device: the server's own
+    const theirs = await store.insert({ ...finishedRace(11), device: 'bbbb' });
+    const ids: string[] = [];
+    for (const seed of [1, 2, 3]) ids.push((await mine(seed)).id);
+
+    const kept = (await store.list(10)).map((race) => race.id);
+    assert.deepEqual(kept.sort(), [online.id, theirs.id, ids[1]!, ids[2]!].sort());
+    assert.equal(await store.get(ids[0]!), null);
+    // the same race again is a duplicate and costs nothing
+    assert.equal((await mine(3)).duplicate, true);
+    assert.equal((await store.list(10)).length, 4);
+  });
+}
