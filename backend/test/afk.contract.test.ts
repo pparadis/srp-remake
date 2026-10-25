@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { BackendConfig } from '../src/config.js';
+import { LobbyStore } from '../src/lobby_store.js';
 import { createApp } from '../src/server.js';
 import type { PublicLobby } from '../src/types.js';
 import { legalMove, playRaceToEnd, readLobby } from './helpers.js';
@@ -375,4 +376,35 @@ test('timers are cleared when the race finishes and when the lobby is reset', as
   await post(app, lobbyId, 'start', { playerToken: hostToken });
   const second = await readLobby(app, lobbyId, hostToken);
   assert.ok(second.raceState.turnRemainingMs! > 1000);
+});
+
+test('turn timer: an engine error in the autopilot turn is logged and the server stays up', async (t) => {
+  class ThrowingStore extends LobbyStore {
+    override decideBotTurn(): never {
+      throw new Error('boom');
+    }
+  }
+  const lines: string[] = [];
+  const app = await createApp(
+    { ...TEST_CONFIG, TURN_TIMER_TIME_SCALE: 0.01 },
+    { logStream: { write: (line) => lines.push(line) }, lobbyStore: new ThrowingStore() }
+  );
+  t.after(async () => {
+    await app.close();
+  });
+  const created = await app.inject({
+    method: 'POST',
+    url: '/api/v1/lobbies',
+    payload: {
+      name: 'Host',
+      settings: { totalCars: 1, humanCars: 1, botCars: 0, turnTimerSec: 30 }
+    }
+  });
+  const { lobby, playerToken } = created.json() as { lobby: PublicLobby; playerToken: string };
+  await post(app, lobby.lobbyId, 'start', { playerToken });
+
+  // The timer fires after 0.3 s; without the guard the uncaught error fails this test.
+  await waitFor(() => lines.some((line) => line.includes('autopilot turn failed')));
+  const health = await app.inject({ method: 'GET', url: '/health' });
+  assert.equal(health.statusCode, 200);
 });

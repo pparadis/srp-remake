@@ -405,8 +405,16 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
         revision: current.revision,
         seatIndex: seat.seatIndex
       });
-      playBotTurnFor(lobbyId, 'autopilot', 'timeout');
-      void runPendingBotTurns(lobbyId);
+      // A throw in a timer is not caught by Fastify and would end the process, and every lobby with it.
+      try {
+        playBotTurnFor(lobbyId, 'autopilot', 'timeout');
+      } catch (error) {
+        app.log.error({ err: error, lobbyId }, 'turn timer: autopilot turn failed');
+        return;
+      }
+      runPendingBotTurns(lobbyId).catch((error: unknown) => {
+        app.log.error({ err: error, lobbyId }, 'turn timer: bot turns failed');
+      });
     }, delayMs);
     timer.unref();
     turnTimers.set(lobbyId, timer);
