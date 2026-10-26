@@ -276,3 +276,35 @@ test('uploads are rate limited: the 11th in a minute is 429', async (t) => {
   }
   assert.equal((await upload({ log })).statusCode, 429);
 });
+
+test('a mint and an upload are logged with the client address, never the token', async (t) => {
+  const lines: string[] = [];
+  const app = await createApp(TEST_CONFIG, {
+    raceStore: new MemoryRaceStore(),
+    logStream: { write: (line) => lines.push(line) }
+  });
+  t.after(() => app.close());
+  const remoteAddress = '203.0.113.9';
+  const { deviceToken } = (
+    await app.inject({ method: 'POST', url: '/api/v1/devices', remoteAddress })
+  ).json() as { deviceToken: string };
+  await app.inject({
+    method: 'POST',
+    url: '/api/v1/races',
+    payload: { log: soloLog(1) },
+    headers: { authorization: `Bearer ${deviceToken}` },
+    remoteAddress
+  });
+  const events = lines
+    .map((line) => JSON.parse(line) as { event?: string; ip?: string; duplicate?: boolean })
+    .filter((entry) => entry.event?.startsWith('device.') || entry.event?.startsWith('race.'));
+  assert.deepEqual(
+    events.map((entry) => [entry.event, entry.ip]),
+    [
+      ['device.mint', remoteAddress],
+      ['race.upload', remoteAddress]
+    ]
+  );
+  assert.equal(events[1]!.duplicate, false);
+  assert.ok(!lines.join('').includes(deviceToken));
+});
