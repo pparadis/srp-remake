@@ -1,6 +1,6 @@
 // Adaptive frame rate (#82): a turn-based board has nothing to redraw while a player thinks, and the Canvas renderer
 // still repaints it 60 times a second (about half the CPU of a race page, tools/cpuProbe.mjs). The game starts with an
-// fps limit (`startGame`), so Phaser's loop skips frames below `_limitRate`; this raises it to 0 (a frame per
+// fps limit (`startGame`), so Phaser's loop skips frames below `_limitRate`; this lowers it to 1 ms (a frame per
 // animation frame, as the browser gives them) while something moves or the player is acting, and back to `idleFps`
 // once nothing has for `HOLD_MS`. Phaser has no public call to change the limit at runtime.
 
@@ -9,7 +9,10 @@ export interface FrameLimit {
   _limitRate: number;
 }
 
-/** Phaser's loop has `_limitRate` (internal: not in its typings), a number from its constructor on. */
+/**
+ * Phaser's loop has `_limitRate` (internal: not in its typings), a number from its constructor on. Not `setFPSLimit`
+ * (4.2): it restarts the rAF loop, and called from inside a step (`tick` runs in UPDATE) it leaves two loops running.
+ */
 export function isFrameLimit(loop: object): loop is FrameLimit {
   return '_limitRate' in loop && typeof loop._limitRate === 'number';
 }
@@ -46,8 +49,15 @@ export const TEST_FPS = 10;
 export const FRAME_RATES: FrameRates =
   import.meta.env.MODE === 'test' ? { active: TEST_FPS, idle: TEST_FPS } : { active: 0, idle: 15 };
 
+/**
+ * No cap is 1 ms, never 0: Phaser 4 keeps `delta % _limitRate` after a step, and `x % 0` is NaN, which stops the loop
+ * for good (#232: the board froze on "The other cars are moving" until a refocus reset the delta). 1 ms still steps on
+ * every animation frame of any screen up to 1000 Hz.
+ */
+const NO_CAP_MS = 1;
+
 function rate(fps: number): number {
-  return fps > 0 ? 1000 / fps : 0;
+  return fps > 0 ? 1000 / fps : NO_CAP_MS;
 }
 
 export class FrameGovernor {
