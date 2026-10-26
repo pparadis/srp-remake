@@ -7,7 +7,7 @@ import {
   waitForRace
 } from './support/game';
 
-// The WebGL renderer is an experiment next to the default Canvas one (#232, `?renderer=webgl`). It needs a real browser:
+// WebGL is the game's default renderer (#232); the e2e build is pinned to Canvas, so this spec asks for it. It needs a real browser:
 // the page must get a WebGL context, and leaving the race screen hides the container (0x0), which a WebGL framebuffer
 // cannot be (a unit test cannot see that: it threw "Framebuffer status: Incomplete Attachment" at the end of a race).
 test.setTimeout(90_000);
