@@ -149,6 +149,13 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
 - The game uses Phaser's Canvas renderer on purpose (`type: Phaser.CANVAS` in `src/game/index.ts`): it is a turn-based
   board, and software WebGL cost about 14x the CPU (`npm run probe:cpu`). Do not add WebGL-only features (tint, FX,
   pipelines, shaders, masks, blend modes, particles). `e2e/smoke.spec.ts` asserts the canvas has a 2D context.
+  WebGL is an experiment next to it (#232): `?renderer=webgl` (`main.ts` passes `renderer` to `startGame`; the e2e build's
+  default is `VITE_RENDERER`, set from `E2E_RENDERER=webgl`, which runs the whole suite on WebGL and makes the smoke
+  assertion expect no 2D context; the pixel baselines are Canvas only). Phaser 4 calls Canvas deprecated (still there,
+  no removal date). Parity on Phaser 4.2.1: every e2e spec passes on WebGL; the one thing that broke was a hidden
+  container (0x0) reaching the WebGL renderer, so `keepGameSizeInSync` ignores a container with no size (a WebGL
+  framebuffer cannot be 0x0), covered by `e2e/webgl.spec.ts`. Software GL, test build, `probe:cpu` (v2 URL: v3's setup
+  panel blocks the probe's drag): Canvas 1.6 s of CPU, WebGL 8.5 s. A real GPU is not measured yet.
 - Idle frame rate (#82): the game starts with an fps limit and `FrameGovernor` (`src/game/frame_governor.ts`, created by
   `RaceScene`) moves Phaser's `_limitRate` between full speed and 15 fps (`FRAME_RATES`). Full speed on any pointer, key,
   wheel or `srp:` event of the page (`watch`) and while `RaceScene.isAnimating()` says a glide, the camera tween, confetti

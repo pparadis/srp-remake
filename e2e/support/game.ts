@@ -47,6 +47,10 @@ interface SrpStatus {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** `E2E_RENDERER=webgl` builds the e2e app with WebGL as its default renderer (#232); Canvas is the default. */
+// eslint-disable-next-line no-undef -- Node-side Playwright code
+export const renderer = process.env.E2E_RENDERER === 'webgl' ? 'webgl' : 'canvas';
+
 export async function gotoHome(page: Page) {
   // The specs are written for v2's numbers and no automatic grid setup (v3 has its own in grid-setup.spec.ts)
   await page.goto('/?seed=0&rules=v2');

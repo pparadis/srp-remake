@@ -52,7 +52,9 @@ export default defineConfig({
       env: {
         VITE_BASE_PATH: '/',
         VITE_BACKEND_API_BASE_URL: backendUrl,
-        VITE_BACKEND_WS_BASE_URL: ''
+        VITE_BACKEND_WS_BASE_URL: '',
+        // E2E_RENDERER=webgl runs the suite on the WebGL renderer (#232); the pixel baselines are Canvas only
+        VITE_RENDERER: process.env.E2E_RENDERER ?? ''
       },
       // A reused preview server would serve a stale build (and possibly another backend URL), so only the
       // dev server, which always serves the current source, may be reused locally.

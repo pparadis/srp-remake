@@ -37,6 +37,8 @@ interface GameOptions {
   // Solo dev tool (`?sandbox`): start in edit mode, optionally from a "Copy debug" snapshot (JSON text).
   sandbox?: boolean;
   position?: string;
+  // `?renderer=webgl` (#232): the WebGL renderer, an experiment next to the default Canvas one
+  renderer?: 'canvas' | 'webgl';
   // `?hidpi`: draw the canvas at the screen's pixel density (hidpi.ts); main.ts turns it on unless `?hidpi=0`
   hidpi?: boolean;
   // `?anim`: glide the cars in a test build too (they move at once there, so the specs read where cars are)
@@ -50,9 +52,10 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   const scale = renderScale();
   const box = parent.getBoundingClientRect();
   const config: Phaser.Types.Core.GameConfig = {
-    // Canvas on purpose: a turn-based board (lines, a few sprites, text) needs no WebGL, and software WebGL
-    // burned many CPU cores per page (tools/cpuProbe.mjs: 125.6 s vs 8.8 s of CPU for the same race).
-    type: Phaser.CANVAS,
+    // Canvas by default, on purpose: a turn-based board (lines, a few sprites, text) needs no WebGL, and software WebGL
+    // burned many CPU cores per page (tools/cpuProbe.mjs: 125.6 s vs 8.8 s of CPU for the same race). `?renderer=webgl`
+    // tries the other one (#232).
+    type: options.renderer === 'webgl' ? Phaser.WEBGL : Phaser.CANVAS,
     // A frame limit, so the loop can skip frames: the race scene's FrameGovernor moves it between the idle rate and
     // full speed (#82). The e2e build keeps a low cap for the load of many headless pages; tweens use delta time.
     fps: isTestBuild ? { target: TEST_FPS, limit: TEST_FPS } : { limit: FRAME_RATES.idle },
