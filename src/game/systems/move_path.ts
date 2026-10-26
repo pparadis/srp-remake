@@ -60,7 +60,7 @@ export function movePath(
   if (!parent.has(toCellId)) return [fromCellId, toCellId];
 
   const path = [toCellId];
-  for (let id = toCellId; id !== fromCellId; ) {
+  for (let id = toCellId; id !== fromCellId;) {
     id = must(parent.get(id), 'parent on the path');
     path.push(id);
   }

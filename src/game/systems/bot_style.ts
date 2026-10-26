@@ -6,13 +6,7 @@
 import { must } from '../must';
 
 export type PersonalityKey =
-  | 'balanced'
-  | 'adaptive'
-  | 'pusher'
-  | 'steady'
-  | 'racer'
-  | 'defender'
-  | 'strategist';
+  'balanced' | 'adaptive' | 'pusher' | 'steady' | 'racer' | 'defender' | 'strategist';
 
 export interface Personality {
   key: PersonalityKey;

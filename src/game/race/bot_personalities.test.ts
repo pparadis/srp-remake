@@ -66,17 +66,16 @@ describe('the scripted strategist is no longer a guaranteed win', () => {
   // gives it a random grid slot (and play order), against 3 Normal bots with seeded personalities.
   const seeds = Array.from({ length: 48 }, (_slot, i) => i + 1);
   const races = (laps: number) =>
-    seeds.map(
-      (seed) =>
-        playBenchRace(
-          ctx,
-          ['scripted', 'normal', 'normal', 'normal'],
-          laps,
-          seed,
-          undefined,
-          undefined,
-          'v2'
-        ).finishers.find((f) => f.slot === 0)!
+    seeds.map((seed) =>
+      playBenchRace(
+        ctx,
+        ['scripted', 'normal', 'normal', 'normal'],
+        laps,
+        seed,
+        undefined,
+        undefined,
+        'v2'
+      ).finishers.find((f) => f.slot === 0)!
     );
 
   it('wins about its fair quarter of 5-lap races, not all of them (it won 100 % from pole before the seeded grid)', () => {
