@@ -285,8 +285,15 @@ test('phone: pinch zooms the board, one finger on the empty board pans it, a dou
 
   // double tap on the empty board: fitted again, and the Fit button is gone
   const again = await emptySpot();
-  await page.touchscreen.tap(again.x, again.y);
-  await page.touchscreen.tap(again.x, again.y);
+  // Both taps in one burst: two awaited taps are separate round trips that can land more than the 320 ms window
+  // apart on a loaded machine (a software-GL frame takes that long).
+  const tap = [{ x: again.x, y: again.y, id: 1 }];
+  await Promise.all([
+    touch('touchStart', tap),
+    touch('touchEnd', []),
+    touch('touchStart', tap),
+    touch('touchEnd', [])
+  ]);
   await expect.poll(async () => (await view()).userZoom).toBe(1);
   expect((await view()).fitVisible).toBe(false);
   await expect.poll(async () => (await cellAt(ruler)).x).toBeCloseTo(before.x, 0);

@@ -171,8 +171,8 @@ export class RaceScene extends Phaser.Scene {
   private gFollowed!: Phaser.GameObjects.Graphics;
   private previewShown: MovePreview | null = null;
   private readonly trails = new Map<number, Phaser.GameObjects.Graphics>();
-  // Gliding cars: stop() jumps the token to the end of its glide.
-  private readonly glides = new Map<number, { stop: () => void }>();
+  // Gliding cars: stop() jumps the token to the end of its glide. `then` are the glides waiting for this one to end.
+  private readonly glides = new Map<number, { stop: () => void; then: Array<() => void> }>();
   private get cars(): Car[] {
     return this.session.cars;
   }
@@ -702,18 +702,21 @@ export class RaceScene extends Phaser.Scene {
 
   /**
    * Moves a car's token to a cell: along the lane it drove (movePath, round the cars standing where they stood when it
-   * moved), turning with the road, in `delayMs` after now. Returns how long the glide takes (0 when it is already there
-   * or the move is instant). The token's cell is recorded at once, so a second sync does not glide it again.
+   * moved), turning with the road, once the glide of `afterCarId` (if it is still going) has ended or been stopped.
+   * Chaining on the end of the one before, not on a summed delay, keeps the glides one after another whatever the frame
+   * times (a tween's delay and its first frame are counted apart, so summed delays overlapped by about a frame).
+   * Nothing glides when the token is already there or the move is instant. The token's cell is recorded at once, so a
+   * second sync does not glide it again.
    */
   private glideTo(
     carId: number,
     toCellId: string,
-    delayMs = 0,
+    afterCarId: number | null = null,
     capMs: number = GLIDE.maxMs
-  ): number {
+  ) {
     const token = this.carTokens.get(carId);
     const cell = this.cellMap.get(toCellId);
-    if (!token || !cell) return 0;
+    if (!token || !cell) return;
     this.finishGlide(carId);
     const body = token.first as Phaser.GameObjects.Image;
     const halo = this.activeHalos.get(carId);
@@ -728,7 +731,7 @@ export class RaceScene extends Phaser.Scene {
     if (there || this.instantMoves()) {
       arrive();
       if (!there) this.showTrail(carId); // an instant move (reduced motion) still leaves its trail
-      return 0;
+      return;
     }
 
     // From the cell the token stands on; a token moved by hand (a drag, the sandbox) goes straight from where it is.
@@ -757,11 +760,12 @@ export class RaceScene extends Phaser.Scene {
     const handMoved = ids.length < 2;
     const startRotation = body.rotation;
     const endRotation = spriteRotation(cell, this.cellMap);
+    const before = afterCarId === null ? undefined : this.glides.get(afterCarId);
     const tween = this.tweens.addCounter({
       from: 0,
       to: 1,
       duration,
-      delay: delayMs,
+      paused: before !== undefined, // starts when the glide before it ends (see below)
       ease: 'Sine.easeInOut',
       // the trail shows when the car sets off, not while it waits for the cars before it
       onStart: () => this.showTrail(carId),
@@ -784,15 +788,23 @@ export class RaceScene extends Phaser.Scene {
         this.glides.delete(carId);
         arrive();
         this.drawTow(); // the tows were hidden while cars glided
+        startNext();
       }
     });
-    this.glides.set(carId, {
+    const startNext = () => {
+      for (const start of entry.then.splice(0)) start();
+    };
+    const entry = {
       stop: () => {
         tween.stop();
         arrive();
-      }
-    });
-    return duration;
+        startNext(); // a stopped glide must not leave the one after it waiting for good
+      },
+      then: [] as Array<() => void>
+    };
+    this.glides.set(carId, entry);
+    // only if this glide is still the car's own when the one before ends (a stop replaces or removes it)
+    before?.then.push(() => this.glides.get(carId) === entry && tween.resume());
   }
 
   // Puts every token where its car is: cars that moved glide there one after another, in the order they moved.
@@ -820,8 +832,11 @@ export class RaceScene extends Phaser.Scene {
     };
     moving.sort((a, b) => rank(a.carId) - rank(b.carId));
     const cap = glideCap(moving.length);
-    let delay = 0;
-    for (const car of moving) delay += this.glideTo(car.carId, car.cellId, delay, cap);
+    let after: number | null = null;
+    for (const car of moving) {
+      this.glideTo(car.carId, car.cellId, after, cap);
+      if (this.glides.has(car.carId)) after = car.carId;
+    }
     // The race is already ahead of the board: nobody acts until the last car has arrived (see settleBoard).
     if (this.glides.size > 0) this.session.setCarsMoving(true);
     // a car that moved but did not glide (a drop is its own motion; instant moves) still leaves its trail

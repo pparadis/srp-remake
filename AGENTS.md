@@ -241,6 +241,9 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   feeds rules). Instant in the e2e build (`?anim` turns it on) and under `prefers-reduced-motion`; a spec that reads
   token positions right after a turn relies on that. A dragged car turns with the road under the finger (`easeAngle`,
   #110), a dropped drag glides from the drop point and a refused one glides back. Details: `docs/strategy-and-feel.md`.
+  The glides of one round run one after another: each starts when the one before ends or is stopped (`glideTo`'s
+  `afterCarId`, a paused tween resumed), not after a summed `delay`, which overlapped by about a frame (Phaser spends
+  a tween's first frame starting it, #232).
   The race is ahead of the board (the bots play at once, the cars glide after), so nobody acts until the last glide has
   ended (#189): `syncTokens` sets `RaceSession.setCarsMoving(true)` when it starts glides, which makes
   `canControlActiveCar` / `localCanControl` / `canSkip` / `canSetup` false and hides the rings (`HudSnapshot.carsMoving`:
