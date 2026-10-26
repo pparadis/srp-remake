@@ -28,6 +28,7 @@ import { listSavedRaces, loadSavedRace, saveRace, type SavedRace } from './ui/re
 import { renderHomeTrack, setHomeTrackRunning } from './ui/home_track';
 import { mountVersion, renderVersion, type ServerVersion } from './ui/version';
 import { showUncaughtErrors, startRenderProbe } from './ui/diagnostics';
+import { NO_WEBGL_MESSAGE, webglSupported } from './ui/webgl_support';
 import { MAX_SEED, normalizeSeed } from './game/systems/bot_style';
 import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from './game/rules/ids';
 import { DEFAULT_TRACK_ID, TRACK_CHOICES, isTrackId, trackLaps } from './game/track_ids';
@@ -827,6 +828,10 @@ function setBackendBusy(next: boolean) {
 
 async function ensureGameStarted() {
   if (game || gameStarting) return;
+  if (!webglSupported()) {
+    kickToHome(NO_WEBGL_MESSAGE);
+    return;
+  }
   gameStarting = true;
   try {
     const { startGame } = await importFresh(() => import('./game'));

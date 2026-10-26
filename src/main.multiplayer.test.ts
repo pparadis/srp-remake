@@ -26,6 +26,11 @@ const readRecapMock = vi.fn();
 vi.mock('./game', () => ({
   startGame: (...args: unknown[]) => startGame(...args)
 }));
+// jsdom has no WebGL: the page asks before it starts the game
+vi.mock('./ui/webgl_support', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./ui/webgl_support')>()),
+  webglSupported: () => true
+}));
 
 class MockBackendApiError extends Error {
   readonly status: number;

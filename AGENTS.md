@@ -56,7 +56,8 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   as it is, since the rule goldens and diagrams are made on it; `OVAL16` in the specs rebuilds it, and a test compares
   positions, zones, tags and the pit. `oval32_3lanes` is the same oval twice as big (56 cells a lap). A bigger track is
   a longer lap, not smaller cells: cars and cells keep their size, the camera fits the whole board, and the baked track
-  texture is capped (`MAX_TRACK_TEXTURE_PIXELS`) so it stays under the iOS canvas limit.
+  texture is capped by `trackBakeScale` (`rendering/track_bake.ts`): the iOS canvas limit (`MAX_TRACK_TEXTURE_PIXELS`)
+  and the WebGL renderer's own `getMaxTextureSize()` per side.
 - Docs in `docs/`: rules and design the code relies on (`movement-spec.md`, `bot-system.md`, ...).
 - Rule diagrams in `docs/img/` are generated from the engine by `tools/diagrams/` (`npm run gen:diagrams`: SVG plus a
   PNG, and `diagrams.lock.json`, which ties each PNG to the SVG it was rendered from). A scenario (`scenario.ts`) is a
@@ -157,7 +158,9 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   fallback. The e2e suite and its pixel baselines run on WebGL (software GL on CI is deterministic);
   `e2e/smoke.spec.ts` asserts the canvas holds a WebGL context, and `e2e/webgl.spec.ts` plays a race to the end and
   starts another (leaving the race screen hides the container, 0x0, which a WebGL framebuffer cannot be:
-  `keepGameSizeInSync` ignores a container with no size). A real GPU is not measured yet (#232).
+  `keepGameSizeInSync` ignores a container with no size) and loses and restores the WebGL context mid-race (the board
+  must look the same after; our baked textures come back by themselves). A browser with no WebGL gets a sentence on
+  the home screen (`ui/webgl_support.ts`, checked before the game chunk loads), not a Phaser error. A real GPU is not measured yet (#232).
 - Idle frame rate (#82): the game starts with an fps limit and `FrameGovernor` (`src/game/frame_governor.ts`, created by
   `RaceScene`) moves Phaser's `_limitRate` between full speed (1 ms, never 0: Phaser 4 keeps `delta % _limitRate`, and
   a 0 made it NaN and stopped the loop for good, #232) and 15 fps (`FRAME_RATES`). Full speed on any pointer, key,
