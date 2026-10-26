@@ -6,8 +6,7 @@ export const CHAT_MAX_GRAPHEMES = 100;
 export const CHAT_MAX_UNITS = 400;
 
 export type ChatTextResult =
-  | { ok: true; text: string }
-  | { ok: false; reason: 'empty' | 'too_long' };
+  { ok: true; text: string } | { ok: false; reason: 'empty' | 'too_long' };
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 

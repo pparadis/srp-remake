@@ -41,7 +41,7 @@ function treeTicks(root) {
       )
       .map(([pid]) => pid)
   );
-  for (let grew = true; grew; ) {
+  for (let grew = true; grew;) {
     grew = false;
     for (const [pid, p] of t) if (!ids.has(pid) && ids.has(p.ppid)) (ids.add(pid), (grew = true));
   }
