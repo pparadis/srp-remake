@@ -473,3 +473,13 @@ test('only the newest command results are remembered for resends', async (t) => 
   assert.equal((await submit(illegal, 'c-0')).statusCode, 409);
   assert.equal((await submit(illegal, `c-${MAX_DEDUPED_RESULTS}`)).statusCode, 200);
 });
+
+// #138: the server owns the play order and sends it (from v4 it changes every round), so the client never derives it.
+test('rules v4: the race sends its play order, led by the active seat', async (t) => {
+  playRules(t, 'v4');
+  const { app, raceState } = await startRace();
+  t.after(() => app.close());
+  assert.equal(raceState.rulesVersion, 'v4');
+  assert.deepEqual([...raceState.turnOrder].sort(), raceState.cars.map((c) => c.carId).sort());
+  assert.equal(raceState.turnOrder[0], raceState.activeSeatIndex + 1);
+});

@@ -28,6 +28,8 @@ export interface RaceState {
   // Turns applied so far (human and bot).
   turnIndex: number;
   activeSeatIndex: number;
+  // Car ids in the order they play this round (the server is the authority: from v4 it changes every round, #138).
+  turnOrder: number[];
   winnerCarId: number | null;
   // Per-race seed: bot personalities and the grid (src/game/systems/bot_style.ts).
   seed: number;

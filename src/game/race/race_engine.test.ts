@@ -13,6 +13,7 @@ import {
   type RaceState
 } from './race_engine';
 import { resources } from '../rules/v2/resources';
+import { rankPosition } from '../systems/track_index';
 import type { BotLevel, Car } from '../types/car';
 
 const { isValidSetup } = resources;
@@ -830,5 +831,47 @@ describe('drafting turns and the slingshot', () => {
     const result = applyAction(ctx, state, { type: 'move', targetCellId: 'Z06_L1_00' });
     expect(result.ok).toBe(true);
     expect(car1.slingshots ?? 0).toBe(0);
+  });
+});
+
+describe('v4: the leader plays first each round (#138)', () => {
+  const progressOf = (state: RaceState, carId: number) => {
+    const car = state.cars.find((c) => c.carId === carId)!;
+    return (
+      (car.lapCount ?? 0) * ctx.trackIndex.spineLen +
+      rankPosition(ctx.trackIndex, ctx.cellMap.get(car.cellId)!)
+    );
+  };
+
+  // One round: cars 1 and 2 take their shortest move, car 3 (last to play) its longest.
+  function playRound(rules: 'v3' | 'v4') {
+    const state = createRace(ctx, SEATS, 5, 0, rules);
+    const before = [...state.turn.order];
+    for (let i = 0; i < before.length; i += 1) {
+      const car = getActiveCar(state);
+      const byPosition = [...computeTargets(ctx, state, car).keys()].sort(
+        (a, b) =>
+          rankPosition(ctx.trackIndex, ctx.cellMap.get(a)!) -
+          rankPosition(ctx.trackIndex, ctx.cellMap.get(b)!)
+      );
+      const pick = car.carId === 3 ? byPosition.at(-1)! : byPosition[0]!;
+      expect(applyAction(ctx, state, { type: 'move', targetCellId: pick }).ok).toBe(true);
+      if (i < before.length - 1) expect(state.turn.order).toEqual(before);
+    }
+    return { state, before };
+  }
+
+  it('re-sorts the order by the standings when the round wraps, and keeps the same cars', () => {
+    const { state, before } = playRound('v4');
+    expect(state.turn.index).toBe(0);
+    expect(state.turn.order[0]).toBe(3);
+    expect([...state.turn.order].sort()).toEqual([...before].sort());
+    const progress = state.turn.order.map((id) => progressOf(state, id));
+    expect(progress).toEqual([...progress].sort((a, b) => b - a));
+  });
+
+  it('keeps the grid order for a whole race on v3', () => {
+    const { state, before } = playRound('v3');
+    expect(state.turn.order).toEqual(before);
   });
 });

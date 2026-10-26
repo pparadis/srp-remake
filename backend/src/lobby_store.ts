@@ -119,6 +119,7 @@ function toPublicRaceState(lobby: Lobby): RaceState | undefined {
     raceLaps: engine.raceLaps,
     turnIndex: race.turnIndex,
     activeSeatIndex: activeSeatIndex(engine),
+    turnOrder: engine.turn.order,
     winnerCarId: engine.winnerCarId,
     seed: engine.seed,
     rulesVersion: engine.rulesVersion ?? DEFAULT_RULES_VERSION,

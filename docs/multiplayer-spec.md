@@ -131,9 +131,12 @@ Authoritative match state should include:
 - `raceLaps` and `winnerCarId | null`.
 - `seed`: an integer rolled by the server when the race starts (`BOT_SEED` env pins it, 0 = neutral). It decides
   each bot's personality, every car's grid slot (so a human is not always on pole) and the play order (pole sitter
-  first). `carId = seatIndex + 1` still; `activeSeatIndex` is the seat of the car to play, and the client rebuilds the
-  play order from the seed (`turnOrderOf`). The same seed gives the same race. See `docs/bot-system.md`.
-- `rulesVersion` (#148): the movement and resource rules the race plays (`v1`, `v2`, `v3`). Every race on a server plays
+  first). `carId = seatIndex + 1` still; `activeSeatIndex` is the seat of the car to play. The same seed gives the
+  same race. See `docs/bot-system.md`.
+- `turnOrder` (#138): the car ids in the order they play this round. The server is the authority: from v4 it is
+  re-sorted by the standings every round, so the client takes it from the state (a server that predates the field
+  plays the seed's grid order, `turnOrderOf`).
+- `rulesVersion` (#148): the movement and resource rules the race plays (`v1`, `v2`, `v3`, `v4`). Every race on a server plays
   the engine's default, or the `RULES_VERSION` env when it names a version (tests, trying a draft). The client builds its
   engine state with it, so a v3 race offers the medium compound and the fuel load (`fuelLoad` on the setup) and prices
   wear by move size; on `v1` and `v2` the server refuses both with `invalid_setup`. A client that predates the field

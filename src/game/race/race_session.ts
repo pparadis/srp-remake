@@ -919,6 +919,9 @@ export class RaceSession {
       winnerCarId: this.winnerCarId,
       myCarId: mine?.carId ?? null,
       activeCarId: this.activeCar.carId,
+      ...(rulesOf(this.race).leaderFirst
+        ? { toPlay: this.race.turn.order.slice(this.race.turn.index) }
+        : {}),
       canControl: this.localCanControl(),
       carsMoving: this.moving,
       cars: ordered.map((car) => this.hudCar(car)),

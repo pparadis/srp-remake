@@ -24,6 +24,7 @@ function publicRace(states: RaceState[], index: number, saved: SavedRace): Publi
     raceLaps: state.raceLaps,
     turnIndex: index,
     activeSeatIndex: activeSeatIndex(state),
+    turnOrder: state.turn.order,
     winnerCarId: state.winnerCarId,
     seed: state.seed,
     ...(state.rulesVersion ? { rulesVersion: state.rulesVersion } : {}),

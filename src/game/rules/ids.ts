@@ -1,6 +1,6 @@
 // The rules versions' names, with no engine code behind them: the page (main.ts) loads this eagerly, while the rules
 // themselves (versions.ts) come with the lazily loaded game (#118).
-export const RULES_VERSIONS = ['v1', 'v2', 'v3'] as const;
+export const RULES_VERSIONS = ['v1', 'v2', 'v3', 'v4'] as const;
 export type RulesVersion = (typeof RULES_VERSIONS)[number];
 export const DEFAULT_RULES_VERSION: RulesVersion = 'v3';
 
