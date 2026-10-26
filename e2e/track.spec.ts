@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { onCi, playMyTurn, quickRace } from './support/game';
+import { pixelBaselines, playMyTurn, quickRace } from './support/game';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -50,7 +50,7 @@ test('the mouse finds the token right after the board moves (issue #41)', async 
 });
 
 test('race screen looks like a race track', async ({ page }) => {
-  test.skip(!onCi, 'pixel baselines are checked on CI only');
+  test.skip(!pixelBaselines, 'pixel baselines are Canvas only and checked on CI only');
   // chromium on a fixed viewport only (see playwright.config.ts); baselines are not shared across OSes
   await quickRace(page, { bots: 0, laps: 1 });
   await page.evaluate(() => window.__srp!.freezeAnimations());

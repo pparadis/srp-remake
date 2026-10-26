@@ -389,3 +389,6 @@ export async function playOnlineRace(
   // final turn (race decided or stopAfter reached): always verify
   if (unchecked) await agree();
 }
+
+/** The pixel baselines are Canvas only (#232) and are checked on CI only. */
+export const pixelBaselines = onCi && renderer === 'canvas';

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { onCi, quickRace } from './support/game';
+import { pixelBaselines, quickRace } from './support/game';
 
 // Pixels and layout only: what the HUD shows is checked without a browser, from a real race
 // (src/game/race/race_session.test.ts, src/ui/hud_session.test.ts).
@@ -41,7 +41,7 @@ test("the game draws no large texture per frame: the grass is the page's CSS bac
 });
 
 test('race screen with the HUD looks right', async ({ page }) => {
-  test.skip(!onCi, 'pixel baselines are checked on CI only');
+  test.skip(!pixelBaselines, 'pixel baselines are Canvas only and checked on CI only');
   // chromium on a fixed viewport only; baselines are not shared across OSes
   await quickRace(page, { bots: 0, laps: 1 });
   await page.evaluate(() => window.__srp!.freezeAnimations());

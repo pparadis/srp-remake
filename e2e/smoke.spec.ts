@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { collectErrors, gotoHome, onCi, quickRace, renderer } from './support/game';
+import { collectErrors, gotoHome, pixelBaselines, quickRace, renderer } from './support/game';
 
 // ~3 s alone, but 25-30 s when it shares the machine with the long multiplayer journeys (several
 // software-rendered Phaser canvases at once), which sat right on the default 30 s limit.
@@ -19,12 +19,14 @@ test('home loads without starting a game, quick race builds the scene, no errors
   expect(cars).toBe(3);
   // The game runs on WebGL by default (#232) but the e2e build is pinned to Canvas (AGENTS.md "Race HUD"): a WebGL
   // canvas would return null here. `E2E_RENDERER=webgl` expects the opposite.
+  // getContext returns the context the canvas already has, or null for the other kind.
   expect(
     await page.evaluate(() => {
       const canvas = document.querySelector('canvas')!;
-      return canvas.getContext('2d') !== null;
+      const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+      return gl !== null ? 'webgl' : canvas.getContext('2d') !== null ? 'canvas' : 'none';
     })
-  ).toBe(renderer === 'canvas');
+  ).toBe(renderer);
   expect(errors).toEqual([]);
 });
 
@@ -40,7 +42,7 @@ test('home shows the web and the server version, and they are the same commit', 
 });
 
 test('home page looks welcoming', async ({ page }) => {
-  test.skip(!onCi, 'pixel baselines are checked on CI only');
+  test.skip(!pixelBaselines, 'pixel baselines are Canvas only and checked on CI only');
   // reduced motion is the static grid: the SMIL laps would put the cars somewhere else on every run
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 800 });
