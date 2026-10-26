@@ -17,8 +17,8 @@ test('home loads without starting a game, quick race builds the scene, no errors
   await quickRace(page, { bots: 2, laps: 1 });
   const cars = await page.evaluate(() => window.__srp!.state().cars.length);
   expect(cars).toBe(3);
-  // The game runs on Phaser's Canvas renderer by default, on purpose (AGENTS.md "Race HUD"): a WebGL canvas would
-  // return null here. `E2E_RENDERER=webgl` (#232) expects the opposite.
+  // The game runs on WebGL by default (#232) but the e2e build is pinned to Canvas (AGENTS.md "Race HUD"): a WebGL
+  // canvas would return null here. `E2E_RENDERER=webgl` expects the opposite.
   expect(
     await page.evaluate(() => {
       const canvas = document.querySelector('canvas')!;

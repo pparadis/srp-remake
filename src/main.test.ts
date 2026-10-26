@@ -188,7 +188,7 @@ describe('main (solo flow)', () => {
         rulesVersion: 'v3',
         hidpi: true,
         animate: false,
-        renderer: 'canvas'
+        renderer: 'webgl'
       });
     });
 

@@ -20,6 +20,7 @@ vi.mock('phaser', () => {
   return {
     default: {
       CANVAS: 'CANVAS',
+      WEBGL: 'WEBGL',
       Core: { Events: { DESTROY: 'destroy' } },
       Scale: {
         RESIZE: 'RESIZE',
@@ -82,7 +83,7 @@ describe('startGame', () => {
     expect(gameCtor).toHaveBeenCalledTimes(1);
     const [config] = gameCtor.mock.calls[0] ?? [];
     expect(config).toMatchObject({
-      type: 'CANVAS',
+      type: 'WEBGL',
       parent,
       width: 1600,
       height: 900,
