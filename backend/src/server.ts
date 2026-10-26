@@ -361,6 +361,15 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     app.log.info({ event, ...context }, 'multiplayer_event');
   }
 
+  // Mints and uploads per IP (#194), so a script filling the history shows in the logs; #205 waits on these.
+  function logHistory(
+    event: string,
+    request: { ip: string; headers: IncomingHttpHeaders },
+    context: Record<string, unknown> = {}
+  ) {
+    app.log.info({ event, ip: clientIpOf(request), ...context }, 'history_event');
+  }
+
   app.addHook('onRequest', async (request, reply) => {
     const allowOrigin = resolveAllowOrigin(request.headers.origin);
 
@@ -757,9 +766,10 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   // An anonymous device identity (#194): no account, so this only raises the cost of filling the history. A person needs one
   // token, ever; the per-IP day limit is what bounds how many a script can make.
-  app.post(`${API_V1_PREFIX}/devices`, { config: limit(20, '1 day') }, async (_request, reply) =>
-    reply.code(201).send({ deviceToken: mintDeviceToken(deviceSecret) })
-  );
+  app.post(`${API_V1_PREFIX}/devices`, { config: limit(20, '1 day') }, async (request, reply) => {
+    logHistory('device.mint', request);
+    return reply.code(201).send({ deviceToken: mintDeviceToken(deviceSecret) });
+  });
 
   // The race history (#170). Anonymous: nothing identifies who raced. A solo race is uploaded by its player (opt-in) with a
   // device token (#194); the server replays the log first, so only races the engine accepts are kept.
@@ -795,6 +805,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
           winnerCarId,
           device
         });
+        logHistory('race.upload', request, { device, duplicate: stored.duplicate });
         return reply.code(stored.duplicate ? 200 : 201).send(stored);
       } catch (error) {
         app.log.warn({ err: error }, 'race history: solo race not stored');
