@@ -35,10 +35,13 @@ Accepted costs:
 
 Kept as is:
 
-- The e2e suite is pinned to Canvas (`VITE_RENDERER`, default `canvas` in `playwright.config.ts`) because its two pixel
-  baselines are Canvas only and the smoke spec asserts a 2D context. `E2E_RENDERER=webgl` runs the whole suite on WebGL,
-  and `e2e/webgl.spec.ts` plays a race on WebGL in any build. So the shipped default is covered by that one spec.
+- Canvas stays as a supported fallback (`?renderer=canvas`), for machines with no GPU acceleration.
 - WebGL-only features may now be used, but each must stay cheap on Canvas or be skipped there while Canvas exists.
+
+Testing follows the default (#236): the e2e suite runs on WebGL (`VITE_RENDERER`, default `webgl` in
+`playwright.config.ts`), including the pixel baselines, which WebGL matches within the tolerance. CI has a small Canvas
+leg (smoke, track, glide) for the fallback. Software GL on CI is deterministic, so it stays; a GPU runner is not worth
+it (no speed gain at the test build's 10 fps cap, and pixels would vary by GPU and driver).
 
 Still open (tracked in #232):
 
