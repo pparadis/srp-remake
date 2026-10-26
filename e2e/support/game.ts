@@ -47,9 +47,9 @@ interface SrpStatus {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** `E2E_RENDERER=webgl` builds the e2e app with WebGL as its default renderer (#232); Canvas is the default. */
+/** The e2e app runs on WebGL like the game (#232); `E2E_RENDERER=canvas` builds it on the Canvas fallback. */
 // eslint-disable-next-line no-undef -- Node-side Playwright code
-export const renderer = process.env.E2E_RENDERER === 'webgl' ? 'webgl' : 'canvas';
+export const renderer = process.env.E2E_RENDERER === 'canvas' ? 'canvas' : 'webgl';
 
 export async function gotoHome(page: Page) {
   // The specs are written for v2's numbers and no automatic grid setup (v3 has its own in grid-setup.spec.ts)
@@ -390,5 +390,5 @@ export async function playOnlineRace(
   if (unchecked) await agree();
 }
 
-/** The pixel baselines are Canvas only (#232) and are checked on CI only. */
-export const pixelBaselines = onCi && renderer === 'canvas';
+/** The pixel baselines are WebGL's (software GL on CI, deterministic) and are checked on CI only. */
+export const pixelBaselines = onCi && renderer === 'webgl';
