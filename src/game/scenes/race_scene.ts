@@ -97,6 +97,8 @@ declare global {
       };
       /** Stops the looping halo pulse so screenshots are deterministic. */
       freezeAnimations: () => void;
+      /** Freezes every tween, as a game clock that stops would: the glides never end (the glide watchdog's test). */
+      stallTweens: () => void;
       /** The path being previewed (picked or hovered target), and the trails on the board: cells, as drawn. */
       overlays: () => {
         preview: MovePreview | null;
@@ -173,6 +175,8 @@ export class RaceScene extends Phaser.Scene {
   private readonly trails = new Map<number, Phaser.GameObjects.Graphics>();
   // Gliding cars: stop() jumps the token to the end of its glide.
   private readonly glides = new Map<number, { stop: () => void }>();
+  // A timer of the page, not of the game: it still runs when the game's own clock does not (see watchGlides).
+  private glideWatchdog: number | null = null;
   private get cars(): Car[] {
     return this.session.cars;
   }
@@ -332,6 +336,12 @@ export class RaceScene extends Phaser.Scene {
       stopWatching();
       this.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
     };
+    const stopWatchdog = () => {
+      if (this.glideWatchdog !== null) window.clearTimeout(this.glideWatchdog);
+      this.glideWatchdog = null;
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, stopWatchdog);
+    this.events.once(Phaser.Scenes.Events.DESTROY, stopWatchdog);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, stopGoverning);
     this.events.once(Phaser.Scenes.Events.DESTROY, stopGoverning);
     window.addEventListener('srp:toggle-cars-moves', this.onExternalToggleCarsMoves);
@@ -455,6 +465,7 @@ export class RaceScene extends Phaser.Scene {
           this.animationsFrozen = true;
           for (const carId of [...this.glides.keys()]) this.finishGlide(carId);
         },
+        stallTweens: () => this.tweens.pauseAll(),
         cellScreenPos: (cellId) => this.cellScreenPos(cellId),
         uiButtonPos: (name) => this.uiButtonScreenPos(name),
         pointerProbe: () => {
@@ -795,6 +806,28 @@ export class RaceScene extends Phaser.Scene {
     return duration;
   }
 
+  /**
+   * Nobody acts while a glide runs, so a glide that never ends locks the game on "The other cars are moving" (seen on a
+   * real Firefox with WebGL, #232, not reproduced headless). If the glides are still there `totalMs` plus a grace after
+   * they started, put the cars on their cells and let the player act, and say why in the console.
+   */
+  private watchGlides(totalMs: number) {
+    if (this.glideWatchdog !== null) window.clearTimeout(this.glideWatchdog);
+    this.glideWatchdog = window.setTimeout(() => {
+      this.glideWatchdog = null;
+      if (!this.session.carsMoving() || this.glides.size === 0) return;
+      console.warn('The cars did not finish gliding: putting them on their cells.', {
+        glides: [...this.glides.keys()],
+        tweens: this.tweens.getTweens().length,
+        visibility: document.visibilityState,
+        fps: Math.round(this.game.loop.actualFps),
+        renderer: this.game.config.renderType === Phaser.WEBGL ? 'webgl' : 'canvas'
+      });
+      for (const carId of [...this.glides.keys()]) this.finishGlide(carId);
+      this.settleBoard();
+    }, totalMs + GLIDE.stuckGraceMs);
+  }
+
   // Puts every token where its car is: cars that moved glide there one after another, in the order they moved.
   private syncTokens() {
     const held = this.session.heldCarId();
@@ -823,7 +856,10 @@ export class RaceScene extends Phaser.Scene {
     let delay = 0;
     for (const car of moving) delay += this.glideTo(car.carId, car.cellId, delay, cap);
     // The race is already ahead of the board: nobody acts until the last car has arrived (see settleBoard).
-    if (this.glides.size > 0) this.session.setCarsMoving(true);
+    if (this.glides.size > 0) {
+      this.session.setCarsMoving(true);
+      this.watchGlides(delay);
+    }
     // a car that moved but did not glide (a drop is its own motion; instant moves) still leaves its trail
     for (const carId of order) {
       if (!moving.some((car) => car.carId === carId)) this.showTrail(carId);

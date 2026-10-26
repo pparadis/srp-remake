@@ -6,7 +6,9 @@ export const GLIDE = {
   minMs: 180,
   maxMs: 520,
   /** A whole round of glides (every car that moved since the player last looked) should not take longer than this. */
-  roundMs: 1500
+  roundMs: 1500,
+  /** How long past the end of a round the board waits for its glides before it unsticks itself (see `RaceScene.watchGlides`). */
+  stuckGraceMs: 2000
 } as const;
 
 /** The longest one glide may take when `moving` cars glide one after another. */

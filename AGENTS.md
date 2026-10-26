@@ -235,7 +235,7 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   ended (#189): `syncTokens` sets `RaceSession.setCarsMoving(true)` when it starts glides, which makes
   `canControlActiveCar` / `localCanControl` / `canSkip` / `canSetup` false and hides the rings (`HudSnapshot.carsMoving`:
   "The other cars are moving"), and the scene's `UPDATE` hook calls `settleBoard()` once `glides` is empty (targets, halo,
-  banner, the grid setup offer, the "your turn" chime). Input never waits on a flag the scene can lose: it is the glides.
+  banner, the grid setup offer, the "your turn" chime). Input never waits on a flag the scene can lose: it is the glides. A glide that never ends would lock the game on "The other cars are moving" (seen once on a real Firefox with WebGL on the #233 preview, not reproduced headless, cause unknown), so `RaceScene.watchGlides` sets a page timer (`window.setTimeout`, so it runs even if the game's clock does not) for the round's length plus `GLIDE.stuckGraceMs`: if glides are still pending it parks the cars on their cells, settles the board and `console.warn`s the glides, tweens, visibility, fps and renderer. `window.__srp.stallTweens()` tests it.
 - Camera (#87): the fit (`centerTrack`) plus the player's zoom 1 to 3 and pan (`rendering/camera_view.ts`, pure and
   tested); pinch, pan, wheel, double tap and the `Fit` button in `input/register_camera_gestures.ts`; the camera follows
   the player's car after its move while zoomed. The camera's matrix is refreshed at once (`cam.preRender()`) so a tap
