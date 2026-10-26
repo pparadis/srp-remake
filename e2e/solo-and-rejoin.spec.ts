@@ -182,7 +182,8 @@ test('solo: a recap chunk that is gone makes the page reload once, then say to r
   await expect(page.getByTestId('home-notice')).toContainText('A new version was deployed', {
     timeout: 20_000
   });
-  expect(loads).toBeGreaterThanOrEqual(1);
+  // the notice shows once the page's script has run; the `load` event waits for every resource, so it can come later
+  await expect.poll(() => loads).toBeGreaterThanOrEqual(1);
   expect(asked).toBeGreaterThanOrEqual(2);
   await expect(page).toHaveURL(/\/$/);
 });
