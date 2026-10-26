@@ -146,7 +146,8 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
 
 ## Race HUD
 
-- The game's default renderer is Phaser's WebGL since #232; `?renderer=canvas` picks Canvas (`type` in
+- The game's default renderer is Phaser's WebGL since #232 (why, and what it costs: `docs/adr/0001-webgl-default-renderer.md`;
+  decisions of this size get an ADR in `docs/adr/`); `?renderer=canvas` picks Canvas (`type` in
   `src/game/index.ts`; any `?renderer` also shows the renderer the game really runs in the top probe line, as `?hidpi`
   does; `main.ts` passes `renderer` to `startGame`). It is a turn-based board, and software WebGL cost about 14x the
   CPU of Canvas (`npm run probe:cpu`), so a machine with no GPU is better on Canvas. Keep WebGL-only features (tint, FX,
