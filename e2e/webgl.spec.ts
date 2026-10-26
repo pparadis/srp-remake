@@ -1,9 +1,12 @@
 import { expect, test } from '@playwright/test';
 import {
   collectErrors,
+  playMyTurn,
   playUntilFinished,
+  quickRace,
   setLobbySettings,
   startRace,
+  waitForMyTurn,
   waitForRace
 } from './support/game';
 
@@ -31,5 +34,39 @@ test('a race on a WebGL canvas, played to the end, then started again, with no e
   await page.getByTestId('results-back-lobby').click();
   await page.getByTestId('lobby-start').click();
   await waitForRace(page);
+  expect(errors).toEqual([]);
+});
+
+// A phone or a GPU reset can take the WebGL context away mid-race. Phaser restores its own textures; the ones we bake
+// (the track, cars, badges, rings) must come back too, or the board stays broken until a reload.
+test('a lost WebGL context comes back: the board looks the same and the race goes on', async ({
+  page
+}) => {
+  const errors = collectErrors(page);
+  await quickRace(page, { bots: 1, laps: 2 });
+  await page.evaluate(() => window.__srp!.freezeAnimations());
+  const before = await page.screenshot();
+
+  await page.evaluate(async () => {
+    const canvas = document.querySelector('canvas')!;
+    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    const lose = gl!.getExtension('WEBGL_lose_context')!;
+    const events: string[] = [];
+    canvas.addEventListener('webglcontextlost', () => events.push('lost'));
+    canvas.addEventListener('webglcontextrestored', () => events.push('restored'));
+    lose.loseContext();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    lose.restoreContext();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    (window as unknown as { __ctxEvents: string[] }).__ctxEvents = events;
+  });
+  expect(
+    await page.evaluate(() => (window as unknown as { __ctxEvents: string[] }).__ctxEvents)
+  ).toEqual(['lost', 'restored']);
+  await page.evaluate(() => window.__srp!.freezeAnimations());
+  await expect.poll(async () => (await page.screenshot()).equals(before)).toBe(true);
+
+  await playMyTurn(page);
+  await waitForMyTurn(page);
   expect(errors).toEqual([]);
 });

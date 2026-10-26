@@ -11,12 +11,19 @@ import {
 } from './game/race/race_engine';
 import { logAction, startRaceLog } from './game/race/race_log';
 import { saveRace } from './ui/recap_store';
+import { NO_WEBGL_MESSAGE } from './ui/webgl_support';
 import type { TrackData } from './game/types/track';
 
 const startGame = vi.fn();
+// jsdom has no WebGL: the page asks before it starts the game
+const webgl = { available: true };
 
 vi.mock('./game', () => ({
   startGame: (...args: unknown[]) => startGame(...args)
+}));
+vi.mock('./ui/webgl_support', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./ui/webgl_support')>()),
+  webglSupported: () => webgl.available
 }));
 
 // The real page markup, so the test cannot drift from index.html.
@@ -52,6 +59,7 @@ describe('main (solo flow)', () => {
   beforeEach(() => {
     vi.resetModules();
     startGame.mockReset();
+    webgl.available = true;
     window.history.replaceState({}, '', '/');
     window.localStorage.clear();
     loadBody();
@@ -132,6 +140,19 @@ describe('main (solo flow)', () => {
     await import('./main');
     byId('homeQuickBtn').click();
     expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v3');
+  });
+
+  it('a browser without WebGL goes back home with a sentence, and never starts the game', async () => {
+    webgl.available = false;
+    await import('./main');
+
+    byId('homeQuickBtn').click();
+    byId('lobbyStartBtn').click();
+    await vi.waitFor(() => {
+      expect(document.body.dataset.screen).toBe('home');
+      expect(byId('homeNotice').textContent).toBe(NO_WEBGL_MESSAGE);
+    });
+    expect(startGame).not.toHaveBeenCalled();
   });
 
   it('quick race -> lobby -> start creates the game with the lobby settings', async () => {

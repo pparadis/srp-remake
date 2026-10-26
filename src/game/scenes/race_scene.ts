@@ -37,6 +37,7 @@ import { makeButton } from './ui/make_button';
 import { applyCarsMovesVisibility } from './ui/cars_moves_visibility';
 import { TargetMarkers, type TargetMarker } from './ui/target_markers';
 import { badgeTexture, carBodyTexture } from './rendering/baked_textures';
+import { trackBakeScale } from './rendering/track_bake';
 import { drawTrack as drawTrackGraphics, laneColor } from './rendering/track_renderer';
 import { easeAngle, headingOf, spriteRotation } from './rendering/heading';
 import { GLIDE, glideCap, glideDuration } from './rendering/glide';
@@ -115,9 +116,6 @@ declare global {
 }
 
 type CellMap = Map<string, TrackCell>;
-
-// The baked track is one canvas; iOS refuses one over 16 777 216 px, so keep well under (2x the big oval is 7M).
-const MAX_TRACK_TEXTURE_PIXELS = 14_000_000;
 
 export class RaceScene extends Phaser.Scene {
   private static readonly UI = {
@@ -1631,8 +1629,17 @@ export class RaceScene extends Phaser.Scene {
     const ys = this.track.cells.map((c) => c.pos.y);
     const w = Math.ceil(Math.max(...xs) + 100);
     const h = Math.ceil(Math.max(...ys) + 100);
-    // A bigger track at 3x would pass the canvas limit of iOS (about 16M px): a little less sharp, not blank.
-    const k = Math.min(renderScale(), Math.sqrt(MAX_TRACK_TEXTURE_PIXELS / (w * h)));
+    // A bigger track at 3x would pass a texture limit (iOS's 16M px, WebGL's size per side): less sharp, not blank.
+    const renderer = this.game.renderer;
+    const k = trackBakeScale({
+      w,
+      h,
+      renderScale: renderScale(),
+      maxTextureSize:
+        renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer
+          ? renderer.getMaxTextureSize()
+          : undefined
+    });
     drawTrackGraphics({
       graphics: this.gTrack,
       track: this.track,
