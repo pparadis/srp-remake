@@ -66,6 +66,12 @@ describe('render probe', () => {
     );
   });
 
+  it('names the renderer the game really runs', () => {
+    const noScene = { scene: { isActive: () => false } };
+    expect(renderProbeText({ ...noScene, renderer: { type: 2 } }, 1)).toMatch(/^webgl · dpr 1/);
+    expect(renderProbeText({ ...noScene, renderer: { type: 1 } }, 1)).toMatch(/^canvas · dpr 1/);
+  });
+
   it('shows the line, and hides it when stopped', () => {
     const line = document.createElement('div');
     line.hidden = true;
