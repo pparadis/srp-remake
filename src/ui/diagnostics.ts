@@ -32,11 +32,14 @@ export function showUncaughtErrors(box: HTMLElement, win: Window = window): void
 /** What the probe reads of a Phaser game (a narrow shape, so it is testable without Phaser). */
 export interface ProbedGame {
   canvas?: HTMLCanvasElement;
+  /** Phaser's renderer: `type` is Phaser.CANVAS (1) or Phaser.WEBGL (2). */
+  renderer?: { type: number };
   scene: { isActive: (key: string) => boolean };
 }
 
-/** One line on the canvas the browser really draws: density, canvas and CSS size, and whether the race scene runs. */
+/** One line on the canvas the browser really draws: renderer, density, canvas and CSS size, and whether the race scene runs. */
 export function renderProbeText(game: ProbedGame, dpr: number): string {
+  const renderer = game.renderer ? `${game.renderer.type === 2 ? 'webgl' : 'canvas'} · ` : '';
   const canvas = game.canvas;
   const css = canvas?.getBoundingClientRect();
   const size = canvas ? `canvas ${canvas.width}x${canvas.height}` : 'no canvas';
@@ -44,7 +47,7 @@ export function renderProbeText(game: ProbedGame, dpr: number): string {
   const scenes = ['BootScene', 'RaceScene'].map(
     (key) => `${key} ${game.scene.isActive(key) ? 'on' : 'off'}`
   );
-  return `dpr ${dpr} · ${size}${box} · ${scenes.join(' · ')}`;
+  return `${renderer}dpr ${dpr} · ${size}${box} · ${scenes.join(' · ')}`;
 }
 
 /** Refreshes `line` with `renderProbeText` every second until the returned function is called. */
