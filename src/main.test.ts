@@ -187,7 +187,8 @@ describe('main (solo flow)', () => {
         seed: expect.any(Number),
         rulesVersion: 'v3',
         hidpi: true,
-        animate: false
+        animate: false,
+        renderer: 'canvas'
       });
     });
 

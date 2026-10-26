@@ -126,7 +126,10 @@ for (const v of variants) {
   try {
     await new Promise((r) => setTimeout(r, 3000));
     const secs = [];
-    for (let i = 0; i < runs; i++) secs.push(await measure(`http://localhost:${port}`));
+    // v2: v3 opens the grid setup panel on the first turn, which blocks the probe's drag
+    for (let i = 0; i < runs; i++) {
+      secs.push(await measure(`http://localhost:${port}/?seed=0&rules=v2`));
+    }
     results.push({ label, median: median(secs), all: secs.map((s) => s.toFixed(1)).join(' ') });
   } finally {
     process.kill(-server.pid);

@@ -78,6 +78,13 @@ describe('keepGameSizeInSync', () => {
     expect(calls).toEqual(['resize 1688x780']);
   });
 
+  it('does nothing while the container has no size (a 0x0 WebGL framebuffer throws, #232)', () => {
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    const { calls, observer } = setup({ width: 0, height: 0 }, { width: 844, height: 390 });
+    observer.callback();
+    expect(calls).toEqual([]);
+  });
+
   it('?hidpi: does nothing while the container has no size', () => {
     vi.stubGlobal('ResizeObserver', FakeResizeObserver);
     const { calls, observer } = setup({ width: 0, height: 0 }, { width: 844, height: 390 }, 2);

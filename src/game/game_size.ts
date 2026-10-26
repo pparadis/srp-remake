@@ -34,10 +34,13 @@ export function keepGameSizeInSync(
     const height = Math.floor(rect.height * scale);
     const size = game.scale.gameSize;
     if (width === size.width && height === size.height) return;
+    // A hidden container (the race screen is left) has no size: Canvas shrugs, but WebGL cannot make a 0x0 framebuffer
+    // ("Framebuffer status: Incomplete Attachment", #232).
+    if (width === 0 || height === 0) return;
     if (scale === 1) {
       game.scale.getParentBounds(); // read the container into Phaser's parent size...
       game.scale.refresh(); // ...and apply it: resizes the canvas and emits RESIZE, so the scene refits the track
-    } else if (width > 0 && height > 0) {
+    } else {
       game.scale.resize(width, height); // resizes the canvas and emits RESIZE, so the scene refits the track
     }
   });

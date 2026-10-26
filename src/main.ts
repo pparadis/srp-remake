@@ -125,6 +125,11 @@ const sandbox = new URLSearchParams(window.location.search).has('sandbox');
 const hidpiParam = new URLSearchParams(window.location.search).get('hidpi');
 const hidpi = hidpiParam !== '0';
 const hidpiProbe = hidpiParam !== null && hidpiParam !== '0';
+// `?renderer=webgl` (#232): try Phaser's WebGL renderer; anything else is Canvas, the default. The e2e build can flip the
+// default (`VITE_RENDERER`) to run the whole suite on WebGL.
+const rendererParam =
+  new URLSearchParams(window.location.search).get('renderer') ?? import.meta.env.VITE_RENDERER;
+const renderer = rendererParam === 'webgl' ? 'webgl' : 'canvas';
 // `?anim`: glide the cars in a test build too (the e2e build moves them at once; one spec turns this on)
 const animate = new URLSearchParams(window.location.search).has('anim');
 // `?fps` starts the frame-rate readout on; the P key (or the touch button) toggles it during a race (issue #79)
@@ -832,7 +837,7 @@ async function ensureGameStarted() {
     const { startGame } = await importFresh(() => import('./game'));
     // The player may have left while the chunk loaded.
     if (document.body.dataset.screen !== 'race' || game) return;
-    game = startGame(app, { ...getComposition(), hidpi, animate });
+    game = startGame(app, { ...getComposition(), hidpi, animate, renderer });
     // `?hidpi` (src/game/hidpi.ts): a line with what the browser really draws, to compare on a phone
     if (hidpiProbe) stopRenderProbe = startRenderProbe(el('renderProbe'), game);
     applyFps();
