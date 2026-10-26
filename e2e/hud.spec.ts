@@ -41,7 +41,7 @@ test("the game draws no large texture per frame: the grass is the page's CSS bac
 });
 
 test('race screen with the HUD looks right', async ({ page }) => {
-  test.skip(!pixelBaselines, 'pixel baselines are Canvas only and checked on CI only');
+  test.skip(!pixelBaselines, 'the pixel baselines are WebGL and checked on CI only');
   // chromium on a fixed viewport only; baselines are not shared across OSes
   await quickRace(page, { bots: 0, laps: 1 });
   await page.evaluate(() => window.__srp!.freezeAnimations());

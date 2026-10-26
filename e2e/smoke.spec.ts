@@ -17,8 +17,8 @@ test('home loads without starting a game, quick race builds the scene, no errors
   await quickRace(page, { bots: 2, laps: 1 });
   const cars = await page.evaluate(() => window.__srp!.state().cars.length);
   expect(cars).toBe(3);
-  // The game runs on WebGL by default (#232) but the e2e build is pinned to Canvas (AGENTS.md "Race HUD"): a WebGL
-  // canvas would return null here. `E2E_RENDERER=webgl` expects the opposite.
+  // The e2e build runs on WebGL like the game (#232); `E2E_RENDERER=canvas` runs the Canvas fallback. A WebGL
+  // canvas has no 2D context, and the reverse.
   // getContext returns the context the canvas already has, or null for the other kind.
   expect(
     await page.evaluate(() => {
@@ -42,7 +42,7 @@ test('home shows the web and the server version, and they are the same commit', 
 });
 
 test('home page looks welcoming', async ({ page }) => {
-  test.skip(!pixelBaselines, 'pixel baselines are Canvas only and checked on CI only');
+  test.skip(!pixelBaselines, 'the pixel baselines are WebGL and checked on CI only');
   // reduced motion is the static grid: the SMIL laps would put the cars somewhere else on every run
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 800 });

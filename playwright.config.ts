@@ -53,8 +53,8 @@ export default defineConfig({
         VITE_BASE_PATH: '/',
         VITE_BACKEND_API_BASE_URL: backendUrl,
         VITE_BACKEND_WS_BASE_URL: '',
-        // The suite runs on Canvas because the pixel baselines are Canvas only; E2E_RENDERER=webgl (#232) runs it on WebGL
-        VITE_RENDERER: process.env.E2E_RENDERER ?? 'canvas'
+        // The suite runs on WebGL like the game (#232); E2E_RENDERER=canvas runs it on the Canvas fallback
+        VITE_RENDERER: process.env.E2E_RENDERER ?? 'webgl'
       },
       // A reused preview server would serve a stale build (and possibly another backend URL), so only the
       // dev server, which always serves the current source, may be reused locally.
