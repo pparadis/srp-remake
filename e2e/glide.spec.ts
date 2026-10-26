@@ -273,3 +273,32 @@ test("the player cannot act until the bots' cars have arrived (#189)", async ({ 
   expect(after).toEqual({ draggable: [1], banner: 'Your turn - drag your car' });
   expect(errors).toEqual([]);
 });
+
+test('glides that never end do not lock the game: the board puts the cars on their cells and says so', async ({
+  page
+}) => {
+  const warnings: string[] = [];
+  page.on('console', (m) => m.type() === 'warning' && warnings.push(m.text()));
+  await page.goto('/?seed=0&anim&rules=v2');
+  await page.getByTestId('home-quick').click();
+  await setLobbySettings(page, { bots: 3, laps: 3 });
+  await startRace(page);
+  // freeze the tweens before the move, as a game clock that stops would: the bots' glides start and never end
+  await page.evaluate(() => window.__srp!.stallTweens());
+  await playMyTurn(page);
+  await expect(page.getByTestId('hud-banner')).toHaveText('The other cars are moving');
+
+  // the watchdog (GLIDE.stuckGraceMs after the round should have ended) gives the turn back
+  await waitForMyTurn(page, 10_000);
+  const parked = await page.evaluate(() => {
+    const srp = window.__srp!;
+    return srp.state().cars.every((car) => {
+      const token = srp.tokenScreenPos(car.carId)!;
+      const cell = srp.cellScreenPos(car.cellId)!;
+      return Math.hypot(token.x - cell.x, token.y - cell.y) < 1.5;
+    });
+  });
+  expect(parked).toBe(true);
+  await expect(page.getByTestId('hud-banner')).toHaveText('Your turn - drag your car');
+  expect(warnings.some((w) => w.includes('did not finish gliding'))).toBe(true);
+});
