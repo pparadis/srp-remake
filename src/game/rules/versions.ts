@@ -24,6 +24,8 @@ export interface MovementRules {
   computeSqueezeTargets: typeof computeSqueezeTargets;
   draftAhead: typeof draftAhead;
   resources: ResourceRulesFor;
+  /** True from v4 (#138): each round the cars play in standing order, the leader first. */
+  leaderFirst: boolean;
 }
 
 export const RULES: Record<
@@ -37,7 +39,8 @@ export const RULES: Record<
       computeValidTargets: v1Movement.computeValidTargets,
       computeSqueezeTargets: v1Movement.computeSqueezeTargets,
       draftAhead: v1Draft.draftAhead,
-      resources: v2Resources
+      resources: v2Resources,
+      leaderFirst: false
     }
   },
   v2: {
@@ -47,7 +50,8 @@ export const RULES: Record<
       computeValidTargets: v2Movement.computeValidTargets,
       computeSqueezeTargets: v2Movement.computeSqueezeTargets,
       draftAhead: v2Draft.draftAhead,
-      resources: v2Resources
+      resources: v2Resources,
+      leaderFirst: false
     }
   },
   v3: {
@@ -57,7 +61,19 @@ export const RULES: Record<
       computeValidTargets,
       computeSqueezeTargets,
       draftAhead,
-      resources: resourceRulesFor
+      resources: resourceRulesFor,
+      leaderFirst: false
+    }
+  },
+  v4: {
+    status: 'draft',
+    note: '#138: v3 with the play order re-sorted by the standings at the start of each round, the leader first. Same movement, draft and resource code as v3 (nothing copied: only the turn loop differs).',
+    rules: {
+      computeValidTargets,
+      computeSqueezeTargets,
+      draftAhead,
+      resources: resourceRulesFor,
+      leaderFirst: true
     }
   }
 };

@@ -4,7 +4,7 @@ import bigOval from '../../../public/tracks/oval32_3lanes.json';
 import { parseTrack } from '../../validation/track_schema';
 import { must } from '../must';
 import type { TrackData } from '../types/track';
-import { lapAhead } from '../systems/track_index';
+import { lapAhead, rankPosition } from '../systems/track_index';
 import {
   applyAction,
   computeTargets,
@@ -295,4 +295,52 @@ describe('rules v3: tire and fuel matter in play', () => {
     expect(six.pitStops, 'stops, 6 laps').toBe(0);
     expect(twelve.pitStops / twelve.races, 'stops per 12-lap race').toBeGreaterThanOrEqual(1);
   });
+});
+
+// Rules v4 (#138): the play order is re-sorted by the standings every round. Bot-only races, on both ovals.
+describe.each([
+  { name: 'the oval', raceCtx: ctx },
+  { name: 'the big oval', raceCtx: bigCtx }
+])('v4: the leader plays first, on $name', ({ name, raceCtx }) => {
+  it('re-sorts the order in play, and the leader leads each round', () => {
+    let rounds = 0;
+    let reordered = 0;
+    let unsorted = 0;
+    for (const cars of [4, 8]) {
+      for (let seed = 1; seed <= 6; seed += 1) {
+        const state = createRace(
+          raceCtx,
+          Array.from({ length: cars }, (_slot, i) => ({
+            isBot: true,
+            ownerId: `B${i}`,
+            botLevel: LEVELS[i % LEVELS.length]!
+          })),
+          3,
+          seed,
+          'v4'
+        );
+        const progress = (carId: number) => {
+          const car = state.cars.find((c) => c.carId === carId)!;
+          return (
+            (car.lapCount ?? 0) * raceCtx.trackIndex.spineLen +
+            rankPosition(raceCtx.trackIndex, raceCtx.cellMap.get(car.cellId)!)
+          );
+        };
+        for (let turn = 0; turn < 120 * cars && state.winnerCarId === null; turn += 1) {
+          const order = [...state.turn.order];
+          if (!applyAction(raceCtx, state, decideBotAction(raceCtx, state).action).ok) break;
+          if (state.turn.index !== 0) continue;
+          rounds += 1;
+          if (state.turn.order.some((id, i) => id !== order[i])) reordered += 1;
+          // a pit penalty can skip the first car, so check the order itself, not who is on turn
+          const p = state.turn.order.map(progress);
+          if (p.some((v, i) => i > 0 && v > p[i - 1]!)) unsorted += 1;
+        }
+      }
+    }
+    console.log(`${name}: v4 re-sorted the order in ${reordered} of ${rounds} rounds`);
+    expect(unsorted, 'rounds that did not start in standing order').toBe(0);
+    expect(reordered / rounds, 'rounds where the order changed').toBeGreaterThan(0.05);
+    expect(reordered / rounds, 'rounds where the order changed').toBeLessThan(1);
+  }, 60_000);
 });

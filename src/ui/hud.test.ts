@@ -136,6 +136,24 @@ describe('hud', () => {
     expect(text(root, 'hud-banner')).toBe('Car 1 (bot) is playing');
   });
 
+  it('v4 (#138): the banner says when you play, and cars that already played are dimmed', () => {
+    const toPlay = [3, 1, 2];
+    expect(bannerText(snap({ activeCarId: 3, toPlay, myCarId: 2 }))).toBe(
+      'Car 3 (bot) is playing - you play in 2'
+    );
+    expect(bannerText(snap({ activeCarId: 1, toPlay: [1, 2], myCarId: 2 }))).toBe(
+      'Car 1 (bot) is playing - you play next'
+    );
+    // without toPlay (rules v1 to v3) the banner is unchanged
+    expect(bannerText(snap({ activeCarId: 3, myCarId: 2 }))).toBe('Car 3 (bot) is playing');
+    renderHud(root, snap({ activeCarId: 3, toPlay, myCarId: 2 }));
+    const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
+    expect(rows.map((r) => r.classList.contains('is-played'))).toEqual([false, false, false]);
+    renderHud(root, snap({ activeCarId: 2, toPlay: [2], myCarId: 2 }));
+    const after = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];
+    expect(after.map((r) => r.classList.contains('is-played'))).toEqual([true, false, true]);
+  });
+
   it('lists standings with me and the active car highlighted', () => {
     renderHud(root, snap({ activeCarId: 3 }));
     const rows = [...root.querySelectorAll('[data-testid="hud-standing-row"]')];

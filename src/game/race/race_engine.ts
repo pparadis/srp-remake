@@ -15,7 +15,7 @@ import {
   PERSONALITIES,
   type PersonalityKey
 } from '../systems/bot_style';
-import { trackFwd } from '../systems/track_index';
+import { rankPosition, trackFwd } from '../systems/track_index';
 import {
   decideBotActionWithTrace,
   type BotDecisionTrace,
@@ -215,14 +215,28 @@ function findWinner(state: RaceState): Car | null {
   return state.cars.find((car) => hasFinishedRace(car.lapCount, state.raceLaps)) ?? null;
 }
 
+// Passes the turn on. From v4 (#138), when it wraps to a new round the cars are re-sorted by the standings, leader
+// first; a tie keeps the previous order (the sort is stable).
+function nextTurn(ctx: RaceContext, state: RaceState) {
+  advanceTurn(state.turn);
+  if (state.turn.index !== 0 || !rulesOf(state).leaderFirst) return;
+  const progress = (carId: number) => {
+    const car = state.cars.find((c) => c.carId === carId);
+    if (!car) return -Infinity;
+    const cell = must(ctx.cellMap.get(car.cellId), 'cell of a car');
+    return (car.lapCount ?? 0) * ctx.trackIndex.spineLen + rankPosition(ctx.trackIndex, cell);
+  };
+  state.turn.order.sort((a, b) => progress(b) - progress(a));
+}
+
 // Cars serving a pit penalty lose their turn; stop at the first car that can play.
-function selectNextPlayable(state: RaceState) {
+function selectNextPlayable(ctx: RaceContext, state: RaceState) {
   const maxSkips = Math.max(1, state.cars.length);
   for (let i = 0; i < maxSkips; i += 1) {
     const car = getActiveCar(state);
     if (advancePitPenalty(car)) {
       recordMove(car.moveCycle, 0);
-      advanceTurn(state.turn);
+      nextTurn(ctx, state);
       continue;
     }
     break;
@@ -299,8 +313,8 @@ export function applyAction(ctx: RaceContext, state: RaceState, action: RaceActi
     return { ok: true, carId: car.carId, fromCellId, moveSpend };
   }
 
-  advanceTurn(state.turn);
-  selectNextPlayable(state);
+  nextTurn(ctx, state);
+  selectNextPlayable(ctx, state);
   return { ok: true, carId: car.carId, fromCellId, moveSpend };
 }
 

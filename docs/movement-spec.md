@@ -92,6 +92,20 @@ prices, squeeze and the tow are v2's. The numbers are in `constants.ts`; the siz
 - **Frozen.** v3 is replayed by `src/game/rules/golden/v3.json` (tag `rules-v3`) like v1 and v2. Medium and
   `fuelLoad` are refused on v1 and v2.
 
+### Play order on rules v4 (#138)
+
+On v1 to v3 the play order is the grid order for the whole race (`turnOrderOf`, pole sitter first). **v4** re-sorts
+it at the start of every round, when `turn.index` wraps to 0 (`nextTurn` in `race_engine.ts`): `lapCount`, then
+`rankPosition`, leader first; a tie keeps the previous order. It happens only there, so the order is fixed inside a
+round, a car that overtakes keeps its slot until the next round, and a car serving a pit penalty still passes its
+turn. The point is the boxed-in car (#137): a car ahead plays before the car behind it, so it has moved out of the way
+by the time the car behind plays. The cost is that a leader never has a car to chase that has yet to move, and a car
+may still be limited at its destination (a racing thing). The server is the authority: it sends `turnOrder` in the
+race state and the client takes it from there (a server that does not send it plays the seed's grid order). The HUD
+(`toPlay` in the snapshot) says "you play next / in N" in the banner and dims the standings rows of the cars that have
+already played this round. v4 is a **draft**: not the default, not frozen, no golden file yet (the movement, draft and
+resource code is v3's, so only the turn loop differs).
+
 ## Lane Change Rules
 
 - You may only target a lane that is the same or adjacent to your start lane.

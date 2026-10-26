@@ -109,7 +109,7 @@ describe('main (solo flow)', () => {
     const rules = byId<HTMLSelectElement>('lobbyRules');
     expect(byId('lobbyRulesField').hidden).toBe(false);
     expect(rules.value).toBe('v3');
-    expect([...rules.options].map((o) => o.value)).toEqual(['v3', 'v2', 'v1']);
+    expect([...rules.options].map((o) => o.value)).toEqual(['v4', 'v3', 'v2', 'v1']);
     rules.value = 'v1';
     rules.dispatchEvent(new Event('change'));
     expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v1'); // kept across the re-render

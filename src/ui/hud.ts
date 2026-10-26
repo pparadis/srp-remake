@@ -101,6 +101,8 @@ export interface HudSnapshot {
   hover: HudHover | null;
   /** Tap to move: the target the local player picked, with Move here / Cancel. */
   selection?: HudHover | null;
+  /** Rules v4 (#138): the cars still to play this round, the active one first. Absent when the order never changes. */
+  toPlay?: number[];
   /** The active car is boxed in: no main-lane target, only squeeze targets (and maybe the pit entry). */
   boxedIn?: boolean;
   /** With boxedIn: the car is stuck at the pit exit (squeezes out onto lane 1). */
@@ -405,8 +407,10 @@ export function bannerText(s: HudSnapshot): string {
   if (active.carId === s.myCarId) {
     return s.canControl ? 'Your turn - drag your car' : 'Waiting for the server';
   }
-  if (active.isBot) return `Car ${active.carId} (bot) is playing`;
-  return `Waiting for ${active.name}`;
+  const who = active.isBot ? `Car ${active.carId} (bot) is playing` : `Waiting for ${active.name}`;
+  const ahead = s.myCarId === null ? -1 : (s.toPlay?.indexOf(s.myCarId) ?? -1);
+  if (ahead < 1) return who;
+  return `${who} - you play ${ahead === 1 ? 'next' : `in ${ahead}`}`;
 }
 
 function setMeter(valueEl: HTMLElement, barEl: HTMLElement, label: string, percent: number) {
@@ -437,6 +441,7 @@ function fillStandings(tbody: Element, cars: HudCar[], s: HudSnapshot, rowId: st
       tr.classList.toggle('is-me', car.carId === s.myCarId);
       tr.classList.toggle('is-followed', car.carId === s.follow?.carId);
       tr.classList.toggle('is-active', !s.finished && car.carId === s.activeCarId);
+      tr.classList.toggle('is-played', !s.finished && !!s.toPlay && !s.toPlay.includes(car.carId));
       const chip = document.createElement('span');
       chip.className = 'hud-chip';
       chip.style.background = car.color;

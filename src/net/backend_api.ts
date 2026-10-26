@@ -31,6 +31,8 @@ export interface PublicRaceState {
   raceLaps: number;
   turnIndex: number;
   activeSeatIndex: number;
+  /** Car ids in the order they play this round; a server that predates the field plays the seed's grid order. */
+  turnOrder?: number[];
   winnerCarId: number | null;
   /** Per-race seed: decides the bots' personalities and the grid (see docs/bot-system.md). */
   seed: number;

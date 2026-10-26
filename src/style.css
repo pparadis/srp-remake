@@ -677,6 +677,11 @@ body[data-screen='race'] .version {
   background: rgba(255, 224, 102, 0.18);
 }
 
+/* Rules v4 (#138): a car that has already played this round. */
+.hud-standings tr.is-played td {
+  opacity: 0.55;
+}
+
 /* Follow a car (#135): a click on a row follows it; the followed row has a white edge. */
 #hud .hud-standings tbody tr {
   pointer-events: auto;

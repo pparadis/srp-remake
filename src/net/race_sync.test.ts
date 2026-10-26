@@ -65,7 +65,13 @@ describe('toEngineRace', () => {
     expect(race.cars[1]?.botLevel).toBe('hard');
   });
 
-  it('derives the turn order from the cars and the active index from the active seat', () => {
+  it("takes the play order from the server's state, the active index from the active seat (#138)", () => {
+    const race = toEngineRace({ ...snapshot, turnOrder: [2, 1] });
+
+    expect(race.turn).toEqual({ order: [2, 1], index: 0 });
+  });
+
+  it("falls back to the seed's grid order from a server that does not send it", () => {
     const race = toEngineRace(snapshot);
 
     expect(race.turn).toEqual({ order: [1, 2], index: 1 });

@@ -3,12 +3,15 @@ import type { RaceState } from '../game/race/race_engine';
 import type { PublicRaceState } from './backend_api';
 
 // Turns the server's race snapshot into the engine state the scene renders.
-// carId = seatIndex + 1; the play order follows the seed's grid, and activeSeatIndex is the active car's seat.
+// carId = seatIndex + 1; the play order is the server's (#138), the seed's grid order from a server that does not send
+// it, and activeSeatIndex is the active car's seat.
 export function toEngineRace(raceState: PublicRaceState): RaceState {
   const cars = raceState.cars.map(
     ({ seatIndex: _seatIndex, playerId: _playerId, name: _name, ...car }) => car
   );
-  const order = turnOrderOf(raceState.seed, cars.length);
+  const order = raceState.turnOrder
+    ? [...raceState.turnOrder]
+    : turnOrderOf(raceState.seed, cars.length);
   return {
     cars,
     turn: { order, index: Math.max(0, order.indexOf(raceState.activeSeatIndex + 1)) },

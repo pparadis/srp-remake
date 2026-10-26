@@ -94,6 +94,9 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   tows, slingshots, squeezes and lane changes come up, lane use). A test that is written for one version's numbers
   passes it to `createRace` (`createRace(ctx, seats, laps, seed, 'v2')`) instead of relying on the default; the rule
   diagrams in `tools/diagrams/` play v2 (`positionOf`'s third argument) except `move-size`, which plays v3.
+  `v4` (#138, a **draft**) is v3 plus a play order re-sorted by the standings every round (leader first,
+  `leaderFirst` in `versions.ts`, `nextTurn` in `race_engine.ts`); it copies no rule code, only the turn loop differs,
+  and the server sends `turnOrder`. See `docs/movement-spec.md`.
   In solo the version is chosen in the Quick race card (`lobbyRules`, hidden online: online plays the default or the
   server's `RULES_VERSION`; `?rules=v1` only seeds that select, and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
   page loads it eagerly), the rules in `versions.ts` (lazy, with the game). "Copy debug" records `rulesVersion`, and a
