@@ -47,10 +47,6 @@ interface SrpStatus {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** The e2e app runs on WebGL like the game (#232); `E2E_RENDERER=canvas` builds it on the Canvas fallback. */
-// eslint-disable-next-line no-undef -- Node-side Playwright code
-export const renderer = process.env.E2E_RENDERER === 'canvas' ? 'canvas' : 'webgl';
-
 export async function gotoHome(page: Page) {
   // The specs are written for v2's numbers and no automatic grid setup (v3 has its own in grid-setup.spec.ts)
   await page.goto('/?seed=0&rules=v2');
@@ -389,6 +385,3 @@ export async function playOnlineRace(
   // final turn (race decided or stopAfter reached): always verify
   if (unchecked) await agree();
 }
-
-/** The pixel baselines are WebGL's (software GL on CI, deterministic) and are checked on CI only. */
-export const pixelBaselines = onCi && renderer === 'webgl';

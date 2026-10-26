@@ -149,22 +149,15 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
 
 ## Race HUD
 
-- The game's default renderer is Phaser's WebGL since #232 (why, and what it costs: `docs/adr/0001-webgl-default-renderer.md`;
-  decisions of this size get an ADR in `docs/adr/`); `?renderer=canvas` picks Canvas (`type` in
-  `src/game/index.ts`; any `?renderer` also shows the renderer the game really runs in the top probe line, as `?hidpi`
-  does; `main.ts` passes `renderer` to `startGame`). It is a turn-based board, and software WebGL cost about 14x the
-  CPU of Canvas (`npm run probe:cpu`), so a machine with no GPU is better on Canvas. Keep WebGL-only features (tint, FX,
-  pipelines, shaders, masks, blend modes, particles) out unless Canvas is dropped. The e2e build runs on WebGL too
-  (`VITE_RENDERER`, from `E2E_RENDERER`, default `webgl`; `E2E_RENDERER=canvas` builds the fallback). CI runs the two
-  shards on WebGL and a small Canvas leg (smoke, track, glide; matrix `include` in `ci.yml`). The pixel baselines are
-  checked on WebGL, on CI only (`pixelBaselines` in `e2e/support/game.ts`); they were made on Canvas and WebGL matches
-  them within the tolerance. `e2e/smoke.spec.ts` asserts the canvas holds the context of the renderer the run asked
-  for, and `e2e/webgl.spec.ts` plays a race on WebGL in any build. Phaser 4
-  calls Canvas deprecated (still there, no removal date). Parity (the e2e specs pass on WebGL on Phaser 4.2.1, run a few
-  at a time; the CPU numbers below are from a stale Phaser 3.90 install, to redo): the one thing that broke was a hidden
-  container (0x0) reaching the WebGL renderer, so `keepGameSizeInSync` ignores a container with no size (a WebGL
-  framebuffer cannot be 0x0), covered by `e2e/webgl.spec.ts`. Software GL, test build, `probe:cpu` (v2 URL: v3's setup
-  panel blocks the probe's drag): Canvas 1.6 s of CPU, WebGL 8.5 s. A real GPU is not measured yet.
+- The game renders with Phaser's WebGL only (`type: Phaser.WEBGL` in `src/game/index.ts`; why, and what it costs:
+  `docs/adr/0001-webgl-only-renderer.md`; decisions of this size get an ADR in `docs/adr/`). The Canvas renderer
+  and its `?renderer=canvas` switch were removed (#237): the last commit with them is the git tag `canvas-renderer`. It
+  is a turn-based board, and software WebGL costs about 5x the CPU of Canvas (Phaser 4.2.1, `npm run probe:cpu`: 2.1 s
+  against 10.3 s for an idle solo race plus a few turns), so a machine with no GPU acceleration is slow and has no
+  fallback. The e2e suite and its pixel baselines run on WebGL (software GL on CI is deterministic);
+  `e2e/smoke.spec.ts` asserts the canvas holds a WebGL context, and `e2e/webgl.spec.ts` plays a race to the end and
+  starts another (leaving the race screen hides the container, 0x0, which a WebGL framebuffer cannot be:
+  `keepGameSizeInSync` ignores a container with no size). A real GPU is not measured yet (#232).
 - Idle frame rate (#82): the game starts with an fps limit and `FrameGovernor` (`src/game/frame_governor.ts`, created by
   `RaceScene`) moves Phaser's `_limitRate` between full speed (1 ms, never 0: Phaser 4 keeps `delta % _limitRate`, and
   a 0 made it NaN and stopped the loop for good, #232) and 15 fps (`FRAME_RATES`). Full speed on any pointer, key,
@@ -378,8 +371,8 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
 
 ### Verification
 
-- Why: each e2e page is headless Chromium (the game now uses the light Canvas renderer, but a full-suite run still means
-  many pages; it used to push the machine to load 35-70 with software WebGL), and timing-sensitive tests flake under load. A flake under load is never a reason to loosen a test.
+- Why: each e2e page is headless Chromium (software WebGL is heavy: a full-suite run means many pages and used to push the
+  machine to load 35-70), and timing-sensitive tests flake under load. A flake under load is never a reason to loosen a test.
 - Locally run: `npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`, `npm run backend:test`,
   `npm run backend:build`, plus ONLY the e2e specs the change touches, one chain at a time. Never the full e2e suite,
   the CI shards or repeat loops.

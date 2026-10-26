@@ -7,16 +7,16 @@ import {
   waitForRace
 } from './support/game';
 
-// WebGL is the game's default renderer (#232); the e2e build runs on it too, and this spec asks for it by URL so it holds in any build. It needs a real browser:
+// WebGL is the game's only renderer (#232, #237). It needs a real browser:
 // the page must get a WebGL context, and leaving the race screen hides the container (0x0), which a WebGL framebuffer
 // cannot be (a unit test cannot see that: it threw "Framebuffer status: Incomplete Attachment" at the end of a race).
 test.setTimeout(90_000);
 
-test('?renderer=webgl: a race on a WebGL canvas, played to the end, then started again, with no errors', async ({
+test('a race on a WebGL canvas, played to the end, then started again, with no errors', async ({
   page
 }) => {
   const errors = collectErrors(page);
-  await page.goto('/?seed=0&rules=v2&renderer=webgl');
+  await page.goto('/?seed=0&rules=v2');
   await page.getByTestId('home-quick').click();
   await setLobbySettings(page, { bots: 1, laps: 1 });
   await startRace(page);

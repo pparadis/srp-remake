@@ -52,12 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # WebGL is what ships (#232) and runs the whole suite in 2 shards; the Canvas fallback gets a few
-        # rendering-heavy specs only.
-        include:
-          - { renderer: webgl, args: '--shard=1/2' }
-          - { renderer: webgl, args: '--shard=2/2' }
-          - { renderer: canvas, args: 'e2e/smoke.spec.ts e2e/track.spec.ts e2e/glide.spec.ts' }
+        shard: ['1/2', '2/2']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -82,9 +77,7 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
       - name: E2E
-        run: npm run test:e2e -- ${{ matrix.args }}
-        env:
-          E2E_RENDERER: ${{ matrix.renderer }}
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7

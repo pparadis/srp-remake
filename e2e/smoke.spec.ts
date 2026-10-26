@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { collectErrors, gotoHome, pixelBaselines, quickRace, renderer } from './support/game';
+import { collectErrors, gotoHome, onCi, quickRace } from './support/game';
 
 // ~3 s alone, but 25-30 s when it shares the machine with the long multiplayer journeys (several
 // software-rendered Phaser canvases at once), which sat right on the default 30 s limit.
@@ -17,16 +17,17 @@ test('home loads without starting a game, quick race builds the scene, no errors
   await quickRace(page, { bots: 2, laps: 1 });
   const cars = await page.evaluate(() => window.__srp!.state().cars.length);
   expect(cars).toBe(3);
-  // The e2e build runs on WebGL like the game (#232); `E2E_RENDERER=canvas` runs the Canvas fallback. A WebGL
-  // canvas has no 2D context, and the reverse.
-  // getContext returns the context the canvas already has, or null for the other kind.
+  // The game is WebGL only (#232, #237): getContext returns the context the canvas already has, or null for the
+  // other kind, so a Canvas fallback would show up here as a 2D context.
   expect(
     await page.evaluate(() => {
       const canvas = document.querySelector('canvas')!;
-      const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
-      return gl !== null ? 'webgl' : canvas.getContext('2d') !== null ? 'canvas' : 'none';
+      return [
+        canvas.getContext('2d') !== null,
+        !!(canvas.getContext('webgl2') ?? canvas.getContext('webgl'))
+      ];
     })
-  ).toBe(renderer);
+  ).toEqual([false, true]);
   expect(errors).toEqual([]);
 });
 
@@ -42,7 +43,7 @@ test('home shows the web and the server version, and they are the same commit', 
 });
 
 test('home page looks welcoming', async ({ page }) => {
-  test.skip(!pixelBaselines, 'the pixel baselines are WebGL and checked on CI only');
+  test.skip(!onCi, 'pixel baselines are checked on CI only');
   // reduced motion is the static grid: the SMIL laps would put the cars somewhere else on every run
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 800 });

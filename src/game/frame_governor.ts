@@ -1,5 +1,5 @@
-// Adaptive frame rate (#82): a turn-based board has nothing to redraw while a player thinks, and the Canvas renderer
-// still repaints it 60 times a second (about half the CPU of a race page, tools/cpuProbe.mjs). The game starts with an
+// Adaptive frame rate (#82): a turn-based board has nothing to redraw while a player thinks, and the renderer
+// still repaints it 60 times a second (about half the CPU of a race page on Canvas, tools/cpuProbe.mjs). The game starts with an
 // fps limit (`startGame`), so Phaser's loop skips frames below `_limitRate`; this lowers it to 1 ms (a frame per
 // animation frame, as the browser gives them) while something moves or the player is acting, and back to `idleFps`
 // once nothing has for `HOLD_MS`. Phaser has no public call to change the limit at runtime.
