@@ -151,11 +151,12 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   `src/game/index.ts`; any `?renderer` also shows the renderer the game really runs in the top probe line, as `?hidpi`
   does; `main.ts` passes `renderer` to `startGame`). It is a turn-based board, and software WebGL cost about 14x the
   CPU of Canvas (`npm run probe:cpu`), so a machine with no GPU is better on Canvas. Keep WebGL-only features (tint, FX,
-  pipelines, shaders, masks, blend modes, particles) out unless Canvas is dropped. The e2e build is pinned to Canvas
-  (`VITE_RENDERER`, from `E2E_RENDERER`, default `canvas`) because its pixel baselines are Canvas only (`pixelBaselines`
-  in `e2e/support/game.ts`: CI and Canvas); CI runs the e2e shards on both renderers (matrix `renderer`), and
-  `e2e/smoke.spec.ts` asserts the canvas holds the context of the renderer the run asked for. Locally,
-  `E2E_RENDERER=webgl` runs a spec on WebGL, and `e2e/webgl.spec.ts` plays a race on WebGL in any build. Phaser 4
+  pipelines, shaders, masks, blend modes, particles) out unless Canvas is dropped. The e2e build runs on WebGL too
+  (`VITE_RENDERER`, from `E2E_RENDERER`, default `webgl`; `E2E_RENDERER=canvas` builds the fallback). CI runs the two
+  shards on WebGL and a small Canvas leg (smoke, track, glide; matrix `include` in `ci.yml`). The pixel baselines are
+  checked on WebGL, on CI only (`pixelBaselines` in `e2e/support/game.ts`); they were made on Canvas and WebGL matches
+  them within the tolerance. `e2e/smoke.spec.ts` asserts the canvas holds the context of the renderer the run asked
+  for, and `e2e/webgl.spec.ts` plays a race on WebGL in any build. Phaser 4
   calls Canvas deprecated (still there, no removal date). Parity (the e2e specs pass on WebGL on Phaser 4.2.1, run a few
   at a time; the CPU numbers below are from a stale Phaser 3.90 install, to redo): the one thing that broke was a hidden
   container (0x0) reaching the WebGL renderer, so `keepGameSizeInSync` ignores a container with no size (a WebGL
