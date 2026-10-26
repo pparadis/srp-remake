@@ -152,12 +152,13 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   WebGL is an experiment next to it (#232): `?renderer=webgl` (`main.ts` passes `renderer` to `startGame`; the e2e build's
   default is `VITE_RENDERER`, set from `E2E_RENDERER=webgl`, which runs the whole suite on WebGL and makes the smoke
   assertion expect no 2D context; the pixel baselines are Canvas only). Phaser 4 calls Canvas deprecated (still there,
-  no removal date). Parity on Phaser 4.2.1: every e2e spec passes on WebGL; the one thing that broke was a hidden
+  no removal date). Parity (measured on a stale local Phaser 3.90 install, to redo on 4.2.1): every e2e spec passes on WebGL; the one thing that broke was a hidden
   container (0x0) reaching the WebGL renderer, so `keepGameSizeInSync` ignores a container with no size (a WebGL
   framebuffer cannot be 0x0), covered by `e2e/webgl.spec.ts`. Software GL, test build, `probe:cpu` (v2 URL: v3's setup
   panel blocks the probe's drag): Canvas 1.6 s of CPU, WebGL 8.5 s. A real GPU is not measured yet.
 - Idle frame rate (#82): the game starts with an fps limit and `FrameGovernor` (`src/game/frame_governor.ts`, created by
-  `RaceScene`) moves Phaser's `_limitRate` between full speed and 15 fps (`FRAME_RATES`). Full speed on any pointer, key,
+  `RaceScene`) moves Phaser's `_limitRate` between full speed (1 ms, never 0: Phaser 4 keeps `delta % _limitRate`, and
+  a 0 made it NaN and stopped the loop for good, #232) and 15 fps (`FRAME_RATES`). Full speed on any pointer, key,
   wheel or `srp:` event of the page (`watch`) and while `RaceScene.isAnimating()` says a glide, the camera tween, confetti
   or the pit modal moves, then 600 ms after. The halo pulse and a trail's fade do not count (they look stepped at the
   idle rate). A new animation that must be smooth goes through a tween, a timer-free thing the check can see; a new input
@@ -235,7 +236,7 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   ended (#189): `syncTokens` sets `RaceSession.setCarsMoving(true)` when it starts glides, which makes
   `canControlActiveCar` / `localCanControl` / `canSkip` / `canSetup` false and hides the rings (`HudSnapshot.carsMoving`:
   "The other cars are moving"), and the scene's `UPDATE` hook calls `settleBoard()` once `glides` is empty (targets, halo,
-  banner, the grid setup offer, the "your turn" chime). Input never waits on a flag the scene can lose: it is the glides. A glide that never ends would lock the game on "The other cars are moving" (seen once on a real Firefox with WebGL on the #233 preview, not reproduced headless, cause unknown), so `RaceScene.watchGlides` sets a page timer (`window.setTimeout`, so it runs even if the game's clock does not) for the round's length plus `GLIDE.stuckGraceMs`: if glides are still pending it parks the cars on their cells, settles the board and `console.warn`s the glides, tweens, visibility, fps and renderer. `window.__srp.stallTweens()` tests it.
+  banner, the grid setup offer, the "your turn" chime). Input never waits on a flag the scene can lose: it is the glides. A glide that never ends would lock the game on "The other cars are moving" (it did on Phaser 4 while the frame governor wrote a 0 rate, #232; the e2e build's fixed cap never showed it), so `RaceScene.watchGlides` sets a page timer (`window.setTimeout`, so it runs even if the game's clock does not) for the round's length plus `GLIDE.stuckGraceMs`: if glides are still pending it parks the cars on their cells, settles the board and `console.warn`s the glides, tweens, visibility, fps and renderer. `window.__srp.stallTweens()` tests it.
 - Camera (#87): the fit (`centerTrack`) plus the player's zoom 1 to 3 and pan (`rendering/camera_view.ts`, pure and
   tested); pinch, pan, wheel, double tap and the `Fit` button in `input/register_camera_gestures.ts`; the camera follows
   the player's car after its move while zoomed. The camera's matrix is refreshed at once (`cam.preRender()`) so a tap
