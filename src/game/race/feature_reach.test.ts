@@ -3,6 +3,7 @@ import track from '../../../public/tracks/oval16_3lanes.json';
 import bigOval from '../../../public/tracks/oval32_3lanes.json';
 import { parseTrack } from '../../validation/track_schema';
 import { must } from '../must';
+import type { RulesVersion } from '../rules/ids';
 import type { TrackData } from '../types/track';
 import { lapAhead, rankPosition } from '../systems/track_index';
 import {
@@ -41,9 +42,19 @@ interface Reach {
   /** the move passes 2 or more cars: they stand between the start and the target, in the start or the target lane (#102) */
   passesTwoOrMore: number;
   pitStops: number;
+  /** a pit-lane move that goes over a car (#249, v4) */
+  pitLanePasses: number;
+  /** turns that began on the cell before the pit entry with the entry taken (#249: the jam that blocked a stop) */
+  blockedEntries: number;
 }
 
-function play(ctx: RaceContext, carCounts: number[], seeds: number[], laps: number): Reach {
+function play(
+  ctx: RaceContext,
+  carCounts: number[],
+  seeds: number[],
+  laps: number,
+  rules?: RulesVersion
+): Reach {
   const reach: Reach = {
     races: 0,
     moves: 0,
@@ -54,7 +65,9 @@ function play(ctx: RaceContext, carCounts: number[], seeds: number[], laps: numb
     multiLaneChange: 0,
     laneChanges: 0,
     passesTwoOrMore: 0,
-    pitStops: 0
+    pitStops: 0,
+    pitLanePasses: 0,
+    blockedEntries: 0
   };
   for (const cars of carCounts) {
     for (const seed of seeds) {
@@ -66,7 +79,8 @@ function play(ctx: RaceContext, carCounts: number[], seeds: number[], laps: numb
           botLevel: LEVELS[i % LEVELS.length]!
         })),
         laps,
-        seed
+        seed,
+        rules
       );
       reach.races += 1;
       for (let turn = 0; turn < 120 * cars && state.winnerCarId === null; turn += 1) {
@@ -77,6 +91,10 @@ function play(ctx: RaceContext, carCounts: number[], seeds: number[], laps: numb
             ? computeTargets(ctx, state, car).get(action.targetCellId)
             : undefined;
         const from = ctx.cellMap.get(car.cellId)!;
+        const entry = from.next
+          .map((id) => ctx.cellMap.get(id)!)
+          .find((c) => c.tags?.includes('PIT_ENTRY'));
+        if (entry && state.cars.some((c) => c.cellId === entry.id)) reach.blockedEntries += 1;
         const towBefore = (car.draftTurns ?? 0) >= 1;
         const result = applyAction(ctx, state, action);
         if (!result.ok) {
@@ -84,6 +102,19 @@ function play(ctx: RaceContext, carCounts: number[], seeds: number[], laps: numb
           continue;
         }
         if (action.type === 'pit') reach.pitStops += 1;
+        if (action.type !== 'skip' && from.laneIndex === 0) {
+          const target = ctx.cellMap.get(action.targetCellId);
+          const ahead = target ? lapAhead(ctx.trackIndex, from, target) : 0;
+          if (
+            state.cars.some((c) => {
+              const other = ctx.cellMap.get(c.cellId)!;
+              const d = lapAhead(ctx.trackIndex, from, other);
+              return c.carId !== car.carId && other.laneIndex === 0 && d > 0 && d < ahead;
+            })
+          ) {
+            reach.pitLanePasses += 1;
+          }
+        }
         if (action.type !== 'move' || !info) continue;
         reach.moves += 1;
         if (towBefore) reach.inTow += 1;
@@ -113,6 +144,19 @@ function play(ctx: RaceContext, carCounts: number[], seeds: number[], laps: numb
 }
 
 const pct = (n: number, of: number) => (of === 0 ? 0 : (100 * n) / of);
+
+describe('pit lane passing (#249)', () => {
+  const seeds = [1, 2, 3];
+  it('v4 passes in the pit lane more often than v3', () => {
+    const v3 = play(bigCtx, [8], seeds, 12, 'v3');
+    const v4 = play(bigCtx, [8], seeds, 12, 'v4');
+    console.log(
+      `pit lane, 12 laps, 8 cars: v3 blocked entries ${v3.blockedEntries}, passes ${v3.pitLanePasses}; ` +
+        `v4 blocked entries ${v4.blockedEntries}, passes ${v4.pitLanePasses}`
+    );
+    expect(v4.pitLanePasses, 'v4 pit lane passes').toBeGreaterThan(v3.pitLanePasses);
+  }, 60_000);
+});
 
 describe.each([
   { name: 'the oval', raceCtx: ctx },

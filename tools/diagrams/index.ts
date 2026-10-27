@@ -7,7 +7,7 @@ import { laneChangePriceSvg } from './lane_change_price';
 import { lapsSvg } from './laps';
 import { moveSizeSvg } from './move_size';
 import { passAndReturnSvg } from './pass_and_return';
-import { pitEntrySvg, pitLaneSvg } from './pit_lane';
+import { pitEntrySvg, pitLaneSvg, pitPassingSvg } from './pit_lane';
 import { contextOf } from './scenario';
 import { pitExitSqueezeSvg, squeezeSvg } from './squeeze';
 
@@ -21,6 +21,7 @@ export function allDiagrams(track: TrackData): Map<string, string> {
     ['pit-exit-squeeze.svg', pitExitSqueezeSvg(ctx)],
     ['pit-entry.svg', pitEntrySvg(ctx)],
     ['pit-lane.svg', pitLaneSvg(ctx)],
+    ['pit-lane-passing.svg', pitPassingSvg(ctx)],
     ['laps.svg', lapsSvg(ctx)],
     ['drafting.svg', draftingSvg(ctx)],
     ['move-size.svg', moveSizeSvg(ctx)]

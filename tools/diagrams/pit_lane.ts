@@ -74,6 +74,30 @@ export const PIT_LANE_PANELS: StripSpec[] = [
   }
 ];
 
+// v4 (#249): cars in the pit lane pass each other. The jam of the issue: boxes Z02 and the line Z01 taken.
+export const PIT_PASSING_PANELS: StripSpec[] = [
+  {
+    title: 'v4: from next to a taken box you still reach a free one',
+    note: 'The car in Z02 is in its box; v3 offers nothing here.',
+    start: 'Z01_L0_00',
+    cars: ['Z02_L0_00'],
+    zones: [28, 1, 2, 3, 4, 5],
+    lanes: [1, 0],
+    mark: pitAhead,
+    rules: 'v4'
+  },
+  {
+    title: 'v4: from the entry, the first free pit cell ahead, past the cars between',
+    note: 'Z01_L0_00 and Z02_L0_00 are taken: the move lands on Z03_L0_00 (still one move point).',
+    start: 'Z28_L0_00',
+    cars: ['Z01_L0_00', 'Z02_L0_00'],
+    zones: [28, 1, 2, 3, 4, 5],
+    lanes: [1, 0],
+    mark: pitAhead,
+    rules: 'v4'
+  }
+];
+
 function stack(ctx: RaceContext, title: string, intro: string[], panels: StripSpec[]): string {
   const body: string[] = [text(40, 44, title, { size: 22, bold: true, color: COLORS.text })];
   intro.forEach((line, i) => body.push(text(40, 70 + i * 18, line)));
@@ -101,5 +125,14 @@ export function pitLaneSvg(ctx: RaceContext) {
     'In the pit lane: one step, the box jump, the exit',
     ['Each cell shows what the engine offers, or a cross.', SIDE],
     PIT_LANE_PANELS
+  );
+}
+
+export function pitPassingSvg(ctx: RaceContext) {
+  return stack(
+    ctx,
+    'Pit lane passing (v4): a jam cannot block the entry',
+    ['Each cell shows what the engine offers, or a cross.', SIDE],
+    PIT_PASSING_PANELS
   );
 }
