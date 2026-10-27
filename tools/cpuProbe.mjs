@@ -51,7 +51,11 @@ function treeTicks(root) {
 }
 
 async function measure(url) {
-  const browser = await chromium.launch();
+  // PROBE_HEADED=1 PROBE_CHANNEL=chrome: a real window on the machine's GPU instead of headless software GL (#232)
+  const browser = await chromium.launch({
+    headless: process.env.PROBE_HEADED !== '1',
+    ...(process.env.PROBE_CHANNEL ? { channel: process.env.PROBE_CHANNEL } : {})
+  });
   try {
     const pid = process.pid; // Playwright 1.63 has no browser.process(): count everything under this node process, excluding itself
     const page = await browser.newPage();

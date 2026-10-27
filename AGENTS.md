@@ -363,7 +363,11 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
   moves the track it measures: `fps 58 · worst frame 34 ms`. `fps` is the frames the game rendered in the
   last second (Phaser's `postrender`, `src/ui/fps_meter.ts`, so a frame-rate cap shows up in it); `worst frame` is the
   longest gap between two renders in that second (a saturated main thread shows there first). Works in solo and online.
-  Use it to compare before and after a rendering change, on the machine where it feels slow.
+  Use it to compare before and after a rendering change, on the machine where it feels slow. No need to read it by
+  hand on a desktop: `node tools/fps_probe.mjs [--browser chrome --browser firefox] [--runs 3]` (#232) plays a solo race
+  in a headed browser (needs a display; Vite dev server, so the adaptive rate and `__srp` are there) and logs that line
+  through idle, a car drag, wheel zoom, a pan and a turn with glides, with the GL renderer string so a software-GL run
+  cannot pass for a GPU one. `PROBE_HEADED=1 PROBE_CHANNEL=chrome npm run probe:cpu` does the CPU probe on the real GPU.
 - Snapshot includes `version` + `gitSha` and the race `seed` for reproducibility (`?seed=N`).
 
 ## Validation & Tests
