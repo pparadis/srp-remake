@@ -40,6 +40,9 @@ interface MovementOptions {
   drafted?: boolean;
   // ... and has done so for DRAFT_SLINGSHOT_TURNS moves in a row: a lane change skips the +1 surcharge.
   slingshotReady?: boolean;
+  // v4 (#249): in the pit lane a car passes the cars in front: it may take the next free pit-lane cell, and the jump to
+  // a box applies when the next cell is a box, free or not.
+  pitLanePassing?: boolean;
 }
 
 interface MovementCostRates {
@@ -262,6 +265,27 @@ export function computeValidTargets(
     }
   }
 
+  // The first free pit-lane cell ahead, however many cars stand between (pit lane passing).
+  let passTarget: string | null = null;
+  if (startIsPitLane && options.pitLanePassing) {
+    let current: TrackCell | undefined = startCell;
+    let walked = 0;
+    for (let first = true; walked <= track.cells.length; first = false) {
+      const nextSame: TrackCell | undefined = current?.next
+        .map((id) => cellMap.get(id))
+        .find((c) => c && c.laneIndex === PIT_LANE);
+      if (!nextSame) break;
+      walked += 1;
+      if (first && (nextSame.tags ?? []).includes('PIT_BOX')) pitBoxAdjacent = true;
+      if (!occupied.has(nextSame.id)) {
+        passTarget = nextSame.id;
+        dist.set(nextSame.id, walked);
+        break;
+      }
+      current = nextSame;
+    }
+  }
+
   if (startIsPitLane && pitBoxAdjacent) {
     const visited = new Set<string>();
     let current: TrackCell | undefined = startCell;
@@ -293,11 +317,12 @@ export function computeValidTargets(
     if (!cell) continue;
     const isPitEntryTarget = (cell.tags ?? []).includes('PIT_ENTRY');
     const isPitBox = (cell.tags ?? []).includes('PIT_BOX');
+    const passing = cellId === passTarget;
     if (d > effectiveMaxSteps) {
-      if (!(startIsPitLane && pitBoxAdjacent && isPitBox)) continue;
+      if (!passing && !(startIsPitLane && pitBoxAdjacent && isPitBox)) continue;
     }
     if (startIsPitLane && cell.laneIndex === PIT_LANE && d > 1) {
-      if (!pitBoxAdjacent || !isPitBox) continue;
+      if (!passing && (!pitBoxAdjacent || !isPitBox)) continue;
     }
     if (
       !startIsPitLane &&

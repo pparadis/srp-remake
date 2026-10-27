@@ -3,6 +3,8 @@ import { computeSqueezeTargets, computeValidTargets } from './movement_system';
 import { buildTrackIndex } from './track_index';
 import type { TrackData } from '../types/track';
 import track from '../../../public/tracks/oval16_3lanes.json';
+import oval32Json from '../../../public/tracks/oval32_3lanes.json';
+import { parseTrack } from '../../validation/track_schema';
 
 function makeTrack(): TrackData {
   return {
@@ -1377,5 +1379,37 @@ describe('no same-zone lane change (#108)', () => {
     const t = computeSqueezeTargets(index, startCell, wall, 9, costs);
     expect(t.size).toBeGreaterThan(0);
     for (const id of t.keys()) expect(index.cellMap.get(id)!.zoneIndex).not.toBe(12);
+  });
+});
+
+describe('pit lane passing (#249)', () => {
+  const pitCosts = {
+    tireRate: 0.5,
+    fuelRate: 0.45,
+    setup: {
+      compound: 'soft' as const,
+      psi: { fl: 23, fr: 23, rl: 21, rr: 21 },
+      wing: 'medium' as const
+    }
+  };
+  const oval32 = parseTrack(oval32Json);
+  const index = buildTrackIndex(oval32);
+  // The jam of #249: car 4 in box Z02, car 8 on the line Z01, car 2 on the entry Z56.
+  const jam = new Set(['Z56_L0_00', 'Z01_L0_00', 'Z02_L0_00']);
+  const from = (cell: string, passing: boolean, max = 4) =>
+    computeValidTargets(index, cell, jam, max, { pitLanePassing: passing }, pitCosts);
+
+  it('is stuck without passing', () => {
+    expect(from('Z01_L0_00', false).size).toBe(0);
+  });
+
+  it('jumps past an occupied box to a free one', () => {
+    expect([...from('Z01_L0_00', true).keys()]).toEqual(['Z03_L0_00']);
+  });
+
+  it('takes the first free cell past the cars in front: the walk wears, the pit lane costs 1', () => {
+    const targets = from('Z56_L0_00', true);
+    expect([...targets.keys()]).toEqual(['Z03_L0_00']);
+    expect(targets.get('Z03_L0_00')).toMatchObject({ distance: 3, moveSpend: 1 });
   });
 });
