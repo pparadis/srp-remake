@@ -1225,6 +1225,10 @@ function openSession(
 async function hostLobby() {
   if (backendBusy) return;
   showNotice(null);
+  if (!webglSupported()) {
+    showNotice(NO_WEBGL_MESSAGE);
+    return;
+  }
   setBackendBusy(true);
   setStatus('creating lobby...');
   logMultiplayerClient('lobby.host.start');
@@ -1255,6 +1259,10 @@ async function hostLobby() {
 // Joins (or, with a stored token for this tab, rejoins) a lobby named by the URL.
 async function joinLobbyById(lobbyId: string) {
   if (joining) return;
+  if (!webglSupported()) {
+    kickToHome(NO_WEBGL_MESSAGE);
+    return;
+  }
   joining = true;
   setBackendBusy(true);
   setStatus(`joining ${lobbyId}...`);

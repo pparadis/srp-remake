@@ -9,6 +9,7 @@ import {
   decideBotAction
 } from './game/race/race_engine';
 import { logAction, startRaceLog } from './game/race/race_log';
+import { NO_WEBGL_MESSAGE } from './ui/webgl_support';
 import type { TrackData } from './game/types/track';
 
 const startGame = vi.fn();
@@ -26,10 +27,11 @@ const readRecapMock = vi.fn();
 vi.mock('./game', () => ({
   startGame: (...args: unknown[]) => startGame(...args)
 }));
-// jsdom has no WebGL: the page asks before it starts the game
+// jsdom has no WebGL: the page asks before it starts the game, hosts or joins a lobby
+const webgl = { available: true };
 vi.mock('./ui/webgl_support', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./ui/webgl_support')>()),
-  webglSupported: () => true
+  webglSupported: () => webgl.available
 }));
 
 class MockBackendApiError extends Error {
@@ -214,6 +216,7 @@ describe('main multiplayer screens', () => {
     });
     vi.resetModules();
     startGame.mockReset();
+    webgl.available = true;
     createLobbyMock.mockReset();
     joinLobbyMock.mockReset();
     startRaceMock.mockReset();
@@ -255,6 +258,22 @@ describe('main multiplayer screens', () => {
     expect(byId('lobbyPlayers').querySelectorAll('[data-testid="host-badge"]')).toHaveLength(1);
     expect(byId<HTMLButtonElement>('lobbyStartBtn').disabled).toBe(false);
     expect(byId<HTMLSelectElement>('lobbyBots').disabled).toBe(false);
+  });
+
+  it('without WebGL, hosting says so and joining goes home, and neither asks the server', async () => {
+    webgl.available = false;
+    window.history.replaceState({}, '', '/lobby/joined-lobby');
+    await import('./main');
+
+    await vi.waitFor(() => {
+      expect(document.body.dataset.screen).toBe('home');
+      expect(byId('homeNotice').textContent).toBe(NO_WEBGL_MESSAGE);
+    });
+    byId('homeNotice').textContent = '';
+    byId('homeCreateBtn').click();
+    await vi.waitFor(() => expect(byId('homeNotice').textContent).toBe(NO_WEBGL_MESSAGE));
+    expect(joinLobbyMock).not.toHaveBeenCalled();
+    expect(createLobbyMock).not.toHaveBeenCalled();
   });
 
   it('a joined non-host cannot start or edit settings', async () => {

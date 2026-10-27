@@ -160,7 +160,8 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   starts another (leaving the race screen hides the container, 0x0, which a WebGL framebuffer cannot be:
   `keepGameSizeInSync` ignores a container with no size) and loses and restores the WebGL context mid-race (the board
   must look the same after; our baked textures come back by themselves). A browser with no WebGL gets a sentence on
-  the home screen (`ui/webgl_support.ts`, checked before the game chunk loads), not a Phaser error. A real GPU is not measured yet (#232).
+  the home screen (`ui/webgl_support.ts`, asked once per page for the `webgl` context Phaser requests, and checked
+  before the game chunk loads and before a lobby is hosted or joined), not a Phaser error. A real GPU is not measured yet (#232).
 - Idle frame rate (#82): the game starts with an fps limit and `FrameGovernor` (`src/game/frame_governor.ts`, created by
   `RaceScene`) moves Phaser's `_limitRate` between full speed (1 ms, never 0: Phaser 4 keeps `delta % _limitRate`, and
   a 0 made it NaN and stopped the loop for good, #232) and 15 fps (`FRAME_RATES`). Full speed on any pointer, key,
