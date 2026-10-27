@@ -58,10 +58,10 @@ describe('race log (#169)', () => {
     }
   );
 
+  // One race on v3, which has all three kinds (a grid setup is v3 and later). Replaying every version is the test above;
+  // playing all four 12-lap races here took 4.8 s under coverage, against the 5 s timeout, and failed on CI twice.
   it('covers pit stops and grid setups', () => {
-    const kinds = new Set(
-      RULES_VERSIONS.flatMap((v) => playLogged(v, 3, 12).log.actions.map((a) => a.type))
-    );
+    const kinds = new Set(playLogged('v3', 3, 12).log.actions.map((a) => a.type));
     expect(kinds).toContain('pit');
     expect(kinds).toContain('setup');
     expect(kinds).toContain('move');
