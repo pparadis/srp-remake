@@ -707,20 +707,13 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const params = lobbyPathSchema.parse(request.params);
     const query = lobbyReadQuerySchema.parse(request.query);
     const playerToken = playerTokenOf(request, query.playerToken);
-    const lobby = lobbyStore.getLobby(params.lobbyId);
-    if (!lobby) {
-      throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
-    }
-
-    const player = lobbyStore.findPlayerByToken(lobby, playerToken);
-    if (!player) {
+    const { lobby, player } = lobbyStore.requirePlayer(params.lobbyId, playerToken, () =>
       logMultiplayer('lobby.read.rejected', {
         lobbyId: params.lobbyId,
         tokenFingerprint: tokenFingerprint(playerToken),
         reason: 'invalid_token'
-      });
-      throw new LobbyError(401, 'Invalid player token for this lobby.');
-    }
+      })
+    );
 
     logMultiplayer('lobby.read', {
       lobbyId: params.lobbyId,
@@ -913,17 +906,11 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       const params = lobbyPathSchema.parse(request.params);
       const body = forceSkipSchema.parse(request.body ?? {});
       const playerToken = playerTokenOf(request, body.playerToken);
-      const lobby = lobbyStore.getLobby(params.lobbyId);
-      if (!lobby) {
-        throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
-      }
-      const host = lobbyStore.findPlayerByToken(lobby, playerToken);
-      if (!host) {
-        throw new LobbyError(401, 'Invalid player token for this lobby.');
-      }
-      if (!host.isHost) {
-        throw new LobbyError(403, 'Only host can force-skip a turn.');
-      }
+      const { lobby } = lobbyStore.requireHost(
+        params.lobbyId,
+        playerToken,
+        'Only host can force-skip a turn.'
+      );
       const activeSeat = lobbyStore.getActiveRaceSeat(lobby.lobbyId);
       if (lobby.status !== 'IN_RACE' || !activeSeat || activeSeat.isBot) {
         throw new LobbyError(409, 'Force-skip needs a running race with a human seat to play.');
@@ -962,20 +949,14 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       const params = lobbyPathSchema.parse(request.params);
       const body = submitTurnSchema.parse(request.body);
       const playerToken = playerTokenOf(request, body.playerToken);
-      const lobby = lobbyStore.getLobby(params.lobbyId);
-      if (!lobby) {
-        throw new LobbyError(404, `Lobby ${params.lobbyId} not found.`);
-      }
-      const player = lobbyStore.findPlayerByToken(lobby, playerToken);
-      if (!player) {
+      const { lobby, player } = lobbyStore.requirePlayer(params.lobbyId, playerToken, () =>
         logMultiplayer('turn.submit.rejected', {
           lobbyId: params.lobbyId,
           clientCommandId: body.clientCommandId,
           tokenFingerprint: tokenFingerprint(playerToken),
           reason: 'invalid_token'
-        });
-        throw new LobbyError(401, 'Invalid player token for this lobby.');
-      }
+        })
+      );
 
       const dedupeKey = `${player.playerId}:${body.clientCommandId}`;
       const lobbyDeduped = dedupedResults.get(lobby.lobbyId) ?? new RecentResults();

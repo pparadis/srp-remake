@@ -247,6 +247,35 @@ export class LobbyStore {
     });
   }
 
+  // The one place that answers "who is asking" for a route or a store method: 404, then 401, then (host) 403. A state
+  // check (409) always comes after, so a stranger learns nothing about the race (#208). `onInvalidToken` is for a route
+  // that logs the rejection.
+  requirePlayer(
+    lobbyId: string,
+    playerToken: string,
+    onInvalidToken?: () => void
+  ): { lobby: Lobby; player: LobbyPlayer } {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    const player = this.findPlayerByToken(lobby, playerToken);
+    if (!player) {
+      onInvalidToken?.();
+      throw new LobbyError(401, 'Invalid player token for this lobby.');
+    }
+    return { lobby, player };
+  }
+
+  requireHost(
+    lobbyId: string,
+    playerToken: string,
+    notHostMessage: string
+  ): { lobby: Lobby; host: LobbyPlayer } {
+    const { lobby, player } = this.requirePlayer(lobbyId, playerToken);
+    if (!player.isHost) {
+      throw new LobbyError(403, notHostMessage);
+    }
+    return { lobby, host: player };
+  }
+
   createLobby(
     hostName: string,
     rawSettings?: Partial<LobbySettings>
@@ -348,11 +377,7 @@ export class LobbyStore {
     playerToken: string,
     connected: boolean
   ): { lobby: Lobby; player: LobbyPlayer } {
-    const lobby = this.getLobbyOrThrow(lobbyId);
-    const player = this.findPlayerByToken(lobby, playerToken);
-    if (!player) {
-      throw new LobbyError(401, 'Invalid player token for this lobby.');
-    }
+    const { lobby, player } = this.requirePlayer(lobbyId, playerToken);
     player.connected = connected;
     lobby.updatedAt = Date.now();
     return { lobby, player };
@@ -361,11 +386,7 @@ export class LobbyStore {
   // Any lobby status: chat also works in the lobby and on the results screen. A terminated lobby has revoked
   // tokens, so it stops by itself.
   addChatMessage(lobbyId: string, playerToken: string, rawText: string): ChatMessage {
-    const lobby = this.getLobbyOrThrow(lobbyId);
-    const player = this.findPlayerByToken(lobby, playerToken);
-    if (!player) {
-      throw new LobbyError(401, 'Invalid player token for this lobby.');
-    }
+    const { player, lobby } = this.requirePlayer(lobbyId, playerToken);
     const normalized = normalizeChatText(rawText);
     if (!normalized.ok) {
       throw new LobbyError(
@@ -393,14 +414,7 @@ export class LobbyStore {
   }
 
   updateSettings(lobbyId: string, hostToken: string, patch: Partial<LobbySettings>): Lobby {
-    const lobby = this.getLobbyOrThrow(lobbyId);
-    const host = this.findPlayerByToken(lobby, hostToken);
-    if (!host) {
-      throw new LobbyError(401, 'Invalid player token for this lobby.');
-    }
-    if (!host.isHost) {
-      throw new LobbyError(403, 'Only host can update lobby settings.');
-    }
+    const { lobby } = this.requireHost(lobbyId, hostToken, 'Only host can update lobby settings.');
     if (lobby.status !== 'WAITING') {
       throw new LobbyError(409, 'Cannot update settings after race start.');
     }
@@ -424,10 +438,7 @@ export class LobbyStore {
     lobbyId: string,
     playerToken: string
   ): { log: RaceLog; names: Record<string, string>; trackId: string } {
-    const lobby = this.getLobbyOrThrow(lobbyId);
-    if (!this.findPlayerByToken(lobby, playerToken)) {
-      throw new LobbyError(401, 'Invalid player token for this lobby.');
-    }
+    const { lobby } = this.requirePlayer(lobbyId, playerToken);
     const race = lobby.race;
     if (!race || race.engine.winnerCarId === null) {
       throw new LobbyError(409, 'The recap is there once the race is finished.');
@@ -446,11 +457,7 @@ export class LobbyStore {
 
   // Only while waiting: the names are copied into the race (the car names) when it starts.
   renamePlayer(lobbyId: string, playerToken: string, name: string): Lobby {
-    const lobby = this.getLobbyOrThrow(lobbyId);
-    const player = this.findPlayerByToken(lobby, playerToken);
-    if (!player) {
-      throw new LobbyError(401, 'Invalid player token for this lobby.');
-    }
+    const { lobby, player } = this.requirePlayer(lobbyId, playerToken);
     if (lobby.status !== 'WAITING') {
       throw new LobbyError(409, 'Names can only change while the lobby is waiting.');
     }
@@ -460,14 +467,7 @@ export class LobbyStore {
   }
 
   startRace(lobbyId: string, hostToken: string): Lobby {
-    const lobby = this.getLobbyOrThrow(lobbyId);
-    const host = this.findPlayerByToken(lobby, hostToken);
-    if (!host) {
-      throw new LobbyError(401, 'Invalid player token for this lobby.');
-    }
-    if (!host.isHost) {
-      throw new LobbyError(403, 'Only host can start race.');
-    }
+    const { lobby } = this.requireHost(lobbyId, hostToken, 'Only host can start race.');
     if (lobby.status !== 'WAITING') {
       throw new LobbyError(409, 'Race already started or finished.');
     }
@@ -481,14 +481,7 @@ export class LobbyStore {
   // Host-only "play again": a naturally finished lobby goes back to WAITING with its
   // players, tokens and settings intact. A terminated lobby stays dead.
   resetLobby(lobbyId: string, hostToken: string): Lobby {
-    const lobby = this.getLobbyOrThrow(lobbyId);
-    const host = this.findPlayerByToken(lobby, hostToken);
-    if (!host) {
-      throw new LobbyError(401, 'Invalid player token for this lobby.');
-    }
-    if (!host.isHost) {
-      throw new LobbyError(403, 'Only host can reset the lobby.');
-    }
+    const { lobby } = this.requireHost(lobbyId, hostToken, 'Only host can reset the lobby.');
     // A closed lobby has every token revoked, so it never gets here: only a naturally finished one does.
     if (lobby.status !== 'FINISHED') {
       throw new LobbyError(409, 'Only a finished race can be reset.');
