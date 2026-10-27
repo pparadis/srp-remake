@@ -26,6 +26,8 @@ export interface MovementRules {
   resources: ResourceRulesFor;
   /** True from v4 (#138): each round the cars play in standing order, the leader first. */
   leaderFirst: boolean;
+  /** True from v4 (#249): a car in the pit lane passes the cars in front of it. */
+  pitLanePassing: boolean;
 }
 
 export const RULES: Record<
@@ -40,7 +42,8 @@ export const RULES: Record<
       computeSqueezeTargets: v1Movement.computeSqueezeTargets,
       draftAhead: v1Draft.draftAhead,
       resources: v2Resources,
-      leaderFirst: false
+      leaderFirst: false,
+      pitLanePassing: false
     }
   },
   v2: {
@@ -51,7 +54,8 @@ export const RULES: Record<
       computeSqueezeTargets: v2Movement.computeSqueezeTargets,
       draftAhead: v2Draft.draftAhead,
       resources: v2Resources,
-      leaderFirst: false
+      leaderFirst: false,
+      pitLanePassing: false
     }
   },
   v3: {
@@ -62,18 +66,20 @@ export const RULES: Record<
       computeSqueezeTargets,
       draftAhead,
       resources: resourceRulesFor,
-      leaderFirst: false
+      leaderFirst: false,
+      pitLanePassing: false
     }
   },
   v4: {
     status: 'draft',
-    note: '#138: v3 with the play order re-sorted by the standings at the start of each round, the leader first. Same movement, draft and resource code as v3 (nothing copied: only the turn loop differs).',
+    note: '#138: v3 with the play order re-sorted by the standings at the start of each round, the leader first. Same movement, draft and resource code as v3 (nothing copied: only the turn loop differs) and cars may pass each other in the pit lane (#249).',
     rules: {
       computeValidTargets,
       computeSqueezeTargets,
       draftAhead,
       resources: resourceRulesFor,
-      leaderFirst: true
+      leaderFirst: true,
+      pitLanePassing: true
     }
   }
 };

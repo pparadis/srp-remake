@@ -104,7 +104,7 @@ may still be limited at its destination (a racing thing). The server is the auth
 race state and the client takes it from there (a server that does not send it plays the seed's grid order). The HUD
 (`toPlay` in the snapshot) says "you play next / in N" in the banner and dims the standings rows of the cars that have
 already played this round. v4 is a **draft**: not the default, not frozen, no golden file yet (the movement, draft and
-resource code is v3's, so only the turn loop differs).
+resource code is v3's, so only the turn loop differs, plus pit lane passing, #249).
 
 ## Lane Change Rules
 
@@ -181,6 +181,10 @@ Example: car on `Z06_L0_00`, another on `Z07_L1_00`. No normal target. `Z08_L1_0
 - Pit entry is only allowed at distance 1 (no multi-zone jumps into pit).
 - Once in pit lane, movement is constrained by the pit chain and `maxSteps = 1` **except**:
   - If you are adjacent to a `PIT_BOX`, you may target **any** `PIT_BOX` ahead (future‑proof for longer pit lanes).
+- **Pit lane passing (v4, #249):** a car in the pit lane passes the cars in front of it, so one stopped car cannot
+  freeze the queue (and the entry) behind it. It may take the **first free pit-lane cell ahead**, however many cars
+  stand between, and the jump to a box applies when the next cell is a box, free or taken. Such a move costs 1 move
+  point like any pit-lane move and wears by the cells walked. The entry from lane 1 is unchanged.
 - `PIT_BOX` targets can be disallowed by options (and are disallowed after a pit stop has been serviced).
 - A special “pit exit skip” can add an extra target when applicable.
 

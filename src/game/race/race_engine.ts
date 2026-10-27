@@ -176,7 +176,8 @@ export function computeTargets(
       // `draftTurns` counts the moves in a row that ENDED tucked in behind a car (set in applyAction): the car that
       // did so is in its tow for this move, whatever the leader has done since.
       drafted: (car.draftTurns ?? 0) >= 1,
-      slingshotReady: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS
+      slingshotReady: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS,
+      pitLanePassing: rules.pitLanePassing
     },
     costs
   );
