@@ -13,6 +13,7 @@ import { createRaceStore, type RaceStore } from './race_store.js';
 import { createRealtime, seatOf, type LobbySocket } from './realtime.js';
 import { getRaceContext } from './tracks.js';
 import { must } from '../../src/game/must';
+import { MAX_LOGGED_ACTIONS, MAX_RACE_LAPS } from '../../src/game/race/limits';
 import { replayEnd, type RaceLog } from '../../src/game/race/race_log';
 import { RULES_VERSIONS } from '../../src/game/rules/ids';
 import { MAX_SEED } from '../../src/game/systems/bot_style';
@@ -54,7 +55,7 @@ const lobbySettingsPatchSchema = z.object({
   totalCars: z.number().int().min(1).max(11).optional(),
   humanCars: z.number().int().min(0).max(11).optional(),
   botCars: z.number().int().min(0).max(11).optional(),
-  raceLaps: z.number().int().min(1).max(999).optional(),
+  raceLaps: z.number().int().min(1).max(MAX_RACE_LAPS).optional(),
   turnTimerSec: z.union([z.literal(0), z.literal(30), z.literal(60), z.literal(120)]).optional(),
   botLevel: z.enum(BOT_LEVEL_CHOICES).optional()
 });
@@ -166,7 +167,6 @@ const submitTurnSchema = z.object({
 
 // A race log sent by a client (#170). Shape only; `replayRace` is the real check: the engine must accept every action.
 // Bounds keep the replay's work small (a real 6-car, 12-lap race is about 300 actions).
-const MAX_UPLOADED_ACTIONS = 2000;
 const raceLogSchema = z.object({
   seats: z
     .array(
@@ -178,10 +178,10 @@ const raceLogSchema = z.object({
     )
     .min(1)
     .max(11),
-  raceLaps: z.number().int().min(1).max(50),
+  raceLaps: z.number().int().min(1).max(MAX_RACE_LAPS),
   seed: z.number().int().min(0).max(MAX_SEED),
   rulesVersion: z.enum(RULES_VERSIONS),
-  actions: z.array(turnActionSchema).max(MAX_UPLOADED_ACTIONS)
+  actions: z.array(turnActionSchema).max(MAX_LOGGED_ACTIONS)
 });
 
 const uploadRaceSchema = z.object({

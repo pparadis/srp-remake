@@ -18,6 +18,7 @@ import { randomPlayerName } from './ui/player_name';
 import { createChat, isChatMessage } from './ui/chat';
 import { isCompactHud } from './ui/layout';
 import { isTypingTarget } from './ui/typing';
+import { MAX_LOGGED_ACTIONS, MAX_RACE_LAPS } from './game/race/limits';
 import type { RaceLog } from './game/race/race_log';
 import { mountReplayBar } from './ui/replay_bar';
 import { loadRemoteRace } from './ui/remote_race';
@@ -598,6 +599,11 @@ try {
 }
 
 async function shareSoloRace(trackId: string, log: RaceLog) {
+  if (log.actions.length > MAX_LOGGED_ACTIONS) {
+    resultsShared.textContent = 'Too long to share in the public history.';
+    if (!results.hidden) resultsShared.hidden = false;
+    return;
+  }
   try {
     const stored = await backendClient.uploadRace(trackId, log);
     resultsShared.textContent = stored.duplicate
@@ -1355,7 +1361,7 @@ async function playAgain() {
 async function changeSettings() {
   const humanCars = Number(lobbyHumans.value);
   const botCars = Number(lobbyBots.value);
-  const raceLaps = Math.max(1, Math.min(999, Math.trunc(Number(lobbyLaps.value)) || 1));
+  const raceLaps = Math.max(1, Math.min(MAX_RACE_LAPS, Math.trunc(Number(lobbyLaps.value)) || 1));
   const turnTimerSec = Number(lobbyTurnTimer.value) as TurnTimerSec;
   const botLevel = lobbyBotLevel.value as BotLevel;
   const trackId = lobbyTrack.value;

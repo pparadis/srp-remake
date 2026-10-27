@@ -148,7 +148,8 @@ export class MemoryRaceStore implements RaceStore {
   }
 }
 
-// About 20-90 KB a log: this keeps the table far under a free Neon database (0.5 GB) whoever uploads.
+// A log is at most MAX_LOGGED_ACTIONS actions (checked on upload and before an online race is stored), about 90 KB: this
+// keeps the table far under a free Neon database (0.5 GB) whoever uploads.
 const MAX_STORED_RACES = 2000;
 
 const SCHEMA = [

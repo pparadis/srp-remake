@@ -276,6 +276,10 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   disabled field cannot take focus). Not `/join`: that is the reconnect path. A player with no saved name gets a
   Docker-style one (`src/ui/player_name.ts`, "steady_hairpin"), kept in `srp:name` and flagged `srp:name-auto` until
   they pick one, so the guest hint still shows for it.
+- Race length (#211): one limit, `MAX_RACE_LAPS` (50) in `src/game/race/limits.ts`, for the lobby settings schema,
+  `lobby_store.ts`, the Laps field and the upload's `raceLogSchema`. A log over `MAX_LOGGED_ACTIONS` (2000) is the byte
+  bound of a history row: the page does not upload a solo race over it ("Too long to share") and `storeOnlineRace`
+  skips it with a warning, since the row cap counts rows, not bytes.
 - Race history (#170): `backend/src/race_store.ts`, a `RaceStore` (`insert`, `list`, `get`): `MemoryRaceStore` without
   `DATABASE_URL`, `PgRaceStore` (Neon) with it; both keep at most 500 races in memory, 2000 in Postgres (the table is public
   and anonymous, so one uploader must not fill the database). Over the limit the store drops the oldest race of the owner

@@ -27,15 +27,16 @@ function setup(t: test.TestContext, onReap?: (lobbyId: string) => void) {
   mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
   t.after(() => mock.timers.reset());
   const lobbyStore = new LobbyStore();
+  const raceStore = new MemoryRaceStore();
   const realtime = createRealtime({
     lobbyStore,
-    raceStore: new MemoryRaceStore(),
+    raceStore,
     config: CONFIG,
     log: Fastify({ logger: false }).log,
     ...(onReap ? { onReap } : {})
   });
   t.after(() => realtime.stop());
-  return { lobbyStore, realtime };
+  return { lobbyStore, realtime, raceStore };
 }
 
 // A started race: the host (a human seat) and one bot, with a 30 s turn timer. The human is up first.
@@ -146,4 +147,30 @@ test('the reaper takes an idle lobby nobody is connected to, and skips one with 
   assert.equal(lobbyStore.getLobby(abandoned), undefined);
   assert.ok(lobbyStore.getLobby(watched.lobby.lobbyId));
   assert.deepEqual(reaped, [abandoned]);
+});
+
+test('an online race whose log is over the action cap is not stored (#211)', async (t) => {
+  const { lobbyStore, realtime, raceStore } = setup(t);
+  const { lobby, host } = lobbyStore.createLobby('Host', {
+    totalCars: 2,
+    humanCars: 1,
+    botCars: 1,
+    raceLaps: 1
+  });
+  lobbyStore.startRace(lobby.lobbyId, host.playerToken);
+  const race = lobby.race;
+  assert.ok(race);
+  race.engine.winnerCarId = 1;
+  race.log.actions.push(...Array.from({ length: 2001 }, () => ({ type: 'skip' as const })));
+  realtime.announceTurn(lobby, { applied: { type: 'skip' } } as never);
+  await Promise.resolve();
+  assert.equal((await raceStore.list(10)).length, 0);
+
+  race.stored = false;
+  race.log.actions.length = 2000;
+  realtime.announceTurn(lobby, { applied: { type: 'skip' } } as never);
+  for (let i = 0; i < 20 && (await raceStore.list(10)).length === 0; i += 1) {
+    await Promise.resolve();
+  }
+  assert.equal((await raceStore.list(10)).length, 1);
 });
