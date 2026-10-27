@@ -314,9 +314,12 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   `reset` and `force-skip` take no body, and the WebSocket keeps `?playerToken=` (a browser sets no header on one). For
   one release the body and query fields still work, for a page loaded before the deploy: then delete the
   `optionalPlayerTokenSchema` fields, `playerTokenOf`'s second argument, the `legacy` half of
-  `backend/test/player_token.contract.test.ts` and the old-form usages in the other contract tests. The store checks
-  in one order on every host action (`start`, `reset`, settings): lobby (404), token (401), host (403), then the lobby's
-  state (409, #208), so a stranger learns nothing about the race.
+  `backend/test/player_token.contract.test.ts` and the old-form usages in the other contract tests. Who is asking is
+  answered in one place (#213): `LobbyStore.requirePlayer(lobbyId, token, onInvalidToken?)` (lobby 404, token 401) and
+  `requireHost(lobbyId, token, notHostMessage)` (then host 403). A new route or store method calls one of them and
+  checks the lobby's state (409, #208) after, so a stranger learns nothing about the race; a route that logs a rejected
+  token passes the logging as `onInvalidToken`. The websocket connect keeps its own check (it closes with a reason
+  instead of throwing). `backend/test/lobby_store.test.ts` pins the order.
 - Backend hardening (#69): request logs redact `playerToken` (`redactTokens`); lobbies with no open socket are reaped
   (`LOBBY_IDLE_SECONDS`, finished ones after 10 min); inputs are bounded (names 32, body 16 KiB, WS frames 1 KiB,
   `MAX_LOBBIES`); routes are rate limited per IP (`@fastify/rate-limit`, limits at the route in `server.ts`, keyed by
