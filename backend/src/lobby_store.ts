@@ -264,16 +264,12 @@ export class LobbyStore {
     return { lobby, player };
   }
 
-  requireHost(
-    lobbyId: string,
-    playerToken: string,
-    notHostMessage: string
-  ): { lobby: Lobby; host: LobbyPlayer } {
+  requireHost(lobbyId: string, playerToken: string, notHostMessage: string): Lobby {
     const { lobby, player } = this.requirePlayer(lobbyId, playerToken);
     if (!player.isHost) {
       throw new LobbyError(403, notHostMessage);
     }
-    return { lobby, host: player };
+    return lobby;
   }
 
   createLobby(
@@ -414,7 +410,7 @@ export class LobbyStore {
   }
 
   updateSettings(lobbyId: string, hostToken: string, patch: Partial<LobbySettings>): Lobby {
-    const { lobby } = this.requireHost(lobbyId, hostToken, 'Only host can update lobby settings.');
+    const lobby = this.requireHost(lobbyId, hostToken, 'Only host can update lobby settings.');
     if (lobby.status !== 'WAITING') {
       throw new LobbyError(409, 'Cannot update settings after race start.');
     }
@@ -467,7 +463,7 @@ export class LobbyStore {
   }
 
   startRace(lobbyId: string, hostToken: string): Lobby {
-    const { lobby } = this.requireHost(lobbyId, hostToken, 'Only host can start race.');
+    const lobby = this.requireHost(lobbyId, hostToken, 'Only host can start race.');
     if (lobby.status !== 'WAITING') {
       throw new LobbyError(409, 'Race already started or finished.');
     }
@@ -481,7 +477,7 @@ export class LobbyStore {
   // Host-only "play again": a naturally finished lobby goes back to WAITING with its
   // players, tokens and settings intact. A terminated lobby stays dead.
   resetLobby(lobbyId: string, hostToken: string): Lobby {
-    const { lobby } = this.requireHost(lobbyId, hostToken, 'Only host can reset the lobby.');
+    const lobby = this.requireHost(lobbyId, hostToken, 'Only host can reset the lobby.');
     // A closed lobby has every token revoked, so it never gets here: only a naturally finished one does.
     if (lobby.status !== 'FINISHED') {
       throw new LobbyError(409, 'Only a finished race can be reset.');

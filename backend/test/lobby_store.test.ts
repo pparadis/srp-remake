@@ -61,5 +61,5 @@ test("requireHost answers 404, 401, then 403 with the caller's message; a bad to
       error.statusCode === 403 &&
       error.message === 'Only host can do this.'
   );
-  assert.equal(store.requireHost(lobbyId, host.playerToken, 'x').host, host);
+  assert.equal(store.requireHost(lobbyId, host.playerToken, 'x').lobbyId, lobbyId);
 });
