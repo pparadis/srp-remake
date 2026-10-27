@@ -196,6 +196,10 @@ In the pit lane, drawn from the engine: one step, the jump to a box from next to
 
 ![Pit lane: one step; any box ahead from next to a box; the exit onto lane 1](img/pit-lane.svg)
 
+On v4, passing in the pit lane (#249), drawn from the engine:
+
+![Pit lane passing: a free box past a taken one; the first free cell past the cars in front](img/pit-lane-passing.svg)
+
 ## Options
 
 - `allowPitExitSkip`: allows a computed pit-exit target when starting from a pit box.

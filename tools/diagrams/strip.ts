@@ -2,6 +2,7 @@
 // engine offers there (its move points) or a cross, with the cars and "you" on top. Shared by the diagrams that read
 // `computeTargets` (blockers, squeeze, pit).
 import type { RaceContext } from '../../src/game/race/race_engine';
+import type { RulesVersion } from '../../src/game/rules/ids';
 import type { CarEdit } from '../../src/game/race/sandbox';
 import type { TargetInfo } from '../../src/game/systems/movement_system';
 import type { TrackCell } from '../../src/game/types/track';
@@ -20,6 +21,8 @@ export interface StripSpec {
   /** lanes top to bottom; default 3, 2, 1 */
   lanes?: number[];
   edit?: CarEdit;
+  /** the rules version the position is played on; default as `positionOf` (v2) */
+  rules?: RulesVersion;
   /** which free cells get an offer or a cross; default: the main-lane cells further along than the start */
   mark?: (cell: TrackCell, start: TrackCell) => boolean;
 }
@@ -75,7 +78,7 @@ export function drawStrip(
 ): Strip {
   const lanes = spec.lanes ?? [3, 2, 1];
   const mark = spec.mark ?? ahead;
-  const offered = offeredFrom(positionOf(ctx, spec));
+  const offered = offeredFrom(positionOf(ctx, spec, spec.rules));
   const { svg, bend, height } = bendPanel(ctx, { ...spec, lanes }, x, y, width);
   const parts: string[] = [svg];
   const start = ctx.cellMap.get(spec.start)!;

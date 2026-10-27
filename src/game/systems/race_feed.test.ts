@@ -48,6 +48,13 @@ describe('feedLines', () => {
     expect(lines[1]).toMatchObject({ kind: 'pass', carId: 1 });
   });
 
+  it('says a pass in the pit lane (#249)', () => {
+    const { before, after } = states(['Z01_L0_00', 'Z02_L0_00', 'Z10_L1_00']);
+    after.cars[0]!.cellId = 'Z03_L0_00'; // jumps over car 2 in box Z02
+    after.turn.index = 1;
+    expect(texts(before, after)).toContain('Car 1 passes Car 2 for P2');
+  });
+
   it("says a lap crossed and the final lap, but not the rear row's first crossing", () => {
     // a lap is crossed by a move over the line: the car ends on a low cell with one more lap behind it
     const { before, after } = states(['Z15_L1_00', 'Z07_L1_00', 'Z10_L1_00']);
