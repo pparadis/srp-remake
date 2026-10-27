@@ -1,19 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { webglSupported } from './webgl_support';
+import { canvasHasWebgl } from './webgl_support';
 
 const canvasWith = (getContext: (id: string) => unknown) =>
   ({ getContext }) as unknown as HTMLCanvasElement;
 
-describe('webglSupported', () => {
-  it('is true when the canvas gives a webgl2 or a webgl context', () => {
-    expect(webglSupported(() => canvasWith((id) => (id === 'webgl2' ? {} : null)))).toBe(true);
-    expect(webglSupported(() => canvasWith((id) => (id === 'webgl' ? {} : null)))).toBe(true);
+describe('canvasHasWebgl', () => {
+  it('is true when the canvas gives a webgl context, and asks for the one Phaser uses', () => {
+    const asked: string[] = [];
+    expect(
+      canvasHasWebgl(() =>
+        canvasWith((id) => {
+          asked.push(id);
+          return {};
+        })
+      )
+    ).toBe(true);
+    expect(asked).toEqual(['webgl']);
   });
 
-  it('is false when neither is available, or the browser throws', () => {
-    expect(webglSupported(() => canvasWith(() => null))).toBe(false);
+  it('is false when it is not available, or the browser throws', () => {
+    expect(canvasHasWebgl(() => canvasWith(() => null))).toBe(false);
     expect(
-      webglSupported(() =>
+      canvasHasWebgl(() =>
         canvasWith(() => {
           throw new Error('blocked');
         })
