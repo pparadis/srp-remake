@@ -40,6 +40,11 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   snapshot, feel events, the finish and the sandbox edits. `RaceScene` owns one and only draws it (tokens, targets,
   tweens, pit modal, confetti, sounds); logic the scene needs goes in the session, with tests.
 - Backend in `backend/` (Fastify + WebSocket): authoritative lobbies and races; bundles the shared engine.
+  `backend/src/server.ts` is config, CORS, the error handler, rate limits and the routes. The realtime parts (#212) are
+  `backend/src/realtime.ts`, one `createRealtime({ lobbyStore, raceStore, config, log })`: the socket registry and
+  `broadcast`, the turn timer, the host grace, the bot-turn loop with `announceTurn`, the reaper and the heartbeat
+  (`start()` / `stop()`; `createApp` calls `stop()` in `preClose`). A new timer or socket behaviour goes there, and its
+  test is a direct one in `backend/test/realtime.test.ts` (a `LobbyStore`, fake sockets, `mock.timers`), not a contract test.
 - Track data in `public/tracks/`; the tracks a race can be played on are listed in `src/game/track_ids.ts` (id and name,
   loaded by the page; `track_ids.test.ts` checks the list against the files and `backend/src/tracks.ts`). The Quick
   race card and the lobby card have a Track select (`lobbyTrack`): solo keeps it in `soloSettings.trackId`, online it
