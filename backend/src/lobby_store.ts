@@ -14,6 +14,7 @@ import { must } from '../../src/game/must';
 import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from '../../src/game/rules/ids';
 import { MAX_SEED, normalizeSeed } from '../../src/game/systems/bot_style';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
+import { MAX_RACE_LAPS } from '../../src/game/race/limits';
 import { getRaceContext, knownTrackIds } from './tracks.js';
 import type {
   ChatMessage,
@@ -73,7 +74,7 @@ function normalizeSettings(
   botCars = Math.min(botCars, totalCars - humanCars);
   totalCars = humanCars + botCars;
 
-  const raceLaps = clampInt(input?.raceLaps ?? base.raceLaps, 1, 999);
+  const raceLaps = clampInt(input?.raceLaps ?? base.raceLaps, 1, MAX_RACE_LAPS);
   const requestedTimer = input?.turnTimerSec ?? base.turnTimerSec;
   const turnTimerSec = TURN_TIMER_CHOICES.find((choice) => choice === requestedTimer);
   if (turnTimerSec === undefined) {

@@ -203,6 +203,15 @@ test('supports lobby create, settings patch, and join contracts', async (t) => {
   assert.equal(settingsBody.lobby.settings.botCars, 2);
   assert.equal(settingsBody.lobby.settings.raceLaps, 7);
 
+  const lapsPatch = (raceLaps: number) =>
+    app.inject({
+      method: 'PATCH',
+      url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/settings`,
+      payload: { playerToken: createdBody.playerToken, settings: { raceLaps } }
+    });
+  assert.equal((await lapsPatch(51)).statusCode, 400);
+  assert.equal((await lapsPatch(50)).statusCode, 200);
+
   const joinRes = await app.inject({
     method: 'POST',
     url: `/api/v1/lobbies/${createdBody.lobby.lobbyId}/join`,

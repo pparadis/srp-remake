@@ -423,6 +423,25 @@ describe('main (solo flow)', () => {
         expect(byId('resultsShared').textContent).toContain('Shared in the public history');
       });
 
+      it('does not upload a race over the action cap, and says why', async () => {
+        stubUpload(
+          () => new Response(JSON.stringify({ id: 'x', duplicate: false }), { status: 201 })
+        );
+        await quickRace();
+        byId('lobbyStartBtn').click();
+        await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
+        const log = shortLog();
+        log.actions.length = 0;
+        for (let i = 0; i < 2001; i += 1) log.actions.push({ type: 'skip' });
+        window.dispatchEvent(
+          new CustomEvent('srp:race-finished', {
+            detail: { winnerCarId: 1, recap: { log, names: { 1: 'You', 2: 'Car 2' } } }
+          })
+        );
+        await vi.waitFor(() => expect(byId('resultsShared').textContent).toContain('Too long'));
+        expect(shared.calls).toBe(0);
+      });
+
       it('says when the race is already there, and when it could not be shared', async () => {
         stubUpload(
           () => new Response(JSON.stringify({ id: 'x', duplicate: true }), { status: 200 })

@@ -9,6 +9,7 @@ import {
 } from './config.js';
 import { toPublicLobby, type LobbyStore } from './lobby_store.js';
 import type { RaceStore } from './race_store.js';
+import { MAX_LOGGED_ACTIONS } from '../../src/game/race/limits';
 import { activeSeatIndex } from '../../src/game/race/race_engine';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
 import type { Lobby, TurnSubmitAction } from './types.js';
@@ -259,6 +260,14 @@ export function createRealtime(options: RealtimeOptions) {
     const race = lobby.race;
     if (!race || race.stored) return;
     race.stored = true;
+    // The row's size is bounded by its actions, not by the table's row cap (#211).
+    if (race.log.actions.length > MAX_LOGGED_ACTIONS) {
+      log.warn(
+        { lobbyId: lobby.lobbyId, actions: race.log.actions.length },
+        'race history: online race too long to store'
+      );
+      return;
+    }
     raceStore
       .insert({
         source: 'online',
