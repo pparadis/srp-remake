@@ -906,7 +906,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       const params = lobbyPathSchema.parse(request.params);
       const body = forceSkipSchema.parse(request.body ?? {});
       const playerToken = playerTokenOf(request, body.playerToken);
-      const { lobby } = lobbyStore.requireHost(
+      const lobby = lobbyStore.requireHost(
         params.lobbyId,
         playerToken,
         'Only host can force-skip a turn.'
