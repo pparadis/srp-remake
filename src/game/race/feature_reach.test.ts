@@ -102,7 +102,7 @@ function play(
           continue;
         }
         if (action.type === 'pit') reach.pitStops += 1;
-        if (action.type !== 'skip' && from.laneIndex === 0) {
+        if ((action.type === 'move' || action.type === 'pit') && from.laneIndex === 0) {
           const target = ctx.cellMap.get(action.targetCellId);
           const ahead = target ? lapAhead(ctx.trackIndex, from, target) : 0;
           if (
