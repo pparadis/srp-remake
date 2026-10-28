@@ -260,3 +260,14 @@ for (const [name, make] of limitedStores(4)) {
     assert.deepEqual(await keptIds(store), [a1, a2, b2, c].sort());
   });
 }
+
+for (const [name, make] of limitedStores(2)) {
+  test(`${name}: insert says how many races the cap dropped`, async (t) => {
+    const store = await make();
+    t.after(() => store.close());
+    assert.equal((await store.insert(finishedRace(1))).evicted, 0);
+    assert.equal((await store.insert(finishedRace(2))).evicted, 0);
+    assert.equal((await store.insert(finishedRace(3))).evicted, 1);
+    assert.equal((await store.insert(finishedRace(3))).evicted, 0); // a duplicate drops nothing
+  });
+}

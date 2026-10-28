@@ -337,7 +337,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     }
   });
 
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error, request, reply) => {
     if (error instanceof LobbyError) {
       reply.code(error.statusCode).send({ error: error.message });
       return;
@@ -349,6 +349,10 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     // Fastify's own 4xx (body too large, bad JSON) and the rate limiter's 429.
     const status = (error as { statusCode?: number }).statusCode;
     if (status !== undefined && status >= 400 && status < 500) {
+      // A 429 on the mint is the first signal #205 waits on (an IP at its 20 a day).
+      if (status === 429 && request.url.startsWith(`${API_V1_PREFIX}/devices`)) {
+        logHistory('device.mint_limited', request);
+      }
       reply.code(status).send({ error: status === 429 ? 'rate_limited' : 'bad_request' });
       return;
     }
@@ -502,8 +506,14 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
           winnerCarId,
           device
         });
-        logHistory('race.upload', request, { device, duplicate: stored.duplicate });
-        return reply.code(stored.duplicate ? 200 : 201).send(stored);
+        logHistory('race.upload', request, {
+          device,
+          duplicate: stored.duplicate,
+          evicted: stored.evicted
+        });
+        return reply
+          .code(stored.duplicate ? 200 : 201)
+          .send({ id: stored.id, duplicate: stored.duplicate });
       } catch (error) {
         app.log.warn({ err: error }, 'race history: solo race not stored');
         throw new LobbyError(503, 'The race history is not available right now.');
