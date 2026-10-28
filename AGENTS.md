@@ -403,7 +403,9 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
      events, online state and hold, played through a real race on the real track;
   3. page controller (`src/main.test.ts`, `src/main.multiplayer.test.ts`, the real `index.html` in jsdom with a
      `FakeWebSocket`): routing, lobby screens, mute, turn timer, host skip, disconnects;
-  4. backend contract (`backend/test/*`, Fastify `inject`): the API, WebSocket sync, rules, AFK, bots;
+  4. backend contract (`backend/test/*`, Fastify `inject`): the API, WebSocket sync, rules, AFK, bots. The race store
+     tests (`race_store.test.ts`) also run on a real Postgres when `TEST_DATABASE_URL` is set (#206: `npm run db:up`;
+     CI has a Postgres service), next to the pg-mem run; SQL changes get checked there, pg-mem is only the fast default;
   5. e2e (Playwright): whole journeys across pages or sockets, real pointer input, pixels and layout.
 - A rule with an effect the player can see needs a reachability check, not only a test on a position you build:
   `src/game/race/feature_reach.test.ts` plays seeded bot-only races (nobody placing cars) and asserts how often each

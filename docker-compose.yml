@@ -1,4 +1,22 @@
 services:
+  # Throwaway dev database (#206); the same major version as Neon's. Bound to localhost only.
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: srp
+      POSTGRES_PASSWORD: srp
+      POSTGRES_DB: srp
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U srp -d srp']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     image: localhost/srp-remake-api:dev
     build:
@@ -11,6 +29,9 @@ services:
       PORT: 3001
       CORS_ALLOWED_ORIGINS: '*'
       PLAYER_TOKEN_TTL_SECONDS: 86400
+      DATABASE_URL: postgres://srp:srp@postgres:5432/srp
+    depends_on:
+      - postgres
     ports:
       - '3001:3001'
     healthcheck:
@@ -19,3 +40,6 @@ services:
       timeout: 3s
       start_period: 5s
       retries: 3
+
+volumes:
+  pgdata:
