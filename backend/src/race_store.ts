@@ -32,8 +32,11 @@ export interface StoredRace extends StoredRaceSummary {
 }
 
 export interface RaceStore {
-  /** `duplicate`: the same race was stored before (same id), nothing was added. */
-  insert(race: NewRace): Promise<{ id: string; duplicate: boolean }>;
+  /**
+   * `duplicate`: the same race was stored before (same id), nothing was added. `evicted`: races dropped to keep the history
+   * under its cap (not the per-device one); how fast it turns over is the signal #205 waits on.
+   */
+  insert(race: NewRace): Promise<{ id: string; duplicate: boolean; evicted: number }>;
   /** Newest first. */
   list(limit: number): Promise<StoredRaceSummary[]>;
   get(id: string): Promise<StoredRace | null>;
@@ -89,11 +92,11 @@ export class MemoryRaceStore implements RaceStore {
     private readonly perDevice = MAX_RACES_PER_DEVICE
   ) {}
 
-  insert(race: NewRace): Promise<{ id: string; duplicate: boolean }> {
+  insert(race: NewRace): Promise<{ id: string; duplicate: boolean; evicted: number }> {
     const log = scrubLog(race.log);
     const id = raceId(log);
     if (this.races.some((stored) => stored.race.id === id)) {
-      return Promise.resolve({ id, duplicate: true });
+      return Promise.resolve({ id, duplicate: true, evicted: 0 });
     }
     this.races.unshift({
       race: { ...summaryOf(id, Date.now(), { ...race, log }), log },
@@ -105,8 +108,12 @@ export class MemoryRaceStore implements RaceStore {
         this.races.splice(this.races.indexOf(stored), 1);
       }
     }
-    while (this.races.length > this.limit) this.evictFromHeaviest();
-    return Promise.resolve({ id, duplicate: false });
+    let evicted = 0;
+    while (this.races.length > this.limit) {
+      this.evictFromHeaviest();
+      evicted += 1;
+    }
+    return Promise.resolve({ id, duplicate: false, evicted });
   }
 
   private evictFromHeaviest(): void {
@@ -230,14 +237,14 @@ export class PgRaceStore implements RaceStore {
     return this.ready;
   }
 
-  async insert(race: NewRace): Promise<{ id: string; duplicate: boolean }> {
+  async insert(race: NewRace): Promise<{ id: string; duplicate: boolean; evicted: number }> {
     await this.schema();
     const log = scrubLog(race.log);
     const id = raceId(log);
     // Asked first rather than read from the insert's row count: the answer is the same on Postgres, and `on conflict` still
     // protects against two copies arriving at once.
     const known = await this.pool.query('select 1 from races where id = $1', [id]);
-    if (known.rows.length > 0) return { id, duplicate: true };
+    if (known.rows.length > 0) return { id, duplicate: true, evicted: 0 };
     await this.pool.query(
       `insert into races (id, source, track_id, rules_version, laps, cars, winner_car, log, device)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -262,16 +269,16 @@ export class PgRaceStore implements RaceStore {
       );
     }
     // The table is public and anonymous, so it stays under `limit` like the memory store.
-    await this.evictOverLimit();
-    return { id, duplicate: false };
+    return { id, duplicate: false, evicted: await this.evictOverLimit() };
   }
 
   // Plain selects and a delete by id, not one delete over a subquery: pg-mem deletes every matching row for that form
   // (it is right on Postgres), and `group by 1` crashes it (#206). `count(*)` is a string from `pg`.
-  private async evictOverLimit(): Promise<void> {
+  private async evictOverLimit(): Promise<number> {
+    let evicted = 0;
     for (;;) {
       const total = await this.pool.query<{ n: string }>('select count(*) as n from races');
-      if (Number(total.rows[0]?.n) <= this.limit) return;
+      if (Number(total.rows[0]?.n) <= this.limit) return evicted;
       const owner = await this.pool.query<{ owner: string }>(
         `select coalesce(device, id) as owner from races
          group by coalesce(device, id) order by count(*) desc, min(seq) asc limit 1`
@@ -281,8 +288,9 @@ export class PgRaceStore implements RaceStore {
         [owner.rows[0]?.owner]
       );
       const id = victim.rows[0]?.id;
-      if (!id) return;
+      if (!id) return evicted;
       await this.pool.query('delete from races where id = $1', [id]);
+      evicted += 1;
     }
   }
 

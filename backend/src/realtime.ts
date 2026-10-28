@@ -275,6 +275,9 @@ export function createRealtime(options: RealtimeOptions) {
         log: race.log,
         winnerCarId
       })
+      .then(({ evicted }) => {
+        if (evicted > 0) log.info({ event: 'race.online', evicted }, 'history_event');
+      })
       .catch((error: unknown) => {
         log.warn({ err: error, lobbyId: lobby.lobbyId }, 'race history: online race not stored');
       });

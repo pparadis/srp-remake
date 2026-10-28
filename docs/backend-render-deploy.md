@@ -118,6 +118,28 @@ seconds; the server never waits for it (an online race is stored after its end, 
   10 a minute per IP.
 - `GET /api/v1/races?limit=` (newest first, up to 100) and `GET /api/v1/races/:id` (the whole log).
 
+### Watching for abuse of the history (#205)
+
+Turnstile on the mint (#205) is built only when the logs show abuse. Every line below is a `history_event` in Render's
+logs (`event`, `ip`, plus the fields named; search `history_event`):
+
+| `event`               | Fields                                 | Means                                                                       |
+| --------------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| `device.mint`         | `ip`                                   | a device token was made                                                     |
+| `device.mint_limited` | `ip`                                   | an IP hit its 20 a day on `/devices` (a 429)                                |
+| `race.upload`         | `ip`, `device`, `duplicate`, `evicted` | a solo race was stored; `evicted` = races the 2000 cap dropped for it       |
+| `race.online`         | `evicted`                              | an online race was stored and dropped some (logged only when `evicted > 0`) |
+
+Build #205 when either shows up:
+
+- any `device.mint_limited` (a real player needs one mint, ever; a shared IP such as a school may reach a few),
+- `evicted` above 0 on most uploads over a day or two while the history has not been busy (a full table drops one race
+  per new race, so look at who the uploads come from: many `race.upload` with the same `ip` or a few `device` values).
+
+Count the uploads and mints per IP in the last day: `device.mint` lines grouped by `ip` should be close to the number
+of distinct players. Neon's SQL editor shows who holds the table: `select coalesce(device, id) as owner, count(*) from
+races group by 1 order by 2 desc limit 10` (50 is the per-device cap; many owners at 50 is a script).
+
 ## Security notes
 
 - A player token is a bearer secret: whoever has it plays that seat until it expires (`PLAYER_TOKEN_TTL_SECONDS`,
