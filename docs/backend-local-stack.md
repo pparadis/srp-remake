@@ -21,7 +21,22 @@ sudo apt install -y podman podman-compose uidmap
 
 ## Services
 
-- `api` (`localhost:3001`)
+- `api` (`localhost:3001`), with `DATABASE_URL` pointing at `postgres` (the race history is stored there)
+- `postgres` (`postgres:17-alpine`, `127.0.0.1:55432` only, user/password/database `srp`, a throwaway dev
+  password; the named volume `pgdata` keeps a local history across `down`). `npm run db:up` starts it alone,
+  `npm run db:down` stops it. Podman needs the fully qualified image name (`docker.io/library/...`).
+
+Real-Postgres tests (#206): production is Neon, and pg-mem differs from Postgres on some SQL. With
+`TEST_DATABASE_URL` set, `backend/test/race_store.test.ts` also runs the store tests on that database (CI always does):
+
+```bash
+npm run db:up
+TEST_DATABASE_URL=postgres://srp:srp@127.0.0.1:55432/srp npm run backend:test
+```
+
+The tests drop the `races` table, so the URL must be a throwaway local database: a host other than
+`localhost`/`127.0.0.1`, or a URL containing `neon.tech`, makes the run fail. Not set: the real-Postgres tests are
+skipped (the output says so).
 
 ## API Env Vars
 

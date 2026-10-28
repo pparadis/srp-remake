@@ -23,6 +23,8 @@
     "gen:diagrams": "tsx tools/diagrams/gen.ts",
     "backend:up": "podman-compose up --build api",
     "backend:down": "podman-compose down",
+    "db:up": "podman-compose up -d postgres",
+    "db:down": "podman-compose stop postgres",
     "backend:logs": "podman-compose logs -f api",
     "backend:restart": "npm run backend:down && npm run backend:up",
     "backend:test": "npm --prefix backend test",

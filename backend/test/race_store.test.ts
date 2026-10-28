@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import pg from 'pg';
 import { newDb } from 'pg-mem';
 import track from '../../public/tracks/oval16_3lanes.json';
 import {
@@ -62,8 +63,33 @@ test('the race id follows the log: same race, same id; another seed, another id'
   assert.notEqual(raceId(scrubLog(a.log)), raceId(scrubLog(finishedRace(2).log)));
 });
 
-// The same behaviour from both stores: memory, and Postgres (pg-mem stands in for Neon).
-const stores: Array<[string, () => RaceStore]> = [
+// A real Postgres (#206), opt-in: `TEST_DATABASE_URL` (npm run db:up, then postgres://srp:srp@127.0.0.1:55432/srp; CI
+// has a service). Production is Neon, and pg-mem differs from Postgres on some SQL. The tests drop `races`, so only a
+// throwaway local database is accepted.
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+if (TEST_DATABASE_URL) {
+  const url = new URL(TEST_DATABASE_URL);
+  assert.ok(
+    ['localhost', '127.0.0.1'].includes(url.hostname) && !TEST_DATABASE_URL.includes('neon.tech'),
+    'TEST_DATABASE_URL must point at a throwaway local database: the tests drop the races table'
+  );
+}
+if (!TEST_DATABASE_URL) {
+  test(
+    'postgres (real): TEST_DATABASE_URL is not set (npm run db:up, docs/backend-local-stack.md)',
+    {
+      skip: true
+    }
+  );
+}
+const realPostgres = async (limit = 2000, perDevice = 50): Promise<RaceStore> => {
+  const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 2 });
+  await pool.query('drop table if exists races'); // the store makes it again on first use
+  return new PgRaceStore(pool, null, limit, perDevice);
+};
+
+// The same behaviour from every store: memory, Postgres (pg-mem stands in for Neon), and a real Postgres when asked.
+const stores: Array<[string, () => RaceStore | Promise<RaceStore>]> = [
   ['memory', () => new MemoryRaceStore(3)],
   [
     'postgres (pg-mem)',
@@ -71,12 +97,15 @@ const stores: Array<[string, () => RaceStore]> = [
       const memory = newDb().adapters.createPg();
       return new PgRaceStore(new memory.Pool());
     }
-  ]
+  ],
+  ...(TEST_DATABASE_URL
+    ? [['postgres (real)', () => realPostgres()] as [string, () => Promise<RaceStore>]]
+    : [])
 ];
 
 for (const [name, make] of stores) {
   test(`${name}: stores a race once, lists it newest first and gives it back whole`, async (t) => {
-    const store = make();
+    const store = await make();
     t.after(() => store.close());
     const first = await store.insert(finishedRace(1));
     assert.equal(first.duplicate, false);
@@ -103,7 +132,7 @@ for (const [name, make] of stores) {
   });
 
   test(`${name}: keeps no name or id of a player`, async (t) => {
-    const store = make();
+    const store = await make();
     t.after(() => store.close());
     const { id } = await store.insert(finishedRace(1));
     assert.ok(!JSON.stringify(await store.get(id)).includes('player-uuid-1'));
@@ -149,17 +178,20 @@ test('postgres: only the newest races are kept, the oldest go first', async (t) 
   assert.equal(await store.get(ids[0]!), null);
 });
 
-const perDeviceStores: Array<[string, () => RaceStore]> = [
+const perDeviceStores: Array<[string, () => RaceStore | Promise<RaceStore>]> = [
   ['memory', () => new MemoryRaceStore(500, 2)],
   [
     'postgres (pg-mem)',
     () => new PgRaceStore(new (newDb().adapters.createPg().Pool)(), null, 2000, 2)
-  ]
+  ],
+  ...(TEST_DATABASE_URL
+    ? [['postgres (real)', () => realPostgres(2000, 2)] as [string, () => Promise<RaceStore>]]
+    : [])
 ];
 
 for (const [name, make] of perDeviceStores) {
   test(`${name}: a device keeps its newest races only, and nobody else loses one`, async (t) => {
-    const store = make();
+    const store = await make();
     t.after(() => store.close());
     const mine = (seed: number) => store.insert({ ...finishedRace(seed), device: 'aaaa' });
     const online = await store.insert(finishedRace(10)); // no device: the server's own
@@ -177,12 +209,15 @@ for (const [name, make] of perDeviceStores) {
 }
 
 // Over its limit, the history drops the oldest race of the owner holding the most (a race with no device is its own owner).
-const limitedStores = (limit: number): Array<[string, () => RaceStore]> => [
+const limitedStores = (limit: number): Array<[string, () => RaceStore | Promise<RaceStore>]> => [
   ['memory', () => new MemoryRaceStore(limit)],
   [
     'postgres (pg-mem)',
     () => new PgRaceStore(new (newDb().adapters.createPg().Pool)(), null, limit)
-  ]
+  ],
+  ...(TEST_DATABASE_URL
+    ? [['postgres (real)', () => realPostgres(limit)] as [string, () => Promise<RaceStore>]]
+    : [])
 ];
 const insertFrom = (store: RaceStore, device: string | undefined, seed: number) =>
   store.insert({ ...finishedRace(seed), ...(device ? { device } : {}) }).then(({ id }) => id);
@@ -190,7 +225,7 @@ const keptIds = async (store: RaceStore) => (await store.list(10)).map((race) =>
 
 for (const [name, make] of limitedStores(5)) {
   test(`${name}: a device that floods the history loses its own races, not other people's`, async (t) => {
-    const store = make();
+    const store = await make();
     t.after(() => store.close());
     const online = await insertFrom(store, undefined, 10);
     const x = await insertFrom(store, 'xxxx', 11);
@@ -203,7 +238,7 @@ for (const [name, make] of limitedStores(5)) {
 
 for (const [name, make] of limitedStores(3)) {
   test(`${name}: when nobody holds more than one, the oldest goes, a race with no device included`, async (t) => {
-    const store = make();
+    const store = await make();
     t.after(() => store.close());
     await insertFrom(store, undefined, 1);
     const a = await insertFrom(store, 'aaaa', 2);
@@ -215,7 +250,7 @@ for (const [name, make] of limitedStores(3)) {
 
 for (const [name, make] of limitedStores(4)) {
   test(`${name}: a tie goes to the owner whose oldest race is the oldest`, async (t) => {
-    const store = make();
+    const store = await make();
     t.after(() => store.close());
     await insertFrom(store, 'bbbb', 1);
     const a1 = await insertFrom(store, 'aaaa', 2);
