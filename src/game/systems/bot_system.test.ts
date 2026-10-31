@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resources } from '../rules/v2/resources';
+import { resources } from './test_resources';
 import type { Car } from '../types/car';
 import type { TargetInfo } from './movement_system';
 import {
@@ -416,8 +416,6 @@ describe('normal policy scoring', () => {
       style
     });
     expect(evaluateNormalTargetsOf(targets, soft, map, v3, plan(v3)).selectedCellId).toBe('B');
-    // the size of a move changes nothing on v2: the longer move wins
-    expect(evaluateNormalTargets(targets, soft, map, plan(resources)).selectedCellId).toBe('A');
     // a pusher pays 12 a point instead of 30, and counts on running low
     const scoreOfNine = (style: typeof PERSONALITIES.balanced) =>
       evaluateNormalTargetsOf(targets, soft, map, v3, plan(v3, style)).candidates.find(

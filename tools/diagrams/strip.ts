@@ -21,7 +21,7 @@ export interface StripSpec {
   /** lanes top to bottom; default 3, 2, 1 */
   lanes?: number[];
   edit?: CarEdit;
-  /** the rules version the position is played on; default as `positionOf` (v2) */
+  /** the rules version the position is played on; default as `positionOf` (v3) */
   rules?: RulesVersion;
   /** which free cells get an offer or a cross; default: the main-lane cells further along than the start */
   mark?: (cell: TrackCell, start: TrackCell) => boolean;

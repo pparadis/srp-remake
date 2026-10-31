@@ -13,42 +13,12 @@ async function pressSetup(page: Page) {
   await page.mouse.click(pos!.x, pos!.y);
 }
 
-test('grid setup: Low wing from the Setup button changes the HUD and the budget, and is gone after the first move', async ({
-  page
-}) => {
-  const errors = collectErrors(page);
-  await quickRace(page, { bots: 2, laps: 3 });
-  const hudWing = page.getByTestId('hud-wing');
-  const budget = page.getByTestId('hud-budget');
-  await expect(hudWing).toHaveText('MED');
-  await expect(budget).toHaveText('40 / 40');
-
-  const press = async (name: 'setup' | SetupButton) => {
-    if (name === 'setup') await pressSetup(page);
-    else await page.getByTestId(`setup-${name}`).click();
-  };
-
-  await press('setup');
-  await press('wing-minus'); // Medium -> Low
-  await press('confirm');
-
-  await expect(hudWing).toHaveText('LOW');
-  await expect(budget).toHaveText('41 / 41'); // Low wing +1 (the hard compound adds nothing)
-  // it is not a turn: the same car is still on the grid, and may set up again
-  expect(await page.evaluate(() => window.__srp!.uiButtonPos('setup'))).not.toBeNull();
-
-  await playMyTurn(page);
-  // after the first move the setup is closed
-  await expect.poll(() => page.evaluate(() => window.__srp!.uiButtonPos('setup'))).toBeNull();
-  expect(errors).toEqual([]);
-});
-
 // Rules v3 (#148): the panel opens by itself on the first turn, with the three compounds and a fuel load.
 test('rules v3: the grid setup opens by itself, picks a compound and a fuel load, and is not forced again', async ({
   page
 }) => {
   const errors = collectErrors(page);
-  await quickRace(page, { bots: 2, laps: 3, rules: 'v3' });
+  await quickRace(page, { bots: 2, laps: 3, rules: 'v3', keepGridSetup: true });
   const press = async (name: 'setup' | SetupButton) => {
     if (name === 'setup') await pressSetup(page);
     else await page.getByTestId(`setup-${name}`).click();
@@ -104,7 +74,7 @@ test('grid setup on a phone in landscape: the menu is inside the screen and noth
 }) => {
   await page.setViewportSize({ width: 874, height: 348 });
   const errors = collectErrors(page);
-  await quickRace(page, { bots: 2, laps: 3, rules: 'v3' });
+  await quickRace(page, { bots: 2, laps: 3, rules: 'v3', keepGridSetup: true });
   const card = page.locator('.setup-card');
   await expect(card).toBeVisible();
   const box = (await card.boundingBox())!;

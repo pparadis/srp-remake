@@ -48,8 +48,8 @@ interface SrpStatus {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function gotoHome(page: Page) {
-  // The specs are written for v2's numbers and no automatic grid setup (v3 has its own in grid-setup.spec.ts)
-  await page.goto('/?seed=0&rules=v2');
+  // The specs play v3 (v4's play order changes who moves when); v4 is the default and has no spec of its own.
+  await page.goto('/?seed=0&rules=v3');
   await expect(page.getByTestId('home-quick')).toBeVisible();
 }
 
@@ -66,7 +66,7 @@ export async function setLobbySettings(
     timer?: 0 | 30 | 60 | 120;
     botLevel?: 'easy' | 'normal' | 'hard';
     /** Solo only: the rules version of the Rules select. */
-    rules?: 'v1' | 'v2' | 'v3';
+    rules?: 'v3' | 'v4';
     /** The id of a track in public/tracks/. */
     track?: string;
   }
@@ -86,16 +86,33 @@ export async function setLobbySettings(
 }
 
 /** Waits until the race scene is built and exposes its test hook. */
-export async function waitForRace(page: Page) {
+export async function waitForRace(page: Page, opts: { keepGridSetup?: boolean } = {}) {
   await expect(page.locator('canvas')).toBeVisible({ timeout: 20_000 });
   await page.waitForFunction(
     () => window.__srp !== undefined && window.__srp.state().cars.length > 0
   );
+  if (!opts.keepGridSetup) await dismissGridSetup(page);
 }
 
-export async function startRace(page: Page) {
+/**
+ * Rules v3 and v4 open the grid setup panel by itself on a player's first turn, over the board. The specs that are not
+ * about it keep the dealt setup (Cancel); one that is (grid-setup.spec.ts) opens the race itself and does not come here.
+ */
+export async function dismissGridSetup(page: Page) {
+  const cancel = page.getByTestId('setup-cancel');
+  if (
+    await cancel.waitFor({ state: 'visible', timeout: 2_000 }).then(
+      () => true,
+      () => false
+    )
+  ) {
+    await cancel.click();
+  }
+}
+
+export async function startRace(page: Page, opts: { keepGridSetup?: boolean } = {}) {
   await page.getByTestId('lobby-start').click();
-  await waitForRace(page);
+  await waitForRace(page, opts);
 }
 
 /** Home -> Quick race -> settings -> Start; ends on the Race screen. */
@@ -105,8 +122,10 @@ export async function quickRace(
     bots?: number;
     laps?: number;
     botLevel?: 'easy' | 'normal' | 'hard';
-    rules?: 'v1' | 'v2' | 'v3';
+    rules?: 'v3' | 'v4';
     track?: string;
+    /** Leave the grid setup panel that opens by itself (grid-setup.spec.ts is about it). */
+    keepGridSetup?: boolean;
   } = {}
 ) {
   await gotoHome(page);
@@ -118,7 +137,7 @@ export async function quickRace(
     ...(opts.rules ? { rules: opts.rules } : {}),
     ...(opts.track ? { track: opts.track } : {})
   });
-  await startRace(page);
+  await startRace(page, opts);
 }
 
 /** Host creates an online lobby (turn timer Off unless `timer` is set); returns its invite URL. */
@@ -254,6 +273,10 @@ export async function playMyTurn(page: Page) {
   });
   if (!plan) return;
   if ('error' in plan) throw new Error(`${plan.error} for car ${plan.carId} at ${plan.cellId}`);
+  // the setup panel is offered once per car on its first turn, wherever the page joined the race from
+  if (await page.getByTestId('setup-panel').isVisible()) {
+    await page.getByTestId('setup-cancel').click();
+  }
   await page.mouse.move(plan.from.x, plan.from.y);
   await grabbable(page, plan.carId, plan.from);
   await page.mouse.down();

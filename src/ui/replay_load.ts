@@ -1,5 +1,6 @@
 import { activeSeatIndex, createRaceContext, type RaceState } from '../game/race/race_engine';
 import { replayRace } from '../game/race/race_log';
+import { replayBlock } from '../game/rules/ids';
 import { raceRecap, type RaceRecap } from '../game/systems/race_recap';
 import type { PublicLobby, PublicRaceState } from '../net/backend_api';
 import { parseTrack } from '../validation/track_schema';
@@ -38,6 +39,8 @@ function publicRace(states: RaceState[], index: number, saved: SavedRace): Publi
 }
 
 export async function buildReplay(saved: SavedRace, baseUrl: string): Promise<Replay> {
+  const blocked = replayBlock(saved.log.rulesVersion);
+  if (blocked) throw new Error(blocked);
   const response = await fetch(`${baseUrl}tracks/${encodeURIComponent(saved.trackId)}.json`);
   if (!response.ok) throw new Error(`Track ${saved.trackId} not found (${response.status}).`);
   const ctx = createRaceContext(parseTrack(await response.json()));

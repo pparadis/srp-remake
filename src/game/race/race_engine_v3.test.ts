@@ -46,14 +46,6 @@ describe('v3: the car dealt', () => {
       expect(car.fuel).toBe(fuel);
     }
   });
-
-  it('is the plain hard setup with a full tank in v2', () => {
-    for (const car of race(5, 'v2').cars) {
-      expect(car.setup).toMatchObject({ compound: 'hard', wing: 'medium' });
-      expect(car.setup.fuelLoad).toBeUndefined();
-      expect(car.fuel).toBe(100);
-    }
-  });
 });
 
 describe('v3: the cap and the budget of a compound', () => {
@@ -176,20 +168,5 @@ describe('v3: the fuel load', () => {
 
   it('a pit stop never takes fuel away', () => {
     expect(pitWith(90, 60)).toMatchObject({ tire: 100, fuel: 90 });
-  });
-});
-
-describe('v1 and v2 refuse what v3 adds', () => {
-  it.each(['v1', 'v2'] as const)('%s: no medium compound and no fuel load', (version) => {
-    for (const setup of [
-      setupOf({ compound: 'medium' }),
-      setupOf({ compound: 'hard', fuelLoad: 60 })
-    ]) {
-      const state = race(5, version);
-      expect(applyAction(ctx, state, { type: 'setup', setup })).toEqual({
-        ok: false,
-        reason: 'invalid_setup'
-      });
-    }
   });
 });

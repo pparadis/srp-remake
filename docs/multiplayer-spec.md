@@ -136,10 +136,10 @@ Authoritative match state should include:
 - `turnOrder` (#138): the car ids in the order they play this round. The server is the authority: from v4 it is
   re-sorted by the standings every round, so the client takes it from the state (a server that predates the field
   plays the seed's grid order, `turnOrderOf`).
-- `rulesVersion` (#148): the movement and resource rules the race plays (`v1`, `v2`, `v3`, `v4`). Every race on a server plays
+- `rulesVersion` (#148): the movement and resource rules the race plays (`v3`, `v4`; a race of the retired `v1` or `v2` keeps its row in the history but no longer replays, #254). Every race on a server plays
   the engine's default, or the `RULES_VERSION` env when it names a version (tests, trying a draft). The client builds its
-  engine state with it, so a v3 race offers the medium compound and the fuel load (`fuelLoad` on the setup) and prices
-  wear by move size; on `v1` and `v2` the server refuses both with `invalid_setup`. A client that predates the field
+  engine state with it, so the race offers the medium compound and the fuel load (`fuelLoad` on the setup) and prices
+  wear by move size. A client that predates the field
   plays the default.
 - `revision` integer incremented after each accepted action.
 

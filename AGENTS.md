@@ -87,25 +87,24 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   goes through `rulesOf(state)`, never a direct import of `computeValidTargets` / `draftAhead` in engine code, nor of
   `cycleBudget` / `MOVE_RATES` / `MOVE_BUDGET` for a car. All four versions are **frozen**: `rules_golden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
   `tools/rules_golden.ts`) and fails if a version's targets, prices or the car after the recorded move change, whether
-  through its own code or shared code (constants, track, pit, wear). `v1` (before #114, tag `rules-v1`) has its own copy
-  of the rule code in `src/game/rules/v1/` and is kept for reference, not online. `v2` (#114 and #102, tag `rules-v2`)
-  has its own copy of the movement, draft and resource code in `src/game/rules/v2/`. `v3` (#148, tag `rules-v3`) and `v4`
+  through its own code or shared code (constants, track, pit, wear). `v1` and `v2` were retired (#254): not selectable, no code; the git tags `rules-v1`, `rules-v2` and `retired-v1-v2` hold their code, golden files, docs and diagrams. A race of theirs already in the history (or saved in a browser) keeps its stats and cannot be replayed (`replayBlock` in `ids.ts`: the recap and board replay say why, the history row is not clickable). `v3` (#148, tag `rules-v3`) and `v4`
   (the default) share the live code in `src/game/systems/` (`movement_system.ts`, `draft_system.ts`, `track_index.ts`,
-  `resource_system.ts`): the movement rules below are v2's and v3's (v3 changes only the resources: three compounds, a
+  `resource_system.ts`): the movement rules below are those of v3 and v4 (v3 changed the resources of the older rules: three compounds, a
   fuel load, wear by move size, see `docs/movement-spec.md`). **To change the rules, make a v5**: copy the live rule code to
   `src/game/rules/v4/` first (as v2's was; v3 and v4 both point at it), then change the live code, add `v5` to
   `src/game/rules/ids.ts` and `versions.ts` (a `draft` while it is tried), and generate its golden file when you
   freeze it (`npx tsx tools/rules_golden.ts src/game/rules/golden/v5.json v5`; tag `rules-v5`). Compare versions on the
-  same races: `npx tsx tools/rules_compare.ts [--rules v2,v3]` (the bots' ordering, overtakes, race length, how often
+  same races: `npx tsx tools/rules_compare.ts [--rules v3,v4]` (the bots' ordering, overtakes, race length, how often
   tows, slingshots, squeezes and lane changes come up, lane use). A test that is written for one version's numbers
-  passes it to `createRace` (`createRace(ctx, seats, laps, seed, 'v2')`) instead of relying on the default; the rule
-  diagrams in `tools/diagrams/` play v2 (`positionOf`'s third argument) except `move-size`, which plays v3.
+  passes it to `createRace` (`createRace(ctx, seats, laps, seed, 'v3')`) instead of relying on the default; the rule
+  diagrams in `tools/diagrams/` play v3 with car 1 on soft tires (cap 9), set in `positionOf`; the e2e specs play v3 too (`?rules=v3`,
+  backend `RULES_VERSION=v3`), and `dismissGridSetup` in `e2e/support/game.ts` closes the grid setup panel that v3 and v4 open.
   `v4` (#138, #249, frozen with a golden file; tag `rules-v4`) is v3 plus a play order re-sorted by the standings every round (leader first,
   `leaderFirst` in `versions.ts`, `nextTurn` in `race_engine.ts`) and pit lane passing (#249, `pitLanePassing`: a car in
   the pit lane takes the first free cell ahead and may jump to a box past a taken one, so a jam cannot block the
   entry); it copies no rule code, and the server sends `turnOrder`. See `docs/movement-spec.md`.
   In solo the version is chosen in the Quick race card (`lobbyRules`, hidden online: online plays the default or the
-  server's `RULES_VERSION`; `?rules=v1` only seeds that select, and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
+  server's `RULES_VERSION`; `?rules=v3` only seeds that select (an unknown or retired value is the default), and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
   page loads it eagerly), the rules in `versions.ts` (lazy, with the game). "Copy debug" records `rulesVersion`, and a
   sandbox "Load position" from other rules is refused.
 - Movement is BFS on `next[]`. Movement rules compare cells by lap position (`lapAhead` in `track_index.ts`), never by

@@ -66,6 +66,11 @@ async function measure(url) {
     await page.getByTestId('lobby-laps').press('Tab');
     await page.getByTestId('lobby-start').click();
     await page.waitForFunction(() => window.__srp?.state().cars.length > 0);
+    // v3 and v4 open the grid setup on the first turn, over the board the probe drags on
+    await page
+      .getByTestId('setup-cancel')
+      .click({ timeout: 3000 })
+      .catch(() => {});
     const start = treeTicks(pid),
       t0 = Date.now();
     await page.waitForTimeout(idleS * 1000);
@@ -130,9 +135,8 @@ for (const v of variants) {
   try {
     await new Promise((r) => setTimeout(r, 3000));
     const secs = [];
-    // v2: v3 opens the grid setup panel on the first turn, which blocks the probe's drag
     for (let i = 0; i < runs; i++) {
-      secs.push(await measure(`http://localhost:${port}/?seed=0&rules=v2`));
+      secs.push(await measure(`http://localhost:${port}/?seed=0&rules=v3`));
     }
     results.push({ label, median: median(secs), all: secs.map((s) => s.toFixed(1)).join(' ') });
   } finally {

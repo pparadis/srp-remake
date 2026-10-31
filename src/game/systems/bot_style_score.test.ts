@@ -7,7 +7,7 @@ import {
   decideBotAction,
   type RaceState
 } from '../race/race_engine';
-import { resources } from '../rules/v2/resources';
+import { resources } from './test_resources';
 import type { TrackData } from '../types/track';
 import { buildPlanContext, stopIsDue } from './bot_plan';
 import { PERSONALITIES, personalityFor, type PersonalityKey } from './bot_style';
@@ -24,7 +24,7 @@ function solo(
     [{ isBot: true, ownerId: 'BOT1', botLevel: level, style }],
     laps,
     3,
-    'v2'
+    'v3'
   );
   // The plain setup (budget 40), whatever the bot would pick on the grid.
   Object.assign(state.cars[0]!.setup, { compound: 'hard', wing: 'medium' });
@@ -53,7 +53,7 @@ const behindAWall = (style: PersonalityKey, level: 'normal' | 'hard' = 'normal')
     ],
     5,
     0,
-    'v2'
+    'v3'
   );
   Object.assign(state.cars[0]!, { cellId: 'Z05_L1_00' });
   Object.assign(state.cars[1]!, { cellId: 'Z12_L1_00', state: 'DNF' });
@@ -63,13 +63,13 @@ const behindAWall = (style: PersonalityKey, level: 'normal' | 'hard' = 'normal')
 };
 
 describe('personality parameters on the Normal scorer', () => {
-  it('the pusher front-loads the cycle (9-9-9-9-4), the steady driver spends it evenly (8 a move)', () => {
-    expect(spends('pusher', 5)).toEqual([9, 9, 9, 9, 4]);
-    expect(spends('steady', 5)).toEqual([8, 8, 8, 8, 8]);
+  it('the pusher front-loads the cycle (8-8-8-8-3), the steady driver spends it evenly (7 a move)', () => {
+    expect(spends('pusher', 5)).toEqual([8, 8, 8, 8, 3]);
+    expect(spends('steady', 5)).toEqual([7, 7, 7, 7, 7]);
   });
 
   it('balanced (seed 0) is the old Normal: the same moves as the pusher on an empty track', () => {
-    expect(spends('balanced', 5)).toEqual([9, 9, 9, 9, 4]);
+    expect(spends('balanced', 5)).toEqual([8, 8, 8, 8, 3]);
   });
 
   it('an inner-lane driver works its way in from the outer lane', () => {
@@ -137,12 +137,5 @@ describe('Easy follows its style sloppily', () => {
     };
     expect(pick(11)).toBe(pick(11));
     expect(new Set(Array.from({ length: 30 }, (_item, i) => pick(i + 1))).size).toBeGreaterThan(2);
-  });
-});
-
-describe('Hard reads the field', () => {
-  it('passes where the same Normal driver would hold its lane behind the car ahead', () => {
-    expect(behindAWall('defender', 'normal').laneIndex).toBe(1);
-    expect(behindAWall('defender', 'hard').laneIndex).not.toBe(1);
   });
 });

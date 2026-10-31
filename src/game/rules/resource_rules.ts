@@ -34,7 +34,7 @@ export interface ResourceRules {
   gridSetup(car: Wearing, setup: CarSetup): void;
   /** What a pit stop does to the car: fits `setup` (when given) and refills. */
   pitService(car: Wearing, setup: CarSetup | null): void;
-  /** What the setup UI offers; `psi`: the tire pressures cost wear (v1 and v2; v3 ignores them, #163). */
+  /** What the setup UI offers; `psi` (tire pressure rows) is off on every live version, #163. */
   features: { medium: boolean; fuelLoad: boolean; psi: boolean };
 }
 

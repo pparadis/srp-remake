@@ -245,8 +245,8 @@ Hard beats Normal by 0.13 places in the 4-car mix (short of the 0.15 aimed for; 
 tried) and by 0.40 in the 8-car mix. Heads-up Hard vs Normal (84 races) is decided by the grid slot, 1.54 vs 1.46: the
 heads-up criterion was dropped.
 
-The big oval (#175, `--track oval32_3lanes`, 56 cells a lap) keeps the order. Rules v2, laps 5/8, 4 seeds (32 races):
-Hard 1.38, Normal 1.63, Easy 3.00, Autopilot 4.00 (`bot_levels.test.ts` asserts it). Rules v3, laps 5/8/12, 4 seeds (48
+The big oval (#175, `--track oval32_3lanes`, 56 cells a lap) keeps the order. Rules v4 (the default), laps 5/8, 4 seeds (32 races):
+Hard 1.50, Normal 1.50, Easy 3.00, Autopilot 4.00 (`bot_levels.test.ts` asserts it; on the oval, laps 5/8/12, Hard 1.42, Normal 1.58). Rules v3, laps 5/8/12, 4 seeds (48
 races): Normal 1.48, Hard 1.69, Easy 2.83, Autopilot 4.00, which is what the oval gives too (Hard no better than Normal
 on v3 there either), so it is not the track. Bots pit as often on both (4.4 and 4.5 stops in a 12-lap race, 4 and 8 cars mixed).
 
@@ -323,7 +323,7 @@ medium now wins a race length too).
 ## Rules v3: the pace plan and the setup search (#148)
 
 On v3 and v4 (v4 is the default; `rulesOf(state).resources`) the bots play the resource model of `docs/movement-spec.md`, "Resources
-on rules v3". v1 and v2 keep the old behaviour; the new terms are gated on the version, so those benchmarks did not move.
+on rules v3". (The retired v1 and v2 kept the old behaviour; their benchmarks are at the tag `retired-v1-v2`.)
 
 - **Pace plan** (`sustainablePace` in `bot_plan.ts`): the largest move size (7, 8 or 9) a car can keep to the flag, or to
   its planned stop, with the tire and fuel it has (`sustainableSize`, with `PACE_MARGIN` 1.02 kept in hand). Normal
@@ -344,10 +344,11 @@ on rules v3". v1 and v2 keep the old behaviour; the new terms are gated on the v
   `TIRE_LIFE` 1.4 / 1.0 / 0.95: soft/high wins 3-7 laps, medium/high 8-9 and 13, medium/medium 10-11, hard/high 8 and 14. Medium's tire life was 1.1 first, equal to `FUEL_MARGIN`: tires and fuel ran out together, so hard never won.
 - **Levels** (4 races x 3 lengths x 8 seeds): Hard < Normal < Easy < Autopilot holds on v3; Hard's edge over Normal is
   small, 0.02-0.08 places (adaptive inner lane 0.9, `ADAPTIVE_V3`). Do not tune a personality to help one level without
-  re-running the ordering on v1, v2 and v3: pulling Racer's `queue` in from 10 to 4 improved Racer and with it Normal,
-  and Hard no longer led it on v2 and v3.
-- **Personalities** do not dominate (no one wins 30% or more of the 5-car races), but the spread is wider than on v2: on
-  v3 the best (Pusher, 2.75) and the worst (Racer, 3.50) are 0.75 places apart, against about 0.2 on v2, because Racer
-  avoids queueing behind a car and so gives up the tow's saving. The test bound is 0.9 on v3, 0.45 on v2.
+  re-running the ordering on v3 and v4: pulling Racer's `queue` in from 10 to 4 improved Racer and with it Normal,
+  and Hard no longer led it.
+- **Personalities** do not dominate (no one wins 30% or more of the 5-car races), but the spread is wider than it was on
+  the retired v2: on v3 the best (Pusher, 2.75) and the worst (Racer, 3.50) are 0.75 places apart, against about 0.2 on v2,
+  because Racer avoids queueing behind a car and so gives up the tow's saving. The test bound is 0.9 on v3 and v4, and the
+  win-rate cap 35% (30.5% measured on v4 once v2 was gone, #254).
 - **Known, left open:** Low wing still wins by 0.2 moves at one length (it is not asserted); no stop at 8 laps (medium/high
   at 7s beats a stop); `--setups` against three Normal bots (not the lone-car gate) is noisy at 8 laps.

@@ -107,7 +107,7 @@ describe('main (solo flow)', () => {
     expect(window.location.pathname).toBe('/solo');
   });
 
-  it('the quick race menu picks the movement rules, v2 first, and the game gets them (#118)', async () => {
+  it('the quick race menu picks the movement rules, v4 first, and the game gets them (#118)', async () => {
     startGame.mockImplementation(() => ({
       destroy: vi.fn(),
       canvas: document.createElement('canvas')
@@ -117,26 +117,26 @@ describe('main (solo flow)', () => {
     const rules = byId<HTMLSelectElement>('lobbyRules');
     expect(byId('lobbyRulesField').hidden).toBe(false);
     expect(rules.value).toBe('v4');
-    expect([...rules.options].map((o) => o.value)).toEqual(['v4', 'v3', 'v2', 'v1']);
-    rules.value = 'v1';
+    expect([...rules.options].map((o) => o.value)).toEqual(['v4', 'v3']);
+    rules.value = 'v3';
     rules.dispatchEvent(new Event('change'));
-    expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v1'); // kept across the re-render
+    expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v3'); // kept across the re-render
     byId('lobbyStartBtn').click();
     await vi.waitFor(() =>
       expect(startGame).toHaveBeenCalledWith(
         byId('app'),
-        expect.objectContaining({ rulesVersion: 'v1' })
+        expect.objectContaining({ rulesVersion: 'v3' })
       )
     );
   });
 
-  it('?rules=v1 (the sandbox link) starts the menu on v1; an unknown value on the default', async () => {
-    window.history.replaceState({}, '', '/?rules=v1');
+  it('?rules=v3 (the sandbox link) starts the menu on v3; an unknown or retired value on the default', async () => {
+    window.history.replaceState({}, '', '/?rules=v3');
     await import('./main');
     byId('homeQuickBtn').click();
-    expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v1');
+    expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v3');
     vi.resetModules();
-    window.history.replaceState({}, '', '/?rules=v9');
+    window.history.replaceState({}, '', '/?rules=v2');
     await import('./main');
     byId('homeQuickBtn').click();
     expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v4');
