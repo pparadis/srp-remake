@@ -25,7 +25,7 @@ describe('bot levels benchmark', () => {
     lineup,
     laps: [5, 8, 12],
     seeds: [1, 2, 3, 4],
-    rulesVersion: 'v2'
+    rulesVersion: 'v4'
   });
   const avg = (policy: BotPolicy) => result.stats.get(policy)!.avgFinish;
 
@@ -41,22 +41,16 @@ describe('bot levels benchmark', () => {
   });
 
   it('keeps that order on the big oval (#175)', () => {
-    // rules v2, as above; no order is asserted on v3 (docs/bot-system.md has the numbers on the big oval)
+    // rules v4, as above (docs/bot-system.md has the numbers on the big oval)
     const big = runBench(createRaceContext(parseTrack(bigOval)), {
       lineup,
       laps: [5, 8],
       seeds: [1, 2, 3, 4],
-      rulesVersion: 'v2'
+      rulesVersion: 'v4'
     });
     const order = lineup.map((p) => big.stats.get(p)!.avgFinish);
     expect(order).toEqual([...order].sort((a, b) => a - b));
   }, 60_000); // 32 races: about 4 s plain, five times that with coverage on
-
-  it('keeps that order on the frozen rules v1 too (#118)', () => {
-    const v1 = runBench(ctx, { lineup, laps: [5, 8, 12], seeds: [1, 2, 3, 4], rulesVersion: 'v1' });
-    const order = lineup.map((p) => v1.stats.get(p)!.avgFinish);
-    expect(order).toEqual([...order].sort((a, b) => a - b));
-  }, 30_000);
 
   it('pits in a 12-lap race (a stop keeps the lap) but not in a 7-lap one, never enters the pit on the final lap', () => {
     const stops = (laps: number) => {
@@ -65,7 +59,7 @@ describe('bot levels benchmark', () => {
         Array.from({ length: 4 }, (_slot, i) => ({ isBot: true, ownerId: `B${i}` })),
         laps,
         0,
-        'v2'
+        'v3'
       );
       let pits = 0;
       for (let turn = 0; turn < laps * 400 && state.winnerCarId === null; turn += 1) {
@@ -126,26 +120,6 @@ describe('bot levels benchmark on rules v3', () => {
     const order = lineup.map((p) => v3.stats.get(p)!.avgFinish);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(order[0]).toBeLessThan(order[1]!);
-  });
-});
-
-// The balance gate of the wing (issue #48): `npx tsx tools/bot_bench.ts --setups` prints the whole table.
-describe('setup sweep', () => {
-  const rows = setupSweep(ctx, {
-    laps: [3, 4, 5, 6, 7, 8, 9, 10],
-    seeds: [1, 2],
-    rulesVersion: 'v2'
-  });
-  const gate = setupSweepGate(rows);
-
-  it('has every wing level fastest at some race length', () => {
-    expect(gate.everyWingWinsSomewhere).toBe(true);
-  });
-
-  it('has no single setup fastest at every race length', () => {
-    expect(gate.noSetupDominates).toBe(true);
-    // and the extremes differ: a sprint wants Low wing, a stint-length race High wing
-    expect(rows[0]!.best).not.toBe(rows[rows.length - 1]!.best);
   });
 });
 

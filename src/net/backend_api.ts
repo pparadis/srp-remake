@@ -111,7 +111,8 @@ export interface RaceSummary {
   finishedAt: number;
   source: 'online' | 'solo';
   trackId: string;
-  rulesVersion: RulesVersion;
+  /** A string: the history keeps races of retired versions (#254). */
+  rulesVersion: string;
   laps: number;
   cars: number;
   winnerCarId: number;

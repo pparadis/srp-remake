@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resources } from '../../rules/v2/resources';
+import { resources } from '../../systems/test_resources';
 import type { Car } from '../../types/car';
 import type { TrackCell, TrackData } from '../../types/track';
 import type { TargetInfo } from '../../systems/movement_system';

@@ -11,7 +11,7 @@ const name = (car: Car) => `Car ${car.carId}`;
 
 // A race with the three cars placed on known cells, and a copy of it for "after" to be edited.
 function states(cells: [string, string, string] = ['Z05_L1_00', 'Z07_L1_00', 'Z10_L1_00']) {
-  const before: RaceState = createRace(ctx, seats, 3, 0, 'v2');
+  const before: RaceState = createRace(ctx, seats, 3, 0, 'v3');
   before.cars.forEach((car, i) =>
     Object.assign(car, { cellId: cells[i], lapCount: 0, tire: 80, fuel: 80 })
   );
@@ -72,23 +72,6 @@ describe('feedLines', () => {
     expect(texts(rear.before, rear.after).some((t) => /lap/.test(t))).toBe(false);
   });
 
-  it('says a pit stop with the setup it took', () => {
-    const { before, after } = states();
-    before.cars[0]!.fuel = 20;
-    Object.assign(after.cars[0]!, {
-      cellId: 'Z03_L0_00',
-      tire: 100,
-      fuel: 100,
-      setup: { ...after.cars[0]!.setup, compound: 'soft', wing: 'low' }
-    });
-    const lines = said(before, after);
-    expect(lines[0]).toMatchObject({
-      kind: 'pit',
-      text: 'Car 1 pits: soft tires, low wing, full tank'
-    });
-    expect(lines.some((l) => l.kind === 'warn')).toBe(false); // refuelled, not running low
-  });
-
   it('on rules v3 says how far a stop refuelled, and names a grid setup with its fuel load', () => {
     const before: RaceState = createRace(ctx, seats, 3, 0, 'v3');
     before.cars.forEach((car, i) =>
@@ -113,14 +96,6 @@ describe('feedLines', () => {
       { kind: 'info', carId: 1, text: 'Car 1 sets up: soft tires, low wing, 70% fuel' }
     ]);
     expect(texts(grid, structuredClone(grid))).toEqual([]);
-  });
-
-  it('names a grid setup without a fuel load before v3', () => {
-    const { before, after } = states();
-    Object.assign(after.cars[1]!, {
-      setup: { ...after.cars[1]!.setup, compound: 'soft', wing: 'high' }
-    });
-    expect(texts(before, after)).toEqual(['Car 2 sets up: soft tires, high wing']);
   });
 
   it('warns once when a resource crosses 20% and once when it runs out', () => {

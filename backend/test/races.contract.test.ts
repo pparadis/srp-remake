@@ -65,6 +65,28 @@ async function start(
   return { app, raceStore, upload, mint };
 }
 
+test('a race on retired rules (v2) is refused, and an old row still lists and downloads (#254)', async (t) => {
+  const store = new MemoryRaceStore();
+  const { app, upload } = await start(t, store);
+  assert.equal((await upload({ log: { ...soloLog(), rulesVersion: 'v2' } })).statusCode, 400);
+  // a row stored before the retirement: the history still gives it, the page decides it cannot replay it
+  const old = { ...soloLog(), rulesVersion: 'v2' } as unknown as RaceLog;
+  const { id } = await store.insert({
+    source: 'online',
+    trackId: 'oval16_3lanes',
+    log: old,
+    winnerCarId: 1
+  });
+  const list = (await app.inject({ method: 'GET', url: '/api/v1/races' })).json() as {
+    races: Array<{ id: string; rulesVersion: string }>;
+  };
+  assert.deepEqual(
+    list.races.map((r) => [r.id, r.rulesVersion]),
+    [[id, 'v2']]
+  );
+  assert.equal((await app.inject({ method: 'GET', url: `/api/v1/races/${id}` })).statusCode, 200);
+});
+
 test('a finished solo race is stored once, listed and given back, with no owner ids', async (t) => {
   const { app, upload } = await start(t);
   const log = soloLog();

@@ -39,13 +39,13 @@ export function contextOf(track: TrackData): RaceContext {
 }
 
 /**
- * Car 1 on `start` to play, one more car per entry of `cars`, all humans, seed 0. The movement pictures play v2, whose
- * cap is 9 whatever the tires (the doc's "9-point cap"); v3 caps by compound, and its own picture asks for it.
+ * Car 1 on `start` to play, one more car per entry of `cars`, all humans, seed 0. Car 1 is on soft tires, whose cap is
+ * 9 points a move (the doc's "9-point cap"); hard and medium cap at 8, and a picture that wants them says so in `edit`.
  */
 export function positionOf(
   ctx: RaceContext,
   s: Pick<Scenario, 'start' | 'cars' | 'edit'>,
-  rules: RulesVersion = 'v2'
+  rules: RulesVersion = 'v3'
 ): Position {
   const cells = [s.start, ...s.cars];
   const state = createRace(
@@ -60,10 +60,8 @@ export function positionOf(
     const refused = placeCar(ctx, state, i + 1, cell);
     if (refused) throw new Error(refused);
   });
-  if (s.edit) {
-    const refused = editCar(ctx, state, 1, s.edit);
-    if (refused) throw new Error(refused);
-  }
+  const edited = editCar(ctx, state, 1, { compound: 'soft', ...s.edit });
+  if (edited) throw new Error(edited);
   if (!setActiveCar(state, 1)) throw new Error('car 1 is not in the play order');
   return { ctx, state, car: state.cars.find((c) => c.carId === 1)! };
 }

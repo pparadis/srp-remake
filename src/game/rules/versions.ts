@@ -8,11 +8,6 @@
 // Changing a frozen version's behavior means a new version. A draft version changes freely.
 import { computeSqueezeTargets, computeValidTargets } from '../systems/movement_system';
 import { draftAhead } from '../systems/draft_system';
-import * as v1Movement from './v1/movement_system';
-import * as v1Draft from './v1/draft_system';
-import * as v2Movement from './v2/movement_system';
-import * as v2Draft from './v2/draft_system';
-import { resourcesFor as v2Resources } from './v2/resources';
 import { resourceRulesFor } from '../systems/resource_system';
 import type { ResourceRules, ResourceRulesFor } from './resource_rules';
 import { DEFAULT_RULES_VERSION, type RulesVersion } from './ids';
@@ -34,30 +29,6 @@ export const RULES: Record<
   RulesVersion,
   { status: 'frozen' | 'draft'; note: string; rules: MovementRules }
 > = {
-  v1: {
-    status: 'frozen',
-    note: 'Before #114: every distance from forwardIndex (tag rules-v1, a97293a). Kept for reference, not online.',
-    rules: {
-      computeValidTargets: v1Movement.computeValidTargets,
-      computeSqueezeTargets: v1Movement.computeSqueezeTargets,
-      draftAhead: v1Draft.draftAhead,
-      resources: v2Resources,
-      leaderFirst: false,
-      pitLanePassing: false
-    }
-  },
-  v2: {
-    status: 'frozen',
-    note: '#114 and #102: the draft gap in cells along the lane, cross-lane comparisons and lane-change prices by lap position, no cap on cars passed (tag rules-v2). Its code is copied in src/game/rules/v2/.',
-    rules: {
-      computeValidTargets: v2Movement.computeValidTargets,
-      computeSqueezeTargets: v2Movement.computeSqueezeTargets,
-      draftAhead: v2Draft.draftAhead,
-      resources: v2Resources,
-      leaderFirst: false,
-      pitLanePassing: false
-    }
-  },
   v3: {
     status: 'frozen',
     note: '#148: car config and race management: compounds hard, medium and soft, a fuel load, wear sized to the race and to the move size (tag rules-v3). Its code is the live movement, draft and resource systems.',

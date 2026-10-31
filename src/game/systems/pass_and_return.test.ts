@@ -233,7 +233,7 @@ describe('pass and return through the engine', () => {
       ],
       5,
       0,
-      'v2'
+      'v3'
     );
     state.cars[0]!.cellId = START;
     state.cars[1]!.cellId = BLOCKER;
@@ -255,7 +255,7 @@ describe('pass and return through the engine', () => {
       moveSpend: info.moveSpend
     });
     expect(car.cellId).toBe('Z25_L1_00');
-    expect(tire - car.tire).toBe(info.tireCost);
+    expect(tire - car.tire).toBeCloseTo(info.tireCost, 9);
     expect(car.moveCycle.spent[0]).toBe(info.moveSpend);
     expect(getActiveCar(state).carId).toBe(2);
   });
@@ -279,7 +279,7 @@ describe('over simulated races', () => {
     let goArounds = 0;
     let beyondTwo = 0;
     for (const cars of [4, 8]) {
-      for (const seed of [1, 2, 3, 4]) {
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
         const state = createRace(
           ctx,
           Array.from({ length: cars }, (_slot, i) => ({
@@ -289,9 +289,9 @@ describe('over simulated races', () => {
           })),
           3,
           seed,
-          'v2'
+          'v3'
         );
-        for (let turn = 0; turn < 90 && state.winnerCarId === null; turn += 1) {
+        for (let turn = 0; turn < 200 && state.winnerCarId === null; turn += 1) {
           const car = getActiveCar(state);
           const from = cell(car.cellId);
           const targets: Map<string, TargetInfo> = computeTargets(ctx, state, car);

@@ -1,5 +1,5 @@
 // Compare movement-rules versions on the same deterministic races (#118):
-//   npx tsx tools/rules_compare.ts [--rules v1,v2] [--seeds 12] [--laps 5]
+//   npx tsx tools/rules_compare.ts [--rules v3,v4] [--seeds 12] [--laps 5]
 // Per version: the bot benchmark (the bots' ordering, overtakes, race length in turns) and, from bot-only races of 6, 12
 // and 16 cars, how often each rule comes up (tows, slingshots, squeezes, lane changes) and which lanes the cars drive.
 import { readFileSync } from 'node:fs';
@@ -24,7 +24,7 @@ const track = JSON.parse(
   readFileSync(new URL('../public/tracks/oval16_3lanes.json', import.meta.url), 'utf8')
 ) as TrackData;
 const ctx = createRaceContext(track);
-const versions = arg('rules', 'v1,v2').split(',');
+const versions = arg('rules', 'v3,v4').split(',');
 for (const v of versions) if (!isRulesVersion(v)) throw new Error(`Unknown rules version ${v}`);
 const seedCount = Number(arg('seeds', '12'));
 const seeds = Array.from({ length: seedCount }, (_item, i) => i + 1);

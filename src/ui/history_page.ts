@@ -1,4 +1,5 @@
 import type { RaceSummary } from '../net/backend_api';
+import { replayBlock } from '../game/rules/ids';
 
 // The public history of races (#170): a list of the latest finished races from the server, each one opening as a recap.
 // DOM only, no Phaser. `show*` fill it as the request goes: loading, the list, or what went wrong.
@@ -77,17 +78,22 @@ export function mountHistoryPage(
         return;
       }
       const rows = races.map((race) => {
+        const blocked = replayBlock(race.rulesVersion);
         const row = h(
           'tr',
-          { 'data-testid': 'history-race', 'data-race': race.id, class: 'recap-click' },
+          {
+            'data-testid': 'history-race',
+            'data-race': race.id,
+            ...(blocked ? { title: blocked } : { class: 'recap-click' })
+          },
           h('td', {}, raceDate(race.finishedAt)),
           h('td', {}, race.source === 'online' ? 'Online' : 'Solo'),
           h('td', {}, `${race.laps} ${race.laps === 1 ? 'lap' : 'laps'}`),
           h('td', {}, `${race.cars} cars`),
-          h('td', {}, race.rulesVersion),
+          h('td', {}, blocked ? `${race.rulesVersion} (retired)` : race.rulesVersion),
           h('td', {}, `Car ${race.winnerCarId} won`)
         );
-        row.addEventListener('click', () => callbacks.onOpen(race.id));
+        if (!blocked) row.addEventListener('click', () => callbacks.onOpen(race.id));
         return row;
       });
       body.replaceChildren(
