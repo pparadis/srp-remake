@@ -60,7 +60,7 @@ export const RULES: Record<
   },
   v3: {
     status: 'frozen',
-    note: '#148: car config and race management: compounds hard, medium and soft, a fuel load, wear sized to the race and to the move size (tag rules-v3). The default. Its code is the live movement, draft and resource systems.',
+    note: '#148: car config and race management: compounds hard, medium and soft, a fuel load, wear sized to the race and to the move size (tag rules-v3). Its code is the live movement, draft and resource systems.',
     rules: {
       computeValidTargets,
       computeSqueezeTargets,
@@ -71,8 +71,8 @@ export const RULES: Record<
     }
   },
   v4: {
-    status: 'draft',
-    note: '#138: v3 with the play order re-sorted by the standings at the start of each round, the leader first. Same movement, draft and resource code as v3 (nothing copied: only the turn loop differs) and cars may pass each other in the pit lane (#249).',
+    status: 'frozen',
+    note: '#138: v3 with the play order re-sorted by the standings at the start of each round, the leader first. Same movement, draft and resource code as v3 (nothing copied: only the turn loop differs) and cars may pass each other in the pit lane (#249). The default.',
     rules: {
       computeValidTargets,
       computeSqueezeTargets,

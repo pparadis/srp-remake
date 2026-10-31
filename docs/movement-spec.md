@@ -56,7 +56,7 @@ diagonal change paid by its surcharge. Zone numbers differ per lane, so a sidewa
 
 ### Resources on rules v3 (#148)
 
-A race plays one rules version (`RaceState.rulesVersion`, default **v3** since #148; v1 and v2 stay selectable in solo).
+A race plays one rules version (`RaceState.rulesVersion`, default **v4** v3 before; v1, v2 and v3 stay selectable in solo).
 v3 changes only the resource rules (`src/game/systems/resource_system.ts`, the one copy of the math); next[], routes,
 prices, squeeze and the tow are v2's. The numbers are in `constants.ts`; the sizes below follow the race length.
 
@@ -103,7 +103,7 @@ by the time the car behind plays. The cost is that a leader never has a car to c
 may still be limited at its destination (a racing thing). The server is the authority: it sends `turnOrder` in the
 race state and the client takes it from there (a server that does not send it plays the seed's grid order). The HUD
 (`toPlay` in the snapshot) says "you play next / in N" in the banner and dims the standings rows of the cars that have
-already played this round. v4 is a **draft**: not the default, not frozen, no golden file yet (the movement, draft and
+already played this round. v4 is the default and frozen, with a golden file (the movement, draft and
 resource code is v3's, so only the turn loop differs, plus pit lane passing, #249).
 
 ## Lane Change Rules

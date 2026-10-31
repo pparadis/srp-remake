@@ -139,6 +139,7 @@ test('the server plays the race to a winner and then closes it', async (t) => {
 });
 
 test('a pit stop needs a legal setup; a valid one refills the car and costs the next turn', async (t) => {
+  playRules(t, 'v3'); // written for v3's play order
   const store = new LobbyStore();
   const app = await createApp(TEST_CONFIG, { logger: false, lobbyStore: store });
   t.after(() => app.close());
@@ -388,7 +389,7 @@ test('rules v3: the race says its rules, the human is dealt medium tires and a f
   assert.deepEqual([car.setup.compound, car.setup.fuelLoad, car.fuel], ['medium', 60, 60]);
 });
 
-test('a server with no RULES_VERSION plays v3, the default', async (t) => {
+test('a server with no RULES_VERSION plays v4, the default', async (t) => {
   const before = process.env.RULES_VERSION;
   delete process.env.RULES_VERSION;
   t.after(() => {
@@ -396,7 +397,7 @@ test('a server with no RULES_VERSION plays v3, the default', async (t) => {
   });
   const { app, raceState } = await startRace();
   t.after(() => app.close());
-  assert.equal(raceState.rulesVersion, 'v3');
+  assert.equal(raceState.rulesVersion, 'v4');
 });
 
 test('rules v2 (RULES_VERSION=v2): the medium compound and a fuel load are refused', async (t) => {

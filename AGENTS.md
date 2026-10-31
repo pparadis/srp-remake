@@ -82,25 +82,25 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
 ## Key Rules (Current)
 
 - Rules versions (#118): a race plays one movement-rules version (`RaceState.rulesVersion`, set by `createRace`, default
-  `v3` since #148). The registry is `src/game/rules/versions.ts`: what differs between versions (target search, squeeze,
+  `v4`; it was v3 from #148). The registry is `src/game/rules/versions.ts`: what differs between versions (target search, squeeze,
   draft test, and the tire, fuel and move-size rules via `rulesOf(state).resources` or `resourcesOf(state, trackIndex)`)
   goes through `rulesOf(state)`, never a direct import of `computeValidTargets` / `draftAhead` in engine code, nor of
-  `cycleBudget` / `MOVE_RATES` / `MOVE_BUDGET` for a car. All three versions are **frozen**: `rules_golden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
+  `cycleBudget` / `MOVE_RATES` / `MOVE_BUDGET` for a car. All four versions are **frozen**: `rules_golden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
   `tools/rules_golden.ts`) and fails if a version's targets, prices or the car after the recorded move change, whether
   through its own code or shared code (constants, track, pit, wear). `v1` (before #114, tag `rules-v1`) has its own copy
   of the rule code in `src/game/rules/v1/` and is kept for reference, not online. `v2` (#114 and #102, tag `rules-v2`)
-  has its own copy of the movement, draft and resource code in `src/game/rules/v2/`. `v3` (#148, tag `rules-v3`, the
-  default) is the live code in `src/game/systems/` (`movement_system.ts`, `draft_system.ts`, `track_index.ts`,
+  has its own copy of the movement, draft and resource code in `src/game/rules/v2/`. `v3` (#148, tag `rules-v3`) and `v4`
+  (the default) share the live code in `src/game/systems/` (`movement_system.ts`, `draft_system.ts`, `track_index.ts`,
   `resource_system.ts`): the movement rules below are v2's and v3's (v3 changes only the resources: three compounds, a
-  fuel load, wear by move size, see `docs/movement-spec.md`). **To change the rules, make a v4**: copy v3's rule code to
-  `src/game/rules/v3/` first (as v2's was), point v3 at the copy, then change the live code, add `v4` to
+  fuel load, wear by move size, see `docs/movement-spec.md`). **To change the rules, make a v5**: copy the live rule code to
+  `src/game/rules/v4/` first (as v2's was; v3 and v4 both point at it), then change the live code, add `v5` to
   `src/game/rules/ids.ts` and `versions.ts` (a `draft` while it is tried), and generate its golden file when you
-  freeze it (`npx tsx tools/rules_golden.ts src/game/rules/golden/v4.json v4`; tag `rules-v4`). Compare versions on the
+  freeze it (`npx tsx tools/rules_golden.ts src/game/rules/golden/v5.json v5`; tag `rules-v5`). Compare versions on the
   same races: `npx tsx tools/rules_compare.ts [--rules v2,v3]` (the bots' ordering, overtakes, race length, how often
   tows, slingshots, squeezes and lane changes come up, lane use). A test that is written for one version's numbers
   passes it to `createRace` (`createRace(ctx, seats, laps, seed, 'v2')`) instead of relying on the default; the rule
   diagrams in `tools/diagrams/` play v2 (`positionOf`'s third argument) except `move-size`, which plays v3.
-  `v4` (#138, a **draft**) is v3 plus a play order re-sorted by the standings every round (leader first,
+  `v4` (#138, #249, frozen with a golden file; tag `rules-v4`) is v3 plus a play order re-sorted by the standings every round (leader first,
   `leaderFirst` in `versions.ts`, `nextTurn` in `race_engine.ts`) and pit lane passing (#249, `pitLanePassing`: a car in
   the pit lane takes the first free cell ahead and may jump to a box past a taken one, so a jam cannot block the
   entry); it copies no rule code, and the server sends `turnOrder`. See `docs/movement-spec.md`.

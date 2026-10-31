@@ -322,7 +322,7 @@ medium now wins a race length too).
 
 ## Rules v3: the pace plan and the setup search (#148)
 
-On v3 (the default; `rulesOf(state).resources`) the bots play the resource model of `docs/movement-spec.md`, "Resources
+On v3 and v4 (v4 is the default; `rulesOf(state).resources`) the bots play the resource model of `docs/movement-spec.md`, "Resources
 on rules v3". v1 and v2 keep the old behaviour; the new terms are gated on the version, so those benchmarks did not move.
 
 - **Pace plan** (`sustainablePace` in `bot_plan.ts`): the largest move size (7, 8 or 9) a car can keep to the flag, or to

@@ -83,6 +83,13 @@ test('supports CORS preflight on v1 endpoints', async (t) => {
 });
 
 test('runs bot turns on backend', async (t) => {
+  // written for v3's fixed play order (v4 re-sorts it each round)
+  const pinned = process.env.RULES_VERSION;
+  process.env.RULES_VERSION = 'v3';
+  t.after(() => {
+    if (pinned === undefined) delete process.env.RULES_VERSION;
+    else process.env.RULES_VERSION = pinned;
+  });
   const app = await createTestApp();
   t.after(async () => {
     await app.close();
