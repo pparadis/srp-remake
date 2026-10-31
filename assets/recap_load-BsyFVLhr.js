@@ -1,0 +1,1 @@
+import{N as e,d as t}from"./race_log-BgEGJ45y.js";import{t as n}from"./race_recap-BkK8T7mO.js";async function r(r,i){let a=await fetch(`${i}tracks/${encodeURIComponent(r.trackId)}.json`);if(!a.ok)throw Error(`Track ${r.trackId} not found (${a.status}).`);let o=t(e(await a.json()));return n(o,r.log,e=>r.names[String(e)]??`Car ${e}`)}export{r as buildRecap};
