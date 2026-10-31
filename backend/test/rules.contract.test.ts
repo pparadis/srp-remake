@@ -333,25 +333,6 @@ test('a grid setup changes the car for free, keeps the turn, and is refused afte
   assert.equal((late.json() as { reason: string }).reason, 'setup_locked');
 });
 
-test("rules v2: the server's bots set up on the grid for the distance; a human keeps the plain setup", async (t) => {
-  playRules(t, 'v2');
-  const { app, raceState } = await startRace({
-    totalCars: 3,
-    humanCars: 1,
-    botCars: 2,
-    raceLaps: 3
-  });
-  t.after(() => app.close());
-  const [human, ...bots] = raceState.cars;
-  assert.equal(human!.setup.wing, 'medium');
-  assert.equal(human!.setup.compound, 'hard');
-  // 3 laps: a sprint, so soft tires and Low wing
-  for (const bot of bots) {
-    assert.equal(bot.setup.compound, 'soft');
-    assert.equal(bot.setup.wing, 'low');
-  }
-});
-
 // Rules v3 (#148). The server plays one version for every race: the engine's default, or RULES_VERSION.
 function playRules(t: test.TestContext, version: string) {
   const before = process.env.RULES_VERSION;
@@ -400,19 +381,11 @@ test('a server with no RULES_VERSION plays v4, the default', async (t) => {
   assert.equal(raceState.rulesVersion, 'v4');
 });
 
-test('rules v2 (RULES_VERSION=v2): the medium compound and a fuel load are refused', async (t) => {
+test('a retired RULES_VERSION (v2) is ignored: the server plays the default', async (t) => {
   playRules(t, 'v2');
-  const { app, raceState, submit } = await startRace();
+  const { app, raceState } = await startRace();
   t.after(() => app.close());
-  assert.equal(raceState.rulesVersion, 'v2');
-  for (const [name, setup] of [
-    ['medium', { ...V3_SETUP, fuelLoad: undefined }],
-    ['fuel load', { ...V3_SETUP, compound: 'hard' }]
-  ] as const) {
-    const res = await submit({ type: 'setup', setup }, `v2-${name}`);
-    assert.equal(res.statusCode, 409, name);
-    assert.equal((res.json() as { reason: string }).reason, 'invalid_setup', name);
-  }
+  assert.equal(raceState.rulesVersion, 'v4');
 });
 
 test('rules v3: a pit stop fits fresh tires and refuels to the load, and never takes fuel away', async (t) => {

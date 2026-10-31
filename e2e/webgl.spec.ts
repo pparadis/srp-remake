@@ -19,7 +19,7 @@ test('a race on a WebGL canvas, played to the end, then started again, with no e
   page
 }) => {
   const errors = collectErrors(page);
-  await page.goto('/?seed=0&rules=v2');
+  await page.goto('/?seed=0&rules=v3');
   await page.getByTestId('home-quick').click();
   await setLobbySettings(page, { bots: 1, laps: 1 });
   await startRace(page);

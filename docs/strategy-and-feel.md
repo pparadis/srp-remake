@@ -3,8 +3,8 @@
 ## Strategy helpers (`src/game/systems/strategy.ts`, Phaser-free)
 
 - `stintEstimate(car, spineLen)`: cells, laps and moves until tire or fuel reaches 0 at the car's compound,
-  wing (and PSI on v1 and v2) (middle lane, no safety margin). One move is taken as 8 cells (`MOVE_CYCLE`: 40 per 5 moves, plus
-  the wing and compound pace: `cycleBudget(setup)`).
+  wing (middle lane, no safety margin). One move is taken as 8 cells (`NORMAL_MOVE_POINTS`; the cycle budget is the
+  compound's plus the wing: `cycleBudget(setup)`).
   The wear math is `wearPerCell` in `bot_plan.ts`, which uses `setupFactors` from `movement_system.ts`: there is
   one copy of it, shared by the engine costs, the bots, the HUD and the pit modal.
 - `cellsToPitEntry(cell, plan)`: cells until the car stands on the lane-1 cell next to `PIT_ENTRY` (the only
@@ -65,8 +65,6 @@ a stop uses:
 - **Feed:** a grid setup says "Car N sets up: soft tires, high wing, 95% fuel"; a stop says how far it refuelled.
 - **Sandbox:** the compound picker has medium, and a fuel-load field.
 
-On v1 and v2 the panel has two compounds, no fuel row and no automatic opening. The wing is the same on every version:
-
 ### Downforce (wing)
 
 Three levels per car, `CarSetup.wing`: `low`, `medium`, `high` (`WING_EFFECTS` in `constants.ts`).
@@ -77,9 +75,8 @@ Three levels per car, `CarSetup.wing`: `low`, `medium`, `high` (`WING_EFFECTS` i
 | Medium | 0            | x1        | x1        |
 | High   | -1           | x0.8      | x0.9      |
 
-On v1 and v2 the soft compound adds +1 to the cycle budget (`SOFT_PACE_BONUS`) and wears faster; the cycle budget is 40
-on the plain setup, so 39 to 42. Move cost per move is rounded to whole points as before, so the wing shows over a
-stint rather than on one move. On v3 the budget is the compound's (36, 39, 42) plus the wing, and costs go to 0.1.
+The cycle budget is the compound's (36, 39, 42) plus the wing, and costs go to 0.1. (Rules v1 and v2, retired in #254, had
+two compounds, a budget of 40 and whole-point costs; see the tag `retired-v1-v2`.)
 
 ### Drafting
 
@@ -161,6 +158,6 @@ several turns), so the scene animates the difference:
   points, tire and fuel used, pit stops) and the board draws that lap as a faint white line with a dot where each move
   ended. Click or tap it again, or "All cars", to stop. A tap near one of your own targets still picks the target.
 
-The grid setup is the `setup` action (compound, wing, fuel load, and the pressures on v1 and v2; free, once, before the car's
+The grid setup is the `setup` action (compound, wing and fuel load; free, once, before the car's
 first move; it does not end the turn; `setup_locked` after that). Positions saved with two wing angles load as
 Medium (`normalizeSetup` in `sandbox.ts`).

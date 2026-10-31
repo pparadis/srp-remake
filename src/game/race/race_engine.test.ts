@@ -12,7 +12,7 @@ import {
   type RaceSeat,
   type RaceState
 } from './race_engine';
-import { resources } from '../rules/v2/resources';
+import { resources } from '../systems/test_resources';
 import { rankPosition } from '../systems/track_index';
 import type { BotLevel, Car } from '../types/car';
 
@@ -33,7 +33,7 @@ const SETUP: CarSetup = {
 // The plain setup (hard, Medium wing: a cycle budget of 40). createRace gives bots a setup for the distance; the
 // rules tests below want the same budget on every car, and the grid-setup tests pick their own.
 function newRace(laps = 5, seats = SEATS): RaceState {
-  const state = createRace(ctx, seats, laps, 0, 'v2');
+  const state = createRace(ctx, seats, laps, 0, 'v3');
   for (const car of state.cars) Object.assign(car.setup, { compound: 'hard', wing: 'medium' });
   return state;
 }
@@ -80,6 +80,7 @@ describe('applyAction: move', () => {
   it('moves the car, spends tire/fuel and budget, and passes the turn', () => {
     const state = newRace();
     const car = getActiveCar(state);
+    const { tire, fuel } = car;
     const target = firstTarget(state);
     const info = computeTargets(ctx, state, car).get(target)!;
 
@@ -87,8 +88,8 @@ describe('applyAction: move', () => {
 
     expect(result.ok).toBe(true);
     expect(car.cellId).toBe(target);
-    expect(car.tire).toBe(100 - info.tireCost);
-    expect(car.fuel).toBe(100 - info.fuelCost);
+    expect(car.tire).toBe(tire - info.tireCost);
+    expect(car.fuel).toBe(fuel - info.fuelCost);
     expect(car.moveCycle.spent[0]).toBeGreaterThan(0);
     expect(getActiveCar(state).carId).toBe(2);
   });
@@ -307,13 +308,13 @@ describe('decideBotAction', () => {
     const { state, car } = wornInPitLane();
     const decision = decideBotAction(ctx, state);
 
-    // 32 psi costs nothing extra; the wing and compound are the best pair for what is left of the 5 laps.
+    // the compound, wing and fuel load are the best for what is left of the 5 laps
     expect(decision.action).toMatchObject({
       type: 'pit',
-      setup: { psi: { fl: 32, fr: 32, rl: 32, rr: 32 }, wing: 'low' }
+      setup: { compound: 'soft', wing: 'high', fuelLoad: 85 }
     });
     expect(applyAction(ctx, state, decision.action).ok).toBe(true);
-    expect(car).toMatchObject({ tire: 100, fuel: 100, state: 'PITTING', pitServiced: true });
+    expect(car).toMatchObject({ tire: 100, fuel: 85, state: 'PITTING', pitServiced: true });
   });
 
   it('Easy pits at 10 and keeps its own setup', () => {
@@ -404,10 +405,11 @@ describe('decideBotAction', () => {
       expect(cell.laneIndex).not.toBe(0);
     });
 
-    it('drifts to lane 1 and lands exactly on the entry cell when a stop is due', () => {
-      // Z20_L2 is 8 cells before the feeder; the lane change costs one budget point, 9 in all.
+    it('drifts to lane 1 towards the entry when a stop is due, and never overshoots it', () => {
+      // Z20_L2 is 7 cells before the entry; with 5 % tire left a long move would wear the tires out (rules v3), so it
+      // takes a shorter one in lane 1.
       const cell = targetCell(setup(12, 4, 'Z20_L2_00'));
-      expect(cell.id).toBe('Z27_L1_00');
+      expect(cell.id).toBe('Z25_L1_00');
     });
   });
 
@@ -506,7 +508,13 @@ describe('squeeze (boxed in)', () => {
       state.cars[i]!.cellId = id;
     });
     // 7 points left, as in the issue: too few for the way round through lane 3
-    getActiveCar(state).moveCycle.spent = [33, 0, 0, 0, 0];
+    getActiveCar(state).moveCycle.spent = [
+      resources.cycleBudget(getActiveCar(state)) - 7,
+      0,
+      0,
+      0,
+      0
+    ];
     getActiveCar(state).moveCycle.index = 1;
     const targets = computeTargets(ctx, state, getActiveCar(state));
     expect(targets.has('Z28_L0_00')).toBe(true);
@@ -662,27 +670,6 @@ describe('grid setup and the wing', () => {
     expect(getActiveCar(state).setup.wing).toBe('medium');
   });
 
-  it('sets the cycle budget: Low wing +1, High wing -1, soft +1', () => {
-    const budget = (setup: CarSetup) => {
-      const state = fresh();
-      expect(applyAction(ctx, state, { type: 'setup', setup }).ok).toBe(true);
-      // The 9 cells a move covers at most, so read the budget through the move cap of a fresh cycle.
-      const car = getActiveCar(state);
-      car.moveCycle.spent = [8, 8, 8, 8, 0];
-      car.moveCycle.index = 4;
-      return Math.max(
-        ...[...computeTargets(ctx, state, car).values()].map((t) => t.moveSpend ?? t.distance)
-      );
-    };
-    const plain = { ...SETUP, psi: lowSoft.psi };
-    // 32 of 40 spent leaves 8; with Low wing 9 (41), with soft + Low 10 (capped at 9 a move), with High 7 (39)
-    expect(budget(plain)).toBe(8);
-    expect(budget({ ...plain, wing: 'low' })).toBe(9);
-    expect(budget({ ...plain, wing: 'high' })).toBe(7);
-    expect(budget({ ...plain, compound: 'soft' })).toBe(9);
-    expect(budget({ ...plain, compound: 'soft', wing: 'high' })).toBe(8);
-  });
-
   it('gives every non-Easy bot a setup for the distance on the grid, and Easy keeps the default', () => {
     const state = createRace(
       ctx,
@@ -693,11 +680,24 @@ describe('grid setup and the wing', () => {
       ],
       3,
       0,
-      'v2'
+      'v3'
     );
-    expect(state.cars[0]!.setup).toMatchObject({ compound: 'soft', wing: 'low' });
-    expect(state.cars[1]!.setup).toMatchObject({ compound: 'hard', wing: 'medium' });
-    expect(state.cars[2]!.setup).toMatchObject({ compound: 'hard', wing: 'medium' });
+    // the bot is dealt the fuel a 3-lap race needs; Easy and the human keep the dealt load
+    expect(state.cars[0]!.setup).toMatchObject({
+      compound: 'medium',
+      wing: 'medium',
+      fuelLoad: 90
+    });
+    expect(state.cars[1]!.setup).toMatchObject({
+      compound: 'medium',
+      wing: 'medium',
+      fuelLoad: 95
+    });
+    expect(state.cars[2]!.setup).toMatchObject({
+      compound: 'medium',
+      wing: 'medium',
+      fuelLoad: 95
+    });
   });
 });
 
@@ -818,8 +818,8 @@ describe('drafting turns and the slingshot', () => {
     expect(info.slingshot).toBe(true);
     const result = applyAction(ctx, state, { type: 'move', targetCellId: 'Z08_L2_00' });
     expect(result).toMatchObject({ ok: true, moveSpend: info.moveSpend });
-    expect(tire - car1.tire).toBe(info.tireCost);
-    expect(fuel - car1.fuel).toBe(info.fuelCost);
+    expect(tire - car1.tire).toBeCloseTo(info.tireCost, 9);
+    expect(fuel - car1.fuel).toBeCloseTo(info.fuelCost, 9);
     expect(car1.moveCycle.spent[0]).toBe(3);
     expect(car1.slingshots).toBe(1);
   });

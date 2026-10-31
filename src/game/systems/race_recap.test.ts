@@ -107,12 +107,6 @@ describe('raceRecap (#169)', () => {
     expect(recap.turns.at(-1)!.lines.some((l) => l.kind === 'finish')).toBe(true);
   });
 
-  it('works on the older rules too (no setup action, no fuel load)', () => {
-    const v2 = raceRecap(ctx, playRace('v2', 2, 6));
-    expect(v2.cars.map((c) => c.place)).toEqual([1, 2, 3, 4]);
-    expect(v2.turns.some((t) => t.kind === 'setup')).toBe(false);
-  });
-
   it('refuses a log with nothing in it', () => {
     expect(() => raceRecap(ctx, startRaceLog(SEATS, 1, 0, 'v3'))).toThrow(/no action/);
   });

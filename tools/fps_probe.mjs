@@ -49,7 +49,7 @@ async function run(name) {
   const browser = await LAUNCH[name]();
   try {
     const page = await browser.newPage({ viewport: VIEWPORT });
-    await page.goto(`http://localhost:${port}/?seed=0&rules=v2&fps`);
+    await page.goto(`http://localhost:${port}/?seed=0&rules=v3&fps`);
     const renderer = await page.evaluate(() => {
       const gl = document.createElement('canvas').getContext('webgl');
       const e = gl?.getExtension('WEBGL_debug_renderer_info');
@@ -61,6 +61,11 @@ async function run(name) {
     await page.getByTestId('lobby-laps').press('Tab');
     await page.getByTestId('lobby-start').click();
     await page.waitForFunction(() => window.__srp?.state().cars.length > 0);
+    // v3 and v4 open the grid setup on the first turn, over the board the probe drags on
+    await page
+      .getByTestId('setup-cancel')
+      .click({ timeout: 3000 })
+      .catch(() => {});
     await page.waitForFunction(() => window.__srp.status().canControl, undefined, {
       timeout: 60_000
     });

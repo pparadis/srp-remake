@@ -13,7 +13,7 @@ test("a bot's car glides to its cell, turning along the lane, one bot after anot
   page
 }) => {
   const errors = collectErrors(page);
-  await page.goto('/?seed=0&anim&rules=v2');
+  await page.goto('/?seed=0&anim&rules=v3');
   await page.getByTestId('home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
   await startRace(page);
@@ -106,7 +106,7 @@ test('the path of the move under the pointer is previewed, and gone when the poi
   page
 }) => {
   const errors = collectErrors(page);
-  await page.goto('/?seed=0&anim&rules=v2');
+  await page.goto('/?seed=0&anim&rules=v3');
   await page.getByTestId('home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
   await startRace(page);
@@ -151,7 +151,7 @@ test('a dragged car turns with the road into a bend, and a refused drop sends it
   page
 }) => {
   const errors = collectErrors(page);
-  await page.goto('/?seed=0&anim&rules=v2');
+  await page.goto('/?seed=0&anim&rules=v3');
   await page.getByTestId('home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
   await startRace(page);
@@ -240,7 +240,7 @@ test('a dragged car turns with the road into a bend, and a refused drop sends it
 
 test("the player cannot act until the bots' cars have arrived (#189)", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto('/?seed=0&anim&rules=v2');
+  await page.goto('/?seed=0&anim&rules=v3');
   await page.getByTestId('home-quick').click();
   await setLobbySettings(page, { bots: 3, laps: 3 });
   await startRace(page);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
 import { createRaceContext } from '../race/race_engine';
-import { resources } from '../rules/v2/resources';
+import { resources } from './test_resources';
 import type { Car, CarSetup } from '../types/car';
 import type { TrackData } from '../types/track';
 import {
@@ -68,7 +68,6 @@ describe('wear and ideal setup', () => {
     expect(at('low').fuel).toBeGreaterThan(at('medium').fuel);
     expect(at('high').tire).toBeLessThan(at('medium').tire);
     expect(at('high').fuel).toBeLessThan(at('medium').fuel);
-    expect(at('medium').fuel).toBeCloseTo(0.45, 5);
   });
 
   it('the soft compound wears tires faster than hard', () => {
@@ -108,24 +107,6 @@ describe('stop planning', () => {
     expect(stopIsDue({ ...worn, pitServiced: true }, cell('Z27_L1_00'), plan(12))).toBe(false);
     // plenty left for another lap: wait for a later pass
     expect(stopIsDue({ ...worn, tire: 60, fuel: 60 }, cell('Z27_L1_00'), plan(12))).toBe(false);
-  });
-});
-
-describe('stop planning breaks even earlier now that the pit lane keeps the lap', () => {
-  // A soft-tire car that has covered `lap` laps plus 26 cells arrives at the pit-entry feeder.
-  const wear = wearPerCell(car().setup);
-  const arrive = (lap: number) => {
-    const used = lap * 28 + 26;
-    return car({
-      cellId: 'Z27_L1_00',
-      lapCount: lap,
-      tire: 100 - used * wear.tire,
-      fuel: 100 - used * wear.fuel
-    });
-  };
-  it('pays off from 9 laps on the plain setup (the tank lasts 7.5 laps; a stop used to pay from 7)', () => {
-    expect(stopIsDue(arrive(6), cell('Z27_L1_00'), plan(9))).toBe(true);
-    expect(stopIsDue(arrive(6), cell('Z27_L1_00'), plan(8))).toBe(false);
   });
 });
 
@@ -170,10 +151,6 @@ describe('bestSetup', () => {
       lengths.map((cells) => `${bestSetup(cells).compound}/${bestSetup(cells).wing}`)
     );
     expect(keys.size).toBeGreaterThan(2);
-  });
-
-  it('wants soft tires and Low wing for a short sprint, never High wing', () => {
-    expect(bestSetup(28)).toMatchObject({ compound: 'soft', wing: 'low' });
   });
 });
 

@@ -33,7 +33,7 @@ describe('history page (#170)', () => {
     expect(tid('history-loading').textContent).toContain('Loading');
     page.showRaces([
       race('a'),
-      race('b', { source: 'solo', laps: 1, cars: 2, rulesVersion: 'v2' })
+      race('b', { source: 'solo', laps: 1, cars: 2, rulesVersion: 'v3' })
     ]);
     const rows = all('history-race');
     expect(rows.map((row) => row.dataset.race)).toEqual(['a', 'b']);
@@ -44,7 +44,7 @@ describe('history page (#170)', () => {
     expect(rows[1]!.textContent).toContain('Solo');
     expect(rows[1]!.textContent).toContain('1 lap');
     expect(rows[1]!.textContent).not.toContain('1 laps');
-    expect(rows[1]!.textContent).toContain('v2');
+    expect(rows[1]!.textContent).toContain('v3');
   });
 
   it('opens a race when its row is selected, and goes back', () => {
@@ -53,6 +53,15 @@ describe('history page (#170)', () => {
     expect(callbacks.onOpen).toHaveBeenCalledWith('b');
     tid('history-back').click();
     expect(callbacks.onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists a race of retired rules with its stats but does not open it, and says why', () => {
+    page.showRaces([race('old', { rulesVersion: 'v2' })]);
+    const row = all('history-race')[0]!;
+    expect(row.textContent).toContain('v2 (retired)');
+    expect(row.title).toContain('can no longer be replayed');
+    row.click();
+    expect(callbacks.onOpen).not.toHaveBeenCalled();
   });
 
   it('explains an empty history', () => {
