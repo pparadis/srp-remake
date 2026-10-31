@@ -31,8 +31,8 @@ extra cell it walks; a diagonal change pays it as a `+1` surcharge.
   zig-zag of three `+3`. Moves into or out of the pit lane are no lane change.
 - The search is by price, not by steps: `searchRoutes` walks (cell, diagonal changes) states and keeps, per cell, the
   cheapest route (price, then fewest steps). Tire and fuel are charged on the cells walked on that route
-  (`TargetInfo.distance`), not on the lane-change points. The move cap applies to the price (9 on v1 and v2; on v3 it
-  is the compound's, see "Resources on rules v3").
+  (`TargetInfo.distance`), not on the lane-change points. The move cap applies to the price (the compound's: 8, or 9 on
+  soft tires; see "Resources on rules v3").
 - `TargetInfo.laneChanges` is set only when the route changes lane 2 or more times; the hover tooltip then says
   "(N lane changes)".
 
@@ -47,18 +47,19 @@ diagonal change paid by its surcharge. Zone numbers differ per lane, so a sidewa
 - Each valid target includes computed tire and fuel costs based on:
   - Distance traveled.
   - Lane factors (lane 1 is higher tire/lower fuel, lane 3 is lower tire/higher fuel).
-  - Car setup: Low wing x1.6 tire / x1.05 fuel, High x0.8 / x0.9 (see `docs/strategy-and-feel.md`). On v1 and v2 the
-    tire pressures also cost tire wear, +0.2% per psi each tire is away from 32; v3 ignores them (#163: 32 was always
-    the best, so the choice had no trade-off), and its setup menu has no pressure row.
-- Costs are rounded to integers on v1 and v2; on v3 to 0.1 (below).
-- The pictures in this doc show the movement rules on v2's resource rules (a cap of 9 whatever the tires): the cells,
-  routes and prices are the same on v3, only the cap and the wear differ.
+  - Car setup: Low wing x1.6 tire / x1.05 fuel, High x0.8 / x0.9 (see `docs/strategy-and-feel.md`).
+    The tire pressures cost nothing since v3 (#163: 32 was always the best, so the choice had no trade-off), and the
+    setup menu has no pressure row.
+- Costs are rounded to 0.1 (below).
+- The pictures in this doc show car 1 on soft tires (a cap of 9 points a move): the cells, routes and prices do not
+  depend on the compound, only the cap and the wear do. Rules v1 and v2 (retired, #254) and their pictures are at the
+  tag `retired-v1-v2`.
 
 ### Resources on rules v3 (#148)
 
-A race plays one rules version (`RaceState.rulesVersion`, default **v4** v3 before; v1, v2 and v3 stay selectable in solo).
+A race plays one rules version (`RaceState.rulesVersion`, default **v4**, v3 before; v3 stays selectable in solo; v1 and v2 were retired in #254).
 v3 changes only the resource rules (`src/game/systems/resource_system.ts`, the one copy of the math); next[], routes,
-prices, squeeze and the tow are v2's. The numbers are in `constants.ts`; the sizes below follow the race length.
+prices, squeeze and the tow are those of the retired v2. The numbers are in `constants.ts`; the sizes below follow the race length.
 
 - **Capacity follows the race.** `capacityCells = min(raceLaps, STINT_LAPS) * spineLen` (`STINT_LAPS` 6, 28 cells a
   lap in lane 1). A full tank (100) covers `capacityCells * FUEL_MARGIN` (1.1) at the normal pace of 8 points a move,
@@ -89,12 +90,11 @@ prices, squeeze and the tow are v2's. The numbers are in `constants.ts`; the siz
   `max(car.fuel, fuelLoad)`: it does not shorten the stop, and a small load tops up less.
 - **Defaults.** A human who never opens Setup (and the AFK autopilot) gets medium tires, Medium wing and
   `recommendedFuel(race)`, the fuel a race of 8s needs rounded up to 5. The bots pick their setup with `bestSetup`.
-- **Frozen.** v3 is replayed by `src/game/rules/golden/v3.json` (tag `rules-v3`) like v1 and v2. Medium and
-  `fuelLoad` are refused on v1 and v2.
+- **Frozen.** v3 is replayed by `src/game/rules/golden/v3.json` (tag `rules-v3`), v4 by `golden/v4.json` (tag `rules-v4`).
 
 ### Play order on rules v4 (#138)
 
-On v1 to v3 the play order is the grid order for the whole race (`turnOrderOf`, pole sitter first). **v4** re-sorts
+On v3 the play order is the grid order for the whole race (`turnOrderOf`, pole sitter first). **v4** re-sorts
 it at the start of every round, when `turn.index` wraps to 0 (`nextTurn` in `race_engine.ts`): `lapCount`, then
 `rankPosition`, leader first; a tie keeps the previous order. It happens only there, so the order is fixed inside a
 round, a car that overtakes keeps its slot until the next round, and a car serving a pit penalty still passes its

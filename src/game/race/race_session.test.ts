@@ -3,7 +3,7 @@ import track from '../../../public/tracks/oval16_3lanes.json';
 import type { TrackData } from '../types/track';
 import type { PublicLobby } from '../../net/backend_api';
 import type { Car } from '../types/car';
-import { resources } from '../rules/v2/resources';
+import { resourceRulesFor } from '../systems/resource_system';
 import { stintEstimate } from '../systems/strategy';
 import {
   applyAction,
@@ -30,10 +30,14 @@ function solo(over: Partial<RaceSessionSetup> = {}): RaceSession {
     botCars,
     raceLaps: 2,
     seed: 0,
-    rulesVersion: 'v2',
+    rulesVersion: 'v3',
     ...over
   });
 }
+
+// The resource rules of the session's own race (its length decides the tank and the tires).
+const resourcesOf = (session: RaceSession) =>
+  resourceRulesFor({ raceLaps: session.race.raceLaps, spineLen: session.ctx.trackIndex.spineLen });
 
 function view(over: Partial<HudView> = {}): HudView {
   return {
@@ -76,8 +80,8 @@ describe('RaceSession: grid setup', () => {
     expect(session.canSetup()).toBe(true);
     expect(hud(session).cars.find((c) => c.carId === 1)).toMatchObject({
       wing: 'medium',
-      budget: 40,
-      remaining: 40
+      budget: 38, // medium tires and Medium wing, minus 1 while the tank is heavy
+      remaining: 38
     });
 
     expect(session.applyLocal({ type: 'setup', setup: lowSoft })).toBe(true);
@@ -208,22 +212,10 @@ describe('RaceSession: rules version (#118)', () => {
     expect(session.debugSnapshot().rulesVersion).toBe('v4');
   });
 
-  it('a solo race on v1 plays v1, and the snapshot says so', () => {
-    const session = solo({ rulesVersion: 'v1' });
-    expect(session.race.rulesVersion).toBe('v1');
-    expect(session.debugSnapshot().rulesVersion).toBe('v1');
-  });
-
-  it('the rules decide the tow: Z12_L3 right behind Z13_L3 is tucked in on v2, not on v1 (#113)', () => {
-    const tucked = (version: 'v1' | 'v2') => {
-      const session = solo({ botCars: 1, rulesVersion: version });
-      const [me, bot] = session.cars as [Car, Car];
-      Object.assign(me, { cellId: 'Z05_L1_00' });
-      Object.assign(bot, { cellId: 'Z13_L3_00' });
-      return session.endsTucked('Z12_L3_00');
-    };
-    expect(tucked('v2')).toBe(true);
-    expect(tucked('v1')).toBe(false);
+  it('a solo race on v3 plays v3, and the snapshot says so', () => {
+    const session = solo({ rulesVersion: 'v3' });
+    expect(session.race.rulesVersion).toBe('v3');
+    expect(session.debugSnapshot().rulesVersion).toBe('v3');
   });
 });
 
@@ -268,7 +260,8 @@ describe('RaceSession: solo', () => {
     const session = solo();
     session.recomputeTargets();
     const before = hud(session).cars.find((c) => c.carId === 1)!;
-    expect(before).toMatchObject({ tire: 100, fuel: 100, cycleIndex: 0, cycle: [0, 0, 0, 0, 0] });
+    const { fuel: fuel0 } = session.cars.find((c) => c.carId === 1)!;
+    expect(before).toMatchObject({ tire: 100, fuel: fuel0, cycleIndex: 0, cycle: [0, 0, 0, 0, 0] });
 
     playMyTurn(session);
     const car = session.cars.find((c) => c.carId === 1)!;
@@ -277,10 +270,10 @@ describe('RaceSession: solo', () => {
     expect(mine.tire).toBe(car.tire);
     expect(mine.tire).toBeLessThan(100);
     expect(mine.fuel).toBe(car.fuel);
-    expect(mine.fuel).toBeLessThan(100);
+    expect(mine.fuel).toBeLessThan(fuel0);
     expect(mine.cycleIndex).toBe(1);
     expect(mine.cycle[0]).toBeGreaterThan(0);
-    expect(mine.remaining).toBe(40 - mine.cycle[0]!);
+    expect(mine.remaining).toBe(mine.budget - mine.cycle[0]!);
     expect(mine.lap).toBe((car.lapCount ?? 0) + 1);
     // the bots played too, and the standings are in race order
     expect(session.activeCar.carId).toBe(1);
@@ -320,17 +313,17 @@ describe('RaceSession: solo', () => {
       stintEstimate(
         session.cars.find((c) => c.carId === 1)!,
         session.ctx.trackIndex.spineLen,
-        resources
+        resourcesOf(session)
       );
     expect(hud(session).cars.find((c) => c.carId === 1)).toMatchObject({
       stint: stintOf(),
-      advice: 'no-need'
+      advice: 'ok'
     });
     playMyTurn(session);
     const mine = hud(session).cars.find((c) => c.carId === 1)!;
     expect(mine.stint).toEqual(stintOf());
-    expect(mine.stint.laps).toBeGreaterThan(2);
-    expect(mine.advice).toBe('no-need');
+    expect(mine.stint.laps).toBeGreaterThan(1);
+    expect(mine.advice).toBe('ok');
   });
 
   it("the pit modal's stints are for a full refill at the chosen setup", () => {
@@ -340,9 +333,9 @@ describe('RaceSession: solo', () => {
     expect(stints.soft.cells).toBeLessThan(stints.hard.cells);
     expect(stints.hard).toEqual(
       stintEstimate(
-        { tire: 100, fuel: 100, setup: { ...setup, compound: 'hard' } },
+        { tire: 100, fuel: setup.fuelLoad ?? 100, setup: { ...setup, compound: 'hard' } },
         session.ctx.trackIndex.spineLen,
-        resources
+        resourcesOf(session)
       )
     );
   });
@@ -359,6 +352,7 @@ describe('RaceSession: solo', () => {
       moveSpend: target.moveSpend ?? session.moveSpendOf(target, hoverCell.laneIndex),
       tireCost: target.tireCost,
       fuelCost: target.fuelCost,
+      fuelPerCell: expect.any(Number),
       isPit: false,
       ...(target.laneChanges ? { laneChanges: target.laneChanges } : {}),
       tireBefore: car.tire,
@@ -495,14 +489,14 @@ describe('RaceSession: solo', () => {
     Object.assign(bot, { cellId: 'Z07_L1_00' });
     session.recomputeTargets();
     session.drainFeel();
-    // 9 cells into lane 2 cost 10 without the slingshot: past the 9-move cap, so only the draft opens it
+    // 8 cells into lane 2 cost 9 without the slingshot: past the 8-move cap, so only the draft opens it
     const only = [...session.validTargets].find(([, t]) => t.slingshotOnly);
     expect(only).toBeDefined();
     expect(session.selectTarget(only![0])).toBe(true);
     expect(hud(session).selection).toMatchObject({
       slingshot: true,
       slingshotOnly: true,
-      moveSpend: 9
+      moveSpend: 8
     });
 
     expect(session.applyLocal({ type: 'move', targetCellId: only![0] })).toBe(true);
@@ -1103,9 +1097,8 @@ describe('RaceSession: following a car (#135)', () => {
 describe('setup panel data on rules v3', () => {
   const v3 = () => solo({ botCars: 1, raceLaps: 5, rulesVersion: 'v3' });
 
-  it('offers the medium compound and the fuel load on v3 and the pressures on v2 (v3 ignores them, #163)', () => {
+  it('offers the medium compound and the fuel load, and not the pressures (ignored since v3, #163)', () => {
     expect(v3().setupFeatures()).toEqual({ medium: true, fuelLoad: true, psi: false });
-    expect(solo().setupFeatures()).toEqual({ medium: false, fuelLoad: false, psi: true });
   });
 
   it('estimates a stint for each compound from the tank the load gives, not from a full one', () => {
@@ -1151,11 +1144,11 @@ describe('setup panel data on rules v3', () => {
       botCars: 0,
       raceLaps: 5,
       seed: 0,
-      rulesVersion: 'v2'
+      rulesVersion: 'v3'
     });
-    expect(session.setupFeatures().fuelLoad).toBe(false);
-    const race = createRace(session.ctx, SEATS, 5, 0, 'v3');
+    const race = createRace(session.ctx, SEATS, 5, 0, 'v4');
     expect(session.applyServerState(lobbyOf(race), 'host')).toMatchObject({ applied: true });
+    expect(session.race.rulesVersion).toBe('v4');
     expect(session.setupFeatures()).toEqual({ medium: true, fuelLoad: true, psi: false });
     expect(session.canSetup()).toBe(true);
     const mine = session

@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { collectErrors, playMyTurn, setLobbySettings, startRace } from './support/game';
+import {
+  collectErrors,
+  dismissGridSetup,
+  playMyTurn,
+  setLobbySettings,
+  startRace
+} from './support/game';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 test.setTimeout(90_000);
@@ -7,7 +13,7 @@ test.setTimeout(90_000);
 const tid = (page: import('@playwright/test').Page, id: string) => page.getByTestId(id);
 
 async function sandboxRace(page: import('@playwright/test').Page) {
-  await page.goto('/?sandbox&seed=0&rules=v2');
+  await page.goto('/?sandbox&seed=0&rules=v3');
   await expect(tid(page, 'home-quick')).toBeVisible();
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
@@ -83,6 +89,7 @@ test('sandbox: drag a bot onto an offered cell, edit the move points, play on fr
   // the game handles the click on its next frame: wait for the field to let go before pressing E
   await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe('BODY');
   await pressE(page, 'Your turn - drag your car');
+  await dismissGridSetup(page); // v3 offers the setup again when car 1 is back on the grid
   const mover = (await snapshot(page)).cars.find((c) => c.carId === 1)!.cellId;
   await playMyTurn(page);
   expect((await snapshot(page)).cars.find((c) => c.carId === 1)!.cellId).not.toBe(mover);
@@ -132,7 +139,7 @@ test('sandbox: dropping a car on another car swaps their places', async ({ page 
 });
 
 test('no sandbox without ?sandbox', async ({ page }) => {
-  await page.goto('/?seed=0&rules=v2');
+  await page.goto('/?seed=0&rules=v3');
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 1, laps: 1 });
   await startRace(page);

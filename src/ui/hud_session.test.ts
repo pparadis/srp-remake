@@ -17,7 +17,7 @@ function newSession(botCars: number, raceLaps: number) {
     botCars,
     raceLaps,
     seed: 0,
-    rulesVersion: 'v2'
+    rulesVersion: 'v3'
   });
 }
 
@@ -63,7 +63,7 @@ describe('race session -> HUD', () => {
     expect(tid('hud-banner').textContent).toBe('Your turn - drag your car');
     expect(all('hud-pip')).toHaveLength(5);
     expect(tid('hud-tire').textContent).toBe('Tire 100%');
-    expect(tid('hud-compound').textContent).toMatch(/^(SOFT|HARD)$/);
+    expect(tid('hud-compound').textContent).toMatch(/^(SOFT|MED|HARD)$/);
     expect(tid('hud-advice').hidden).toBe(true);
     expect(tid('hud-warning').hidden).toBe(true);
     expect(tid('hud-stint').textContent).toMatch(/^≈ \d\.\d laps \(~\d+ moves\)$/);
@@ -115,7 +115,7 @@ describe('race session -> HUD', () => {
     const car = session.activeCar;
     const pct = (before: number, cost: number) =>
       `${Math.round(before)}% → ${Math.round(Math.max(0, before - cost))}%`;
-    expect(tip.textContent).toMatch(/^Move \d+ - tire \d+% → \d+% - fuel \d+% → \d+%$/);
+    expect(tip.textContent).toMatch(/^Move \d+ - tire \d+% → \d+% - fuel \d+% → \d+%/);
     expect(tip.textContent).toContain(
       `tire ${pct(car.tire, t.tireCost)} - fuel ${pct(car.fuel, t.fuelCost)}`
     );
@@ -143,15 +143,6 @@ describe('race session -> HUD', () => {
     expect(tid('hud-tooltip').textContent).toMatch(
       /uses \d+\.\d tire, \d+\.\d fuel \(0\.\d\d fuel a cell\)/
     );
-  });
-
-  it('before rules v3 the card has no cap line and the tooltip no rate', () => {
-    const session = newSession(0, 1);
-    session.recomputeTargets();
-    const [cellId] = [...session.validTargets].find(([, target]) => !target.isPitTrigger)!;
-    render(session, { cellId });
-    expect(tid('hud-pace').hidden).toBe(true);
-    expect(tid('hud-tooltip').textContent).not.toContain('a cell');
   });
 
   it('the results table shows the winner first and the final standings', () => {

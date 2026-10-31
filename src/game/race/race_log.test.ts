@@ -81,7 +81,7 @@ describe('race log (#169)', () => {
   });
 
   it('throws when an action does not fit the race it claims to be from', () => {
-    const { log } = playLogged('v2', 1, 1);
+    const { log } = playLogged('v3', 1, 1);
     const broken = { ...log, actions: [{ type: 'move', targetCellId: 'nowhere' } as const] };
     expect(() => replayRace(ctx, broken)).toThrow(/action 0 refused/);
     expect(() => replayEnd(ctx, broken)).toThrow(/action 0 refused/);

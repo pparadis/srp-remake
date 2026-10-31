@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advancePitPenalty, applyPitStop, shouldOpenPitModal } from './pit_system';
-import { resources } from '../rules/v2/resources';
+import { resources } from './test_resources';
 import type { Car } from '../types/car';
 import type { TrackCell, TrackTag } from '../types/track';
 

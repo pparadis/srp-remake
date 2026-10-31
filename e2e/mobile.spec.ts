@@ -126,7 +126,7 @@ test('phone: the draft shows as a chip in the top bar without making it taller, 
 }) => {
   const errors = collectErrors(page);
   // The top bar is one line to the pixel at 844 px (an SE already wraps it to two): measure it without the chip first.
-  await page.goto('/?sandbox&seed=0&rules=v2');
+  await page.goto('/?sandbox&seed=0&rules=v3');
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
   await startRace(page);
@@ -154,7 +154,7 @@ test('phone: the draft shows as a chip in the top bar without making it taller, 
     }))
   };
   await page.goto(
-    `/?sandbox&seed=0&rules=v2&pos=${encodeURIComponent(btoa(JSON.stringify(position)))}`
+    `/?sandbox&seed=0&rules=v3&pos=${encodeURIComponent(btoa(JSON.stringify(position)))}`
   );
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
@@ -199,7 +199,7 @@ test('phone: the draft shows as a chip in the top bar without making it taller, 
     }))
   };
   await page.goto(
-    `/?sandbox&seed=0&rules=v2&pos=${encodeURIComponent(btoa(JSON.stringify(once)))}`
+    `/?sandbox&seed=0&rules=v3&pos=${encodeURIComponent(btoa(JSON.stringify(once)))}`
   );
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 3 });
@@ -424,7 +424,7 @@ test("phone, ?hidpi: the canvas is drawn at the screen's pixel density (capped a
 }) => {
   const errors = collectErrors(page);
   // like quickRace, with the flag: main.ts reads it once at load, the router drops the query later
-  await page.goto('/?seed=0&hidpi&rules=v2');
+  await page.goto('/?seed=0&hidpi&rules=v3');
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 1 });
   await startRace(page);
@@ -463,7 +463,7 @@ test('phone, default: the canvas is drawn at the screen density and there is no 
 });
 
 test('phone, ?hidpi=0: the canvas stays 1x', async ({ page }) => {
-  await page.goto('/?seed=0&hidpi=0&rules=v2');
+  await page.goto('/?seed=0&hidpi=0&rules=v3');
   await tid(page, 'home-quick').click();
   await setLobbySettings(page, { bots: 2, laps: 1 });
   await startRace(page);
