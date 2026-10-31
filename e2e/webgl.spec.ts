@@ -45,7 +45,18 @@ test('a lost WebGL context comes back: the board looks the same and the race goe
   const errors = collectErrors(page);
   await quickRace(page, { bots: 1, laps: 2 });
   await page.evaluate(() => window.__srp!.freezeAnimations());
-  const before = await page.screenshot();
+  // the pointer rests where the grid setup panel's Cancel was: move it off the board so no button looks hovered, and
+  // take the picture once two in a row agree
+  await page.mouse.move(0, 0);
+  let before = await page.screenshot();
+  await expect
+    .poll(async () => {
+      const next = await page.screenshot();
+      const same = next.equals(before);
+      before = next;
+      return same;
+    })
+    .toBe(true);
 
   await page.evaluate(async () => {
     const canvas = document.querySelector('canvas')!;
