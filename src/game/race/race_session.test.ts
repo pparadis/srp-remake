@@ -204,8 +204,8 @@ describe('RaceSession: rules version (#118)', () => {
       raceLaps: 2,
       seed: 0
     });
-    expect(session.race.rulesVersion).toBe('v3');
-    expect(session.debugSnapshot().rulesVersion).toBe('v3');
+    expect(session.race.rulesVersion).toBe('v4');
+    expect(session.debugSnapshot().rulesVersion).toBe('v4');
   });
 
   it('a solo race on v1 plays v1, and the snapshot says so', () => {

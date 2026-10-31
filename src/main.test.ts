@@ -116,7 +116,7 @@ describe('main (solo flow)', () => {
     byId('homeQuickBtn').click();
     const rules = byId<HTMLSelectElement>('lobbyRules');
     expect(byId('lobbyRulesField').hidden).toBe(false);
-    expect(rules.value).toBe('v3');
+    expect(rules.value).toBe('v4');
     expect([...rules.options].map((o) => o.value)).toEqual(['v4', 'v3', 'v2', 'v1']);
     rules.value = 'v1';
     rules.dispatchEvent(new Event('change'));
@@ -139,7 +139,7 @@ describe('main (solo flow)', () => {
     window.history.replaceState({}, '', '/?rules=v9');
     await import('./main');
     byId('homeQuickBtn').click();
-    expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v3');
+    expect(byId<HTMLSelectElement>('lobbyRules').value).toBe('v4');
   });
 
   it('a browser without WebGL goes back home with a sentence, and never starts the game', async () => {
@@ -206,7 +206,7 @@ describe('main (solo flow)', () => {
         raceLaps: 2,
         botLevel: 'hard',
         seed: expect.any(Number),
-        rulesVersion: 'v3',
+        rulesVersion: 'v4',
         hidpi: true,
         animate: false
       });
