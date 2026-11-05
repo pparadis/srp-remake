@@ -396,7 +396,7 @@ server <sha>`, amber when the server runs another commit (a deploy is pending); 
   machine to load 35-70), and timing-sensitive tests flake under load. A flake under load is never a reason to loosen a test.
 - Locally run: `npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`, `npm run backend:test`,
   `npm run backend:build`, plus ONLY the e2e specs the change touches, one chain at a time. Never the full e2e suite,
-  the CI shards or repeat loops.
+  the CI shards or repeat loops (`.claude/hooks/e2e_guard.py` refuses them).
 - Test layers, lowest first; put a check in the lowest one that can see the behavior:
   1. engine and systems (`src/game/race/race_engine.test.ts`, `src/game/systems/*.test.ts`): rules;
   2. race session (`src/game/race/race_session.test.ts`, `src/ui/hud_session.test.ts`): the turn loop, HUD data, feel
