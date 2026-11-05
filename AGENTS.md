@@ -51,6 +51,10 @@ description; any other tool should read the file before working in that area.
 ## Workflow
 
 - After pushing a branch, always open a PR; do not ask first.
+- After opening a PR or pushing to one, watch its checks in the background (`gh pr checks <n> --watch`) and fix what
+  fails on the same branch until they are green, then say so. Stop and report after 3 fix attempts, or when the
+  failure is not this PR's (a flake, an infrastructure problem). Never merge, bypass a check, loosen a test or
+  regenerate a pixel baseline to get there.
 
 ## Key Rules (Current)
 
