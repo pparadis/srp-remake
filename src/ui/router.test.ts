@@ -12,7 +12,8 @@ describe('router', () => {
     { name: 'recapBoard', id: 'r-1' },
     { name: 'recap', id: 'h-1', remote: true },
     { name: 'recapBoard', id: 'h-1', remote: true },
-    { name: 'history' }
+    { name: 'history' },
+    { name: 'season' }
   ];
 
   it.each(['/', '/repo/'])('round-trips every route under base %s', (base) => {
@@ -32,6 +33,7 @@ describe('router', () => {
     expect(parseRoute('/lobby/', '/')).toEqual({ name: 'home' });
     expect(parseRoute('/recap', '/')).toEqual({ name: 'home' });
     expect(parseRoute('/history/', '/')).toEqual({ name: 'history' });
+    expect(parseRoute('/season/', '/')).toEqual({ name: 'season' });
   });
 
   it('tells a race of this browser from one of the public history', () => {
@@ -58,7 +60,8 @@ describe('router', () => {
       'race',
       'recap',
       'race',
-      'history'
+      'history',
+      'season'
     ]);
   });
 

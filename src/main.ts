@@ -24,6 +24,22 @@ import { mountReplayBar } from './ui/replay_bar';
 import { loadRemoteRace } from './ui/remote_race';
 import { mountRecapPage } from './ui/recap_page';
 import { mountHistoryPage } from './ui/history_page';
+import { mountSeasonPage } from './ui/season_page';
+import { renderSeasonCard, seasonResultLine } from './ui/season_card';
+import {
+  clearSeason,
+  forfeitUnfinished,
+  isSeasonFinished,
+  loadSeason,
+  newSeason,
+  nextRaceIndex,
+  recordResult,
+  saveSeason,
+  seasonCars,
+  startSeasonRace,
+  type Season
+} from './ui/season';
+import type { SeasonCars } from './game/race/race_session';
 import { importFresh } from './ui/lazy';
 import { listSavedRaces, loadSavedRace, saveRace, type SavedRace } from './ui/recap_store';
 import { renderHomeTrack, setHomeTrackRunning } from './ui/home_track';
@@ -110,6 +126,10 @@ const resultsRecapBtn = el<HTMLButtonElement>('resultsRecapBtn');
 const resultsShared = el('resultsShared');
 const homeRaces = el('homeRaces');
 const homeRaceList = el('homeRaceList');
+const homeSeason = el('homeSeason');
+const lobbySeasonBtn = el<HTMLButtonElement>('lobbySeasonBtn');
+const resultsSeason = el('resultsSeason');
+const resultsSeasonLine = el('resultsSeasonLine');
 const hud = el('hud');
 mountHud(hud);
 function hudPart<T extends HTMLElement>(selector: string): T {
@@ -204,6 +224,28 @@ const soloSettings: {
   raceLaps: 5,
   botLevel: 'normal'
 };
+// The championship (#273), kept in localStorage. No solo race is running when the page loads (none is resumed), so a
+// race that was started and not finished is over: it is scored as a forfeit.
+let season: Season | null = null;
+let seasonRetired = false;
+try {
+  ({ season, retired: seasonRetired } = loadSeason());
+  if (season) {
+    season = forfeitUnfinished(season);
+    saveSeason(season);
+  }
+} catch {
+  // storage unavailable: no championship
+}
+// The race of the season being played (index into its calendar); null for a quick race, and once it has finished.
+let seasonRaceIndex: number | null = null;
+
+function setSeason(next: Season | null) {
+  season = next;
+  if (next) saveSeason(next);
+  else clearSeason();
+}
+
 try {
   // a position decides how many cars the race needs
   const cars =
@@ -446,6 +488,7 @@ interface RaceComposition {
   botLevel: BotLevel;
   seed: number;
   rulesVersion?: RulesVersion;
+  season?: SeasonCars;
   sandbox?: boolean;
   position?: string;
 }
@@ -464,6 +507,21 @@ function getComposition(): RaceComposition {
       raceLaps,
       botLevel,
       seed: lastLobby.raceState?.seed ?? 0
+    };
+  }
+  // A season race is built from the season, never from the Quick race card (#273)
+  if (season && seasonRaceIndex !== null) {
+    const race = must(season.races[seasonRaceIndex], 'race of the season');
+    return {
+      trackId: race.trackId,
+      totalCars: season.drivers.length,
+      humanCars: 1,
+      botCars: season.drivers.length - 1,
+      raceLaps: race.raceLaps,
+      botLevel: season.botLevel,
+      seed: race.seed,
+      rulesVersion: season.rulesVersion,
+      season: seasonCars(season, seasonRaceIndex)
     };
   }
   return {
@@ -500,6 +558,9 @@ function showScreen(screen: Screen) {
   const changed = document.body.dataset.screen !== screen;
   document.body.dataset.screen = screen;
   if (screen !== 'race') {
+    // Leaving a season race before it finished forfeits it: a race is not played again (#273)
+    if (season && seasonRaceIndex !== null && !raceOver) setSeason(forfeitUnfinished(season));
+    seasonRaceIndex = null;
     destroyGame();
     results.hidden = true;
     raceOver = false;
@@ -519,6 +580,17 @@ function showScreen(screen: Screen) {
 
 function renderHome() {
   for (const button of homeButtons) button.disabled = backendBusy;
+  renderSeasonCard(homeSeason, season, seasonRetired, {
+    onNew: () => navigate({ name: 'solo' }),
+    onNext: playNextSeasonRace,
+    onStandings: () => navigate({ name: 'season' }),
+    onAbandon: () => {
+      if (!window.confirm('Abandon this championship? Its standings are lost.')) return;
+      seasonRetired = false;
+      setSeason(null);
+      renderHome();
+    }
+  });
   const races = listSavedRaces();
   homeRaces.hidden = races.length === 0;
   homeRaceList.replaceChildren(
@@ -534,6 +606,53 @@ function renderHome() {
     })
   );
 }
+
+// ---- championship (#273) -------------------------------------------------------------------
+
+const seasonPage = mountSeasonPage(el('seasonPage'), {
+  onBack: () => navigate({ name: 'home' }),
+  onOpenRecap: (id) => navigate({ name: 'recap', id }),
+  hasRecap: (id) => loadSavedRace(id) !== null
+});
+
+// Starts the next race of the season like a quick race (`getComposition` gives it its own track, laps, seed and bots).
+function playNextSeasonRace() {
+  if (!season || backendBusy) return;
+  const index = nextRaceIndex(season);
+  if (index === null) return;
+  // Before the race is marked started: a race that could not be drawn must not count as a forfeit
+  if (!webglSupported()) {
+    kickToHome(NO_WEBGL_MESSAGE);
+    return;
+  }
+  setSeason(startSeasonRace(season, index));
+  seasonRaceIndex = index;
+  mode = 'solo';
+  soloRaceRequested = true;
+  // from the results screen the finished game is still up: the new race builds a fresh one
+  destroyGame();
+  results.hidden = true;
+  raceOver = false;
+  navigate({ name: 'soloRace' });
+}
+
+// The cars and the bot level are the Quick race card's; the rules are the default.
+function startNewSeason() {
+  if (mode !== 'solo' || backendBusy || soloSettings.botCars < 1) return;
+  if (!webglSupported()) {
+    kickToHome(NO_WEBGL_MESSAGE);
+    return;
+  }
+  setSeason(
+    newSeason(freshSeed(), soloSettings.botCars, soloSettings.botLevel, DEFAULT_RULES_VERSION)
+  );
+  seasonRetired = false;
+  playNextSeasonRace();
+}
+
+lobbySeasonBtn.addEventListener('click', startNewSeason);
+el('resultsNextRaceBtn').addEventListener('click', playNextSeasonRace);
+el('resultsStandingsBtn').addEventListener('click', () => navigate({ name: 'season' }));
 
 // ---- recap (#169) --------------------------------------------------------------------------
 
@@ -567,7 +686,7 @@ interface FinishedRaceRecap {
 function saveFinishedRace(
   recap: FinishedRaceRecap & { trackId: string },
   winnerCarId: number | null,
-  kind: 'Solo' | 'Online',
+  kind: string,
   myCarId: number | null
 ): boolean {
   const winner = winnerCarId === null ? undefined : recap.names[winnerCarId];
@@ -783,6 +902,15 @@ function renderLobby() {
       !editable;
   lobbyStartBtn.disabled = backendBusy || !isHost || !waiting;
   lobbyStartBtn.hidden = online && !isHost;
+  // Solo only. One championship at a time: finish or abandon the running one first.
+  const seasonRunning = season !== null && !isSeasonFinished(season);
+  lobbySeasonBtn.hidden = online || sandbox;
+  lobbySeasonBtn.disabled = backendBusy || seasonRunning || soloSettings.botCars < 1;
+  lobbySeasonBtn.title = seasonRunning
+    ? 'A championship is running: finish or abandon it first.'
+    : soloSettings.botCars < 1
+      ? 'A championship needs at least one bot.'
+      : '';
   const canPlayAgain =
     online && lobby?.status === 'FINISHED' && lobby.terminationReason === 'race_finished';
   lobbyPlayAgainBtn.hidden = !(canPlayAgain && isHost);
@@ -886,7 +1014,8 @@ function kickToHome(message: string) {
 async function handleRoute(route: Route, source: 'push' | 'replace' | 'pop') {
   const onRaceScreen = document.body.dataset.screen === 'race' && !raceOver;
   if (source === 'pop' && onRaceScreen && screenOf(route) !== 'race') {
-    if (!window.confirm('Leave race?')) {
+    const leave = seasonRaceIndex === null ? 'Leave race?' : 'Leave race? It counts as last place.';
+    if (!window.confirm(leave)) {
       // undo the back navigation
       window.history.pushState(
         {},
@@ -935,6 +1064,14 @@ async function handleRoute(route: Route, source: 'push' | 'replace' | 'pop') {
     case 'history':
       showScreen('history');
       await openHistory();
+      return;
+    case 'season':
+      if (!season) {
+        navigate({ name: 'home' }, 'replace');
+        return;
+      }
+      showScreen('season');
+      seasonPage.show(season, nextRaceIndex(season));
       return;
     case 'lobby':
     case 'lobbyRace':
@@ -1603,15 +1740,34 @@ window.addEventListener('srp:toast', (event) => {
 window.addEventListener('srp:race-finished', (event) => {
   if (replayBar.current()) return; // the replay reaching the flag is not a race ending
   const detail = (
-    event as CustomEvent<{ winnerCarId: number | null; recap?: FinishedRaceRecap | null }>
+    event as CustomEvent<{
+      winnerCarId: number | null;
+      recap?: (FinishedRaceRecap & { order: number[] }) | null;
+    }>
   ).detail;
   const winner = detail?.winnerCarId ?? null;
   lastSavedRaceId = null;
   resultsShared.hidden = true;
+  resultsSeason.hidden = true;
   if (detail?.recap) {
     const { trackId } = getComposition();
-    saveFinishedRace({ ...detail.recap, trackId }, winner, 'Solo', 1);
+    const seasonRace = season && seasonRaceIndex !== null ? seasonRaceIndex : null;
+    saveFinishedRace(
+      { ...detail.recap, trackId },
+      winner,
+      season && seasonRace !== null
+        ? `Championship ${seasonRace + 1}/${season.races.length}`
+        : 'Solo',
+      1
+    );
     if (shareSolo) void shareSoloRace(trackId, detail.recap.log);
+    if (season && seasonRace !== null) {
+      setSeason(recordResult(season, seasonRace, detail.recap.order, lastSavedRaceId));
+      seasonRaceIndex = null;
+      resultsSeasonLine.textContent = seasonResultLine(must(season, 'season'), seasonRace);
+      el('resultsNextRaceBtn').hidden = isSeasonFinished(must(season, 'season'));
+      resultsSeason.hidden = false;
+    }
   }
   showResults(winner);
   if (!detail?.recap && mode === 'online') void saveOnlineRace(winner);
