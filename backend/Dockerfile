@@ -1,5 +1,5 @@
 # Build from the repo root (see docker-compose.yml): the backend bundles the
-# shared game engine from src/game, the track schema from src/validation and the track data from public/tracks.
+# shared game engine from src/game, the season model from src/ui, the track schema from src/validation and the track data from public/tracks.
 FROM node:24-alpine AS build
 WORKDIR /app/backend
 
@@ -10,6 +10,8 @@ COPY backend/tsconfig.json ./
 COPY backend/src ./src
 COPY src/game /app/src/game
 COPY src/validation /app/src/validation
+# the championship model (a lobby season) and the name list it draws bot names from
+COPY src/ui/season.ts src/ui/player_name.ts /app/src/ui/
 COPY public/tracks /app/public/tracks
 # src/validation imports zod from outside backend/, so tsc looks for it in /app/node_modules
 RUN ln -s /app/backend/node_modules /app/node_modules
