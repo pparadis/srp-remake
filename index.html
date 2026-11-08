@@ -13,8 +13,8 @@
     <meta name="apple-mobile-web-app-title" content="Street Racing" />
     <link rel="apple-touch-icon" href="/srp-remake/icons/apple-touch-icon.png" />
     <title>srp-remake</title>
-    <script type="module" crossorigin src="/srp-remake/assets/index-BCa2auUj.js"></script>
-    <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-C0fbV-R9.css">
+    <script type="module" crossorigin src="/srp-remake/assets/index-DLj2SFzi.js"></script>
+    <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-YXuV8MIm.css">
   </head>
   <body data-screen="home">
     <section id="screen-home" data-screen="home" class="screen">
@@ -61,6 +61,8 @@
             Public race history
           </button>
         </div>
+
+        <div id="homeSeason" class="card home-season" data-testid="home-season"></div>
 
         <div id="homeRaces" class="card home-races" data-testid="home-races" hidden>
           <h2>Recent races</h2>
@@ -237,6 +239,9 @@
           <button id="lobbyStartBtn" data-testid="lobby-start" type="button" class="primary">
             Start race
           </button>
+          <button id="lobbySeasonBtn" data-testid="lobby-season" type="button">
+            Start championship
+          </button>
           <button
             id="lobbyPlayAgainBtn"
             data-testid="lobby-play-again"
@@ -253,6 +258,10 @@
 
     <section id="screen-history" data-screen="history" class="screen">
       <div id="historyPage" class="recap" data-testid="history-page"></div>
+    </section>
+
+    <section id="screen-season" data-screen="season" class="screen">
+      <div id="seasonPage" class="recap" data-testid="season-page"></div>
     </section>
 
     <section id="screen-recap" data-screen="recap" class="screen">
@@ -296,6 +305,22 @@
             </thead>
             <tbody></tbody>
           </table>
+          <div id="resultsSeason" data-testid="results-season" hidden>
+            <p id="resultsSeasonLine" data-testid="results-season-line"></p>
+            <div class="row">
+              <button
+                id="resultsNextRaceBtn"
+                data-testid="results-season-next"
+                type="button"
+                class="primary"
+              >
+                Next race
+              </button>
+              <button id="resultsStandingsBtn" data-testid="results-season-standings" type="button">
+                Standings
+              </button>
+            </div>
+          </div>
           <p id="resultsShared" data-testid="results-shared" class="notice" hidden></p>
           <p id="resultsWait" data-testid="results-wait" hidden>
             Waiting for host to start another race
