@@ -14,6 +14,7 @@ import {
   REG_RACE_LAPS,
   REG_SANDBOX,
   REG_RULES_VERSION,
+  REG_SEASON_CARS,
   REG_SEED,
   REG_TOTAL_CARS,
   REG_TRACK_ID
@@ -21,6 +22,7 @@ import {
 import { DEFAULT_TRACK_ID } from './track_ids';
 import { DEFAULT_RULES_VERSION, type RulesVersion } from './rules/versions';
 import type { BotLevel } from './types/car';
+import type { SeasonCars } from './race/race_session';
 
 interface GameOptions {
   // The board (public/tracks/<trackId>.json); the first one when omitted.
@@ -34,6 +36,8 @@ interface GameOptions {
   seed?: number;
   // Movement rules of a solo race (src/game/rules/versions.ts); the default when omitted. Online races play the default.
   rulesVersion?: RulesVersion;
+  // A season race (#273): the bots' names and styles, and a reversed grid.
+  season?: SeasonCars;
   // Solo dev tool (`?sandbox`): start in edit mode, optionally from a "Copy debug" snapshot (JSON text).
   sandbox?: boolean;
   position?: string;
@@ -84,6 +88,7 @@ export function startGame(parent: HTMLElement, options: GameOptions) {
   game.registry.set(REG_BOT_LEVEL, options.botLevel ?? 'normal');
   game.registry.set(REG_SEED, options.seed ?? 0);
   game.registry.set(REG_RULES_VERSION, options.rulesVersion ?? DEFAULT_RULES_VERSION);
+  game.registry.set(REG_SEASON_CARS, options.season ?? null);
   game.registry.set(REG_SANDBOX, options.sandbox ?? false);
   game.registry.set(REG_POSITION, options.position ?? null);
   game.registry.set(REG_ANIMATE, options.animate ?? false);

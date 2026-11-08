@@ -14,6 +14,7 @@ import {
   type RaceSeat,
   type RaceState
 } from './race_engine';
+import { raceRecap } from '../systems/race_recap';
 import { replayRace } from './race_log';
 import { RaceSession, SERVER_WAIT_MS, type HudView, type RaceSessionSetup } from './race_session';
 
@@ -517,6 +518,40 @@ describe('RaceSession: solo', () => {
     expect(edited.raceLog()).not.toBeNull();
     edited.sandboxEdit(edited.activeCar.carId, { tire: 50 });
     expect(edited.raceLog()).toBeNull();
+  });
+
+  it('a season race (#273): the pinned names, styles and grid reach the cars, the log and the HUD, and it replays', () => {
+    const session = solo({
+      botCars: 3,
+      raceLaps: 2,
+      seed: 9,
+      rulesVersion: 'v4',
+      names: ['', 'Ada', 'Bo', 'Cy'],
+      styles: ['balanced', 'pusher', 'steady', 'racer'],
+      grid: [3, 2, 1, 0]
+    });
+    expect(session.cars.map((c) => c.style)).toEqual([undefined, 'pusher', 'steady', 'racer']);
+    expect(session.race.turn.order[0]).toBe(4);
+    const cars = [...hud(session).cars].sort((a, b) => a.carId - b.carId);
+    expect(cars.map((c) => c.name)).toEqual(['You', 'Ada', 'Bo', 'Cy']);
+    expect(cars.map((c) => c.style)).toEqual([undefined, 'Pusher', 'Steady', 'Racer']);
+
+    for (let turn = 0; turn < 120 && !session.finished; turn += 1) playMyTurn(session);
+    expect(session.finished).toBe(true);
+    const info = session.recapInfo()!;
+    expect(info.log.seats.map((s) => s.style)).toEqual([undefined, 'pusher', 'steady', 'racer']);
+    expect(info.log.grid).toEqual([3, 2, 1, 0]);
+    expect(info.names).toEqual({ 1: 'You', 2: 'Ada', 3: 'Bo', 4: 'Cy' });
+    expect(replayRace(session.ctx, info.log).at(-1)).toEqual(session.race);
+  });
+
+  it('recapInfo().order is the recap places, winner first (#273)', () => {
+    const session = solo({ botCars: 3, raceLaps: 2, seed: 4, rulesVersion: 'v4' });
+    for (let turn = 0; turn < 120 && !session.finished; turn += 1) playMyTurn(session);
+    const info = session.recapInfo()!;
+    const places = raceRecap(session.ctx, info.log).cars.map((car) => car.carId);
+    expect(info.order).toEqual(places);
+    expect(info.order[0]).toBe(session.winnerCarId);
   });
 
   it('a full race against bots plays to the end through the session and announces the finish once', () => {

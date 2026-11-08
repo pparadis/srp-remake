@@ -25,7 +25,8 @@ import { movePath } from '../systems/move_path';
 import { hasFinishedRace, lapInProgress } from '../systems/lap_progress';
 import { sortCarsByProgress } from '../systems/ordering_system';
 import { carsMovedInOrder, feedLines, type FeedKind, type FeedLine } from '../systems/race_feed';
-import { PERSONALITIES, personalityOf } from '../systems/bot_style';
+import { PERSONALITIES, personalityOf, type PersonalityKey } from '../systems/bot_style';
+import { finishOrder } from '../systems/race_recap';
 import {
   applyAction,
   computeTargets,
@@ -70,9 +71,18 @@ export interface RaceSessionSetup {
   seed?: number;
   /** The movement rules to play on (solo; an online race plays what the server plays). */
   rulesVersion?: RulesVersion;
+  names?: string[];
+  styles?: PersonalityKey[];
+  grid?: number[];
   /** `?sandbox`: starts in edit mode. */
   sandbox?: boolean;
 }
+
+/**
+ * What a season race (#273) pins on its cars, by car index (car 1 is index 0): the names shown, the styles the bots
+ * play, and the grid slot of each car when it is not the seed's (the reversed grid).
+ */
+export type SeasonCars = Pick<RaceSessionSetup, 'names' | 'styles' | 'grid'>;
 
 /** What only the scene knows, for the HUD snapshot. */
 export interface HudView {
@@ -156,6 +166,8 @@ export class RaceSession {
   private readonly botLevel: BotLevel;
   private readonly seed: number;
   private readonly rulesVersion: RulesVersion;
+  private readonly styles: PersonalityKey[];
+  private readonly grid: number[] | undefined;
   // Multiplayer: after sending a turn, wait for the server's race.state before accepting input.
   private awaitingServerUntil = 0;
   private moving = false;
@@ -176,6 +188,9 @@ export class RaceSession {
     this.botLevel = setup.botLevel ?? 'normal';
     this.seed = setup.seed ?? 0;
     this.rulesVersion = setup.rulesVersion ?? DEFAULT_RULES_VERSION;
+    this.styles = setup.styles ?? [];
+    this.grid = setup.grid;
+    setup.names?.forEach((name, i) => name && this.carNames.set(i + 1, name));
     this.sandbox = setup.sandbox === true;
     this.editing = this.sandbox;
     this.startRace(setup.raceLaps);
@@ -242,19 +257,23 @@ export class RaceSession {
         isBot: false,
         ownerId: `P${i + 1}`
       })),
-      ...Array.from({ length: this.botCars }, (_slot, i) => ({
-        isBot: true,
-        ownerId: `BOT${i + 1}`,
-        botLevel: this.botLevel
-      }))
+      ...Array.from({ length: this.botCars }, (_slot, i) => {
+        const style = this.styles[this.humanCars + i];
+        return {
+          isBot: true,
+          ownerId: `BOT${i + 1}`,
+          botLevel: this.botLevel,
+          ...(style ? { style } : {})
+        };
+      })
     ];
     return seats.length > 0 ? seats : [{ isBot: false, ownerId: 'P1' }];
   }
 
   private startRace(raceLaps: number) {
     const seats = this.buildSeats();
-    this.race = createRace(this.ctx, seats, raceLaps, this.seed, this.rulesVersion);
-    this.log = startRaceLog(seats, raceLaps, this.seed, this.rulesVersion);
+    this.race = createRace(this.ctx, seats, raceLaps, this.seed, this.rulesVersion, this.grid);
+    this.log = startRaceLog(seats, raceLaps, this.seed, this.rulesVersion, this.grid);
   }
 
   /** The race so far as an action log (#169); null online and after a sandbox edit, which no action describes. */
@@ -262,11 +281,15 @@ export class RaceSession {
     return this.log;
   }
 
-  /** What the recap needs to be kept: the log and the car names (null when there is no log). */
-  recapInfo(): { log: RaceLog; names: Record<number, string> } | null {
+  /**
+   * What the recap needs to be kept: the log, the car names and the finishing order (the recap's places, so a season
+   * can score the race without loading the recap chunk); null when there is no log.
+   */
+  recapInfo(): { log: RaceLog; names: Record<number, string>; order: number[] } | null {
     if (!this.log) return null;
     return {
       log: this.log,
+      order: finishOrder(this.ctx, this.race),
       names: Object.fromEntries(this.race.cars.map((car) => [car.carId, this.nameOf(car)]))
     };
   }
@@ -852,12 +875,15 @@ export class RaceSession {
       name: this.nameOf(car),
       color: carColor(index),
       isBot: car.isBot,
-      // Bots only (a human's style is never shown); seed 0 is the neutral baseline, nothing to show.
+      // Bots only (a human's style is never shown); a pinned style (a season's, #273) shows as it is; seed 0 is the
+      // neutral baseline, nothing to show.
       ...(car.isBot && car.botLevel === 'hard'
         ? { style: PERSONALITIES.adaptive.label }
-        : car.isBot && this.race.seed
-          ? { style: personalityOf(this.race.seed, car.carId).label }
-          : {}),
+        : car.isBot && car.style
+          ? { style: PERSONALITIES[car.style as PersonalityKey].label }
+          : car.isBot && this.race.seed
+            ? { style: personalityOf(this.race.seed, car.carId).label }
+            : {}),
       lap: lapInProgress(car.lapCount, this.raceLaps),
       finished: hasFinishedRace(car.lapCount, this.raceLaps),
       // the display's own measure (lap position, as the standings): the bots keep progressOf, which they are tuned on

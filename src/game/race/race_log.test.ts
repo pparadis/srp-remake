@@ -87,3 +87,44 @@ describe('race log (#169)', () => {
     expect(() => replayEnd(ctx, broken)).toThrow(/action 0 refused/);
   });
 });
+
+describe('a race with its own grid (#273)', () => {
+  const grid = [3, 2, 1, 0];
+
+  it('starts the cars in that grid, plays its pole sitter first, and keeps it in the log', () => {
+    const state = createRace(ctx, SEATS, 2, 5, 'v4', grid);
+    expect(state.turn.order).toEqual([4, 3, 2, 1]);
+    expect(state.cars.map((car) => car.cellId)).toEqual(
+      createRace(ctx, SEATS, 2, 5, 'v4', [0, 1, 2, 3])
+        .cars.map((car) => car.cellId)
+        .reverse()
+    );
+    expect(startRaceLog(SEATS, 2, 5, 'v4', grid).grid).toEqual(grid);
+    expect(startRaceLog(SEATS, 2, 5, 'v4')).not.toHaveProperty('grid');
+  });
+
+  it('replays to the state the live race ended in', () => {
+    const state = createRace(ctx, SEATS, 2, 5, 'v4', grid);
+    const log = startRaceLog(SEATS, 2, 5, 'v4', grid);
+    for (let turn = 0; turn < 2000 && state.winnerCarId === null; turn += 1) {
+      const car = getActiveCar(state);
+      const action = decideBotAction(ctx, state, car.isBot ? undefined : 'autopilot').action;
+      expect(applyAction(ctx, state, action).ok).toBe(true);
+      logAction(log, action);
+    }
+    expect(state.winnerCarId).not.toBeNull();
+    expect(replayEnd(ctx, log)).toEqual(state);
+    expect(replayRace(ctx, log)[0]).toEqual(createRace(ctx, SEATS, 2, 5, 'v4', grid));
+  });
+
+  it('refuses a grid that is not one slot per car', () => {
+    for (const bad of [
+      [0, 1, 2],
+      [0, 0, 1, 2],
+      [0, 1, 2, 4],
+      [0, 1, 2, 1.5]
+    ]) {
+      expect(() => createRace(ctx, SEATS, 2, 5, 'v4', bad)).toThrow(/Grid/);
+    }
+  });
+});

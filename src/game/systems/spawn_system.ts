@@ -90,7 +90,13 @@ export function buildSpawnSlots(track: TrackData): TrackCell[] {
   return slots;
 }
 
-export function spawnCars(track: TrackData, options: SpawnOptions, seed = 0) {
+// `gridOverride[i]` is the grid slot of car i + 1 (as `gridSlots` gives it); without it the seed deals the grid.
+export function spawnCars(
+  track: TrackData,
+  options: SpawnOptions,
+  seed = 0,
+  gridOverride?: number[]
+) {
   const slots = buildSpawnSlots(track);
   const maxSlots = Math.max(1, slots.length);
 
@@ -112,7 +118,7 @@ export function spawnCars(track: TrackData, options: SpawnOptions, seed = 0) {
   const cars: Car[] = [];
   const tokens: Array<{ car: Car; sprite: string }> = [];
 
-  const grid = gridSlots(seed, count);
+  const grid = gridOverride ?? gridSlots(seed, count);
   for (let i = 0; i < count; i += 1) {
     // Car i + 1 starts in grid slot grid[i]; lapCount follows the cell it really occupies.
     const cell = slots[must(grid[i], 'grid slot')];

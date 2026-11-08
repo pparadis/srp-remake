@@ -330,3 +330,33 @@ test('a mint and an upload are logged with the client address, never the token',
   assert.equal(events[1]!.duplicate, false);
   assert.ok(!lines.join('').includes(deviceToken));
 });
+
+test('a season race (#273): a log with bot styles and a reversed grid is accepted; the style is dropped, the grid kept', async (t) => {
+  const { app, upload } = await start(t);
+  const seats: RaceSeat[] = [
+    { isBot: false, ownerId: 'P1' },
+    { isBot: true, ownerId: 'BOT1', botLevel: 'normal', style: 'pusher' },
+    { isBot: true, ownerId: 'BOT2', botLevel: 'normal', style: 'steady' }
+  ];
+  const grid = [2, 1, 0];
+  const state = createRace(ctx, seats, 2, 9, 'v4', grid);
+  const log = startRaceLog(seats, 2, 9, 'v4', grid);
+  while (state.winnerCarId === null) {
+    const car = state.cars[state.turn.order[state.turn.index]! - 1]!;
+    const action = decideBotAction(ctx, state, car.isBot ? undefined : 'autopilot').action;
+    applyAction(ctx, state, action);
+    logAction(log, action);
+  }
+  const sent = await upload({ log });
+  assert.equal(sent.statusCode, 201);
+  const { id } = sent.json() as { id: string };
+  const whole = (await app.inject({ method: 'GET', url: `/api/v1/races/${id}` })).json() as {
+    log: RaceLog;
+  };
+  assert.deepEqual(whole.log.grid, grid);
+  assert.ok(whole.log.seats.every((seat) => !('style' in seat)));
+
+  // a grid that is not one slot per car does not replay
+  assert.equal((await upload({ log: { ...log, grid: [0, 0, 1] } })).statusCode, 400);
+  assert.equal((await upload({ log: { ...log, grid: [0, 1] } })).statusCode, 400);
+});

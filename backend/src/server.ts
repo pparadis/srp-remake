@@ -181,6 +181,8 @@ const raceLogSchema = z.object({
   raceLaps: z.number().int().min(1).max(MAX_RACE_LAPS),
   seed: z.number().int().min(0).max(MAX_SEED),
   rulesVersion: z.enum(RULES_VERSIONS),
+  // A season's reversed grid (#273); createRace refuses one that is not a permutation of the seats.
+  grid: z.array(z.number().int().min(0).max(10)).max(11).optional(),
   actions: z.array(turnActionSchema).max(MAX_LOGGED_ACTIONS)
 });
 
@@ -483,8 +485,10 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
       const ctx = getRaceContext(body.trackId);
       if (!ctx) throw new LobbyError(400, `Unknown track ${body.trackId}.`);
       // zod's optional is `T | undefined`, the engine's seat is `T` or absent
+      const { grid, ...rest } = body.log;
       const log: RaceLog = {
-        ...body.log,
+        ...rest,
+        ...(grid ? { grid } : {}),
         seats: body.log.seats.map((seat) => ({
           isBot: seat.isBot,
           ownerId: seat.ownerId,

@@ -148,18 +148,19 @@ function mix(...parts: number[]): number {
 // A shuffled deck of the five styles per block of five cars: within a block everyone differs,
 // beyond it styles repeat, and each car's style is uniform over seeds.
 export function personalityOf(seed: number, carId: number): Personality {
-  if (!seed) return PERSONALITIES.balanced;
+  return personalityFor(styleKeyOf(seed, carId), seed, carId);
+}
+
+// The style `personalityOf` gives a car: a shuffled deck per block of cars, so no two of a block share one.
+export function styleKeyOf(seed: number, carId: number): PersonalityKey {
+  if (!seed) return 'balanced';
   const block = Math.floor((carId - 1) / SEEDED_STYLES.length);
   const deck = [...SEEDED_STYLES];
   for (let i = deck.length - 1; i > 0; i -= 1) {
     const j = mix(seed, block, i) % (i + 1);
     swap(deck, i, j);
   }
-  return personalityFor(
-    must(deck[(carId - 1) % SEEDED_STYLES.length], 'style in the deck'),
-    seed,
-    carId
-  );
+  return must(deck[(carId - 1) % SEEDED_STYLES.length], 'style in the deck');
 }
 
 function swap<T>(items: T[], i: number, j: number) {
@@ -195,8 +196,8 @@ export function normalizeSeed(value: unknown): number {
 
 // Play order of the cars (carIds): the pole sitter first. Without it car 1 would move first every
 // round wherever the seed put it on the grid and win every tie (equal pace finishes on the same turn).
-export function turnOrderOf(seed: number, n: number): number[] {
-  const slots = gridSlots(seed, n);
+// `slots` is a grid the caller dealt itself (a season's reversed grid), the seed's otherwise.
+export function turnOrderOf(seed: number, n: number, slots = gridSlots(seed, n)): number[] {
   const order: number[] = [];
   slots.forEach((slot, i) => (order[slot] = i + 1));
   return order;

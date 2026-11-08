@@ -3,6 +3,7 @@ import {
   gridSlots,
   normalizeSeed,
   personalityOf,
+  styleKeyOf,
   SEEDED_STYLES,
   turnOrderOf,
   unit
@@ -96,5 +97,22 @@ describe('seed helpers', () => {
       expect(u).toBeLessThan(1);
       expect(unit(i, 3)).toBe(u);
     }
+  });
+});
+
+describe('styleKeyOf (#273)', () => {
+  it('is the style personalityOf gives, for many seeds and cars', () => {
+    for (let seed = 0; seed <= 100; seed += 1) {
+      for (let car = 1; car <= 11; car += 1) {
+        expect(styleKeyOf(seed, car)).toBe(personalityOf(seed, car).key);
+      }
+    }
+  });
+});
+
+describe('a dealt grid (#273)', () => {
+  it('plays the pole sitter of that grid first, and says no to a seed shuffle', () => {
+    expect(turnOrderOf(7, 4, [3, 2, 1, 0])).toEqual([4, 3, 2, 1]);
+    expect(turnOrderOf(7, 4, [3, 2, 1, 0])).not.toEqual(turnOrderOf(7, 4));
   });
 });
