@@ -12,6 +12,7 @@ import {
 } from '../../src/game/race/race_engine';
 import { logAction, replayRace, startRaceLog, type RaceLog } from '../../src/game/race/race_log';
 import type { TrackData } from '../../src/game/types/track';
+import { newSeason, startSeasonRace } from '../../src/ui/season';
 import {
   MemoryRaceStore,
   PgRaceStore,
@@ -84,7 +85,8 @@ if (!TEST_DATABASE_URL) {
 }
 const realPostgres = async (limit = 2000, perDevice = 50): Promise<RaceStore> => {
   const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 2 });
-  await pool.query('drop table if exists races'); // the store makes it again on first use
+  await pool.query('drop table if exists races'); // the store makes them again on first use
+  await pool.query('drop table if exists seasons');
   return new PgRaceStore(pool, null, limit, perDevice);
 };
 
@@ -163,7 +165,7 @@ test('postgres: a database that fails at first is asked again, and the schema is
   await assert.rejects(store.insert(finishedRace(1)), /waking up/);
   assert.equal((await store.insert(finishedRace(1))).duplicate, false);
   await store.list(1);
-  assert.equal(queries.filter((q) => q.startsWith('create table')).length, 2); // the failed try, then the real one
+  assert.equal(queries.filter((q) => q.startsWith('create table')).length, 3); // the failed try, then races and seasons
 });
 
 test('postgres: only the newest races are kept, the oldest go first', async (t) => {
@@ -269,5 +271,43 @@ for (const [name, make] of limitedStores(2)) {
     assert.equal((await store.insert(finishedRace(2))).evicted, 0);
     assert.equal((await store.insert(finishedRace(3))).evicted, 1);
     assert.equal((await store.insert(finishedRace(3))).evicted, 0); // a duplicate drops nothing
+  });
+}
+
+const seasonStores: Array<[string, (limit: number) => RaceStore | Promise<RaceStore>]> = [
+  ['memory', (limit) => new MemoryRaceStore(500, 50, limit)],
+  [
+    'postgres (pg-mem)',
+    (limit) => new PgRaceStore(new (newDb().adapters.createPg().Pool)(), null, 2000, 50, limit)
+  ],
+  ...(TEST_DATABASE_URL
+    ? [
+        [
+          'postgres (real)',
+          async (limit: number) => {
+            const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 2 });
+            await pool.query('drop table if exists seasons');
+            return new PgRaceStore(pool, null, 2000, 50, limit);
+          }
+        ] as [string, (limit: number) => Promise<RaceStore>]
+      ]
+    : [])
+];
+
+for (const [name, make] of seasonStores) {
+  test(`${name}: a season is saved again under its id, and only the newest are kept`, async (t) => {
+    const store = await make(2);
+    t.after(() => store.close());
+    const season = newSeason(7, 3, 'normal', 'v4', 1000, 2, 'one');
+    assert.equal(await store.loadSeason('one'), null);
+    await store.saveSeason(season);
+    await store.saveSeason(startSeasonRace(season, 0)); // the same id: replaced, not added
+    assert.deepEqual(await store.loadSeason('one'), startSeasonRace(season, 0));
+    await store.saveSeason({ ...season, id: 'two' });
+    await store.saveSeason({ ...season, id: 'one' }); // saved again: the newest now
+    await store.saveSeason({ ...season, id: 'three' });
+    assert.equal(await store.loadSeason('two'), null);
+    assert.ok(await store.loadSeason('one'));
+    assert.ok(await store.loadSeason('three'));
   });
 }

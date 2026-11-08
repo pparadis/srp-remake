@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import pg from 'pg';
 import type { RaceLog } from '../../src/game/race/race_log';
+import type { Season } from '../../src/ui/season';
 
 // The history of finished races (#170): an anonymous, append-only table of race logs (#169). A log is the whole race, so
 // nothing else is kept: no player names, no ids, no addresses.
@@ -40,8 +41,18 @@ export interface RaceStore {
   /** Newest first. */
   list(limit: number): Promise<StoredRaceSummary[]>;
   get(id: string): Promise<StoredRace | null>;
+  /**
+   * A lobby's championship (#273), kept by its id so a lobby can pick it up again after the server slept or restarted. It
+   * holds no name but the bots' and the seats' (a player's name only as a driver's label), and at most MAX_STORED_SEASONS
+   * are kept: the least recently saved goes.
+   */
+  saveSeason(season: Season): Promise<void>;
+  /** The stored value as it was saved, unchecked (the caller runs `parseSeason`); null when the id is unknown. */
+  loadSeason(id: string): Promise<unknown>;
   close(): Promise<void>;
 }
+
+export const MAX_STORED_SEASONS = 500;
 
 /**
  * The log as it is kept: the seats lose the owner id (an online player's id) for a position-based one, and the bench-only
@@ -86,11 +97,31 @@ export const MAX_RACES_PER_DEVICE = 50;
 /** Dev and tests, and the server when no `DATABASE_URL` is set: kept until the process ends, `limit` races at most. */
 export class MemoryRaceStore implements RaceStore {
   private readonly races: Array<{ race: StoredRace; device: string | undefined }> = [];
+  // Insertion order is recency: a save moves the season to the end, the first key is the one to drop.
+  private readonly seasons = new Map<string, Season>();
 
   constructor(
     private readonly limit = 500,
-    private readonly perDevice = MAX_RACES_PER_DEVICE
+    private readonly perDevice = MAX_RACES_PER_DEVICE,
+    private readonly seasonLimit = MAX_STORED_SEASONS
   ) {}
+
+  saveSeason(season: Season): Promise<void> {
+    this.seasons.delete(season.id);
+    this.seasons.set(season.id, structuredClone(season));
+    for (const id of [...this.seasons.keys()].slice(
+      0,
+      Math.max(0, this.seasons.size - this.seasonLimit)
+    )) {
+      this.seasons.delete(id);
+    }
+    return Promise.resolve();
+  }
+
+  loadSeason(id: string): Promise<unknown> {
+    const season = this.seasons.get(id);
+    return Promise.resolve(season ? structuredClone(season) : null);
+  }
 
   insert(race: NewRace): Promise<{ id: string; duplicate: boolean; evicted: number }> {
     const log = scrubLog(race.log);
@@ -175,7 +206,14 @@ const SCHEMA = [
   'create index if not exists races_seq_idx on races (seq desc)',
   // #194: a table made before the device tokens has no column; null for the races the server stored itself.
   'alter table races add column if not exists device text',
-  'create index if not exists races_device_idx on races (device, seq desc)'
+  'create index if not exists races_device_idx on races (device, seq desc)',
+  // #273: a lobby's championship, one row per season id.
+  `create table if not exists seasons (
+     id text primary key,
+     updated_at timestamptz not null default now(),
+     data jsonb not null
+   )`,
+  'create index if not exists seasons_updated_idx on seasons (updated_at desc)'
 ];
 
 interface Row {
@@ -218,7 +256,8 @@ export class PgRaceStore implements RaceStore {
     private readonly pool: Pick<pg.Pool, 'query' | 'end'>,
     private migrationPool: Pick<pg.Pool, 'query' | 'end'> | null = null,
     private readonly limit = MAX_STORED_RACES,
-    private readonly perDevice = MAX_RACES_PER_DEVICE
+    private readonly perDevice = MAX_RACES_PER_DEVICE,
+    private readonly seasonLimit = MAX_STORED_SEASONS
   ) {}
 
   private schema(): Promise<void> {
@@ -301,6 +340,38 @@ export class PgRaceStore implements RaceStore {
       [limit]
     );
     return result.rows.map(summaryOfRow);
+  }
+
+  async saveSeason(season: Season): Promise<void> {
+    await this.schema();
+    const data = JSON.stringify(season);
+    // Asked first, as `insert` does, rather than an upsert
+    const known = await this.pool.query('select 1 from seasons where id = $1', [season.id]);
+    if (known.rows.length > 0) {
+      await this.pool.query('update seasons set data = $2, updated_at = now() where id = $1', [
+        season.id,
+        data
+      ]);
+      return;
+    }
+    await this.pool.query(
+      'insert into seasons (id, data) values ($1, $2) on conflict (id) do nothing',
+      [season.id, data]
+    );
+    await this.pool.query(
+      `delete from seasons where id in
+         (select id from seasons order by updated_at desc offset $1)`,
+      [this.seasonLimit]
+    );
+  }
+
+  async loadSeason(id: string): Promise<unknown> {
+    await this.schema();
+    const result = await this.pool.query<{ data: unknown }>(
+      'select data from seasons where id = $1',
+      [id]
+    );
+    return result.rows[0]?.data ?? null;
   }
 
   async get(id: string): Promise<StoredRace | null> {

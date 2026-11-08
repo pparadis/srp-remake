@@ -8,10 +8,13 @@ import {
   clearSeason,
   forfeitUnfinished,
   isSeasonFinished,
+  loadOnlineSeason,
   loadSeason,
   newSeason,
   nextRaceIndex,
   recordResult,
+  rememberOnlineSeason,
+  renameDrivers,
   saveSeason,
   seasonGrid,
   seasonStandings,
@@ -204,5 +207,58 @@ describe('the stored season (#273)', () => {
     window.localStorage.setItem(SEASON_KEY, JSON.stringify({ ...season(), rulesVersion: 'v2' }));
     expect(loadSeason()).toEqual({ season: null, retired: true });
     expect(window.localStorage.getItem(SEASON_KEY)).toBeNull();
+  });
+});
+
+describe('a lobby season (#273)', () => {
+  const lobbySeason = () => newSeason(42, 2, 'normal', 'v4', 1000, 2, 'secret-id');
+
+  it('seats the humans first, then the bots, and keeps the id it was given', () => {
+    const s = lobbySeason();
+    expect(s.id).toBe('secret-id');
+    expect(s.drivers.map((d) => [d.carId, d.human])).toEqual([
+      [1, true],
+      [2, true],
+      [3, false],
+      [4, false]
+    ]);
+    expect(s.drivers.slice(0, 2).map((d) => d.name)).toEqual(['Player 1', 'Player 2']);
+    // the bots draw the same names and styles as in a solo season of the same seed
+    const solo = newSeason(42, 2, 'normal', 'v4', 1000);
+    expect(s.drivers.slice(2).map((d) => [d.name, d.style])).toEqual(
+      solo.drivers.slice(1).map((d) => [d.name, d.style])
+    );
+  });
+
+  it('renames the humans by car id and leaves the others alone', () => {
+    const named = renameDrivers(lobbySeason(), { 2: 'Guest' });
+    expect(named.drivers.map((d) => d.name).slice(0, 3)).toEqual([
+      'Player 1',
+      'Guest',
+      lobbySeason().drivers[2]!.name
+    ]);
+  });
+});
+
+describe('the online championship the browser remembers (#273)', () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it('keeps the id of a running season, and forgets it when it is over or there is none', () => {
+    const running = newSeason(1, 1, 'normal', 'v4', 1, 2, 'abc');
+    rememberOnlineSeason(running, 'Race 1 of 4');
+    expect(loadOnlineSeason()).toEqual({ id: 'abc', label: 'Race 1 of 4' });
+    const over = [0, 1, 2, 3].reduce((s, i) => recordResult(s, i, [1, 2, 3], null), running);
+    rememberOnlineSeason(over, 'Champion');
+    expect(loadOnlineSeason()).toBeNull();
+    rememberOnlineSeason(running, 'Race 1 of 4');
+    rememberOnlineSeason(null, '');
+    expect(loadOnlineSeason()).toBeNull();
+  });
+
+  it('ignores a broken value', () => {
+    window.localStorage.setItem('srp:online-season', '{"id":3}');
+    expect(loadOnlineSeason()).toBeNull();
+    window.localStorage.setItem('srp:online-season', 'not json');
+    expect(loadOnlineSeason()).toBeNull();
   });
 });

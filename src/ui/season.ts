@@ -1,5 +1,5 @@
 import { isRulesVersion, type RulesVersion } from '../game/rules/ids';
-import type { SeasonCars } from '../game/race/race_session';
+import type { SeasonCars } from '../game/race/season_cars';
 import { BOT_LEVELS, type BotLevel } from '../game/types/car';
 import { MAX_SEED, styleKeyOf, unit, type PersonalityKey } from '../game/systems/bot_style';
 import { randomPlayerName } from './player_name';
@@ -67,27 +67,38 @@ export interface StandingRow {
 
 export const HUMAN_CAR_ID = 1;
 
-/** The season of one human (car 1) and `botCars` bots. Names, styles and race seeds come from `seed`, so they are fixed. */
+/**
+ * The season of `humanCars` humans (cars 1 to humanCars; solo is one, named "You") and `botCars` bots. Names, styles and
+ * race seeds come from `seed`, so they are fixed. `id` is for a lobby's season, which is picked up again by it and so
+ * must not be guessable (the default is made of the clock and the seed); a lobby renames its humans as each race starts.
+ */
 export function newSeason(
   seed: number,
   botCars: number,
   botLevel: BotLevel,
   rulesVersion: RulesVersion,
-  startedAt = Date.now()
+  startedAt = Date.now(),
+  humanCars = 1,
+  id = `${startedAt.toString(36)}-${seed.toString(36)}`
 ): Season {
-  const names = new Set<string>(['You']);
+  const humanName = (carId: number) => (humanCars === 1 ? 'You' : `Player ${carId}`);
+  const names = new Set<string>(Array.from({ length: humanCars }, (_human, i) => humanName(i + 1)));
   let dice = 0;
-  const drivers: SeasonDriver[] = [{ carId: HUMAN_CAR_ID, name: 'You', human: true }];
+  const drivers: SeasonDriver[] = Array.from({ length: humanCars }, (_human, i) => ({
+    carId: i + 1,
+    name: humanName(i + 1),
+    human: true
+  }));
   for (let bot = 1; bot <= botCars; bot += 1) {
     let name = randomPlayerName(() => unit(seed, 0x6e616d65, (dice += 1)));
     // All names differ (the word lists make about 400); a clash draws again
     while (names.has(name)) name = randomPlayerName(() => unit(seed, 0x6e616d65, (dice += 1)));
     names.add(name);
     // Dealt by bot, not by car: the first five bots never share a style
-    drivers.push({ carId: bot + 1, name, style: styleKeyOf(seed, bot), human: false });
+    drivers.push({ carId: humanCars + bot, name, style: styleKeyOf(seed, bot), human: false });
   }
   return {
-    id: `${startedAt.toString(36)}-${seed.toString(36)}`,
+    id,
     startedAt,
     rulesVersion,
     botLevel,
@@ -167,6 +178,14 @@ export function seasonCars(season: Season, raceIndex: number): SeasonCars {
     names: season.drivers.map((d) => (d.human ? '' : d.name)),
     styles: season.drivers.map((d) => d.style ?? 'balanced'),
     ...(grid ? { grid } : {})
+  };
+}
+
+/** The drivers under the names given by car id (a lobby's players, as each race starts); the others keep theirs. */
+export function renameDrivers(season: Season, names: Record<number, string>): Season {
+  return {
+    ...season,
+    drivers: season.drivers.map((d) => ({ ...d, name: names[d.carId] ?? d.name }))
   };
 }
 
@@ -300,5 +319,45 @@ export function clearSeason(storage: Storage = window.localStorage): void {
     storage.removeItem(SEASON_KEY);
   } catch {
     // storage unavailable: nothing to clear
+  }
+}
+
+// ---- the lobby's championship (#273) -------------------------------------------------------------------------------
+// The standings live on the server; the browser keeps only the id that picks the season up again in a new lobby, and a
+// line to say which one it is.
+
+export const ONLINE_SEASON_KEY = 'srp:online-season';
+
+export interface OnlineSeasonRef {
+  id: string;
+  label: string;
+}
+
+export function loadOnlineSeason(storage: Storage = window.localStorage): OnlineSeasonRef | null {
+  try {
+    const value: unknown = JSON.parse(storage.getItem(ONLINE_SEASON_KEY) ?? 'null');
+    const ref = value as Partial<OnlineSeasonRef> | null;
+    return typeof ref?.id === 'string' && typeof ref.label === 'string'
+      ? { id: ref.id, label: ref.label }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remembers a running season; one that is over (or none) is forgotten, there is nothing left to resume. */
+export function rememberOnlineSeason(
+  season: Season | null,
+  label: string,
+  storage: Storage = window.localStorage
+): void {
+  try {
+    if (season && !isSeasonFinished(season)) {
+      storage.setItem(ONLINE_SEASON_KEY, JSON.stringify({ id: season.id, label }));
+    } else {
+      storage.removeItem(ONLINE_SEASON_KEY);
+    }
+  } catch {
+    // storage unavailable: the season simply cannot be resumed from this browser
   }
 }

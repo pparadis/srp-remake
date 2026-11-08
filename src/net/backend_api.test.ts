@@ -35,7 +35,8 @@ describe('BackendApiClient', () => {
       botCars: 1,
       raceLaps: 3,
       turnTimerSec: 60 as const,
-      botLevel: 'normal' as const
+      botLevel: 'normal' as const,
+      season: false
     };
 
     await expect(client.createLobby('Host', settings)).resolves.toEqual({ ok: true });

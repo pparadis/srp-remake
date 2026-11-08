@@ -63,3 +63,32 @@ test("requireHost answers 404, 401, then 403 with the caller's message; a bad to
   );
   assert.equal(store.requireHost(lobbyId, host.playerToken, 'x').lobbyId, lobbyId);
 });
+
+test('a championship race pins the bots, names the humans, and reverses the grid in race 3 (#273)', () => {
+  const store = new LobbyStore();
+  const { lobby, host } = store.createLobby('Host', {
+    totalCars: 3,
+    humanCars: 2,
+    botCars: 1,
+    season: true
+  });
+  const guest = store.joinLobby(lobby.lobbyId, 'Guest', undefined).player;
+  store.startRace(lobby.lobbyId, host.playerToken);
+  const season = lobby.season!;
+  assert.deepEqual(season.drivers.map((d) => d.name).slice(0, 2), ['Host', 'Guest']);
+  assert.equal(lobby.race!.seats[2]!.name, season.drivers[2]!.name);
+  assert.equal(lobby.race!.seasonIndex, 0);
+
+  // race 1 and 2 are scored (guest first, the bot second), then race 3 starts with the leader last
+  for (const index of [0, 1]) {
+    lobby.race!.engine.winnerCarId = guest.seatIndex + 1;
+    lobby.status = 'FINISHED';
+    store.recordSeasonResult(lobby.lobbyId, null);
+    store.resetLobby(lobby.lobbyId, host.playerToken);
+    store.startRace(lobby.lobbyId, host.playerToken);
+    assert.equal(lobby.race!.seasonIndex, index + 1);
+  }
+  const leader = lobby.season!.races[0]!.result!.order[0]!;
+  assert.ok(lobby.season!.races[2]!.reversedGrid);
+  assert.equal(lobby.race!.log.grid?.[leader - 1], 2); // the leader of the table starts on the last slot
+});

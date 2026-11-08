@@ -17,6 +17,7 @@ import { MAX_LOGGED_ACTIONS, MAX_RACE_LAPS } from '../../src/game/race/limits';
 import { replayEnd, type RaceLog } from '../../src/game/race/race_log';
 import { RULES_VERSIONS } from '../../src/game/rules/ids';
 import { MAX_SEED } from '../../src/game/systems/bot_style';
+import { forfeitUnfinished, isSeasonFinished, parseSeason, type Season } from '../../src/ui/season';
 import { BOT_LEVEL_CHOICES, type LobbySettings, type TurnCommandResult } from './types.js';
 
 const API_V1_PREFIX = '/api/v1';
@@ -57,7 +58,8 @@ const lobbySettingsPatchSchema = z.object({
   botCars: z.number().int().min(0).max(11).optional(),
   raceLaps: z.number().int().min(1).max(MAX_RACE_LAPS).optional(),
   turnTimerSec: z.union([z.literal(0), z.literal(30), z.literal(60), z.literal(120)]).optional(),
-  botLevel: z.enum(BOT_LEVEL_CHOICES).optional()
+  botLevel: z.enum(BOT_LEVEL_CHOICES).optional(),
+  season: z.boolean().optional()
 });
 
 function toSettingsPatch(
@@ -75,6 +77,7 @@ function toSettingsPatch(
   if (settings.raceLaps !== undefined) patch.raceLaps = settings.raceLaps;
   if (settings.turnTimerSec !== undefined) patch.turnTimerSec = settings.turnTimerSec;
   if (settings.botLevel !== undefined) patch.botLevel = settings.botLevel;
+  if (settings.season !== undefined) patch.season = settings.season;
   return patch;
 }
 
@@ -106,7 +109,9 @@ function playerTokenOf(request: BearerRequest, fromBodyOrQuery: string | undefin
 
 const createLobbySchema = z.object({
   name: playerNameSchema,
-  settings: lobbySettingsPatchSchema.optional()
+  settings: lobbySettingsPatchSchema.optional(),
+  // A championship kept by the race store (#273): the lobby carries on from its next race.
+  resumeSeasonId: z.string().min(1).max(64).optional()
 });
 
 const joinLobbySchema = z.object({
@@ -282,6 +287,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     playBotTurnFor,
     runPendingBotTurns,
     announceTurn,
+    keepSeason,
     start: startRealtime,
     stop: stopRealtime
   } = createRealtime({
@@ -381,6 +387,29 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     return deviceHash(id);
   }
 
+  // A stored championship to carry on (#273): checked like anything the database gives back, a race that was running when
+  // the last lobby went counts as a forfeit, and one that is over, or on rules that are gone, is refused.
+  async function loadSeasonToResume(id: string): Promise<Season> {
+    // Two lobbies on one championship would overwrite each other, and a race still running there is not a forfeit
+    if (lobbyStore.allLobbies().some((lobby) => lobby.season?.id === id)) {
+      throw new LobbyError(409, 'That championship is already running in a lobby.');
+    }
+    let stored: unknown;
+    try {
+      stored = await raceStore.loadSeason(id);
+    } catch {
+      throw new LobbyError(503, 'Championships are not available right now.');
+    }
+    const parsed = parseSeason(stored);
+    if (parsed === 'retired') {
+      throw new LobbyError(409, 'That championship used rules that are no longer available.');
+    }
+    if (!parsed) throw new LobbyError(404, 'Championship not found.');
+    const season = forfeitUnfinished(parsed);
+    if (isSeasonFinished(season)) throw new LobbyError(409, 'That championship is over.');
+    return season;
+  }
+
   app.get('/health', async () => ({
     ok: true,
     lobbies: lobbyStore.count(),
@@ -389,7 +418,13 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   app.post(`${API_V1_PREFIX}/lobbies`, { config: limit(10) }, async (request, reply) => {
     const body = createLobbySchema.parse(request.body);
-    const { lobby, host } = lobbyStore.createLobby(body.name, toSettingsPatch(body.settings));
+    const resume = body.resumeSeasonId ? await loadSeasonToResume(body.resumeSeasonId) : undefined;
+    const { lobby, host } = lobbyStore.createLobby(
+      body.name,
+      toSettingsPatch(body.settings),
+      resume
+    );
+    keepSeason(resume);
     const publicLobby = toPublicLobby(lobby);
     logMultiplayer('lobby.create', {
       lobbyId: lobby.lobbyId,
@@ -587,6 +622,7 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
     const params = lobbyPathSchema.parse(request.params);
     const body = startRaceSchema.parse(request.body ?? {});
     const lobby = lobbyStore.startRace(params.lobbyId, playerTokenOf(request, body.playerToken));
+    keepSeason(lobby.season);
     armTurnTimer(lobby.lobbyId);
     const publicLobby = toPublicLobby(lobby);
     broadcast(lobby.lobbyId, 'race.started', publicLobby);

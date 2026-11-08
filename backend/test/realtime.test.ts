@@ -174,3 +174,44 @@ test('an online race whose log is over the action cap is not stored (#211)', asy
   }
   assert.equal((await raceStore.list(10)).length, 1);
 });
+
+test('a championship race whose host is gone is a forfeit, and the season is stored (#273)', async (t) => {
+  const { lobbyStore, realtime, raceStore } = setup(t);
+  const { lobby, host } = lobbyStore.createLobby('Host', {
+    totalCars: 3,
+    humanCars: 1,
+    botCars: 2,
+    season: true
+  });
+  lobbyStore.startRace(lobby.lobbyId, host.playerToken);
+  const id = lobby.season?.id;
+  assert.ok(id);
+
+  realtime.startHostGrace(lobby.lobbyId);
+  mock.timers.tick(5_000);
+  const season = lobbyStore.getLobby(lobby.lobbyId)?.season;
+  assert.deepEqual(season?.races[0]?.result?.order.at(-1), 1); // the human is last
+  assert.equal(season?.races[0]?.result?.forfeit, true);
+  for (let i = 0; i < 20 && !(await raceStore.loadSeason(id)); i += 1) await Promise.resolve();
+  assert.deepEqual(await raceStore.loadSeason(id), season);
+});
+
+test('a championship race that is won is scored before the lobby is told (#273)', async (t) => {
+  const { lobbyStore, realtime } = setup(t);
+  const { lobby, host } = lobbyStore.createLobby('Host', {
+    totalCars: 2,
+    humanCars: 1,
+    botCars: 1,
+    season: true
+  });
+  lobbyStore.startRace(lobby.lobbyId, host.playerToken);
+  const watcher = fakeSocket();
+  realtime.addSocket(lobby.lobbyId, 'watcher', watcher.socket);
+  lobby.race!.engine.winnerCarId = 1;
+  lobby.status = 'FINISHED';
+  realtime.announceTurn(lobby, { applied: { type: 'skip' } } as never);
+  const ended = watcher.sent.find((m) => m.event === 'race.ended')?.payload as {
+    lobby?: { season?: { races: { result?: { order: number[] } }[] } };
+  };
+  assert.equal(ended.lobby?.season?.races[0]?.result?.order.length, 2);
+});

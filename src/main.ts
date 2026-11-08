@@ -25,15 +25,18 @@ import { loadRemoteRace } from './ui/remote_race';
 import { mountRecapPage } from './ui/recap_page';
 import { mountHistoryPage } from './ui/history_page';
 import { mountSeasonPage } from './ui/season_page';
-import { renderSeasonCard, seasonResultLine } from './ui/season_card';
+import { renderSeasonCard, seasonResultLine, seasonStatus } from './ui/season_card';
 import {
   clearSeason,
   forfeitUnfinished,
   isSeasonFinished,
+  loadOnlineSeason,
   loadSeason,
   newSeason,
   nextRaceIndex,
   recordResult,
+  rememberOnlineSeason,
+  SEASON_CALENDAR,
   saveSeason,
   seasonCars,
   startSeasonRace,
@@ -109,6 +112,11 @@ const lobbyRules = el<HTMLSelectElement>('lobbyRules');
 const lobbyRulesField = el('lobbyRulesField');
 const lobbyShareField = el('lobbyShareField');
 const lobbyShare = el<HTMLInputElement>('lobbyShare');
+const lobbySeasonField = el('lobbySeasonField');
+const lobbySeasonToggle = el<HTMLInputElement>('lobbySeason');
+const lobbySeasonBlock = el('lobbySeasonBlock');
+const lobbySeasonStatus = el('lobbySeasonStatus');
+const homeOnlineSeason = el('homeOnlineSeason');
 const lobbyTurnTimer = el<HTMLSelectElement>('lobbyTurnTimer');
 const lobbyTurnTimerField = el('lobbyTurnTimerField');
 const connectionBanner = el('connectionBanner');
@@ -591,6 +599,10 @@ function renderHome() {
       renderHome();
     }
   });
+  const onlineSeason = loadOnlineSeason();
+  homeOnlineSeason.hidden = onlineSeason === null;
+  el('homeOnlineSeasonLabel').textContent = onlineSeason?.label ?? '';
+  el<HTMLButtonElement>('homeOnlineSeasonBtn').disabled = backendBusy;
   const races = listSavedRaces();
   homeRaces.hidden = races.length === 0;
   homeRaceList.replaceChildren(
@@ -610,7 +622,12 @@ function renderHome() {
 // ---- championship (#273) -------------------------------------------------------------------
 
 const seasonPage = mountSeasonPage(el('seasonPage'), {
-  onBack: () => navigate({ name: 'home' }),
+  onBack: () =>
+    navigate(
+      mode === 'online' && backendSession
+        ? { name: 'lobby', id: backendSession.lobbyId }
+        : { name: 'home' }
+    ),
   onOpenRecap: (id) => navigate({ name: 'recap', id }),
   hasRecap: (id) => loadSavedRace(id) !== null
 });
@@ -651,7 +668,10 @@ function startNewSeason() {
 }
 
 lobbySeasonBtn.addEventListener('click', startNewSeason);
+el('homeOnlineSeasonBtn').addEventListener('click', () => void resumeOnlineSeason());
 el('resultsNextRaceBtn').addEventListener('click', playNextSeasonRace);
+el('lobbyStandingsBtn').addEventListener('click', () => navigate({ name: 'season' }));
+lobbySeasonToggle.addEventListener('change', () => void changeSettings());
 el('resultsStandingsBtn').addEventListener('click', () => navigate({ name: 'season' }));
 
 // ---- recap (#169) --------------------------------------------------------------------------
@@ -865,6 +885,18 @@ async function openReplay(id: string, remote: boolean) {
   }
 }
 
+// The seat of the player in the lobby's season (its driver's car id).
+function mySeatCarId(lobby: PublicLobby): number | undefined {
+  const me = lobby.players.find((player) => player.playerId === backendSession?.playerId);
+  return me ? me.seatIndex + 1 : undefined;
+}
+
+// In a championship the host's button after a race goes on to the next one (or begins a new championship).
+function playAgainLabel(lobby: PublicLobby | null): string {
+  if (!lobby?.settings.season) return 'Play again';
+  return lobby.season && isSeasonFinished(lobby.season) ? 'New championship' : 'Next race';
+}
+
 function renderLobby() {
   const online = mode === 'online';
   const lobby = online ? lastLobby : null;
@@ -883,6 +915,25 @@ function renderLobby() {
   lobbyLaps.value = String(settings?.raceLaps ?? soloSettings.raceLaps);
   lobbyBotLevel.value = settings?.botLevel ?? soloSettings.botLevel;
   lobbyTrack.value = settings?.trackId ?? soloSettings.trackId;
+  // A championship lobby (#273): the calendar sets the track and the laps of the race to come
+  const onlineSeason = online && settings?.season === true;
+  const runningSeason = lobby?.season && !isSeasonFinished(lobby.season) ? lobby.season : undefined;
+  // a season that is over starts again at race 1 with the next start
+  const nextIndex = (lobby?.season ? nextRaceIndex(lobby.season) : null) ?? 0;
+  lobbySeasonField.hidden = !online;
+  lobbySeasonToggle.checked = onlineSeason;
+  if (onlineSeason) {
+    const next = SEASON_CALENDAR[nextIndex];
+    if (next) {
+      lobbyTrack.value = next.trackId;
+      lobbyLaps.value = String(next.raceLaps);
+    }
+  }
+  lobbySeasonBlock.hidden = !onlineSeason;
+  lobbySeasonStatus.textContent = lobby?.season
+    ? seasonStatus(lobby.season, mySeatCarId(lobby))
+    : 'Race 1 of 4 · the table starts when it does';
+  el('lobbyStandingsBtn').hidden = !lobby?.season;
   // Solo only: an online race plays the server's rules, and v1 is not offered there.
   lobbyRulesField.hidden = online;
   // Solo only: an online race goes to the history by itself (the server keeps it)
@@ -892,14 +943,16 @@ function renderLobby() {
   // The select stays in the DOM; with no bots there is nothing for it to set.
   lobbyBotLevelField.hidden = Number(lobbyBots.value) === 0;
   const editable = isHost && waiting && !backendBusy;
-  lobbyHumans.disabled =
-    lobbyBots.disabled =
-    lobbyLaps.disabled =
-    lobbyTurnTimer.disabled =
-    lobbyBotLevel.disabled =
-    lobbyTrack.disabled =
-    lobbyRules.disabled =
-      !editable;
+  // Once race 1 has started the cars and the bots stay; the calendar sets the track and the laps; the timer is free
+  const carsFixed = !editable || runningSeason !== undefined;
+  lobbyHumans.disabled = lobbyBots.disabled = lobbyBotLevel.disabled = carsFixed;
+  lobbyLaps.disabled = lobbyTrack.disabled = !editable || onlineSeason;
+  lobbyRules.disabled = !editable;
+  lobbyTurnTimer.disabled = !editable;
+  lobbySeasonToggle.disabled = !editable || runningSeason !== undefined;
+  lobbyStartBtn.textContent = onlineSeason
+    ? `Start race ${nextIndex + 1} of ${SEASON_CALENDAR.length}`
+    : 'Start race';
   lobbyStartBtn.disabled = backendBusy || !isHost || !waiting;
   lobbyStartBtn.hidden = online && !isHost;
   // Solo only. One championship at a time: finish or abandon the running one first.
@@ -914,6 +967,7 @@ function renderLobby() {
   const canPlayAgain =
     online && lobby?.status === 'FINISHED' && lobby.terminationReason === 'race_finished';
   lobbyPlayAgainBtn.hidden = !(canPlayAgain && isHost);
+  lobbyPlayAgainBtn.textContent = playAgainLabel(lobby);
   lobbyPlayAgainBtn.disabled = backendBusy;
   lobbyNote.hidden = !(online && lobby && lobby.status !== 'WAITING');
   lobbyNote.textContent =
@@ -988,6 +1042,15 @@ function showResults(winnerCarId: number | null) {
   // null: not an online race (solo has no host)
   const isHost = mode === 'online' && backendSession !== null ? backendSession.isHost : null;
   resultsPlayAgainBtn.hidden = isHost !== true;
+  resultsPlayAgainBtn.textContent = playAgainLabel(lastLobby);
+  // An online championship (#273): the points of the race just run; the host's button goes on to the next race
+  const online = mode === 'online' ? lastLobby : null;
+  if (online?.season) {
+    const played = online.season.races.map((race) => race.result !== undefined).lastIndexOf(true);
+    resultsSeasonLine.textContent = seasonResultLine(online.season, played, mySeatCarId(online));
+    el('resultsNextRaceBtn').hidden = true;
+    resultsSeason.hidden = false;
+  }
   resultsWait.hidden = isHost !== false;
   resultsRecapBtn.hidden = lastSavedRaceId === null;
   results.hidden = false;
@@ -1065,14 +1128,17 @@ async function handleRoute(route: Route, source: 'push' | 'replace' | 'pop') {
       showScreen('history');
       await openHistory();
       return;
-    case 'season':
-      if (!season) {
+    case 'season': {
+      // inside a championship lobby the table is the lobby's, otherwise the solo one
+      const shown = mode === 'online' && lastLobby?.season ? lastLobby.season : season;
+      if (!shown) {
         navigate({ name: 'home' }, 'replace');
         return;
       }
       showScreen('season');
-      seasonPage.show(season, nextRaceIndex(season));
+      seasonPage.show(shown, nextRaceIndex(shown));
       return;
+    }
     case 'lobby':
     case 'lobbyRace':
       mode = 'online';
@@ -1130,6 +1196,9 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
   const remainingMs = lobby.status === 'IN_RACE' ? lobby.raceState?.turnRemainingMs : undefined;
   turnDeadlineAt = remainingMs === undefined ? null : Date.now() + remainingMs;
   storeSession(backendSession);
+  if (lobby.season) {
+    rememberOnlineSeason(lobby.season, seasonStatus(lobby.season, mySeatCarId(lobby)));
+  }
   setStatus(`${source}: ${lobby.status.toLowerCase()} (rev ${lobby.revision})`);
   logMultiplayerClient('lobby.state.applied', {
     source,
@@ -1384,7 +1453,8 @@ async function hostLobby() {
         botCars: 0,
         raceLaps: 5,
         turnTimerSec: 60,
-        botLevel: 'normal'
+        botLevel: 'normal',
+        season: false
       })
     );
     mode = 'online';
@@ -1394,6 +1464,57 @@ async function hostLobby() {
   } catch (error) {
     showNotice(`Could not create the lobby (${toErrorText(error)}).`);
     logMultiplayerClient('lobby.host.failed', { error: toErrorText(error) });
+  } finally {
+    setBackendBusy(false);
+  }
+}
+
+// A new lobby that carries on the online championship this browser remembers (#273): its seats are taken again as the
+// players join, and a race that was running when the old lobby went is a forfeit.
+async function resumeOnlineSeason() {
+  const ref = loadOnlineSeason();
+  if (backendBusy || !ref) return;
+  showNotice(null);
+  if (!webglSupported()) {
+    showNotice(NO_WEBGL_MESSAGE);
+    return;
+  }
+  setBackendBusy(true);
+  setStatus('resuming championship...');
+  try {
+    const created = await withWakeNotice(
+      backendClient.createLobby(
+        getPlayerName(),
+        {
+          trackId: DEFAULT_TRACK_ID,
+          totalCars: 2,
+          humanCars: 2,
+          botCars: 0,
+          raceLaps: 5,
+          turnTimerSec: 60,
+          botLevel: 'normal',
+          season: true
+        },
+        ref.id
+      )
+    );
+    mode = 'online';
+    openSession(created, 'host');
+    navigate({ name: 'lobby', id: created.lobby.lobbyId });
+  } catch (error) {
+    const status = error instanceof BackendApiError ? error.status : 0;
+    if (status === 404 || status === 409) {
+      // gone, finished, on retired rules or already in an open lobby: either way not resumable from here
+      if (status === 404) rememberOnlineSeason(null, '');
+      showNotice(
+        status === 404
+          ? 'That championship is no longer stored on the server.'
+          : 'That championship cannot be resumed: it is finished, retired or already in an open lobby.'
+      );
+      renderHome();
+    } else {
+      showNotice(`Could not resume the championship (${toErrorText(error)}).`);
+    }
   } finally {
     setBackendBusy(false);
   }
@@ -1516,7 +1637,15 @@ async function changeSettings() {
     const updated = await backendClient.updateSettings(
       backendSession.lobbyId,
       backendSession.playerToken,
-      { trackId, humanCars, botCars, raceLaps, turnTimerSec, botLevel }
+      {
+        trackId,
+        humanCars,
+        botCars,
+        raceLaps,
+        turnTimerSec,
+        botLevel,
+        season: lobbySeasonToggle.checked
+      }
     );
     applyLobbyState(updated.lobby, 'settings');
   } catch (error) {

@@ -15,6 +15,18 @@ import { DEFAULT_RULES_VERSION, isRulesVersion, type RulesVersion } from '../../
 import { MAX_SEED, normalizeSeed } from '../../src/game/systems/bot_style';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
 import { MAX_RACE_LAPS } from '../../src/game/race/limits';
+import { finishOrder } from '../../src/game/systems/race_recap';
+import {
+  forfeitUnfinished,
+  isSeasonFinished,
+  newSeason,
+  nextRaceIndex,
+  recordResult,
+  renameDrivers,
+  seasonGrid,
+  startSeasonRace,
+  type Season
+} from '../../src/ui/season';
 import { getRaceContext, knownTrackIds } from './tracks.js';
 import type {
   ChatMessage,
@@ -43,7 +55,8 @@ const DEFAULT_SETTINGS: LobbySettings = {
   botCars: 3,
   raceLaps: 5,
   turnTimerSec: 60,
-  botLevel: 'normal'
+  botLevel: 'normal',
+  season: false
 };
 
 function clampInt(value: number, min: number, max: number): number {
@@ -85,8 +98,20 @@ function normalizeSettings(
   if (botLevel === undefined) {
     throw new LobbyError(400, `botLevel must be one of ${BOT_LEVEL_CHOICES.join(', ')}.`);
   }
-  return { trackId, totalCars, humanCars, botCars, raceLaps, turnTimerSec, botLevel };
+  const season = input?.season ?? base.season;
+  return { trackId, totalCars, humanCars, botCars, raceLaps, turnTimerSec, botLevel, season };
 }
+
+// What a championship fixes once it runs (#273): the field, the level, and the track and laps (the calendar's).
+const SEASON_FIXED = [
+  'totalCars',
+  'humanCars',
+  'botCars',
+  'botLevel',
+  'trackId',
+  'raceLaps',
+  'season'
+] as const;
 
 function toPublicPlayer(player: LobbyPlayer): PublicLobbyPlayer {
   return {
@@ -143,6 +168,7 @@ export function toPublicLobby(lobby: Lobby): PublicLobby {
     players: lobby.players.map(toPublicPlayer)
   };
 
+  if (lobby.season) publicLobby.season = lobby.season;
   if (lobby.terminationReason !== undefined) {
     publicLobby.terminationReason = lobby.terminationReason;
   }
@@ -203,7 +229,35 @@ export class LobbyStore {
     throw new LobbyError(409, 'No human seats remaining in lobby settings.');
   }
 
+  // The next race of the lobby's championship (a new championship when there is none, or it is over): the humans take
+  // their names, the race is marked started, and the track and laps are the calendar's. Returns its index.
+  private beginSeasonRace(lobby: Lobby): number {
+    const { humanCars, botCars, botLevel } = lobby.settings;
+    let season = lobby.season;
+    if (!season || isSeasonFinished(season)) {
+      season = newSeason(
+        newRaceSeed(),
+        botCars,
+        botLevel,
+        raceRulesVersion(),
+        Date.now(),
+        humanCars,
+        randomUUID()
+      );
+    }
+    const index = must(nextRaceIndex(season), 'next race of the championship');
+    const names = Object.fromEntries(lobby.players.map((p) => [p.seatIndex + 1, p.name]));
+    lobby.season = startSeasonRace(renameDrivers(season, names), index);
+    const race = must(lobby.season.races[index], 'race of the championship');
+    lobby.settings = { ...lobby.settings, trackId: race.trackId, raceLaps: race.raceLaps };
+    return index;
+  }
+
   private buildInitialRace(lobby: Lobby): ServerRace {
+    const seasonIndex = lobby.settings.season ? this.beginSeasonRace(lobby) : undefined;
+    if (seasonIndex === undefined) delete lobby.season;
+    const season = lobby.season;
+    const seasonRace = season && seasonIndex !== undefined ? season.races[seasonIndex] : undefined;
     const ctx = getRaceContext(lobby.settings.trackId);
     if (!ctx) {
       throw new LobbyError(400, `Unknown trackId "${lobby.settings.trackId}".`);
@@ -222,21 +276,33 @@ export class LobbyStore {
         return {
           seatIndex,
           playerId: player?.playerId ?? null,
-          name: player?.name ?? `Bot ${botCounter}`
+          // a championship's bots keep their names, and so does a human seat nobody sits in
+          name: player?.name ?? season?.drivers[seatIndex]?.name ?? `Bot ${botCounter}`
         };
       }
     );
 
-    const raceSeats = seats.map((seat) => ({
-      isBot: seat.playerId === null,
-      ownerId: seat.playerId ?? `BOT${seat.seatIndex + 1}`,
-      botLevel: lobby.settings.botLevel
-    }));
-    const seed = newRaceSeed();
-    const rulesVersion = raceRulesVersion();
-    const engine = createRace(ctx, raceSeats, lobby.settings.raceLaps, seed, rulesVersion);
-    const log = startRaceLog(raceSeats, lobby.settings.raceLaps, seed, rulesVersion);
-    return { engine, log, seats, turnIndex: 0 };
+    const raceSeats = seats.map((seat) => {
+      const style = season?.drivers[seat.seatIndex]?.style;
+      return {
+        isBot: seat.playerId === null,
+        ownerId: seat.playerId ?? `BOT${seat.seatIndex + 1}`,
+        botLevel: lobby.settings.botLevel,
+        ...(style && seat.playerId === null ? { style } : {})
+      };
+    });
+    const seed = seasonRace?.seed ?? newRaceSeed();
+    const rulesVersion = season?.rulesVersion ?? raceRulesVersion();
+    const grid = season && seasonIndex !== undefined ? seasonGrid(season, seasonIndex) : undefined;
+    const engine = createRace(ctx, raceSeats, lobby.settings.raceLaps, seed, rulesVersion, grid);
+    const log = startRaceLog(raceSeats, lobby.settings.raceLaps, seed, rulesVersion, grid);
+    return {
+      engine,
+      log,
+      seats,
+      turnIndex: 0,
+      ...(seasonIndex === undefined ? {} : { seasonIndex })
+    };
   }
 
   findPlayerByToken(lobby: Lobby, playerToken: string): LobbyPlayer | undefined {
@@ -273,9 +339,12 @@ export class LobbyStore {
     return lobby;
   }
 
+  // `resume`: a championship kept by the race store (#273): the lobby takes its field, level and next race, and its seats
+  // keep their points (whoever sits in a seat inherits them).
   createLobby(
     hostName: string,
-    rawSettings?: Partial<LobbySettings>
+    rawSettings?: Partial<LobbySettings>,
+    resume?: Season
   ): { lobby: Lobby; host: LobbyPlayer } {
     if (this.lobbies.size >= this.maxLobbies) {
       throw new LobbyError(503, 'Server is full');
@@ -286,7 +355,22 @@ export class LobbyStore {
     }
 
     const now = Date.now();
-    const settings = normalizeSettings(rawSettings);
+    const next = resume ? resume.races[nextRaceIndex(resume) ?? 0] : undefined;
+    const humanCars = resume?.drivers.filter((d) => d.human).length ?? 0;
+    const settings = normalizeSettings(
+      resume && next
+        ? {
+            ...rawSettings,
+            trackId: next.trackId,
+            raceLaps: next.raceLaps,
+            humanCars,
+            botCars: resume.drivers.length - humanCars,
+            totalCars: resume.drivers.length,
+            botLevel: resume.botLevel,
+            season: true
+          }
+        : rawSettings
+    );
     if (settings.humanCars < 1) {
       throw new LobbyError(400, 'humanCars must be >= 1 for a host seat.');
     }
@@ -312,6 +396,7 @@ export class LobbyStore {
       revision: 0,
       settings,
       players: [host],
+      ...(resume ? { season: resume } : {}),
       chat: [],
       chatSeq: 0
     };
@@ -417,6 +502,13 @@ export class LobbyStore {
     }
 
     const nextSettings = normalizeSettings(patch, lobby.settings);
+    if (lobby.season && !isSeasonFinished(lobby.season)) {
+      for (const key of SEASON_FIXED) {
+        if (nextSettings[key] !== lobby.settings[key]) {
+          throw new LobbyError(409, `${key} is fixed while a championship runs.`);
+        }
+      }
+    }
     if (lobby.players.length > nextSettings.humanCars) {
       throw new LobbyError(409, 'Cannot set humanCars below current connected/joined players.');
     }
@@ -487,9 +579,42 @@ export class LobbyStore {
     lobby.status = 'WAITING';
     delete lobby.race;
     delete lobby.terminationReason;
+    // the lobby shows the championship's next race (the settings hold the track and laps that were played)
+    const nextIndex = lobby.season ? nextRaceIndex(lobby.season) : null;
+    const next = lobby.season && nextIndex !== null ? lobby.season.races[nextIndex] : undefined;
+    if (next) {
+      lobby.settings = { ...lobby.settings, trackId: next.trackId, raceLaps: next.raceLaps };
+    }
     lobby.revision += 1;
     lobby.updatedAt = Date.now();
     return lobby;
+  }
+
+  // The championship race that just finished goes into the season, in the recap's places (#273). A race of no
+  // championship, or one already recorded, changes nothing. Returns the season when it changed, to be kept.
+  recordSeasonResult(lobbyId: string, savedRaceId: string | null): Season | undefined {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    const { season, race } = lobby;
+    const ctx = getRaceContext(lobby.settings.trackId);
+    if (!season || !race || race.seasonIndex === undefined || !ctx) return undefined;
+    if (race.engine.winnerCarId === null || season.races[race.seasonIndex]?.result) {
+      return undefined;
+    }
+    lobby.season = recordResult(
+      season,
+      race.seasonIndex,
+      finishOrder(ctx, race.engine),
+      savedRaceId
+    );
+    return lobby.season;
+  }
+
+  // A championship race that cannot be finished (the host left) counts as a forfeit (#273); returns the season to keep.
+  forfeitSeason(lobbyId: string): Season | undefined {
+    const lobby = this.getLobbyOrThrow(lobbyId);
+    if (!lobby.season) return undefined;
+    lobby.season = forfeitUnfinished(lobby.season);
+    return lobby.season;
   }
 
   // The server arms/clears the deadline of the active human seat; it is exposed as turnRemainingMs.

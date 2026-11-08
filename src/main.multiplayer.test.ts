@@ -9,6 +9,7 @@ import {
   decideBotAction
 } from './game/race/race_engine';
 import { logAction, startRaceLog } from './game/race/race_log';
+import { newSeason, recordResult, rememberOnlineSeason } from './ui/season';
 import { NO_WEBGL_MESSAGE } from './ui/webgl_support';
 import type { TrackData } from './game/types/track';
 
@@ -148,7 +149,8 @@ function makeLobby(lobbyId: string) {
       botCars: 0,
       raceLaps: 5,
       turnTimerSec: 60 as const,
-      botLevel: 'normal' as 'easy' | 'normal' | 'hard'
+      botLevel: 'normal' as 'easy' | 'normal' | 'hard',
+      season: false
     },
     players: [
       {
@@ -524,6 +526,49 @@ describe('main multiplayer screens', () => {
     });
   });
 
+  describe('resuming an online championship (#273)', () => {
+    const remember = () =>
+      rememberOnlineSeason(
+        newSeason(5, 1, 'normal', 'v4', 1000, 2, 'season-1'),
+        'Race 2 of 4 · Oval, 3 laps'
+      );
+
+    it('offers it on the home screen and opens a new lobby with its id', async () => {
+      remember();
+      createLobbyMock.mockResolvedValue({
+        lobby: makeLobby('resumed'),
+        playerId: 'host-player-id',
+        playerToken: 'host-token'
+      });
+      await import('./main');
+      expect(byId('homeOnlineSeason').hidden).toBe(false);
+      expect(byId('homeOnlineSeasonLabel').textContent).toBe('Race 2 of 4 · Oval, 3 laps');
+      byId('homeOnlineSeasonBtn').click();
+      await vi.waitFor(() => expect(document.body.dataset.screen).toBe('lobby'));
+      expect(createLobbyMock.mock.calls[0]?.[1]).toMatchObject({ season: true });
+      expect(createLobbyMock.mock.calls[0]?.[2]).toBe('season-1');
+    });
+
+    it('says so and forgets it when the server no longer has it, and keeps it when it is only busy', async () => {
+      remember();
+      createLobbyMock.mockRejectedValueOnce(new MockBackendApiError(409, { error: 'conflict' }));
+      createLobbyMock.mockRejectedValueOnce(new MockBackendApiError(404, { error: 'not_found' }));
+      await import('./main');
+      byId('homeOnlineSeasonBtn').click();
+      await vi.waitFor(() => expect(byId('homeNotice').textContent).toContain('cannot be resumed'));
+      expect(byId('homeOnlineSeason').hidden).toBe(false);
+      byId('homeOnlineSeasonBtn').click();
+      await vi.waitFor(() => expect(byId('homeNotice').textContent).toContain('no longer stored'));
+      expect(byId('homeOnlineSeason').hidden).toBe(true);
+      expect(document.body.dataset.screen).toBe('home');
+    });
+
+    it('offers nothing when no championship is remembered', async () => {
+      await import('./main');
+      expect(byId('homeOnlineSeason').hidden).toBe(true);
+    });
+  });
+
   describe('in the lobby and the race', () => {
     const socket = () => FakeWebSocket.instances.at(-1)!;
     const send = (event: string, payload: unknown) =>
@@ -562,6 +607,95 @@ describe('main multiplayer screens', () => {
       expect(byId<HTMLSelectElement>('lobbyBotLevel').value).toBe('hard');
       expect(byId<HTMLSelectElement>('lobbyBotLevel').disabled).toBe(true);
       expect(byId<HTMLButtonElement>('lobbyPlayAgainBtn').hidden).toBe(true);
+    });
+
+    describe('an online championship (#273)', () => {
+      // race 1 is scored (car 2, the guest, wins); the lobby waits for race 2 on the Big oval
+      const seasonLobby = (lobbyId: string) => {
+        const lobby = makeLobby(lobbyId);
+        const season = recordResult(
+          newSeason(5, 1, 'normal', 'v4', 1000, 2, 'season-1'),
+          0,
+          [2, 1, 3],
+          null
+        );
+        return { ...lobby, settings: { ...lobby.settings, season: true }, season };
+      };
+
+      it('shows the table, the next race and the lock, and the host starts race 2', async () => {
+        await enter('host', seasonLobby('champ'));
+        expect(byId('lobbySeasonBlock').hidden).toBe(false);
+        expect(byId('lobbySeasonStatus').textContent).toContain('Race 2 of 4');
+        expect(byId<HTMLInputElement>('lobbySeason').checked).toBe(true);
+        expect(byId<HTMLInputElement>('lobbySeason').disabled).toBe(true); // it runs: no switching it off
+        expect(byId<HTMLSelectElement>('lobbyTrack').value).toBe('oval32_3lanes');
+        expect(byId<HTMLInputElement>('lobbyLaps').value).toBe('3');
+        expect(byId<HTMLInputElement>('lobbyLaps').disabled).toBe(true);
+        expect(byId<HTMLSelectElement>('lobbyBots').disabled).toBe(true);
+        expect(byId<HTMLSelectElement>('lobbyTurnTimer').disabled).toBe(false);
+        expect(byId('lobbyStartBtn').textContent).toBe('Start race 2 of 4');
+        byId('lobbyStandingsBtn').click();
+        expect(document.body.dataset.screen).toBe('season');
+        expect(
+          document.querySelectorAll('[data-testid="season-body"] tbody tr').length
+        ).toBeGreaterThan(0);
+        byId('seasonPage').querySelector<HTMLButtonElement>('[data-testid="season-back"]')!.click();
+        expect(document.body.dataset.screen).toBe('lobby');
+      });
+
+      it('sends the Championship switch with the settings, and remembers the season to resume', async () => {
+        const lobby = makeLobby('switch');
+        createLobbyMock.mockResolvedValue({
+          lobby,
+          playerId: 'host-player-id',
+          playerToken: 'host-token'
+        });
+        updateSettingsMock.mockImplementation(
+          async (_id: string, _token: string, patch: { season: boolean }) => ({
+            lobby: { ...lobby, settings: { ...lobby.settings, season: patch.season } }
+          })
+        );
+        await import('./main');
+        byId('homeCreateBtn').click();
+        await vi.waitFor(() => expect(document.body.dataset.screen).toBe('lobby'));
+        const toggle = byId<HTMLInputElement>('lobbySeason');
+        expect(byId('lobbySeasonBlock').hidden).toBe(true);
+        toggle.checked = true;
+        toggle.dispatchEvent(new Event('change'));
+        await vi.waitFor(() =>
+          expect(updateSettingsMock.mock.calls.at(-1)?.[2]).toMatchObject({ season: true })
+        );
+        await vi.waitFor(() => expect(byId('lobbySeasonBlock').hidden).toBe(false));
+        expect(byId('lobbyStartBtn').textContent).toBe('Start race 1 of 4');
+        expect(byId<HTMLInputElement>('lobbyLaps').disabled).toBe(true); // the calendar sets the laps
+      });
+
+      it('keeps the id of a running season in the browser, and forgets it when it is over', async () => {
+        await enter('guest', seasonLobby('keep'));
+        expect(JSON.parse(window.localStorage.getItem('srp:online-season')!)).toMatchObject({
+          id: 'season-1'
+        });
+        const over = seasonLobby('keep');
+        over.season = [1, 2, 3].reduce((s, i) => recordResult(s, i, [2, 1, 3], null), over.season);
+        send('lobby.state', over);
+        expect(window.localStorage.getItem('srp:online-season')).toBeNull();
+      });
+
+      it('says on the results screen what the race gave, and names the next one on the host button', async () => {
+        await enter('guest', seasonLobby('points'));
+        send('race.started', {
+          ...makeRaceLobby('points', 0),
+          settings: seasonLobby('points').settings,
+          season: seasonLobby('points').season
+        });
+        window.dispatchEvent(
+          new CustomEvent('srp:race-finished', { detail: { winnerCarId: 2, recap: null } })
+        );
+        expect(byId('resultsSeason').hidden).toBe(false);
+        expect(byId('resultsSeasonLine').textContent).toBe('+25 points · P1 in the championship');
+        expect(byId('resultsNextRaceBtn').hidden).toBe(true); // online the host's button goes on
+        expect(byId('resultsPlayAgainBtn').textContent).toBe('Next race');
+      });
     });
 
     describe('the recap of an online race (#169)', () => {
