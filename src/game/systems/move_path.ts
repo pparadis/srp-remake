@@ -1,18 +1,22 @@
 import { INNER_MAIN_LANE, PIT_LANE } from '../constants';
 import { must } from '../must';
+import { routeCells } from './movement_system';
 import type { TrackIndex } from './track_index';
+
+// Price cap of the engine search used for drawing: above every move cap, so a legal move is always found.
+const PRICED_MAX_STEPS = 12;
 
 /**
  * The cells a car drives through from `fromCellId` to `toCellId`, both included, for drawing it (a glide, a preview, a
- * trail). Visual only: the shortest walk on `next[]` that never crosses a `blocked` cell, with the fewest lane changes
+ * trail). Visual only. The route the engine prices (`routeCells`) when its search reaches the target; else the shortest walk on `next[]` that never crosses a `blocked` cell, with the fewest lane changes
  * among the shortest, under the movement search's traversal rules (pit entry only from lane 1, the pit lane only from
- * the pit lane; a sideways step is a cell walked, which is how a go-round rejoins its lane). The engine prices its own
- * cheapest route and does not record it, so this can differ from what a move was charged, never from where it ended.
+ * the pit lane; a sideways step is a cell walked, which is how a go-round rejoins its lane). The engine does not
+ * record a route, so a pit or squeeze move can still differ from what it was charged, never from where it ended.
  * `blocked` is the cells holding cars (the start cell is ignored; a target is never one). With no such walk it returns `[from, to]` (a straight
  * line), so a caller always has something to draw.
  */
 export function movePath(
-  trackIndex: Pick<TrackIndex, 'cellMap'>,
+  trackIndex: TrackIndex,
   fromCellId: string,
   toCellId: string,
   blocked: ReadonlySet<string> = new Set()
@@ -20,6 +24,9 @@ export function movePath(
   const { cellMap } = trackIndex;
   if (fromCellId === toCellId) return [fromCellId];
   if (!cellMap.has(fromCellId) || !cellMap.has(toCellId)) return [fromCellId, toCellId];
+  // the route the engine prices, when its search reaches the target (not pit lane or squeeze moves)
+  const priced = routeCells(trackIndex, fromCellId, toCellId, new Set(blocked), PRICED_MAX_STEPS);
+  if (priced) return priced;
 
   const steps = new Map<string, number>([[fromCellId, 0]]);
   const changes = new Map<string, number>([[fromCellId, 0]]);

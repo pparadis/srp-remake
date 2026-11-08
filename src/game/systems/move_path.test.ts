@@ -1,15 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import track from '../../../public/tracks/oval16_3lanes.json';
+import track32 from '../../../public/tracks/oval32_3lanes.json';
 import type { TrackData } from '../types/track';
 import { computeValidTargets } from './movement_system';
 import { movePath } from './move_path';
 import { buildTrackIndex } from './track_index';
+import { must } from '../must';
 
 const idx = buildTrackIndex(track as unknown as TrackData);
 const lane = (id: string) => idx.cellMap.get(id)!.laneIndex;
 const zone = (id: string) => idx.cellMap.get(id)!.zoneIndex;
 const laneChanges = (path: string[]) =>
   path.slice(1).filter((id, i) => lane(id) !== lane(path[i]!)).length;
+
+describe('movePath on a bend', () => {
+  // Lane 2 reaches the zone in fewer cells, but the two lane changes make that route no cheaper: the engine charges the
+  // lane-1 walk (its fewest cells among the cheapest), so that is the one drawn.
+  it('draws the route the engine charged, not the fewest cells', () => {
+    const idx32 = buildTrackIndex(track32 as unknown as TrackData);
+    const costs = {
+      tireRate: 1,
+      fuelRate: 1,
+      setup: {
+        compound: 'hard' as const,
+        psi: { fl: 32, fr: 32, rl: 32, rr: 32 },
+        wing: 'medium' as const
+      }
+    };
+    const start = 'Z13_L1_00';
+    const target = 'Z21_L1_00';
+    const info = computeValidTargets(idx32, start, new Set([start]), 9, {}, costs).get(target);
+    const path = movePath(idx32, start, target);
+    expect(path).toHaveLength(must(info, 'target').distance + 1);
+    expect(path.map((id) => idx32.cellMap.get(id)?.laneIndex)).toEqual(Array(path.length).fill(1));
+  });
+});
 
 describe('movePath', () => {
   it('stays in the lane for a same-lane move, and is just the cell for a move of none', () => {

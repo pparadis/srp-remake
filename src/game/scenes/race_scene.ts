@@ -739,7 +739,7 @@ export class RaceScene extends Phaser.Scene {
     if (onCell && fromId) {
       const blocked = new Set<string>();
       for (const [otherId, cellId] of this.tokenCell) if (otherId !== carId) blocked.add(cellId);
-      ids = movePath({ cellMap: this.cellMap }, fromId, toCellId, blocked);
+      ids = movePath(this.session.ctx.trackIndex, fromId, toCellId, blocked);
     }
     const points =
       ids.length >= 2

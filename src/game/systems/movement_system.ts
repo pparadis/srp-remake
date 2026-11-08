@@ -157,7 +157,9 @@ function searchRoutes(
   trackIndex: TrackIndex,
   startCell: TrackCell,
   occupied: Set<string>,
-  maxSteps: number
+  maxSteps: number,
+  // Opt-in (the hot path skips it): the state each state came from, and the state of each cell's cheapest route.
+  trace?: { parent: Int32Array; best: Int32Array }
 ): Map<string, Route & { minSteps: number }> {
   const g = routeGraphOf(trackIndex);
   const { spineLen } = trackIndex;
@@ -213,10 +215,12 @@ function searchRoutes(
           minSteps[nxt] = step + 1;
         }
         // frontiers go by steps, so the first visit has the fewest; later visits can only win on price.
+        if (trace) trace.parent[key] = cur * MAX_DIAGONALS + diagonals;
         if (p < known) {
           price[nxt] = p;
           steps[nxt] = step + 1;
           changes[nxt] = nextChanges;
+          if (trace) trace.best[nxt] = key;
         }
       }
     }
@@ -232,6 +236,40 @@ function searchRoutes(
     });
   }
   return best;
+}
+
+/**
+ * The cells of the route the engine prices for a main-lane target (start and target included): the cheapest by move
+ * points, the fewest cells among those, as `computeValidTargets` charges it. Null when the search does not reach the
+ * target within `maxSteps` (pit lane, squeeze), so the caller draws something else.
+ */
+export function routeCells(
+  trackIndex: TrackIndex,
+  startCellId: string,
+  targetCellId: string,
+  occupied: Set<string>,
+  maxSteps: number
+): string[] | null {
+  const { cellMap } = trackIndex;
+  const startCell = cellMap.get(startCellId);
+  const g = routeGraphOf(trackIndex);
+  const target = g.index.get(targetCellId);
+  const start = g.index.get(startCellId);
+  if (!startCell || target === undefined || start === undefined || target === start) return null;
+  const trace = {
+    parent: new Int32Array(g.ids.length * MAX_DIAGONALS),
+    best: new Int32Array(g.ids.length).fill(-1)
+  };
+  searchRoutes(trackIndex, startCell, occupied, maxSteps, trace);
+  let key = must(trace.best[target], 'best state');
+  if (key < 0) return null;
+  const cells: string[] = [];
+  for (;;) {
+    const cell = Math.floor(key / MAX_DIAGONALS);
+    cells.push(must(g.ids[cell], 'cell id'));
+    if (cell === start) return cells.reverse();
+    key = must(trace.parent[key], 'parent state');
+  }
 }
 
 export function computeValidTargets(
