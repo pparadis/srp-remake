@@ -1,4 +1,5 @@
 import { isRulesVersion, type RulesVersion } from '../game/rules/ids';
+import type { SeasonCars } from '../game/race/race_session';
 import { BOT_LEVELS, type BotLevel } from '../game/types/car';
 import { MAX_SEED, styleKeyOf, unit, type PersonalityKey } from '../game/systems/bot_style';
 import { randomPlayerName } from './player_name';
@@ -98,7 +99,8 @@ export function newSeason(
   };
 }
 
-function pointsFor(place: number): number {
+/** The points of a place (1 is the winner). */
+export function placePoints(place: number): number {
   return SEASON_POINTS[place - 1] ?? 0;
 }
 
@@ -113,7 +115,7 @@ export function seasonStandings(season: Season): StandingRow[] {
     return {
       driver,
       places,
-      points: places.reduce<number>((sum, p) => sum + (p ? pointsFor(p) : 0), 0)
+      points: places.reduce<number>((sum, p) => sum + (p ? placePoints(p) : 0), 0)
     };
   });
   const count = (row: (typeof rows)[number], place: number) =>
@@ -156,6 +158,16 @@ export function seasonGrid(season: Season, raceIndex: number): number[] | undefi
     grid[row.driver.carId - 1] = rows.length - 1 - i;
   });
   return grid;
+}
+
+/** What a season race pins on its cars, as the game takes it: the names, the styles (a human's is never read) and the grid. */
+export function seasonCars(season: Season, raceIndex: number): SeasonCars {
+  const grid = seasonGrid(season, raceIndex);
+  return {
+    names: season.drivers.map((d) => (d.human ? '' : d.name)),
+    styles: season.drivers.map((d) => d.style ?? 'balanced'),
+    ...(grid ? { grid } : {})
+  };
 }
 
 function withRace(season: Season, raceIndex: number, change: Partial<SeasonRace>): Season {

@@ -847,4 +847,208 @@ describe('main (solo flow)', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' }));
     expect(toggles).toHaveBeenCalledTimes(1);
   });
+
+  describe('the championship (#273)', () => {
+    const stored = () =>
+      JSON.parse(window.localStorage.getItem('srp:season') ?? 'null') as {
+        races: Array<{
+          seed: number;
+          started?: boolean;
+          result?: { order: number[]; forfeit?: boolean };
+        }>;
+      } | null;
+    const options = (call: number) =>
+      startGame.mock.calls[call]![1] as {
+        trackId: string;
+        raceLaps: number;
+        botCars: number;
+        seed: number;
+        season: { names: string[]; styles: string[]; grid?: number[] };
+      };
+    // The page sees what the scene says when a race ends; `order` is the recap's places, first place first
+    const finish = (order: number[]) =>
+      window.dispatchEvent(
+        new CustomEvent('srp:race-finished', {
+          detail: {
+            winnerCarId: order[0],
+            recap: {
+              log: { seats: [], raceLaps: 5, seed: 0, rulesVersion: 'v4', actions: [] },
+              names: { 1: 'You', 2: 'a', 3: 'b', 4: 'c' },
+              order
+            }
+          }
+        })
+      );
+    async function startSeason() {
+      startGame.mockReturnValue({ destroy: vi.fn() });
+      await import('./main');
+      byId('homeQuickBtn').click();
+      byId('lobbySeasonBtn').click();
+      await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
+    }
+    async function nextRace() {
+      const before = startGame.mock.calls.length;
+      byId('resultsNextRaceBtn').click();
+      await vi.waitFor(() => expect(startGame).toHaveBeenCalledTimes(before + 1));
+    }
+    // a fresh page over the same localStorage
+    async function reload() {
+      for (const [type, listener] of added.splice(0)) window.removeEventListener(type, listener);
+      vi.resetModules();
+      window.history.replaceState({}, '', '/');
+      loadBody();
+      await import('./main');
+    }
+
+    it('offers a new championship, which takes its cars from the Quick race card', async () => {
+      await import('./main');
+      expect(tid('season-status')).toBeNull();
+      tid('season-new').click();
+      expect(document.body.dataset.screen).toBe('lobby');
+      expect(window.location.pathname).toBe('/solo');
+      byId<HTMLSelectElement>('lobbyBots').value = '2';
+      byId('lobbyBots').dispatchEvent(new Event('change'));
+      startGame.mockReturnValue({ destroy: vi.fn() });
+      byId('lobbySeasonBtn').click();
+      await vi.waitFor(() => expect(startGame).toHaveBeenCalled());
+      expect(options(0)).toMatchObject({ trackId: 'oval16_3lanes', raceLaps: 5, botCars: 2 });
+      expect(options(0).season.names).toHaveLength(3);
+      expect(options(0).season.styles).toHaveLength(3);
+      expect(options(0).season.grid).toBeUndefined();
+      expect(stored()?.races[0]?.started).toBe(true);
+    });
+
+    it('records a finish, says the points and the place, and plays the calendar race by race', async () => {
+      await startSeason();
+      finish([2, 1, 3, 4]);
+      expect(byId('resultsSeason').hidden).toBe(false);
+      expect(byId('resultsSeasonLine').textContent).toBe('+18 points · P2 in the championship');
+      expect(stored()?.races[0]?.result?.order).toEqual([2, 1, 3, 4]);
+      expect(JSON.parse(window.localStorage.getItem('srp:races')!)[0].label).toMatch(
+        /^Championship 1\/4, 5 laps/
+      );
+
+      await nextRace();
+      expect(options(1)).toMatchObject({ trackId: 'oval32_3lanes', raceLaps: 3 });
+      expect(options(1).seed).toBe(stored()!.races[1]!.seed);
+      expect(byId('results').hidden).toBe(true);
+      finish([2, 3, 1, 4]);
+
+      // race 3: the grid is reversed, the leader (car 2) starts last
+      await nextRace();
+      expect(options(2)).toMatchObject({ trackId: 'oval16_3lanes', raceLaps: 3 });
+      expect(options(2).season.grid?.[1]).toBe(3);
+      finish([1, 2, 3, 4]);
+      await nextRace();
+      expect(options(3)).toMatchObject({ trackId: 'oval16_3lanes', raceLaps: 8 });
+      expect(options(3).season.grid).toBeUndefined();
+      finish([2, 1, 3, 4]);
+      expect(byId('resultsNextRaceBtn').hidden).toBe(true);
+      expect(byId('resultsSeasonLine').textContent).toMatch(/^Championship over: /);
+    });
+
+    it('shows the card in each state, and the standings page', async () => {
+      await startSeason();
+      finish([2, 1, 3, 4]);
+      byId('resultsHomeBtn').click();
+      expect(tid('season-status').textContent).toBe(
+        'Race 2 of 4 · Big oval, 3 laps · you are P2, 18 points'
+      );
+      expect(tid('season-next')).not.toBeNull();
+      tid('season-standings').click();
+      expect(document.body.dataset.screen).toBe('season');
+      expect(window.location.pathname).toBe('/season');
+      expect(document.querySelectorAll('[data-testid="season-row"]')).toHaveLength(4);
+      expect(tid('season-headline').textContent).toBe('Race 2 of 4');
+      // the saved race of race 1 is still there: its header opens the recap
+      expect(tid('season-recap')).not.toBeNull();
+      tid('season-back').click();
+      expect(document.body.dataset.screen).toBe('home');
+
+      // finished
+      tid('season-next').click();
+      await vi.waitFor(() => expect(startGame).toHaveBeenCalledTimes(2));
+      finish([2, 1, 3, 4]);
+      await nextRace();
+      finish([2, 1, 3, 4]);
+      await nextRace();
+      finish([2, 1, 3, 4]);
+      byId('resultsHomeBtn').click();
+      expect(tid('season-status').textContent).toMatch(/^Champion: .* · you are P2, 72 points$/);
+      expect(tid('season-next')).toBeNull();
+      expect(tid('season-new')).not.toBeNull();
+    });
+
+    it('without WebGL it says so and starts nothing: no championship, no forfeited race', async () => {
+      webgl.available = false;
+      await import('./main');
+      byId('homeQuickBtn').click();
+      byId('lobbySeasonBtn').click();
+      expect(document.body.dataset.screen).toBe('home');
+      expect(byId('homeNotice').textContent).toBe(NO_WEBGL_MESSAGE);
+      expect(stored()).toBeNull();
+      expect(startGame).not.toHaveBeenCalled();
+    });
+
+    it('sends /season with no championship home', async () => {
+      window.history.replaceState({}, '', '/season');
+      await import('./main');
+      expect(document.body.dataset.screen).toBe('home');
+      expect(window.location.pathname).toBe('/');
+    });
+
+    it('a race that is quit is over: a reload scores it as last place and offers the next one', async () => {
+      await startSeason();
+      await reload();
+      expect(stored()?.races[0]?.result).toMatchObject({ forfeit: true });
+      expect(stored()?.races[0]?.result?.order.at(-1)).toBe(1);
+      expect(tid('season-status').textContent).toMatch(/^Race 2 of 4 · Big oval, 3 laps/);
+    });
+
+    it('leaving the race by Back asks, and a yes scores it as last place', async () => {
+      const confirm = vi.fn(() => true);
+      vi.stubGlobal('confirm', confirm);
+      await startSeason();
+      goBack('/');
+      expect(confirm).toHaveBeenCalledWith('Leave race? It counts as last place.');
+      expect(stored()?.races[0]?.result?.order.at(-1)).toBe(1);
+      expect(tid('season-status').textContent).toMatch(/^Race 2 of 4/);
+    });
+
+    it('a Quick race while a championship runs is a plain Quick race, and the Quick race card cannot start a second championship', async () => {
+      await startSeason();
+      finish([2, 1, 3, 4]);
+      byId('resultsLobbyBtn').click();
+      expect(byId<HTMLButtonElement>('lobbySeasonBtn').disabled).toBe(true);
+      byId('lobbyStartBtn').click();
+      await vi.waitFor(() => expect(startGame).toHaveBeenCalledTimes(2));
+      expect(options(1).season).toBeUndefined();
+      finish([1, 2, 3, 4]);
+      expect(byId('resultsSeason').hidden).toBe(true);
+      expect(stored()?.races[1]?.result).toBeUndefined();
+    });
+
+    it('Abandon clears the championship', async () => {
+      vi.stubGlobal(
+        'confirm',
+        vi.fn(() => true)
+      );
+      await startSeason();
+      finish([2, 1, 3, 4]);
+      byId('resultsHomeBtn').click();
+      tid('season-abandon').click();
+      expect(stored()).toBeNull();
+      expect(tid('season-new')).not.toBeNull();
+    });
+
+    it('drops a stored championship on retired rules, with a notice on the card', async () => {
+      window.localStorage.setItem(
+        'srp:season',
+        JSON.stringify({ id: 'x', startedAt: 1, rulesVersion: 'v2', botLevel: 'normal' })
+      );
+      await import('./main');
+      expect(tid('season-notice').textContent).toMatch(/no longer available/);
+      expect(window.localStorage.getItem('srp:season')).toBeNull();
+    });
+  });
 });

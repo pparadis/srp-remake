@@ -47,7 +47,8 @@ body[data-screen='race'] #screen-race {
 }
 
 body[data-screen='recap'] #screen-recap,
-body[data-screen='history'] #screen-history {
+body[data-screen='history'] #screen-history,
+body[data-screen='season'] #screen-season {
   display: block;
   overflow-y: auto;
   padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))

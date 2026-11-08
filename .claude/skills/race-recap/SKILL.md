@@ -23,3 +23,24 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   race becomes a `SavedRace` in `src/ui/remote_race.ts`). While a replay runs the live online events are not forwarded to the scene and the scene's
   `srp:race-finished` is ignored. Stepping back is a state change like any other: the cars glide back, the feed is the
   live feed's diff.
+
+## Championship (#273)
+
+- A solo season of the 4 races of `SEASON_CALENDAR` (`src/ui/season.ts`, pure, no engine): one human (car 1) against
+  the same named bots with a pinned style (`SeasonDriver`), F1 points, a tie to the most wins, then count-back, then the
+  last race. It lives in `localStorage["srp:season"]` (one at a time) and keeps each race's finishing order itself
+  (`result.order`, the recap's places from `RaceSession.recapInfo().order` = `finishOrder`), so the table outlives the
+  saved races (only the last 10 are kept); a result links to its recap while that saved race still exists.
+  `loadSeason` drops a broken one, and one on a retired rules version with a notice on the home card.
+- A season race is built from the season, never from the Quick race card: `getComposition()` in `main.ts` gives its
+  track, laps, seed and bots, and `seasonCars()` pins names, styles (`RaceSeat.style`) and the grid on the session
+  (`RaceSessionSetup.names/styles/grid`, through the `REG_SEASON_CARS` registry key). The cars and bot level are the
+  Quick race card's when "Start championship" is pressed; the rules are the default. The grid of race 3 is the
+  standings reversed (`seasonGrid`): `createRace(..., grid)` and `RaceLog.grid` take it, `replayRace` and the upload
+  accept it (`createRace` refuses a grid that is not one slot per car, so a bad upload is a 400).
+- No restart: Next race marks the race `started`; one that is not finished (back, the tab closed and reopened) is
+  scored as a forfeit by `forfeitUnfinished` (the human last, the bots keep their order), at page load and when the
+  race screen is left. Pages: the home card (`season_card.ts`), the results line, the standings (`season_page.ts`,
+  route `/season`).
+- The season is local only. The lobby season (same model, rows in `RaceStore` keyed by a season id, a seat keeps its
+  points, the host switches it on) is the second PR of #273.

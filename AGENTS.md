@@ -8,11 +8,14 @@ Project guide for Codex and other automation.
 - Race engine in `src/game/race/race_engine.ts` (no Phaser): validates and applies a turn, bots, pit penalties,
   laps and winner. Single-player (`RaceScene`) and the multiplayer server (`backend/`) both run it, so a rule
   change goes in `src/game/systems/*` or the engine, with tests, and applies to both.
-- Race log in `src/game/race/race_log.ts` (#169): a race is `{ seats, raceLaps, seed, rulesVersion, actions }`, and
+- Race log in `src/game/race/race_log.ts` (#169): a race is `{ seats, raceLaps, seed, rulesVersion, grid?, actions }` (`grid`: a season's reversed grid), and
   `replayRace` rebuilds every state from it (the engine is deterministic). The solo session (`raceLog()`, null online
   and after a sandbox edit) and the server (`ServerRace.log`, never in the public lobby) log each action `applyAction`
   accepts. A new way to change a race must be a logged action, or the replay tests (`race_log.test.ts`, the session
   test, `backend/test/race_log.contract.test.ts`) fail.
+- Championship (#273): a solo season of 4 races (`src/ui/season.ts`, `srp:season` in `localStorage`) with F1 points,
+  named bots with a pinned style, a reversed grid in race 3 (`RaceLog.grid`) and no restart (a quit race is a
+  forfeit). A new way to start a race from the season goes through `getComposition()`; see the race-recap skill.
 - Lazy chunks and deploys: the game, the recap and the replay are lazy chunks with hashed names, and a deploy removes the
   old ones, so a page loaded before it (an open tab, a home-screen app on an older copy) fails with "Importing a module
   script failed". Every lazy `import()` in `main.ts` goes through `importFresh` (`src/ui/lazy.ts`): it reloads the page
