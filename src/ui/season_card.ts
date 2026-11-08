@@ -17,19 +17,22 @@ export interface SeasonCardCallbacks {
   onAbandon: () => void;
 }
 
-function humanRow(season: Season): StandingRow | undefined {
-  return seasonStandings(season).find((row) => row.driver.human);
+// The row of `carId` (a lobby player's seat); solo has no id: its one human.
+function myRow(season: Season, carId?: number): StandingRow | undefined {
+  return seasonStandings(season).find((row) =>
+    carId === undefined ? row.driver.human : row.driver.carId === carId
+  );
 }
 
-function youAre(season: Season): string {
-  const me = humanRow(season);
+function youAre(season: Season, carId?: number): string {
+  const me = myRow(season, carId);
   return me ? `you are P${me.rank}, ${me.points} points` : '';
 }
 
 /** "Race 2 of 4 · Big oval, 3 laps · you are P3, 12 points", or the champion once it is over. */
-export function seasonStatus(season: Season): string {
+export function seasonStatus(season: Season, carId?: number): string {
   const next = nextRaceIndex(season);
-  if (next === null) return `Champion: ${champion(season)?.name ?? '?'} · ${youAre(season)}`;
+  if (next === null) return `Champion: ${champion(season)?.name ?? '?'} · ${youAre(season, carId)}`;
   const race = season.races[next];
   if (!race) return '';
   const laps = `${race.raceLaps} ${race.raceLaps === 1 ? 'lap' : 'laps'}`;
@@ -37,13 +40,13 @@ export function seasonStatus(season: Season): string {
     `Race ${next + 1} of ${season.races.length}`,
     `${trackName(race.trackId)}, ${laps}${race.reversedGrid ? ', reversed grid' : ''}`
   ];
-  if (seasonStandings(season).some((row) => row.points > 0)) parts.push(youAre(season));
+  if (seasonStandings(season).some((row) => row.points > 0)) parts.push(youAre(season, carId));
   return parts.join(' · ');
 }
 
 /** What the results screen says after race `raceIndex`: the points it gave and the place in the table, or the champion. */
-export function seasonResultLine(season: Season, raceIndex: number): string {
-  const me = humanRow(season);
+export function seasonResultLine(season: Season, raceIndex: number, carId?: number): string {
+  const me = myRow(season, carId);
   if (!me) return '';
   if (isSeasonFinished(season)) {
     return `Championship over: ${champion(season)?.name ?? '?'} wins · you finish P${me.rank} with ${me.points} points`;

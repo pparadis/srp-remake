@@ -42,5 +42,7 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
   scored as a forfeit by `forfeitUnfinished` (the human last, the bots keep their order), at page load and when the
   race screen is left. Pages: the home card (`season_card.ts`), the results line, the standings (`season_page.ts`,
   route `/season`).
-- The season is local only. The lobby season (same model, rows in `RaceStore` keyed by a season id, a seat keeps its
-  points, the host switches it on) is the second PR of #273.
+- The solo season is local; the lobby season is the server's (see the online-sessions skill) and the page only shows
+  it: `/season` shows `lastLobby.season` while online (Back returns to the lobby), the results line is
+  `seasonResultLine(season, lastRaceWithAResult, mySeatCarId)`, and the host's Play again reads "Next race" (the
+  Next race button of the solo card is hidden online).

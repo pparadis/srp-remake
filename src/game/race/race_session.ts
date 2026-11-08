@@ -61,8 +61,11 @@ import type { SetupFeatures } from '../systems/setup_edit';
 import type { AppliedTurnSummary, PublicLobby, TurnSource } from '../../net/backend_api';
 import { toEngineRace } from '../../net/race_sync';
 import { logAction, startRaceLog, type RaceLog } from './race_log';
+import type { SeasonCars } from './season_cars';
 
-export interface RaceSessionSetup {
+export type { SeasonCars };
+
+export interface RaceSessionSetup extends SeasonCars {
   totalCars: number;
   humanCars: number;
   botCars: number;
@@ -71,18 +74,9 @@ export interface RaceSessionSetup {
   seed?: number;
   /** The movement rules to play on (solo; an online race plays what the server plays). */
   rulesVersion?: RulesVersion;
-  names?: string[];
-  styles?: PersonalityKey[];
-  grid?: number[];
   /** `?sandbox`: starts in edit mode. */
   sandbox?: boolean;
 }
-
-/**
- * What a season race (#273) pins on its cars, by car index (car 1 is index 0): the names shown, the styles the bots
- * play, and the grid slot of each car when it is not the seed's (the reversed grid).
- */
-export type SeasonCars = Pick<RaceSessionSetup, 'names' | 'styles' | 'grid'>;
 
 /** What only the scene knows, for the HUD snapshot. */
 export interface HudView {

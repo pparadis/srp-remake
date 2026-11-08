@@ -11,6 +11,21 @@ description: Online play and backend guide: turn timer, lobby settings (every si
 - A new lobby setting must be threaded through every site: `backend/src/types.ts`, the zod patch schema AND
   `toSettingsPatch` in `server.ts`, `DEFAULT_SETTINGS` + `normalizeSettings` in `lobby_store.ts`, the client type
   in `src/net/backend_api.ts`, `index.html`, `src/main.ts`, and tests that assert on settings.
+- Lobby championship (#273): the host switches `settings.season`; the server then plays the fixed 4-race calendar
+  (`SEASON_CALENDAR`), the same seats all season. `LobbyStore.beginSeasonRace` makes the `Season` (`newSeason`, humans
+  first as cars 1..humanCars, then the bots with pinned names and styles; the id is a `randomUUID`, since it picks the
+  season up again), renames the humans from the players and sets the settings' track and laps from the calendar;
+  `buildInitialRace` uses the season race's seed, the season's rules version and, in race 3, the reversed grid.
+  `humanCars`, `botCars`, `totalCars`, `botLevel`, the track, the laps and `season` itself are 409 once race 1 has
+  started and until the season is over (`SEASON_FIXED`); a player who joins takes a seat and its points. A race that
+  is won is scored by `recordSeasonResult` in `announceTurn` before anyone is told, so the final broadcast carries the
+  table; a host who is gone mid-race forfeits it (`terminateForHost`). Every change is kept with `keepSeason`
+  (`RaceStore.saveSeason`, the `seasons` table in `PgRaceStore`, newest `MAX_STORED_SEASONS` kept, fire-and-forget
+  like the history). `POST /lobbies` with `resumeSeasonId` opens a new lobby on a stored season (404 unknown, 409 over,
+  retired or held by a live lobby, 503 store down; the race that was running counts as a forfeit). The browser keeps
+  only `srp:online-season` (id and a line) for the home card's "Resume in a new lobby". Tests:
+  `backend/test/season.contract.test.ts`, the season cases of `realtime.test.ts`, `lobby_store.test.ts` and
+  `race_store.test.ts`, and the championship cases of `src/main.multiplayer.test.ts`.
 - Rename (#78): every player has a "Racing as" field in the lobby card (`lobby-name`); `PATCH /lobbies/:id/player`
   `{ name }` (same 1-32 name rule, 60 a minute, 401 bad token, 409 once the race has started: names are
   copied into the race) broadcasts `lobby.state`. The name goes to `srp:name` and the home field, so a reload rejoins

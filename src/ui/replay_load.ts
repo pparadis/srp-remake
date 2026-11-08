@@ -67,7 +67,8 @@ export async function buildReplay(saved: SavedRace, baseUrl: string): Promise<Re
           botCars: 0,
           raceLaps: saved.log.raceLaps,
           turnTimerSec: 0,
-          botLevel: 'normal'
+          botLevel: 'normal',
+          season: false
         },
         players: [],
         raceState: publicRace(states, index, saved)

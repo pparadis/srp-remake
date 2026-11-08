@@ -16,6 +16,8 @@ Project guide for Codex and other automation.
 - Championship (#273): a solo season of 4 races (`src/ui/season.ts`, `srp:season` in `localStorage`) with F1 points,
   named bots with a pinned style, a reversed grid in race 3 (`RaceLog.grid`) and no restart (a quit race is a
   forfeit). A new way to start a race from the season goes through `getComposition()`; see the race-recap skill.
+  A lobby can run one too (`settings.season`, `Lobby.season`, rows in `RaceStore` keyed by an unguessable season id,
+  resumed in a new lobby by `resumeSeasonId`): see the online-sessions skill.
 - Lazy chunks and deploys: the game, the recap and the replay are lazy chunks with hashed names, and a deploy removes the
   old ones, so a page loaded before it (an open tab, a home-screen app on an older copy) fails with "Importing a module
   script failed". Every lazy `import()` in `main.ts` goes through `importFresh` (`src/ui/lazy.ts`): it reloads the page

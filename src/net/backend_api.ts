@@ -2,6 +2,7 @@ import type { RaceAction, RejectReason } from '../game/race/race_engine';
 import type { RaceLog } from '../game/race/race_log';
 import type { RulesVersion } from '../game/rules/ids';
 import type { BotLevel, Car } from '../game/types/car';
+import type { Season } from '../ui/season';
 
 // What a client submits for its turn; identical to the race engine's action.
 export type BackendTurnAction = RaceAction;
@@ -69,7 +70,11 @@ export interface PublicLobby {
     raceLaps: number;
     turnTimerSec: TurnTimerSec;
     botLevel: BotLevel;
+    /** A championship lobby (#273): the calendar's tracks and laps, the same cars all season. */
+    season: boolean;
   };
+  /** The championship's standings so far, once a race of it has started. */
+  season?: Season;
   players: Array<{
     playerId: string;
     name: string;
@@ -226,8 +231,17 @@ export class BackendApiClient {
     return payload as T;
   }
 
-  createLobby(name: string, settings: PublicLobby['settings']): Promise<CreateLobbyResponse> {
-    return this.request('POST', '/api/v1/lobbies', { name, settings });
+  /** `resumeSeasonId`: a new lobby that carries on the championship stored under that id (#273). */
+  createLobby(
+    name: string,
+    settings: PublicLobby['settings'],
+    resumeSeasonId?: string
+  ): Promise<CreateLobbyResponse> {
+    return this.request('POST', '/api/v1/lobbies', {
+      name,
+      settings,
+      ...(resumeSeasonId ? { resumeSeasonId } : {})
+    });
   }
 
   joinLobby(lobbyId: string, name: string, playerToken?: string): Promise<JoinLobbyResponse> {

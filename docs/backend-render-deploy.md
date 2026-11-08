@@ -113,6 +113,11 @@ seconds; the server never waits for it (an online race is stored after its end, 
 `POST /api/v1/races` (a solo upload) answers `503` while the database cannot be reached. The store is behind the
 `RaceStore` interface (`backend/src/race_store.ts`), so another database can replace Neon.
 
+The same store keeps the lobby championships (#273) in a second table, `seasons` (`id`, `updated_at`, `data jsonb`), made
+by the same first-use `create table if not exists`; the newest 500 are kept. A save failing (database waking up) is
+logged as `championship: not stored` and the next save writes the whole season again; `POST /api/v1/lobbies` with
+`resumeSeasonId` answers `503` while the database cannot be reached.
+
 - `POST /api/v1/races` `{ trackId?, log }`: the server **replays the log with the engine** and keeps it only if every
   action is legal and the race has a winner (`400` otherwise, `413` over 128 KB). Same race twice: `200 { duplicate }`.
   10 a minute per IP.

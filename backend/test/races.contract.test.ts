@@ -188,6 +188,8 @@ test('a store that is down costs a solo upload a 503 and an online race nothing'
     insert: () => Promise.reject(new Error('database is asleep')),
     list: () => Promise.reject(new Error('database is asleep')),
     get: () => Promise.reject(new Error('database is asleep')),
+    saveSeason: () => Promise.reject(new Error('database is asleep')),
+    loadSeason: () => Promise.reject(new Error('database is asleep')),
     close: () => Promise.resolve()
   };
   const { app, upload } = await start(t, down);

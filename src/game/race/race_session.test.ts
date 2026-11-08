@@ -636,7 +636,8 @@ function lobbyOf(race: RaceState, over: Partial<PublicLobby> = {}): PublicLobby 
       botCars: race.cars.filter((c) => c.isBot).length,
       raceLaps: race.raceLaps,
       turnTimerSec: 60,
-      botLevel: 'normal'
+      botLevel: 'normal',
+      season: false
     },
     players: PLAYERS.map((p, seatIndex) => ({
       ...p,

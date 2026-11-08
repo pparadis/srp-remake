@@ -8,7 +8,8 @@ import {
   type BackendConfig
 } from './config.js';
 import { toPublicLobby, type LobbyStore } from './lobby_store.js';
-import type { RaceStore } from './race_store.js';
+import { raceId, scrubLog, type RaceStore } from './race_store.js';
+import type { Season } from '../../src/ui/season';
 import { MAX_LOGGED_ACTIONS } from '../../src/game/race/limits';
 import { activeSeatIndex } from '../../src/game/race/race_engine';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
@@ -205,6 +206,8 @@ export function createRealtime(options: RealtimeOptions) {
 
   function terminateForHost(lobbyId: string) {
     clearTurnTimer(lobbyId);
+    // a championship race that was running cannot be finished now: it counts as a forfeit (#273)
+    keepSeason(lobbyStore.forfeitSeason(lobbyId));
     const ended = lobbyStore.terminateLobby(lobbyId, 'host_disconnected');
     logMultiplayer('race.end', {
       lobbyId,
@@ -230,13 +233,34 @@ export function createRealtime(options: RealtimeOptions) {
     hostGraceTimers.set(lobbyId, timer);
   }
 
+  // A lobby's championship is kept by the race store (#273) so it outlives the lobby; after the broadcast's work and never
+  // awaited, like the history: a database that is waking up must not delay anyone, and a failure only loses a save (the
+  // next one writes the whole season again).
+  function keepSeason(season: Season | undefined) {
+    if (!season) return;
+    raceStore.saveSeason(season).catch((error: unknown) => {
+      log.warn({ err: error, seasonId: season.id }, 'championship: not stored');
+    });
+  }
+
+  // The race that just finished goes into the championship before anyone is told, so the final state carries the table.
+  function recordSeasonResult(lobby: Lobby) {
+    const race = lobby.race;
+    if (!race || race.seasonIndex === undefined) return;
+    // The race is kept in the history under this id; one too long for it has no recap to link
+    const savedRaceId =
+      race.log.actions.length > MAX_LOGGED_ACTIONS ? null : raceId(scrubLog(race.log));
+    keepSeason(lobbyStore.recordSeasonResult(lobby.lobbyId, savedRaceId));
+  }
+
   // After an applied turn: tell everyone, and close the race when someone won.
   function announceTurn(lobby: Lobby, event: AppliedTurnEvent) {
     // A grid setup does not end the turn: the same player plays on, and their timer keeps running (#141).
     if (event.applied.type !== 'setup') armTurnTimer(lobby.lobbyId);
+    const winnerCarId = lobby.race?.engine.winnerCarId ?? null;
+    if (winnerCarId !== null) recordSeasonResult(lobby);
     broadcast(lobby.lobbyId, 'turn.applied', event);
     broadcast(lobby.lobbyId, 'race.state', toPublicLobby(lobby));
-    const winnerCarId = lobby.race?.engine.winnerCarId ?? null;
     if (winnerCarId !== null) {
       logMultiplayer('race.end', {
         lobbyId: lobby.lobbyId,
@@ -424,6 +448,7 @@ export function createRealtime(options: RealtimeOptions) {
     playBotTurnFor,
     runPendingBotTurns,
     announceTurn,
+    keepSeason,
     reapDeadLobbies,
     start,
     stop
