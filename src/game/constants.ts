@@ -9,6 +9,8 @@ export const REG_RULES_VERSION = 'rulesVersion';
 export const REG_SANDBOX = 'sandbox';
 export const REG_POSITION = 'position';
 export const REG_ANIMATE = 'animate';
+// A season race's names, styles and grid (#273): a SeasonCars, absent outside a season.
+export const REG_SEASON_CARS = 'seasonCars';
 export const PIT_LANE = 0;
 export const MAIN_LANES = [1, 2, 3] as const;
 export const INNER_MAIN_LANE = MAIN_LANES[0];

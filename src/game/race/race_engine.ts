@@ -95,13 +95,28 @@ export function createRaceContext(track: TrackData): RaceContext {
   return { track, trackIndex, cellMap: trackIndex.cellMap };
 }
 
+/** A grid is each car's slot, 0 to n - 1, none twice. */
+export function isGrid(grid: number[], n: number): boolean {
+  return (
+    grid.length === n &&
+    new Set(grid).size === n &&
+    grid.every((s) => Number.isInteger(s) && s >= 0 && s < n)
+  );
+}
+
 export function createRace(
   ctx: RaceContext,
   seats: RaceSeat[],
   raceLaps: number,
   seed = 0,
-  rulesVersion: RulesVersion = DEFAULT_RULES_VERSION
+  rulesVersion: RulesVersion = DEFAULT_RULES_VERSION,
+  // The grid slot of each car (a permutation of 0..seats - 1), for a race whose grid is not the seed's (a season's
+  // reversed grid); `gridSlots(seed)` when absent.
+  grid?: number[]
 ): RaceState {
+  if (grid && !isGrid(grid, seats.length)) {
+    throw new Error(`Grid must give each of the ${seats.length} cars its own slot.`);
+  }
   const { cars } = spawnCars(
     ctx.track,
     {
@@ -109,7 +124,8 @@ export function createRace(
       humanCount: seats.length,
       botCount: 0
     },
-    seed
+    seed,
+    grid
   );
   if (cars.length !== seats.length) {
     throw new Error(`Track has room for ${cars.length} cars, ${seats.length} requested.`);
@@ -132,7 +148,7 @@ export function createRace(
   }
   return {
     cars,
-    turn: { order: turnOrderOf(seed, cars.length), index: 0 },
+    turn: { order: turnOrderOf(seed, cars.length, grid), index: 0 },
     raceLaps,
     winnerCarId: null,
     seed,

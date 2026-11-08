@@ -1,7 +1,7 @@
 // The recap of a finished race (#169), built from its action log: per car (setup, pit choices, moves) and per turn.
 // Pure, no Phaser. Every number comes from replaying the log, so solo and online, bots and humans, all say the same,
 // and the move points are exact (the live HUD only knows them while the car's move cycle has not rolled over).
-import { computeTargets, type RaceContext } from '../race/race_engine';
+import { computeTargets, type RaceContext, type RaceState } from '../race/race_engine';
 import { replaySteps, type RaceLog } from '../race/race_log';
 import { must } from '../must';
 import type { BotLevel, Car, CarSetup } from '../types/car';
@@ -93,15 +93,34 @@ export interface RaceRecap {
 }
 
 /** Builds the recap of `log`; `nameOf` gives a car its name (the log only holds seats). Throws if the log does not replay. */
+// Laps and lap position as one distance, the unit of the recap's places.
+function progressIn({ trackIndex, cellMap }: RaceContext, car: Car): number {
+  return (
+    (car.lapCount ?? 0) * trackIndex.spineLen +
+    rankPosition(trackIndex, must(cellMap.get(car.cellId), 'cell of a car'))
+  );
+}
+
+/** The car ids of a finished race in the recap's places: the winner first (the first across the line), then by distance. */
+export function finishOrder(ctx: RaceContext, state: RaceState): number[] {
+  return [...state.cars]
+    .sort((a, b) =>
+      a.carId === state.winnerCarId
+        ? -1
+        : b.carId === state.winnerCarId
+          ? 1
+          : progressIn(ctx, b) - progressIn(ctx, a)
+    )
+    .map((car) => car.carId);
+}
+
 export function raceRecap(
   ctx: RaceContext,
   log: RaceLog,
   nameOf: (carId: number) => string = (carId) => `Car ${carId}`
 ): RaceRecap {
-  const { trackIndex, cellMap } = ctx;
-  const progress = (car: Car) =>
-    (car.lapCount ?? 0) * trackIndex.spineLen +
-    rankPosition(trackIndex, must(cellMap.get(car.cellId), 'cell of a car'));
+  const { cellMap } = ctx;
+  const progress = (car: Car) => progressIn(ctx, car);
   const steps = replaySteps(ctx, log);
   const grid = steps[0]?.before;
   if (!grid) throw new Error('A race log with no action has no recap.');
@@ -220,11 +239,11 @@ export function raceRecap(
   });
 
   const end = must(steps.at(-1), 'last step').after;
-  // The winner first (the first across the line), then by distance covered.
-  const finishing = [...end.cars].sort((a, b) =>
-    a.carId === end.winnerCarId ? -1 : b.carId === end.winnerCarId ? 1 : progress(b) - progress(a)
-  );
-  finishing.forEach((car, i) => {
+  finishOrder(ctx, end).forEach((carId, i) => {
+    const car = must(
+      end.cars.find((c) => c.carId === carId),
+      'car of the finish order'
+    );
     const entry = recapOf(car.carId);
     entry.place = i + 1;
     entry.winner = car.carId === end.winnerCarId;

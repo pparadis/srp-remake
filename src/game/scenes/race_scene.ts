@@ -16,6 +16,7 @@ import {
   REG_RACE_LAPS,
   REG_SANDBOX,
   REG_RULES_VERSION,
+  REG_SEASON_CARS,
   REG_SEED,
   REG_TOTAL_CARS
 } from '../constants';
@@ -26,7 +27,12 @@ import { Confetti } from './ui/confetti';
 import { carSprite } from '../systems/spawn_system';
 import type { RaceAction } from '../race/race_engine';
 import { DEFAULT_RULES_VERSION, type RulesVersion } from '../rules/versions';
-import { RaceSession, SERVER_WAIT_MS, type MovePreview } from '../race/race_session';
+import {
+  RaceSession,
+  SERVER_WAIT_MS,
+  type MovePreview,
+  type SeasonCars
+} from '../race/race_session';
 import { positionAsTest, type CarEdit } from '../race/sandbox';
 import type { SandboxCommand } from '../../ui/sandbox_panel';
 import { validateTrack } from '../../validation/track_validation';
@@ -265,6 +271,7 @@ export class RaceScene extends Phaser.Scene {
       seed: (this.registry.get(REG_SEED) as number | undefined) ?? 0,
       rulesVersion:
         (this.registry.get(REG_RULES_VERSION) as RulesVersion | undefined) ?? DEFAULT_RULES_VERSION,
+      ...((this.registry.get(REG_SEASON_CARS) as SeasonCars | null | undefined) ?? {}),
       sandbox: this.registry.get(REG_SANDBOX) === true
     });
     this.cellMap = this.session.cellMap;

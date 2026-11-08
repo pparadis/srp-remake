@@ -9,10 +9,10 @@ import {
   type RaceAction,
   type RaceSeat
 } from '../race/race_engine';
-import { logAction, startRaceLog, type RaceLog } from '../race/race_log';
+import { logAction, replayEnd, startRaceLog, type RaceLog } from '../race/race_log';
 import type { RulesVersion } from '../rules/ids';
 import type { TrackData } from '../types/track';
-import { raceRecap } from './race_recap';
+import { finishOrder, raceRecap } from './race_recap';
 
 const ctx = createRaceContext(track as unknown as TrackData);
 
@@ -109,5 +109,17 @@ describe('raceRecap (#169)', () => {
 
   it('refuses a log with nothing in it', () => {
     expect(() => raceRecap(ctx, startRaceLog(SEATS, 1, 0, 'v3'))).toThrow(/no action/);
+  });
+});
+
+describe('finishOrder (#273)', () => {
+  it('is the recap places, winner first, on seeded bot races', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const log = playRace('v4', seed, 3);
+      const end = replayEnd(ctx, log);
+      const recap = raceRecap(ctx, log);
+      expect(finishOrder(ctx, end)).toEqual(recap.cars.map((car) => car.carId));
+      expect(finishOrder(ctx, end)[0]).toBe(end.winnerCarId);
+    }
   });
 });

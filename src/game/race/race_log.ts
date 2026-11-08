@@ -19,17 +19,27 @@ export interface RaceLog {
   raceLaps: number;
   seed: number;
   rulesVersion: RulesVersion;
+  /** The grid slot of each car when it is not the seed's (a season's reversed grid, #273); absent: the seed's. */
+  grid?: number[];
   actions: RaceAction[];
 }
 
-/** Starts the log of a race made with `createRace(ctx, seats, raceLaps, seed, rulesVersion)`. */
+/** Starts the log of a race made with `createRace(ctx, seats, raceLaps, seed, rulesVersion, grid)`. */
 export function startRaceLog(
   seats: RaceSeat[],
   raceLaps: number,
   seed: number,
-  rulesVersion: RulesVersion
+  rulesVersion: RulesVersion,
+  grid?: number[]
 ): RaceLog {
-  return { seats: structuredClone(seats), raceLaps, seed, rulesVersion, actions: [] };
+  return {
+    seats: structuredClone(seats),
+    raceLaps,
+    seed,
+    rulesVersion,
+    ...(grid ? { grid: [...grid] } : {}),
+    actions: []
+  };
 }
 
 /** Records an action the engine accepted (a copy: the caller's setup object may change later). */
@@ -50,7 +60,7 @@ export interface ReplayStep {
  * it was recorded from.
  */
 export function replaySteps(ctx: RaceContext, log: RaceLog): ReplayStep[] {
-  const state = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion);
+  const state = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion, log.grid);
   let before = structuredClone(state);
   return log.actions.map((action, i) => {
     const result = applyAction(ctx, state, action);
@@ -67,7 +77,7 @@ export function replaySteps(ctx: RaceContext, log: RaceLog): ReplayStep[] {
  * Throws as `replaySteps` does.
  */
 export function replayEnd(ctx: RaceContext, log: RaceLog): RaceState {
-  const state = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion);
+  const state = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion, log.grid);
   log.actions.forEach((action, i) => {
     const result = applyAction(ctx, state, action);
     if (!result.ok) throw new Error(`Race log action ${i} refused on replay (${result.reason}).`);
@@ -77,6 +87,6 @@ export function replayEnd(ctx: RaceContext, log: RaceLog): RaceState {
 
 /** Every state of the race: `states[0]` is the grid, `states[i]` the race after `actions[i - 1]`. */
 export function replayRace(ctx: RaceContext, log: RaceLog): RaceState[] {
-  const grid = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion);
+  const grid = createRace(ctx, log.seats, log.raceLaps, log.seed, log.rulesVersion, log.grid);
   return [grid, ...replaySteps(ctx, log).map((step) => step.after)];
 }
