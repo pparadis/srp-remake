@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 import pg from 'pg';
 import { newDb } from 'pg-mem';
 import track from '../../public/tracks/oval16_3lanes.json';
@@ -321,6 +322,7 @@ for (const [name, make] of seasonStores) {
     await Promise.all([store.saveSeason(season), store.saveSeason(started)]);
     const kept = await store.loadSeason('racing');
     assert.ok(kept);
-    assert.ok([season, started].some((s) => JSON.stringify(s) === JSON.stringify(kept)));
+    // not compared as text: jsonb keeps its own key order
+    assert.ok([season, started].some((s) => isDeepStrictEqual(s, kept)));
   });
 }
