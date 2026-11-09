@@ -14,7 +14,7 @@ import { must } from './game/must';
 import { fpsText, startFpsMeter } from './ui/fps_meter';
 import { currentlyMuted, initSound, setMuted } from './ui/sound';
 import { mountSandboxPanel } from './ui/sandbox_panel';
-import { randomPlayerName } from './ui/player_name';
+import { randomPlayerName } from './game/player_name';
 import { createChat, isChatMessage } from './ui/chat';
 import { isCompactHud } from './ui/layout';
 import { isTypingTarget } from './ui/typing';
@@ -27,21 +27,23 @@ import { mountHistoryPage } from './ui/history_page';
 import { mountSeasonPage } from './ui/season_page';
 import { renderSeasonCard, seasonResultLine, seasonStatus } from './ui/season_card';
 import {
-  clearSeason,
   forfeitUnfinished,
   isSeasonFinished,
-  loadOnlineSeason,
-  loadSeason,
   newSeason,
   nextRaceIndex,
   recordResult,
-  rememberOnlineSeason,
   SEASON_CALENDAR,
-  saveSeason,
   seasonCars,
   startSeasonRace,
   type Season
-} from './ui/season';
+} from './game/season';
+import {
+  clearSeason,
+  loadOnlineSeason,
+  loadSeason,
+  rememberOnlineSeason,
+  saveSeason
+} from './ui/season_store';
 import type { SeasonCars } from './game/race/race_session';
 import { importFresh } from './ui/lazy';
 import { listSavedRaces, loadSavedRace, saveRace, type SavedRace } from './ui/recap_store';
@@ -1192,6 +1194,10 @@ function applyLobbyState(lobby: PublicLobby, source: string) {
   if (lobby.lobbyId !== backendSession.lobbyId) return;
   backendSession.revision = Math.max(backendSession.revision, lobby.revision);
   backendSession.isHost = lobby.hostPlayerId === backendSession.playerId;
+  // The server leaves the championship out of the `race.state` of each turn: the table is the one we have
+  if (!lobby.season && lobby.settings.season && lobby.status === 'IN_RACE' && lastLobby?.season) {
+    lobby = { ...lobby, season: lastLobby.season };
+  }
   lastLobby = lobby;
   const remainingMs = lobby.status === 'IN_RACE' ? lobby.raceState?.turnRemainingMs : undefined;
   turnDeadlineAt = remainingMs === undefined ? null : Date.now() + remainingMs;
@@ -1434,6 +1440,18 @@ function openSession(
   void connectBackendSocket(reason);
 }
 
+// What a lobby starts with; the host changes it in the lobby (a resumed championship brings its own).
+const DEFAULT_ONLINE_SETTINGS: PublicLobby['settings'] = {
+  trackId: DEFAULT_TRACK_ID,
+  totalCars: 2,
+  humanCars: 2,
+  botCars: 0,
+  raceLaps: 5,
+  turnTimerSec: 60,
+  botLevel: 'normal',
+  season: false
+};
+
 async function hostLobby() {
   if (backendBusy) return;
   showNotice(null);
@@ -1446,16 +1464,7 @@ async function hostLobby() {
   logMultiplayerClient('lobby.host.start');
   try {
     const created = await withWakeNotice(
-      backendClient.createLobby(getPlayerName(), {
-        trackId: DEFAULT_TRACK_ID,
-        totalCars: 2,
-        humanCars: 2,
-        botCars: 0,
-        raceLaps: 5,
-        turnTimerSec: 60,
-        botLevel: 'normal',
-        season: false
-      })
+      backendClient.createLobby(getPlayerName(), DEFAULT_ONLINE_SETTINGS)
     );
     mode = 'online';
     openSession(created, 'host');
@@ -1485,16 +1494,7 @@ async function resumeOnlineSeason() {
     const created = await withWakeNotice(
       backendClient.createLobby(
         getPlayerName(),
-        {
-          trackId: DEFAULT_TRACK_ID,
-          totalCars: 2,
-          humanCars: 2,
-          botCars: 0,
-          raceLaps: 5,
-          turnTimerSec: 60,
-          botLevel: 'normal',
-          season: true
-        },
+        { ...DEFAULT_ONLINE_SETTINGS, season: true },
         ref.id
       )
     );
@@ -1504,12 +1504,17 @@ async function resumeOnlineSeason() {
   } catch (error) {
     const status = error instanceof BackendApiError ? error.status : 0;
     if (status === 404 || status === 409) {
-      // gone, finished, on retired rules or already in an open lobby: either way not resumable from here
-      if (status === 404) rememberOnlineSeason(null, '');
+      // Only a lobby that is still open is a reason to keep the card: the others (gone, finished, retired) will not change
+      const busy =
+        error instanceof BackendApiError &&
+        (error.payload as { code?: unknown } | null)?.code === 'season_running';
+      if (!busy) rememberOnlineSeason(null, '');
       showNotice(
         status === 404
           ? 'That championship is no longer stored on the server.'
-          : 'That championship cannot be resumed: it is finished, retired or already in an open lobby.'
+          : busy
+            ? 'That championship is already running in an open lobby.'
+            : 'That championship cannot be resumed: it is finished or on rules that are gone.'
       );
       renderHome();
     } else {

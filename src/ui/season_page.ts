@@ -1,6 +1,6 @@
 import { PERSONALITIES } from '../game/systems/bot_style';
 import { trackName } from '../game/track_ids';
-import { champion, placePoints, seasonStandings, type Season } from './season';
+import { champion, placePoints, seasonStandings, type Season } from '../game/season';
 
 // The standings of the championship (#273): drivers by points, one column per race with the place and the points. DOM
 // only, no engine. Every name goes in as text.

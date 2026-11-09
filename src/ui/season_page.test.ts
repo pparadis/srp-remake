@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from 'vitest';
 import { mountSeasonPage } from './season_page';
-import { newSeason, recordResult, type Season } from './season';
+import { newSeason, recordResult, type Season } from '../game/season';
 
 function page(hasRecap: (id: string) => boolean = () => true) {
   const root = document.createElement('div');

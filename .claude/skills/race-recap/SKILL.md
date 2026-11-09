@@ -26,7 +26,7 @@ names, trackId }` to a seated player once somebody has won (409 before, 401 bad 
 
 ## Championship (#273)
 
-- A solo season of the 4 races of `SEASON_CALENDAR` (`src/ui/season.ts`, pure, no engine): one human (car 1) against
+- A solo season of the 4 races of `SEASON_CALENDAR` (`src/game/season.ts`, pure, no engine; the browser's copy is `src/ui/season_store.ts`): one human (car 1) against
   the same named bots with a pinned style (`SeasonDriver`), F1 points, a tie to the most wins, then count-back, then the
   last race. It lives in `localStorage["srp:season"]` (one at a time) and keeps each race's finishing order itself
   (`result.order`, the recap's places from `RaceSession.recapInfo().order` = `finishOrder`), so the table outlives the

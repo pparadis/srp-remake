@@ -2,7 +2,7 @@ import type { RaceAction, RejectReason } from '../game/race/race_engine';
 import type { RaceLog } from '../game/race/race_log';
 import type { RulesVersion } from '../game/rules/ids';
 import type { BotLevel, Car } from '../game/types/car';
-import type { Season } from '../ui/season';
+import type { Season } from '../game/season';
 
 // What a client submits for its turn; identical to the race engine's action.
 export type BackendTurnAction = RaceAction;

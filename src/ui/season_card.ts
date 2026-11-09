@@ -7,7 +7,7 @@ import {
   seasonStandings,
   type Season,
   type StandingRow
-} from './season';
+} from '../game/season';
 
 // The home screen's Championship card and the line the results screen adds (#273). DOM and text only.
 export interface SeasonCardCallbacks {

@@ -9,7 +9,7 @@ import {
 } from './config.js';
 import { toPublicLobby, type LobbyStore } from './lobby_store.js';
 import { raceId, scrubLog, type RaceStore } from './race_store.js';
-import type { Season } from '../../src/ui/season';
+import type { Season } from '../../src/game/season';
 import { MAX_LOGGED_ACTIONS } from '../../src/game/race/limits';
 import { activeSeatIndex } from '../../src/game/race/race_engine';
 import type { BotPolicy } from '../../src/game/systems/bot_system';
@@ -235,12 +235,20 @@ export function createRealtime(options: RealtimeOptions) {
 
   // A lobby's championship is kept by the race store (#273) so it outlives the lobby; after the broadcast's work and never
   // awaited, like the history: a database that is waking up must not delay anyone, and a failure only loses a save (the
-  // next one writes the whole season again).
+  // next one writes the whole season again). The saves of one season run one after the other, so a slow older one cannot
+  // land after a newer one.
+  const seasonSaves = new Map<string, Promise<void>>();
   function keepSeason(season: Season | undefined) {
     if (!season) return;
-    raceStore.saveSeason(season).catch((error: unknown) => {
-      log.warn({ err: error, seasonId: season.id }, 'championship: not stored');
-    });
+    const save: Promise<void> = (seasonSaves.get(season.id) ?? Promise.resolve())
+      .then(() => raceStore.saveSeason(season))
+      .catch((error: unknown) => {
+        log.warn({ err: error, seasonId: season.id }, 'championship: not stored');
+      })
+      .finally(() => {
+        if (seasonSaves.get(season.id) === save) seasonSaves.delete(season.id);
+      });
+    seasonSaves.set(season.id, save);
   }
 
   // The race that just finished goes into the championship before anyone is told, so the final state carries the table.
@@ -260,7 +268,8 @@ export function createRealtime(options: RealtimeOptions) {
     const winnerCarId = lobby.race?.engine.winnerCarId ?? null;
     if (winnerCarId !== null) recordSeasonResult(lobby);
     broadcast(lobby.lobbyId, 'turn.applied', event);
-    broadcast(lobby.lobbyId, 'race.state', toPublicLobby(lobby));
+    // the table changes only when the race is won, which is the one `race.state` that carries it
+    broadcast(lobby.lobbyId, 'race.state', toPublicLobby(lobby, winnerCarId !== null));
     if (winnerCarId !== null) {
       logMultiplayer('race.end', {
         lobbyId: lobby.lobbyId,

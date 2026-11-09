@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseSeason, SEASON_CALENDAR, type Season } from '../../src/ui/season';
+import {
+  newSeason,
+  parseSeason,
+  SEASON_CALENDAR,
+  seasonStandings,
+  startSeasonRace,
+  type Season
+} from '../../src/game/season';
 import type { BackendConfig } from '../src/config.js';
 import { LobbyStore } from '../src/lobby_store.js';
 import { MemoryRaceStore, type RaceStore } from '../src/race_store.js';
@@ -138,4 +145,66 @@ test('a championship is resumed by its id: 404 unknown, 409 live, retired or fin
     (await down.post('/lobbies', { name: 'Back', resumeSeasonId: 'any' })).statusCode,
     503
   );
+});
+
+test('a seat keeps its points: a bot fills it when nobody sits there, a newcomer inherits it', async (t) => {
+  const { lobbyStore, raceStore, post, create, begin } = await start(t);
+  const pair = { ...SETTINGS, totalCars: 3, humanCars: 2, botCars: 1 };
+  const row = (season: Season, carId: number) =>
+    seasonStandings(season).find((r) => r.driver.carId === carId)!;
+  // the lobby ends with its race running (a forfeit); a new one carries the championship on
+  const close = async (lobbyId: string) => {
+    const kept = lobbyStore.forfeitSeason(lobbyId)!;
+    await raceStore.saveSeason(kept);
+    delete lobbyStore.getLobby(lobbyId)!.season; // the lobby no longer holds it
+    return kept;
+  };
+  const resume = async (id: string, name: string) => {
+    const res = await post('/lobbies', { name, resumeSeasonId: id });
+    assert.equal(res.statusCode, 201);
+    return res.json() as { lobby: PublicLobby; playerToken: string };
+  };
+
+  const first = await create({ settings: pair });
+  await post(`/lobbies/${first.lobby.lobbyId}/join`, { name: 'Guest' });
+  const season = (await begin(first.lobby.lobbyId, first.playerToken)).season!;
+  const forfeited = await close(first.lobby.lobbyId);
+
+  // resumed with the host alone: car 2 is a bot under its old name, and the table is as it was
+  const alone = await resume(season.id, 'Back');
+  const raced = (await begin(alone.lobby.lobbyId, alone.playerToken)).season!;
+  const seat = lobbyStore.getLobby(alone.lobby.lobbyId)!.race!.seats[1]!;
+  assert.equal(seat.playerId, null);
+  assert.equal(seat.name, 'Guest');
+  assert.equal(row(raced, 2).points, row(forfeited, 2).points);
+  assert.equal(raced.races[0]!.result?.forfeit, true);
+  await close(alone.lobby.lobbyId);
+
+  // resumed again, and somebody new joins before the race: they sit in seat 2 with its name and points
+  const again = await resume(season.id, 'Back');
+  await post(`/lobbies/${again.lobby.lobbyId}/join`, { name: 'Newbie' });
+  const before = lobbyStore.getLobby(again.lobby.lobbyId)!.season!;
+  const next = (await begin(again.lobby.lobbyId, again.playerToken)).season!;
+  assert.equal(next.drivers[1]!.name, 'Newbie');
+  assert.equal(row(next, 2).points, row(before, 2).points);
+  assert.equal(next.races[1]!.started, true);
+});
+
+test('two requests that resume one championship at once make one lobby, not two', async (t) => {
+  const store = new MemoryRaceStore();
+  const slow = Object.create(store) as MemoryRaceStore;
+  slow.loadSeason = async (id) => {
+    await new Promise((resolve) => setTimeout(resolve, 20)); // both have asked before either answer
+    return store.loadSeason(id);
+  };
+  const { post, raceStore } = await start(t, slow);
+  const season = startSeasonRace(newSeason(5, 1, 'normal', 'v4', 1000, 1, 'shared'), 0);
+  await raceStore.saveSeason(season);
+  const results = await Promise.all([
+    post('/lobbies', { name: 'A', resumeSeasonId: 'shared' }),
+    post('/lobbies', { name: 'B', resumeSeasonId: 'shared' })
+  ]);
+  assert.deepEqual(results.map((r) => r.statusCode).sort(), [201, 409]);
+  const refused = results.find((r) => r.statusCode === 409)!;
+  assert.equal((refused.json() as { code?: string }).code, 'season_running');
 });

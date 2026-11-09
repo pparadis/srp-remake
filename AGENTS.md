@@ -13,7 +13,7 @@ Project guide for Codex and other automation.
   and after a sandbox edit) and the server (`ServerRace.log`, never in the public lobby) log each action `applyAction`
   accepts. A new way to change a race must be a logged action, or the replay tests (`race_log.test.ts`, the session
   test, `backend/test/race_log.contract.test.ts`) fail.
-- Championship (#273): a solo season of 4 races (`src/ui/season.ts`, `srp:season` in `localStorage`) with F1 points,
+- Championship (#273): a solo season of 4 races (`src/game/season.ts`, kept in `srp:season` by `src/ui/season_store.ts`) with F1 points,
   named bots with a pinned style, a reversed grid in race 3 (`RaceLog.grid`) and no restart (a quit race is a
   forfeit). A new way to start a race from the season goes through `getComposition()`; see the race-recap skill.
   A lobby can run one too (`settings.season`, `Lobby.season`, rows in `RaceStore` keyed by an unguessable season id,

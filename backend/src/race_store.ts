@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import pg from 'pg';
 import type { RaceLog } from '../../src/game/race/race_log';
-import type { Season } from '../../src/ui/season';
+import type { Season } from '../../src/game/season';
 
 // The history of finished races (#170): an anonymous, append-only table of race logs (#169). A log is the whole race, so
 // nothing else is kept: no player names, no ids, no addresses.
@@ -344,19 +344,11 @@ export class PgRaceStore implements RaceStore {
 
   async saveSeason(season: Season): Promise<void> {
     await this.schema();
-    const data = JSON.stringify(season);
-    // Asked first, as `insert` does, rather than an upsert
-    const known = await this.pool.query('select 1 from seasons where id = $1', [season.id]);
-    if (known.rows.length > 0) {
-      await this.pool.query('update seasons set data = $2, updated_at = now() where id = $1', [
-        season.id,
-        data
-      ]);
-      return;
-    }
+    // One statement, so two saves of one id cannot both find no row and lose the second one
     await this.pool.query(
-      'insert into seasons (id, data) values ($1, $2) on conflict (id) do nothing',
-      [season.id, data]
+      `insert into seasons (id, data) values ($1, $2)
+         on conflict (id) do update set data = excluded.data, updated_at = now()`,
+      [season.id, JSON.stringify(season)]
     );
     await this.pool.query(
       `delete from seasons where id in

@@ -20,10 +20,15 @@ description: Online play and backend guide: turn timer, lobby settings (every si
   started and until the season is over (`SEASON_FIXED`); a player who joins takes a seat and its points. A race that
   is won is scored by `recordSeasonResult` in `announceTurn` before anyone is told, so the final broadcast carries the
   table; a host who is gone mid-race forfeits it (`terminateForHost`). Every change is kept with `keepSeason`
-  (`RaceStore.saveSeason`, the `seasons` table in `PgRaceStore`, newest `MAX_STORED_SEASONS` kept, fire-and-forget
-  like the history). `POST /lobbies` with `resumeSeasonId` opens a new lobby on a stored season (404 unknown, 409 over,
-  retired or held by a live lobby, 503 store down; the race that was running counts as a forfeit). The browser keeps
-  only `srp:online-season` (id and a line) for the home card's "Resume in a new lobby". Tests:
+  (`RaceStore.saveSeason`, an upsert into the `seasons` table of `PgRaceStore`, newest `MAX_STORED_SEASONS` kept,
+  fire-and-forget like the history, the saves of one season chained so they land in order). `POST /lobbies` with
+  `resumeSeasonId` opens a new lobby on a stored season (404 unknown, 409 over, retired or held by a live lobby, 503
+  store down; the race that was running counts as a forfeit; the live-lobby check comes right before the lobby is made,
+  with no `await` between, and its 409 carries `code: 'season_running'`, the one 409 after which the home card stays).
+  The browser keeps only `srp:online-season` (id and a line) for the home card's "Resume in a new lobby". The
+  `race.state` of each turn leaves the table out (`toPublicLobby(lobby, false)`); only the winning turn's carries it,
+  and `applyLobbyState` keeps the last one meanwhile. The backend bundles `src/game/season.ts` (and `player_name.ts`),
+  so they stay free of browser code; the `localStorage` side is `src/ui/season_store.ts`. Tests:
   `backend/test/season.contract.test.ts`, the season cases of `realtime.test.ts`, `lobby_store.test.ts` and
   `race_store.test.ts`, and the championship cases of `src/main.multiplayer.test.ts`.
 - Rename (#78): every player has a "Racing as" field in the lobby card (`lobby-name`); `PATCH /lobbies/:id/player`
@@ -31,7 +36,7 @@ description: Online play and backend guide: turn timer, lobby settings (every si
   copied into the race) broadcasts `lobby.state`. The name goes to `srp:name` and the home field, so a reload rejoins
   with it. A guest with no saved name gets the field focused with a hint, after the join's busy state clears (a
   disabled field cannot take focus). Not `/join`: that is the reconnect path. A player with no saved name gets a
-  Docker-style one (`src/ui/player_name.ts`, "steady_hairpin"), kept in `srp:name` and flagged `srp:name-auto` until
+  Docker-style one (`src/game/player_name.ts`, "steady_hairpin"), kept in `srp:name` and flagged `srp:name-auto` until
   they pick one, so the guest hint still shows for it.
 - Race length (#211): one limit, `MAX_RACE_LAPS` (50) in `src/game/race/limits.ts`, for the lobby settings schema,
   `lobby_store.ts`, the Laps field and the upload's `raceLogSchema`. A log over `MAX_LOGGED_ACTIONS` (2000) is the byte
