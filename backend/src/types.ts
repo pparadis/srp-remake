@@ -6,7 +6,7 @@ import type {
 import type { RaceLog } from '../../src/game/race/race_log';
 import type { RulesVersion } from '../../src/game/rules/ids';
 import { BOT_LEVELS, type BotLevel, type Car } from '../../src/game/types/car';
-import type { Season } from '../../src/ui/season';
+import type { Season } from '../../src/game/season';
 
 export const TURN_TIMER_CHOICES = [0, 30, 60, 120] as const;
 export type TurnTimerSec = (typeof TURN_TIMER_CHOICES)[number];

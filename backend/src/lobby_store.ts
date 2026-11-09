@@ -26,7 +26,7 @@ import {
   seasonGrid,
   startSeasonRace,
   type Season
-} from '../../src/ui/season';
+} from '../../src/game/season';
 import { getRaceContext, knownTrackIds } from './tracks.js';
 import type {
   ChatMessage,
@@ -156,7 +156,11 @@ function toPublicRaceState(lobby: Lobby): RaceState | undefined {
   };
 }
 
-export function toPublicLobby(lobby: Lobby): PublicLobby {
+/**
+ * The lobby as the clients see it. `withSeason: false` leaves the championship out: the table only changes between races,
+ * and the `race.state` of every turn would carry it again to every socket (#273).
+ */
+export function toPublicLobby(lobby: Lobby, withSeason = true): PublicLobby {
   const publicLobby: PublicLobby = {
     lobbyId: lobby.lobbyId,
     status: lobby.status,
@@ -168,7 +172,7 @@ export function toPublicLobby(lobby: Lobby): PublicLobby {
     players: lobby.players.map(toPublicPlayer)
   };
 
-  if (lobby.season) publicLobby.season = lobby.season;
+  if (lobby.season && withSeason) publicLobby.season = lobby.season;
   if (lobby.terminationReason !== undefined) {
     publicLobby.terminationReason = lobby.terminationReason;
   }
@@ -183,7 +187,9 @@ export function toPublicLobby(lobby: Lobby): PublicLobby {
 export class LobbyError extends Error {
   constructor(
     readonly statusCode: number,
-    message: string
+    message: string,
+    /** A reason a page can act on without reading the message. */
+    readonly code?: string
   ) {
     super(message);
   }

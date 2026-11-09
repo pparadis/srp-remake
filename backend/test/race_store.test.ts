@@ -12,7 +12,7 @@ import {
 } from '../../src/game/race/race_engine';
 import { logAction, replayRace, startRaceLog, type RaceLog } from '../../src/game/race/race_log';
 import type { TrackData } from '../../src/game/types/track';
-import { newSeason, startSeasonRace } from '../../src/ui/season';
+import { newSeason, startSeasonRace } from '../../src/game/season';
 import {
   MemoryRaceStore,
   PgRaceStore,
@@ -309,5 +309,18 @@ for (const [name, make] of seasonStores) {
     assert.equal(await store.loadSeason('two'), null);
     assert.ok(await store.loadSeason('one'));
     assert.ok(await store.loadSeason('three'));
+  });
+}
+
+for (const [name, make] of seasonStores) {
+  test(`${name}: two saves of a new season at once keep one of them`, async (t) => {
+    const store = await make(5);
+    t.after(() => store.close());
+    const season = newSeason(7, 3, 'normal', 'v4', 1000, 2, 'racing');
+    const started = startSeasonRace(season, 0);
+    await Promise.all([store.saveSeason(season), store.saveSeason(started)]);
+    const kept = await store.loadSeason('racing');
+    assert.ok(kept);
+    assert.ok([season, started].some((s) => JSON.stringify(s) === JSON.stringify(kept)));
   });
 }

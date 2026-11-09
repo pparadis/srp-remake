@@ -3,24 +3,26 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { isGrid } from '../game/race/race_engine';
 import {
   SEASON_CALENDAR,
-  SEASON_KEY,
   champion,
-  clearSeason,
   forfeitUnfinished,
   isSeasonFinished,
-  loadOnlineSeason,
-  loadSeason,
   newSeason,
   nextRaceIndex,
   recordResult,
-  rememberOnlineSeason,
   renameDrivers,
-  saveSeason,
   seasonGrid,
   seasonStandings,
   startSeasonRace,
   type Season
-} from './season';
+} from '../game/season';
+import {
+  SEASON_KEY,
+  clearSeason,
+  loadOnlineSeason,
+  loadSeason,
+  rememberOnlineSeason,
+  saveSeason
+} from './season_store';
 
 const season = (seed = 42, bots = 3) => newSeason(seed, bots, 'normal', 'v4', 1000);
 // A season with `orders` already run

@@ -17,7 +17,12 @@ import { MAX_LOGGED_ACTIONS, MAX_RACE_LAPS } from '../../src/game/race/limits';
 import { replayEnd, type RaceLog } from '../../src/game/race/race_log';
 import { RULES_VERSIONS } from '../../src/game/rules/ids';
 import { MAX_SEED } from '../../src/game/systems/bot_style';
-import { forfeitUnfinished, isSeasonFinished, parseSeason, type Season } from '../../src/ui/season';
+import {
+  forfeitUnfinished,
+  isSeasonFinished,
+  parseSeason,
+  type Season
+} from '../../src/game/season';
 import { BOT_LEVEL_CHOICES, type LobbySettings, type TurnCommandResult } from './types.js';
 
 const API_V1_PREFIX = '/api/v1';
@@ -347,7 +352,9 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof LobbyError) {
-      reply.code(error.statusCode).send({ error: error.message });
+      reply
+        .code(error.statusCode)
+        .send({ error: error.message, ...(error.code ? { code: error.code } : {}) });
       return;
     }
     if (error instanceof z.ZodError) {
@@ -390,10 +397,6 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   // A stored championship to carry on (#273): checked like anything the database gives back, a race that was running when
   // the last lobby went counts as a forfeit, and one that is over, or on rules that are gone, is refused.
   async function loadSeasonToResume(id: string): Promise<Season> {
-    // Two lobbies on one championship would overwrite each other, and a race still running there is not a forfeit
-    if (lobbyStore.allLobbies().some((lobby) => lobby.season?.id === id)) {
-      throw new LobbyError(409, 'That championship is already running in a lobby.');
-    }
     let stored: unknown;
     try {
       stored = await raceStore.loadSeason(id);
@@ -419,6 +422,15 @@ export async function createApp(config: BackendConfig, options: CreateAppOptions
   app.post(`${API_V1_PREFIX}/lobbies`, { config: limit(10) }, async (request, reply) => {
     const body = createLobbySchema.parse(request.body);
     const resume = body.resumeSeasonId ? await loadSeasonToResume(body.resumeSeasonId) : undefined;
+    // Two lobbies on one championship would overwrite each other, and a race still running there is not a forfeit. Asked
+    // here, with no await before the lobby is made: two requests that both waited for the database cannot both pass.
+    if (resume && lobbyStore.allLobbies().some((lobby) => lobby.season?.id === resume.id)) {
+      throw new LobbyError(
+        409,
+        'That championship is already running in a lobby.',
+        'season_running'
+      );
+    }
     const { lobby, host } = lobbyStore.createLobby(
       body.name,
       toSettingsPatch(body.settings),

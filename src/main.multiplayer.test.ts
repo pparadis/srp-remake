@@ -9,7 +9,8 @@ import {
   decideBotAction
 } from './game/race/race_engine';
 import { logAction, startRaceLog } from './game/race/race_log';
-import { newSeason, recordResult, rememberOnlineSeason } from './ui/season';
+import { newSeason, recordResult } from './game/season';
+import { rememberOnlineSeason } from './ui/season_store';
 import { NO_WEBGL_MESSAGE } from './ui/webgl_support';
 import type { TrackData } from './game/types/track';
 
@@ -549,18 +550,33 @@ describe('main multiplayer screens', () => {
       expect(createLobbyMock.mock.calls[0]?.[2]).toBe('season-1');
     });
 
-    it('says so and forgets it when the server no longer has it, and keeps it when it is only busy', async () => {
+    it('keeps the card while another lobby holds the championship, and says so', async () => {
       remember();
-      createLobbyMock.mockRejectedValueOnce(new MockBackendApiError(409, { error: 'conflict' }));
+      createLobbyMock.mockRejectedValueOnce(
+        new MockBackendApiError(409, { error: 'running', code: 'season_running' })
+      );
+      await import('./main');
+      byId('homeOnlineSeasonBtn').click();
+      await vi.waitFor(() => expect(byId('homeNotice').textContent).toContain('open lobby'));
+      expect(byId('homeOnlineSeason').hidden).toBe(false);
+      expect(document.body.dataset.screen).toBe('home');
+    });
+
+    it('forgets it when the server no longer has it, or it is finished or retired', async () => {
+      remember();
       createLobbyMock.mockRejectedValueOnce(new MockBackendApiError(404, { error: 'not_found' }));
       await import('./main');
       byId('homeOnlineSeasonBtn').click();
-      await vi.waitFor(() => expect(byId('homeNotice').textContent).toContain('cannot be resumed'));
-      expect(byId('homeOnlineSeason').hidden).toBe(false);
-      byId('homeOnlineSeasonBtn').click();
       await vi.waitFor(() => expect(byId('homeNotice').textContent).toContain('no longer stored'));
       expect(byId('homeOnlineSeason').hidden).toBe(true);
-      expect(document.body.dataset.screen).toBe('home');
+
+      remember();
+      byId('homeNotice').textContent = '';
+      createLobbyMock.mockRejectedValueOnce(new MockBackendApiError(409, { error: 'over' }));
+      window.dispatchEvent(new PopStateEvent('popstate')); // renders the home card again
+      byId('homeOnlineSeasonBtn').click();
+      await vi.waitFor(() => expect(byId('homeNotice').textContent).toContain('cannot be resumed'));
+      expect(byId('homeOnlineSeason').hidden).toBe(true);
     });
 
     it('offers nothing when no championship is remembered', async () => {
@@ -679,6 +695,18 @@ describe('main multiplayer screens', () => {
         over.season = [1, 2, 3].reduce((s, i) => recordResult(s, i, [2, 1, 3], null), over.season);
         send('lobby.state', over);
         expect(window.localStorage.getItem('srp:online-season')).toBeNull();
+      });
+
+      it('keeps the table through the race.state of each turn, which leaves it out', async () => {
+        await enter('guest', seasonLobby('turns'));
+        const { settings, season } = seasonLobby('turns');
+        send('race.started', { ...makeRaceLobby('turns', 0), settings, season });
+        const turn = { ...makeRaceLobby('turns', 1), settings, revision: 4 }; // no season, as the server sends it
+        send('race.state', turn);
+        window.dispatchEvent(
+          new CustomEvent('srp:race-finished', { detail: { winnerCarId: 2, recap: null } })
+        );
+        expect(byId('resultsSeasonLine').textContent).toBe('+25 points · P1 in the championship');
       });
 
       it('says on the results screen what the race gave, and names the next one on the host button', async () => {

@@ -215,3 +215,57 @@ test('a championship race that is won is scored before the lobby is told (#273)'
   };
   assert.equal(ended.lobby?.season?.races[0]?.result?.order.length, 2);
 });
+
+test('the saves of one championship run in order, so a slow older one cannot land last (#273)', async (t) => {
+  const { lobbyStore, realtime, raceStore } = setup(t);
+  const { lobby, host } = lobbyStore.createLobby('Host', {
+    totalCars: 2,
+    humanCars: 1,
+    botCars: 1,
+    season: true
+  });
+  lobbyStore.startRace(lobby.lobbyId, host.playerToken);
+  const first = lobby.season!;
+  const second = { ...first, startedAt: first.startedAt + 1 };
+  // the first save is slow: it only finishes when released
+  const memory = raceStore.saveSeason.bind(raceStore);
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let calls = 0;
+  raceStore.saveSeason = async (season) => {
+    calls += 1;
+    if (calls === 1) await gate;
+    return memory(season);
+  };
+  realtime.keepSeason(first);
+  realtime.keepSeason(second);
+  for (let i = 0; i < 10; i += 1) await Promise.resolve();
+  assert.equal(calls, 1); // the second waits for the first
+  release();
+  for (let i = 0; i < 20 && calls < 2; i += 1) await Promise.resolve();
+  for (let i = 0; i < 10; i += 1) await Promise.resolve();
+  assert.deepEqual(await raceStore.loadSeason(first.id), second);
+});
+
+test('the championship rides on the race.state of the winning turn only (#273)', async (t) => {
+  const { lobbyStore, realtime } = setup(t);
+  const { lobby, host } = lobbyStore.createLobby('Host', {
+    totalCars: 2,
+    humanCars: 1,
+    botCars: 1,
+    season: true
+  });
+  lobbyStore.startRace(lobby.lobbyId, host.playerToken);
+  const watcher = fakeSocket();
+  realtime.addSocket(lobby.lobbyId, 'watcher', watcher.socket);
+  const seasonOf = (n: number) =>
+    (watcher.sent.filter((m) => m.event === 'race.state')[n]?.payload as { season?: unknown })
+      .season;
+
+  realtime.announceTurn(lobby, { applied: { type: 'skip' } } as never);
+  assert.equal(seasonOf(0), undefined);
+  lobby.race!.engine.winnerCarId = 1;
+  lobby.status = 'FINISHED';
+  realtime.announceTurn(lobby, { applied: { type: 'skip' } } as never);
+  assert.ok(seasonOf(1));
+});
