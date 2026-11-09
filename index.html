@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-title" content="Street Racing" />
     <link rel="apple-touch-icon" href="/srp-remake/icons/apple-touch-icon.png" />
     <title>srp-remake</title>
-    <script type="module" crossorigin src="/srp-remake/assets/index-DLj2SFzi.js"></script>
+    <script type="module" crossorigin src="/srp-remake/assets/index-BUOfg7_f.js"></script>
     <link rel="stylesheet" crossorigin href="/srp-remake/assets/index-YXuV8MIm.css">
   </head>
   <body data-screen="home">
@@ -63,6 +63,13 @@
         </div>
 
         <div id="homeSeason" class="card home-season" data-testid="home-season"></div>
+        <div id="homeOnlineSeason" class="card home-season" data-testid="home-online-season" hidden>
+          <h2>Online championship</h2>
+          <p id="homeOnlineSeasonLabel" class="home-sub" data-testid="online-season-label"></p>
+          <button id="homeOnlineSeasonBtn" data-testid="online-season-resume" type="button">
+            Resume in a new lobby
+          </button>
+        </div>
 
         <div id="homeRaces" class="card home-races" data-testid="home-races" hidden>
           <h2>Recent races</h2>
@@ -217,6 +224,22 @@
               <option value="120">2 min</option>
             </select>
           </label>
+        </div>
+        <label class="field check" id="lobbySeasonField">
+          <span>
+            <input id="lobbySeason" data-testid="lobby-season-toggle" type="checkbox" />
+            Championship
+          </span>
+          <small>
+            4 races on the same cars, F1 points, the grid reversed in race 3. The cars, the bots and
+            the tracks are fixed from the first race.
+          </small>
+        </label>
+        <div id="lobbySeasonBlock" hidden>
+          <p id="lobbySeasonStatus" data-testid="lobby-season-status"></p>
+          <button id="lobbyStandingsBtn" data-testid="lobby-season-standings" type="button">
+            Standings
+          </button>
         </div>
         <label class="field check" id="lobbyShareField">
           <span>
