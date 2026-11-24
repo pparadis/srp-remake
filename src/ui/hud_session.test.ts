@@ -122,6 +122,47 @@ describe('race session -> HUD', () => {
     expect(tip.style.left).toBe('300px');
   });
 
+  describe('rules v5: the lanes as a trade-off (#268)', () => {
+    const soloOn = (rulesVersion: 'v4' | 'v5') => {
+      const session = new RaceSession(TRACK, {
+        totalCars: 1,
+        humanCars: 1,
+        botCars: 0,
+        raceLaps: 5,
+        seed: 0,
+        rulesVersion
+      });
+      session.recomputeTargets();
+      return session;
+    };
+    const targetIn = (session: RaceSession, lane: number) =>
+      [...session.validTargets].find(
+        ([id, t]) => !t.isPitTrigger && session.cellMap.get(id)!.laneIndex === lane
+      )![0];
+
+    it('the tooltip says the inside lane is hard on tires, and nothing for the middle lane', () => {
+      const session = soloOn('v5');
+      render(session, { cellId: targetIn(session, 1) });
+      expect(tid('hud-tooltip').textContent).toContain('Inside lane: hard on tires (x1.05)');
+      render(session, { cellId: targetIn(session, 2) });
+      expect(tid('hud-tooltip').textContent).not.toMatch(/lane:/);
+    });
+
+    it('the stint line gives the pair, inside and outside', () => {
+      render(soloOn('v5'));
+      expect(tid('hud-stint').textContent).toMatch(
+        /^≈ \d\.\d laps inside, \d\.\d outside \(~\d+ moves\)$/
+      );
+    });
+
+    it('v4 keeps one number and no lane line', () => {
+      const session = soloOn('v4');
+      render(session, { cellId: targetIn(session, 1) });
+      expect(tid('hud-tooltip').textContent).not.toMatch(/lane:/);
+      expect(tid('hud-stint').textContent).toMatch(/^≈ \d\.\d laps \(~\d+ moves\)$/);
+    });
+  });
+
   it('rules v3: the card says the cap, the heavy tank and the pace, and the tooltip the fuel a cell (#148)', () => {
     const session = new RaceSession(TRACK, {
       totalCars: 1,

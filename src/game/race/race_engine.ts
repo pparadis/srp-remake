@@ -193,7 +193,8 @@ export function computeTargets(
       // did so is in its tow for this move, whatever the leader has done since.
       drafted: (car.draftTurns ?? 0) >= 1,
       slingshotReady: (car.draftTurns ?? 0) >= DRAFT_SLINGSHOT_TURNS,
-      pitLanePassing: rules.pitLanePassing
+      pitLanePassing: rules.pitLanePassing,
+      laneTradeOff: rules.laneTradeOff
     },
     costs
   );
@@ -209,7 +210,8 @@ export function computeTargets(
     car.cellId,
     occupied,
     maxSteps,
-    costs
+    costs,
+    rules.laneTradeOff
   );
   return new Map([...normal, ...squeeze]);
 }

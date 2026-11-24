@@ -4,6 +4,8 @@ import bigOval from '../../../public/tracks/oval32_3lanes.json';
 import { parseTrack } from '../../validation/track_schema';
 import { must } from '../must';
 import type { RulesVersion } from '../rules/ids';
+import { resourcesOf } from '../rules/versions';
+import { buildPlanContext, projectShortfall } from '../systems/bot_plan';
 import type { TrackData } from '../types/track';
 import { lapAhead, rankPosition } from '../systems/track_index';
 import {
@@ -386,5 +388,77 @@ describe.each([
     expect(unsorted, 'rounds that did not start in standing order').toBe(0);
     expect(reordered / rounds, 'rounds where the order changed').toBeGreaterThan(0.05);
     expect(reordered / rounds, 'rounds where the order changed').toBeLessThan(1);
+  }, 60_000);
+});
+
+// Rules v5 (#268): the lanes are a trade-off, so the outside is used, and by the cars that need the tire.
+describe('lanes as a trade-off (v5, #268)', () => {
+  const seeds = Array.from({ length: 8 }, (_slot, i) => i + 1);
+  const lanes = (rules: RulesVersion) => {
+    const landed = [0, 0, 0, 0];
+    let lane3 = 0;
+    let lane3Short = 0;
+    let moves = 0;
+    let shortMoves = 0;
+    for (const cars of [6, 12]) {
+      for (const seed of seeds) {
+        const state = createRace(
+          ctx,
+          Array.from({ length: cars }, (_slot, i) => ({
+            isBot: true,
+            ownerId: `B${i}`,
+            botLevel: LEVELS[i % LEVELS.length]!
+          })),
+          5,
+          seed,
+          rules
+        );
+        const plan = buildPlanContext(ctx.trackIndex, 5, resourcesOf(state, ctx.trackIndex));
+        for (let turn = 0; turn < 120 * cars && state.winnerCarId === null; turn += 1) {
+          const car = getActiveCar(state);
+          const action = decideBotAction(ctx, state).action;
+          const from = must(ctx.cellMap.get(car.cellId), 'cell of the active car');
+          const short = projectShortfall(car, from, plan).shortfall > 0;
+          if (!applyAction(ctx, state, action).ok) {
+            applyAction(ctx, state, { type: 'skip' });
+            continue;
+          }
+          if (action.type !== 'move') continue;
+          moves += 1;
+          if (short) shortMoves += 1;
+          const lane = must(ctx.cellMap.get(action.targetCellId), 'target cell').laneIndex;
+          landed[lane] = (landed[lane] ?? 0) + 1;
+          if (lane === 3) {
+            lane3 += 1;
+            if (short) lane3Short += 1;
+          }
+        }
+      }
+    }
+    const main = landed[1]! + landed[2]! + landed[3]!;
+    return {
+      lane3Share: pct(landed[3]!, main),
+      lane1Share: pct(landed[1]!, main),
+      lane3,
+      lane3Short,
+      shortShare: pct(shortMoves, moves)
+    };
+  };
+
+  it('the outside lane is used on v5, and was not on v4, more by cars short of tires', () => {
+    const v4 = lanes('v4');
+    const v5 = lanes('v5');
+    console.log(
+      `lane 3 share of the main-lane landings: v4 ${v4.lane3Share.toFixed(1)}%, v5 ${v5.lane3Share.toFixed(1)}%; ` +
+        `lane 1 ${v5.lane1Share.toFixed(1)}%; v5 lane-3 landings by a car short of tires ${pct(v5.lane3Short, v5.lane3).toFixed(0)}% ` +
+        `(all moves: ${v5.shortShare.toFixed(0)}%)`
+    );
+    expect(v4.lane3Share, 'v4 lane 3 share, %').toBeLessThan(6);
+    expect(v5.lane3Share, 'v5 lane 3 share, %').toBeGreaterThanOrEqual(10);
+    expect(v5.lane3Share, 'v5 lane 3 share, %').toBeLessThanOrEqual(30);
+    // Not "most": the plan hoped for it, but cars also go outside to get round a car (measured 26% against a 17% base).
+    expect(pct(v5.lane3Short, v5.lane3), 'lane-3 landings by a car short, %').toBeGreaterThan(
+      v5.shortShare
+    );
   }, 60_000);
 });

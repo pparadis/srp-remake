@@ -19,9 +19,9 @@ const ctx = createRaceContext(track as unknown as TrackData);
 const frozen = RULES_VERSIONS.filter((v) => RULES[v].status === 'frozen');
 
 describe('rules versions', () => {
-  it('v4 is the default, and every version is frozen', () => {
+  it('v4 is the default; v3 and v4 are frozen and v5 is a draft (#268)', () => {
     expect(DEFAULT_RULES_VERSION).toBe('v4');
-    for (const v of RULES_VERSIONS) expect(RULES[v].status).toBe('frozen');
+    expect(RULES_VERSIONS.map((v) => RULES[v].status)).toEqual(['frozen', 'frozen', 'draft']);
   });
 
   it('every frozen version has a golden file for this track', () => {

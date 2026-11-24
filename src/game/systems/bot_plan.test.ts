@@ -20,6 +20,7 @@ import {
   sustainableSize,
   wearPerCell as wearPerCellFor
 } from './bot_plan';
+import { resourcesOf } from '../rules/versions';
 import { resourceRulesFor } from './resource_system';
 
 const ctx = createRaceContext(track as unknown as TrackData);
@@ -151,6 +152,37 @@ describe('bestSetup', () => {
       lengths.map((cells) => `${bestSetup(cells).compound}/${bestSetup(cells).wing}`)
     );
     expect(keys.size).toBeGreaterThan(2);
+  });
+});
+
+// Rules v5 (#268): the plan counts the middle lane's tire, and a lane asks for its own.
+describe('wear plan on rules v5', () => {
+  const v5 = resourcesOf({ rulesVersion: 'v5', raceLaps: 5 }, ctx.trackIndex);
+  const v4 = resourceRulesFor({ raceLaps: 5, spineLen: 28 });
+  const medium: CarSetup = {
+    compound: 'medium',
+    psi: { fl: 32, fr: 32, rl: 32, rr: 32 },
+    wing: 'medium'
+  };
+
+  it('has no lane table before v5', () => {
+    expect(v4.laneWear).toBeNull();
+    expect(v5.laneWear).not.toBeNull();
+  });
+
+  it('plans the tire at the middle lane per cell of progress, and fuel as before', () => {
+    const base = wearPerCellFor(medium, v4);
+    const planned = wearPerCellFor(medium, v5);
+    expect(planned.tire / base.tire).toBeCloseTo(v5.laneWear!.tire.middle, 5);
+    expect(planned.tire / base.tire).toBeCloseTo(0.99, 2); // 0.924 a cell, 30 cells for each 28 of progress
+    expect(planned.fuel).toBe(base.fuel);
+  });
+
+  it('a lane asks for its own wear: the outside saves tire and burns fuel by its length', () => {
+    const inner = wearPerCellFor(medium, v5, 'inner');
+    const outer = wearPerCellFor(medium, v5, 'outer');
+    expect(outer.tire).toBeLessThan(inner.tire);
+    expect(outer.fuel / inner.fuel).toBeCloseTo(32 / 28, 5);
   });
 });
 

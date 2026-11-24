@@ -92,6 +92,34 @@ prices, squeeze and the tow are those of the retired v2. The numbers are in `con
   `recommendedFuel(race)`, the fuel a race of 8s needs rounded up to 5. The bots pick their setup with `bestSetup`.
 - **Frozen.** v3 is replayed by `src/game/rules/golden/v3.json` (tag `rules-v3`), v4 by `golden/v4.json` (tag `rules-v4`).
 
+### Lanes as a trade-off on rules v5 (#268, draft)
+
+On v3 and v4 the lane factors are fixed (tire 1.05 / 1.00 / 0.98, fuel 0.98 / 1.00 / 1.03), so lane 3 costs more of
+both for nothing: it is 4 cells a lap longer on `oval16_3lanes` and 76% of the landings are in lane 1. **v5**
+(`laneTradeOff` in `MovementRules`, `src/game/systems/lane_trade_off.ts`) makes the inside hard on tires and the
+outside easy on them, from the lane lengths of the track (`TrackIndex.laneLength`):
+
+`tire(L) = LANE_TIRE_INNER * (1 - LANE_PAYBACK * e(L)) * len(1) / len(L)`, with `e(L) = (len(L) - len(1)) / len(1)`,
+`LANE_TIRE_INNER = 1.05` and `LANE_PAYBACK = 0.8` (`constants.ts`).
+
+| Track           | Lane lengths | Tire per cell, lane 1 / 2 / 3 | A lap in lane 3 against lane 1       |
+| --------------- | ------------ | ----------------------------- | ------------------------------------ |
+| `oval16_3lanes` | 28 / 30 / 32 | 1.05 / 0.92 / 0.81            | 11.4% less tire for 14.3% more cells |
+| `oval32_3lanes` | 56 / 58 / 60 | 1.05 / 0.98 / 0.92            | 5.7% less tire for 7.1% more cells   |
+
+- **Fuel is 1.0 per cell in every lane**: the outside already burns more by its length (+14% a lap on the small oval)
+  against the tank's 10% margin (`FUEL_MARGIN`), so a car cannot spend every lap outside. The outside trades tire for
+  fuel and time.
+- Unchanged: the factor is the target lane's and covers the whole move (as in `computeCosts`), the prices and routes,
+  the tow, the squeeze and the pit lane (factor 1). The factors multiply the rest:
+  `cells * rate(compound) * size * wing * lane * tow`, rounded to 0.1.
+- The free lane change of a slingshot into lane 3 is the one way to take the outside factor without paying its +1:
+  `tools/rules_compare.ts` prints how many lane-3 entries come from one (about 14% of them on the small oval).
+- On tires alone a fresh medium at 8-point moves lasts about 4.8 laps of a 5-lap race in lane 1 and 5.4 in lane 3;
+  with the fuel the outside burns, neither extreme finishes by itself. `docs/strategy-and-feel.md` has how the HUD says it.
+- The value of `LANE_TIRE_INNER` was settled at 1.05 (the lane-1 value of v3 and v4) rather than 1.10: at 1.10 a
+  medium needs about 73% of its laps outside to finish 5 laps and overruns the fuel margin; at 1.05 about 35%.
+
 ### Play order on rules v4 (#138)
 
 On v3 the play order is the grid order for the whole race (`turnOrderOf`, pole sitter first). **v4** re-sorts

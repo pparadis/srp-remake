@@ -46,7 +46,7 @@ export interface HudCar {
   drafting: boolean;
   draftTurns: number;
   /** Racing left on the current tire and fuel at this car's setup (see strategy.ts). */
-  stint: Pick<StintEstimate, 'laps' | 'moves'>;
+  stint: Pick<StintEstimate, 'laps' | 'moves' | 'lapsInside' | 'lapsOutside'>;
   advice: PitAdvice;
   /** Rules v3 only (absent before): the most move points one move may spend now, whether the tank is heavy (-1 pace),
    * and the move size the car can keep to the flag. */
@@ -81,6 +81,8 @@ export interface HudHover {
   fuelBefore: number;
   /** Rules v3 only: fuel burnt per cell walked by this move (its size changes it: a 9 burns more than an 8). */
   fuelPerCell?: number;
+  /** Rules v5 (#268): the target is in the inside or the outside lane, with that lane's tire factor (lane 2: absent). */
+  laneTire?: { lane: 'inside' | 'outside'; factor: number };
 }
 
 export interface HudSnapshot {
@@ -246,11 +248,20 @@ export function formatCountdown(ms: number): string {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
-/** "≈ 2.1 laps (~17 moves)": racing left until tire or fuel is empty. */
-export function formatStint(stint: Pick<StintEstimate, 'laps' | 'moves'>): string {
+/**
+ * "≈ 2.1 laps (~17 moves)": racing left until tire or fuel is empty. On v5 (#268) the laps come as a pair, "≈ 4.8 laps
+ * inside, 5.1 outside (~18 moves)": the stint all in the inside lane and all in the outside one.
+ */
+export function formatStint(
+  stint: Pick<StintEstimate, 'laps' | 'moves' | 'lapsInside' | 'lapsOutside'>
+): string {
   if (stint.moves < 0.5) return 'Empty: no stint left';
-  const laps = stint.laps < 0.1 ? '<0.1' : stint.laps.toFixed(1);
-  return `≈ ${laps} laps (~${Math.round(stint.moves)} moves)`;
+  const laps = (n: number) => (n < 0.1 ? '<0.1' : n.toFixed(1));
+  const moves = `(~${Math.round(stint.moves)} moves)`;
+  if (stint.lapsInside !== undefined && stint.lapsOutside !== undefined) {
+    return `≈ ${laps(stint.lapsInside)} laps inside, ${laps(stint.lapsOutside)} outside ${moves}`;
+  }
+  return `≈ ${laps(stint.laps)} laps ${moves}`;
 }
 
 /** Rules v3: "Max 8 a move - HEAVY - pace to the flag 7", or '' before v3. */
@@ -302,6 +313,15 @@ function renderTooltip(tip: HTMLElement, h: HudHover) {
       rate.className = 'hud-tooltip-rate';
       rate.textContent = `uses ${h.tireCost.toFixed(1)} tire, ${h.fuelCost.toFixed(1)} fuel (${h.fuelPerCell.toFixed(2)} fuel a cell)`;
       nodes.push(rate);
+    }
+    if (h.laneTire) {
+      const note = document.createElement('div');
+      note.className = 'hud-tooltip-rate';
+      note.textContent =
+        h.laneTire.lane === 'inside'
+          ? `Inside lane: hard on tires (x${h.laneTire.factor.toFixed(2)})`
+          : `Outside lane: easy on tires (x${h.laneTire.factor.toFixed(2)})`;
+      nodes.push(note);
     }
     if (h.drafted || h.slingshot) {
       const note = document.createElement('div');
