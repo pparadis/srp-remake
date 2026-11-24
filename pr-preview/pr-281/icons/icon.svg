@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- App icon: the oval with a red car on it. Source for tools/makeIcons.mjs (npm run gen:icons). -->
+  <rect width="512" height="512" rx="96" fill="#0b0f14"/>
+  <rect x="40" y="136" width="432" height="240" rx="120" fill="#1f9d55"/>
+  <rect x="64" y="160" width="384" height="192" rx="96" fill="none" stroke="#2b2f36" stroke-width="56"/>
+  <rect x="64" y="160" width="384" height="192" rx="96" fill="none" stroke="#e5484d" stroke-width="6" stroke-dasharray="18 18"/>
+  <rect x="92" y="188" width="328" height="136" rx="68" fill="#1f9d55" stroke="#ffffff" stroke-width="4" stroke-dasharray="16 16"/>
+  <line x1="256" y1="132" x2="256" y2="188" stroke="#ffffff" stroke-width="10" stroke-dasharray="8 8"/>
+  <g transform="translate(300 160)">
+    <rect x="-46" y="-20" width="92" height="40" rx="14" fill="#e5484d"/>
+    <rect x="-14" y="-15" width="30" height="30" rx="6" fill="#0b0f14" opacity="0.85"/>
+    <rect x="-40" y="-27" width="20" height="9" rx="3" fill="#111821"/>
+    <rect x="20" y="-27" width="20" height="9" rx="3" fill="#111821"/>
+    <rect x="-40" y="18" width="20" height="9" rx="3" fill="#111821"/>
+    <rect x="20" y="18" width="20" height="9" rx="3" fill="#111821"/>
+  </g>
+</svg>
