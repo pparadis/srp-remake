@@ -9,6 +9,7 @@
 import { computeSqueezeTargets, computeValidTargets } from '../systems/movement_system';
 import { draftAhead } from '../systems/draft_system';
 import { resourceRulesFor } from '../systems/resource_system';
+import { laneWearPerProgress } from '../systems/lane_trade_off';
 import type { ResourceRules, ResourceRulesFor } from './resource_rules';
 import { DEFAULT_RULES_VERSION, type RulesVersion } from './ids';
 
@@ -23,6 +24,8 @@ export interface MovementRules {
   leaderFirst: boolean;
   /** True from v4 (#249): a car in the pit lane passes the cars in front of it. */
   pitLanePassing: boolean;
+  /** True from v5 (#268): tire wear per cell by lane from the lane lengths, fuel 1 in every lane. */
+  laneTradeOff: boolean;
 }
 
 export const RULES: Record<
@@ -38,7 +41,8 @@ export const RULES: Record<
       draftAhead,
       resources: resourceRulesFor,
       leaderFirst: false,
-      pitLanePassing: false
+      pitLanePassing: false,
+      laneTradeOff: false
     }
   },
   v4: {
@@ -50,7 +54,21 @@ export const RULES: Record<
       draftAhead,
       resources: resourceRulesFor,
       leaderFirst: true,
-      pitLanePassing: true
+      pitLanePassing: true,
+      laneTradeOff: false
+    }
+  },
+  v5: {
+    status: 'draft',
+    note: '#268: v4 with the lanes as a trade-off: tire wear per cell by lane from the lane lengths (the inside is hard on tires, the outside easy on them for its extra cells) and fuel 1 per cell in every lane. Same code as v4 behind the `laneTradeOff` flag.',
+    rules: {
+      computeValidTargets,
+      computeSqueezeTargets,
+      draftAhead,
+      resources: resourceRulesFor,
+      leaderFirst: true,
+      pitLanePassing: true,
+      laneTradeOff: true
     }
   }
 };
@@ -63,7 +81,12 @@ export function rulesOf(state: { rulesVersion?: RulesVersion | undefined }): Mov
 /** The tire, fuel and move-size rules of a race: the version's, sized to the race's length. */
 export function resourcesOf(
   state: { rulesVersion?: RulesVersion | undefined; raceLaps: number },
-  trackIndex: { spineLen: number }
+  trackIndex: { spineLen: number; laneLength?: Map<number, number> }
 ): ResourceRules {
-  return rulesOf(state).resources({ raceLaps: state.raceLaps, spineLen: trackIndex.spineLen });
+  const rules = rulesOf(state);
+  return rules.resources({
+    raceLaps: state.raceLaps,
+    spineLen: trackIndex.spineLen,
+    ...(rules.laneTradeOff ? { laneWear: laneWearPerProgress(trackIndex) } : {})
+  });
 }

@@ -123,6 +123,23 @@ describe('bot levels benchmark on rules v3', () => {
   });
 });
 
+// Rules v5 (#268): the lanes cost tire, and the bots read it (the plan's middle lane, the smaller lane term).
+describe('bot levels benchmark on rules v5', () => {
+  const lineup: BotPolicy[] = ['hard', 'normal', 'easy', 'autopilot'];
+  const v5 = runBench(ctx, {
+    lineup,
+    laps: [5, 8, 12],
+    seeds: [1, 2, 3, 4, 5, 6, 7, 8],
+    rulesVersion: 'v5'
+  });
+
+  it('finishes Hard ahead of Normal ahead of Easy ahead of Autopilot (lower is better)', () => {
+    const order = lineup.map((p) => v5.stats.get(p)!.avgFinish);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order[0]).toBeLessThan(order[1]!);
+  });
+});
+
 // The same gate on rules v3, with the compounds: every compound is the fastest at some race length (soft in a sprint,
 // medium in between, hard when the stint is stretched), and no setup is the fastest everywhere. A lone car: against
 // traffic one seed's tow and blocking move a result by more than the gap between two setups. The wings are printed

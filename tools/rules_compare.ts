@@ -1,5 +1,5 @@
 // Compare movement-rules versions on the same deterministic races (#118):
-//   npx tsx tools/rules_compare.ts [--rules v3,v4] [--seeds 12] [--laps 5]
+//   npx tsx tools/rules_compare.ts [--rules v3,v4] [--seeds 12] [--laps 5] [--track oval16_3lanes]
 // Per version: the bot benchmark (the bots' ordering, overtakes, race length in turns) and, from bot-only races of 6, 12
 // and 16 cars, how often each rule comes up (tows, slingshots, squeezes, lane changes) and which lanes the cars drive.
 import { readFileSync } from 'node:fs';
@@ -21,7 +21,10 @@ function arg(name: string, fallback: string): string {
 }
 
 const track = JSON.parse(
-  readFileSync(new URL('../public/tracks/oval16_3lanes.json', import.meta.url), 'utf8')
+  readFileSync(
+    new URL(`../public/tracks/${arg('track', 'oval16_3lanes')}.json`, import.meta.url),
+    'utf8'
+  )
 ) as TrackData;
 const ctx = createRaceContext(track);
 const versions = arg('rules', 'v3,v4').split(',');
@@ -46,6 +49,8 @@ function reach(version: RulesVersion): Row {
   let turns = 0;
   const lane = [0, 0, 0, 0];
   let slingshots = 0;
+  let toLane3 = 0;
+  let toLane3Slingshot = 0;
   for (const cars of [6, 12, 16]) {
     for (const seed of seeds) {
       const state = createRace(
@@ -84,6 +89,11 @@ function reach(version: RulesVersion): Row {
         const to = ctx.cellMap.get(action.targetCellId)!;
         if (to.laneIndex !== from.laneIndex) laneChanges += 1;
         lane[to.laneIndex] = (lane[to.laneIndex] ?? 0) + 1;
+        // #268: lane 3 reached by a lane change, and by a free one after a tow (the one loophole of the target lane's factor)
+        if (to.laneIndex === 3 && from.laneIndex !== 3) {
+          toLane3 += 1;
+          if (info.slingshot) toLane3Slingshot += 1;
+        }
       }
       slingshots += state.cars.reduce((sum, c) => sum + (c.slingshots ?? 0), 0);
     }
@@ -100,7 +110,9 @@ function reach(version: RulesVersion): Row {
     '2+ lane changes in a move': multi,
     'landed on lane 1 %': (100 * lane[1]!) / Math.max(1, mainLaneMoves),
     'landed on lane 2 %': (100 * lane[2]!) / Math.max(1, mainLaneMoves),
-    'landed on lane 3 %': (100 * lane[3]!) / Math.max(1, mainLaneMoves)
+    'landed on lane 3 %': (100 * lane[3]!) / Math.max(1, mainLaneMoves),
+    'lane 3 entries (total)': toLane3,
+    'lane 3 entries by slingshot %': (100 * toLane3Slingshot) / Math.max(1, toLane3)
   };
 }
 

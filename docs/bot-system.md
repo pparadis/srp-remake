@@ -46,6 +46,14 @@ The seed decides three things, all pure functions in `src/game/systems/bot_style
   share of the 40-point cycle shrinks (a cell of progress is 10 points, so 48 forces an even spend and 0 front-loads).
 - `innerLane` is the share of `LANE_SPAN` (60 points) the driver sees between the inner and the outer lane (linear):
   the inner lane has 28 cells a lap against 30 and 32, so every move is worth about 0.6 cells more per lane inward.
+  On v5 (#268) the lanes carry their own tire price, which the score already counts through `resourceWeights`, so the
+  flat term shrinks to the geometry it stands for (`LANE_SPAN_TRADE_OFF` 12): a car with tires to spare stays inside, a
+  car short of them drifts outside until it can finish. The plan (`wearPerCell`) counts the middle lane's tire per cell
+  of progress and fuel at 1; `ResourceRules.laneWear` carries the table. Measured at 12 seeds on `oval16_3lanes`
+  against v4: lane use 76/21/3 to 53/33/15, overtakes 9.3 to 12.2, race length 203 to 198 turns, the order Hard <
+  Normal < Easy < Autopilot holds. Tows fall from 55% of moves to 38% (cars spread over more lanes) and slingshots from 21 to
+  14 a race. A larger `LANE_SPAN_TRADE_OFF` brings the tows back (18-24, 4 seeds: 46-47%) but empties lane 3 (8-11%) and
+  shrinks Hard's lead over Normal to nothing.
 - `overtake` is points per car passed by the move, `queue` the penalty for ending 1-2 cells behind a car in the
   same lane (same-lane moves cannot pass it), `block` the bonus (scaled by closeness, within 6 cells) for ending in the
   lane of a rival behind.

@@ -63,6 +63,10 @@ export const MOVE_FACTOR = {
   high: { fuel: 1.2, tire: 1.1 }
 } as const;
 export const NORMAL_MOVE_POINTS = 8;
+// v5 (#268): tire wear per cell by lane, from the lane lengths (lane_trade_off.ts). The inside wears LANE_TIRE_INNER;
+// each outer lane gets LANE_PAYBACK of its extra distance back as less wear per cell.
+export const LANE_TIRE_INNER = 1.05;
+export const LANE_PAYBACK = 0.8;
 // Fuel weighs: the cycle budget is 1 lower while the tank holds more than HEAVY_FUEL.
 export const HEAVY_FUEL = 70;
 export const FUEL_LOAD_MIN = 40;

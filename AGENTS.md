@@ -67,7 +67,7 @@ description; any other tool should read the file before working in that area.
   `v4`; it was v3 from #148). The registry is `src/game/rules/versions.ts`: what differs between versions (target search, squeeze,
   draft test, and the tire, fuel and move-size rules via `rulesOf(state).resources` or `resourcesOf(state, trackIndex)`)
   goes through `rulesOf(state)`, never a direct import of `computeValidTargets` / `draftAhead` in engine code, nor of
-  `cycleBudget` / `MOVE_RATES` / `MOVE_BUDGET` for a car. All four versions are **frozen**: `rules_golden.test.ts` replays `src/game/rules/golden/<version>.json` (made by
+  `cycleBudget` / `MOVE_RATES` / `MOVE_BUDGET` for a car. Every frozen version (v3, v4) is replayed by `rules_golden.test.ts` from `src/game/rules/golden/<version>.json` (made by
   `tools/rules_golden.ts`) and fails if a version's targets, prices or the car after the recorded move change, whether
   through its own code or shared code (constants, track, pit, wear). `v1` and `v2` were retired (#254): not selectable, no code; the git tags `rules-v1`, `rules-v2` and `retired-v1-v2` hold their code, golden files, docs and diagrams. A race of theirs already in the history (or saved in a browser) keeps its stats and cannot be replayed (`replayBlock` in `ids.ts`: the recap and board replay say why, the history row is not clickable). `v3` (#148, tag `rules-v3`) and `v4`
   (the default) share the live code in `src/game/systems/` (`movement_system.ts`, `draft_system.ts`, `track_index.ts`,
@@ -85,6 +85,14 @@ description; any other tool should read the file before working in that area.
   `leaderFirst` in `versions.ts`, `nextTurn` in `race_engine.ts`) and pit lane passing (#249, `pitLanePassing`: a car in
   the pit lane takes the first free cell ahead and may jump to a box past a taken one, so a jam cannot block the
   entry); it copies no rule code, and the server sends `turnOrder`. See `docs/movement-spec.md`.
+  `v5` (#268, a **draft**: no golden file yet, selectable like the others) is v4 plus `laneTradeOff`: tire wear per cell by lane
+  from the track's lane lengths (`src/game/systems/lane_trade_off.ts`, `LANE_TIRE_INNER` 1.05, `LANE_PAYBACK` 0.8: the
+  inside hard on tires, the outside easy for its extra cells) and fuel 1 per cell in every lane. It is a flag in the live
+  movement code (`MovementOptions.laneTradeOff`, `laneWearFactors(lane, trackIndex)`), not a copy in `rules/v4/`:
+  the v3 and v4 golden files guard that the flag-off code is unchanged. `ResourceRules.laneWear` carries the table to the
+  bots (`wearPerCell` plans the middle lane's tire; `LANE_SPAN_TRADE_OFF` shrinks their flat lane term) and the HUD
+  (`stintEstimate` returns `lapsInside` / `lapsOutside`, the tooltip a lane line). The next v5 plan keeps the draft and
+  adds its flag the same way; freeze v5 with a golden file and the tag `rules-v5` when the draft ends.
   In solo the version is chosen in the Quick race card (`lobbyRules`, hidden online: online plays the default or the
   server's `RULES_VERSION`; `?rules=v3` only seeds that select (an unknown or retired value is the default), and the sandbox link carries it). The names live in `src/game/rules/ids.ts` (the
   page loads it eagerly), the rules in `versions.ts` (lazy, with the game). "Copy debug" records `rulesVersion`, and a

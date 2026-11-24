@@ -14,7 +14,8 @@ const ctx = createRaceContext(track as unknown as TrackData);
 // Normal and breaks Hard < Normal on v3, so the bound is wider for v3 and no personality wins over 30 % (#148).
 describe.each([
   ['v3', 0.9],
-  ['v4', 0.9]
+  ['v4', 0.9],
+  ['v5', 0.9]
 ] as const)('personalities do not dominate on rules %s', (rulesVersion, spreadBound) => {
   // Five Normal cars, one personality each, rotated through all five seats; the seed shuffles the grid,
   // so every personality also starts from every grid slot.

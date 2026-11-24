@@ -19,6 +19,7 @@ import {
   EASY_NOISE,
   HARD_ADAPT,
   LANE_SPAN,
+  LANE_SPAN_TRADE_OFF,
   PERSONALITIES,
   QUEUE_RANGE
 } from './bot_style';
@@ -239,7 +240,9 @@ function fieldScore(
   const gain = forwardGain(from, cell, info.distance, plan);
   let score = 0;
   score +=
-    ((style.innerLane + extra.innerLane) * LANE_SPAN * (OUTER_MAIN_LANE - cell.laneIndex)) /
+    ((style.innerLane + extra.innerLane) *
+      (plan.resources.laneWear ? LANE_SPAN_TRADE_OFF : LANE_SPAN) *
+      (OUTER_MAIN_LANE - cell.laneIndex)) /
     (OUTER_MAIN_LANE - 1);
   if (cell.laneIndex !== from.laneIndex) score += style.laneChange;
   const overtake = style.overtake + extra.overtake;

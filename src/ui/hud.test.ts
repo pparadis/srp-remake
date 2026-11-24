@@ -354,6 +354,26 @@ describe('hud', () => {
     expect(text(root, 'hud-tooltip')).not.toContain('Draft:');
   });
 
+  it('tooltip names an outside lane as easy on tires and formats the stint pair (#268)', () => {
+    const hover = {
+      x: 1,
+      y: 2,
+      distance: 3,
+      moveSpend: 4,
+      tireCost: 2,
+      fuelCost: 2,
+      isPit: false,
+      tireBefore: 90,
+      fuelBefore: 90
+    };
+    renderHud(root, snap({ hover: { ...hover, laneTire: { lane: 'outside', factor: 0.814 } } }));
+    expect(text(root, 'hud-tooltip')).toContain('Outside lane: easy on tires (x0.81)');
+    expect(formatStint({ laps: 4.8, moves: 18.4, lapsInside: 4.5, lapsOutside: 5.1 })).toBe(
+      '≈ 4.5 laps inside, 5.1 outside (~18 moves)'
+    );
+    expect(formatStint({ laps: 4.8, moves: 18.4 })).toBe('≈ 4.8 laps (~18 moves)');
+  });
+
   it('tooltip names the lane changes of a route that changes lane 2 or more times', () => {
     const hover = {
       x: 1,

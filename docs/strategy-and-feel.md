@@ -7,6 +7,12 @@
   compound's plus the wing: `cycleBudget(setup)`).
   The wear math is `wearPerCell` in `bot_plan.ts`, which uses `setupFactors` from `movement_system.ts`: there is
   one copy of it, shared by the engine costs, the bots, the HUD and the pit modal.
+  On v5 (#268) the estimate also returns `lapsInside` and `lapsOutside`: the stint all in lane 1 and all in lane 3,
+  per lap of progress, each limited by the tire or the fuel it runs out of first (the outside burns more fuel by its
+  length). `formatStint` shows the pair, "≈ 4.9 laps inside, 4.9 outside (~19 moves)", in the car card, the pit modal
+  and the setup panel. On the default fuel load the tank, not the tire, is what ends the outside stint: the pair says
+  that neither extreme is the answer, a mix is. The target tooltip adds "Inside lane: hard on tires (x1.05)" or
+  "Outside lane: easy on tires (x0.81)" (none for lane 2); v3 and v4 keep the one number and no line.
 - `cellsToPitEntry(cell, plan)`: cells until the car stands on the lane-1 cell next to `PIT_ENTRY` (the only
   place a stop can start).
 - `pitAdvice(car, cell, plan)`: `no-need` (serviced, final lap, or the car can finish as it is), `ok`,

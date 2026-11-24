@@ -19,6 +19,9 @@ export interface StintEstimate {
   /** Laps of the track, and moves at the average a move cycle allows (40 / 5 = 8 cells). */
   laps: number;
   moves: number;
+  /** v5 (#268): the laps of progress (lane-1 cells) a stint lasts all of it in the inside lane and all in the outside one. */
+  lapsInside?: number;
+  lapsOutside?: number;
 }
 
 export type PitAdvice = 'ok' | 'pit-soon' | 'pit-now' | 'no-need';
@@ -31,10 +34,19 @@ export function stintEstimate(
   resources: ResourceRules
 ): StintEstimate {
   const cells = cellsUntilEmpty(car.tire, car.fuel, car.setup, resources, 1);
+  const lanes = resources.laneWear
+    ? {
+        lapsInside:
+          cellsUntilEmpty(car.tire, car.fuel, car.setup, resources, 1, 'inner') / spineLen,
+        lapsOutside:
+          cellsUntilEmpty(car.tire, car.fuel, car.setup, resources, 1, 'outer') / spineLen
+      }
+    : {};
   return {
     cells,
     laps: cells / spineLen,
-    moves: cells / (resources.cycleBudget(car) / MOVE_CYCLE.moves)
+    moves: cells / (resources.cycleBudget(car) / MOVE_CYCLE.moves),
+    ...lanes
   };
 }
 

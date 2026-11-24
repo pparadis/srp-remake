@@ -76,7 +76,8 @@ function isValidFuelLoad(fuelLoad: number | undefined): boolean {
 const rulesByRace = new Map<string, ResourceRules>();
 
 export const resourceRulesFor: ResourceRulesFor = (race) => {
-  const key = `${race.raceLaps}x${race.spineLen}`;
+  const lane = race.laneWear;
+  const key = `${race.raceLaps}x${race.spineLen}${lane ? `x${lane.tire.inner}x${lane.tire.middle}x${lane.tire.outer}x${lane.fuel.outer}` : ''}`;
   let rules = rulesByRace.get(key);
   if (!rules) {
     rules = makeRules(race);
@@ -129,7 +130,8 @@ function makeRules(race: RaceScale): ResourceRules {
       car.tire = 100;
       car.fuel = Math.max(car.fuel, fuelLoadOf(car.setup));
     },
-    features: { medium: true, fuelLoad: true, psi: false }
+    features: { medium: true, fuelLoad: true, psi: false },
+    laneWear: race.laneWear ?? null
   };
   return rules;
 }

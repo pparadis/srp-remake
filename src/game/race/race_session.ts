@@ -1,7 +1,13 @@
 // The race as one player's page sees it, without Phaser: the solo turn loop (the human's action, then the bots
 // until a human is on turn), the online state from the server, who may control the active car, the HUD snapshot,
 // the feel events and the sandbox edits. RaceScene owns one and only draws it; tests drive it directly.
-import { DRAFT_SLINGSHOT_TURNS, HEAVY_FUEL, type Compound } from '../constants';
+import {
+  DRAFT_SLINGSHOT_TURNS,
+  HEAVY_FUEL,
+  INNER_MAIN_LANE,
+  OUTER_MAIN_LANE,
+  type Compound
+} from '../constants';
 import { must } from '../must';
 import { DEFAULT_RULES_VERSION, resourcesOf, rulesOf, type RulesVersion } from '../rules/versions';
 import type { BotLevel, Car } from '../types/car';
@@ -827,11 +833,24 @@ export class RaceSession {
       ...(target.slingshot ? { slingshot: true } : {}),
       ...(target.slingshotOnly ? { slingshotOnly: true } : {}),
       ...(this.endsTucked(cell.id) ? { tucksIn: true } : {}),
+      ...this.laneTireHud(cell.laneIndex),
       tireBefore: this.activeCar.tire,
       fuelBefore: this.activeCar.fuel,
       ...(this.resources().features.fuelLoad && target.distance > 0
         ? { fuelPerCell: target.fuelCost / target.distance }
         : {})
+    };
+  }
+
+  /** v5 (#268): the tooltip's lane line for a target lane; nothing for the middle lane, the pit lane or before v5. */
+  private laneTireHud(laneIndex: number): Pick<HudHover, 'laneTire'> {
+    if (!this.resources().laneWear) return {};
+    if (laneIndex !== INNER_MAIN_LANE && laneIndex !== OUTER_MAIN_LANE) return {};
+    return {
+      laneTire: {
+        lane: laneIndex === INNER_MAIN_LANE ? 'inside' : 'outside',
+        factor: laneWearFactors(laneIndex, this.ctx.trackIndex).tire
+      }
     };
   }
 
@@ -1014,7 +1033,10 @@ export class RaceSession {
 
   private computeCostFactors(laneIndex: number) {
     const { aeroTire, aeroFuel } = setupFactors(this.activeCar.setup);
-    const lane = laneWearFactors(laneIndex);
+    const lane = laneWearFactors(
+      laneIndex,
+      rulesOf(this.race).laneTradeOff ? this.ctx.trackIndex : undefined
+    );
     return { aeroT: aeroTire, aeroF: aeroFuel, laneT: lane.tire, laneF: lane.fuel };
   }
 

@@ -1,6 +1,7 @@
 // What a rules version decides about tire, fuel and the size of a move (#148). The engine, the bots, the strategy
 // readouts and the HUD ask `resourcesOf(state, trackIndex)`; none of them reads a wear constant directly.
 import type { Car, CarSetup } from '../types/car';
+import type { LaneWear } from '../systems/lane_trade_off';
 
 type Wearing = Pick<Car, 'tire' | 'fuel' | 'setup'>;
 
@@ -8,6 +9,8 @@ type Wearing = Pick<Car, 'tire' | 'fuel' | 'setup'>;
 export interface RaceScale {
   raceLaps: number;
   spineLen: number;
+  /** v5 (#268): the wear of each main lane per lane-1 cell of progress; absent before v5. */
+  laneWear?: LaneWear | null;
 }
 
 /** What the target search needs to price a move's wear. */
@@ -36,6 +39,8 @@ export interface ResourceRules {
   pitService(car: Wearing, setup: CarSetup | null): void;
   /** What the setup UI offers; `psi` (tire pressure rows) is off on every live version, #163. */
   features: { medium: boolean; fuelLoad: boolean; psi: boolean };
+  /** v5 (#268): what each main lane wears per cell of progress (the bots' plan and the stint readout); null before v5. */
+  laneWear: LaneWear | null;
 }
 
 /** A version's resource rules, made for one race. */

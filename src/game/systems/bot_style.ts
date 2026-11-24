@@ -115,6 +115,9 @@ export const ADAPTIVE_V3: Personality = { ...PERSONALITIES.adaptive, innerLane: 
 export const HARD_ADAPT = { overtake: 14, queue: 8, block: 0, innerLane: 0.3 } as const;
 // Points between the inner and the outer lane at innerLane = 1 (about 1.1 cells a move over a few moves).
 export const LANE_SPAN = 60;
+// v5 (#268): the lanes now carry a tire price the score already counts, so the flat term shrinks to the geometry it
+// stands for, about 0.6 cells a lane a move.
+export const LANE_SPAN_TRADE_OFF = 12;
 // A rival counts for blocking when it is this many cells behind, for queuing when this close ahead.
 export const BLOCK_RANGE = 6;
 export const QUEUE_RANGE = 2;

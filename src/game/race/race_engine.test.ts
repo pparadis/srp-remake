@@ -875,3 +875,41 @@ describe('v4: the leader plays first each round (#138)', () => {
     expect(state.turn.order).toEqual(before);
   });
 });
+
+describe('lanes as a trade-off (v5, #268)', () => {
+  const seats = [{ isBot: false, ownerId: 'P1' }];
+  const targetsOn = (rules: 'v4' | 'v5') => {
+    const state = createRace(ctx, seats, 5, 0, rules);
+    const car = getActiveCar(state);
+    return { state, car, targets: computeTargets(ctx, state, car) };
+  };
+  const inLane = (targets: ReturnType<typeof computeTargets>, lane: number) =>
+    [...targets].filter(([id]) => ctx.cellMap.get(id)!.laneIndex === lane);
+
+  it('prices a lane-2 move easier on tire than v4 does, and a lane-1 move the same', () => {
+    const v4 = targetsOn('v4').targets;
+    const v5 = targetsOn('v5').targets;
+    const [id, middle] = inLane(v5, 2)[0]!;
+    expect(middle.tireCost).toBeLessThan(v4.get(id)!.tireCost);
+    for (const [lane1Id, info] of inLane(v5, 1)) {
+      expect(info.tireCost).toBe(v4.get(lane1Id)!.tireCost);
+    }
+  });
+
+  it('burns fuel by length only: the same per cell in every lane', () => {
+    const { targets } = targetsOn('v5');
+    const perCell = (lane: number) =>
+      inLane(targets, lane)
+        .filter(([, t]) => t.distance === 5)
+        .map(([, t]) => t.fuelCost / t.distance);
+    expect(perCell(1)[0]).toBeCloseTo(perCell(2)[0]!, 0);
+  });
+
+  it('applies the price of the target lane to the car', () => {
+    const { state, car, targets } = targetsOn('v5');
+    const [id, info] = inLane(targets, 2)[0]!;
+    const tire = car.tire;
+    expect(applyAction(ctx, state, { type: 'move', targetCellId: id }).ok).toBe(true);
+    expect(tire - car.tire).toBeCloseTo(info.tireCost, 5);
+  });
+});

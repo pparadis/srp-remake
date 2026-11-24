@@ -14,6 +14,7 @@ import {
 import { must } from '../must';
 import { computeMoveSpend } from './move_budget_system';
 import { moveFactor, roundWear } from './resource_system';
+import { laneTireFactors } from './lane_trade_off';
 
 export interface TargetInfo {
   distance: number;
@@ -43,6 +44,8 @@ interface MovementOptions {
   // v4 (#249): in the pit lane a car passes the cars in front: it may take the next free pit-lane cell, and the jump to
   // a box applies when the next cell is a box, free or not.
   pitLanePassing?: boolean;
+  // v5 (#268): the tire factor of the target lane comes from the track's lane lengths, and fuel is 1 in every lane.
+  laneTradeOff?: boolean;
 }
 
 interface MovementCostRates {
@@ -74,8 +77,14 @@ export function setupFactors(setup: CarSetup): {
   return { aeroTire, aeroFuel };
 }
 
-// Per-lane wear multipliers: the inner lane is hard on tires, the outer one on fuel.
-export function laneWearFactors(laneIndex: number): { tire: number; fuel: number } {
+// Per-lane wear multipliers: the inner lane is hard on tires, the outer one on fuel. With `laneTrack` (v5, #268) the
+// tire factor comes from the lane lengths and fuel is 1 in every lane (see lane_trade_off.ts).
+export function laneWearFactors(
+  laneIndex: number,
+  laneTrack?: TrackIndex
+): { tire: number; fuel: number } {
+  const table = laneTrack && laneTireFactors(laneTrack);
+  if (table) return { tire: laneFactor(laneIndex, table), fuel: 1 };
   return {
     tire: laneFactor(laneIndex, { inner: 1.05, middle: 1.0, outer: 0.98 }),
     fuel: laneFactor(laneIndex, { inner: 0.98, middle: 1.0, outer: 1.03 })
@@ -83,16 +92,17 @@ export function laneWearFactors(laneIndex: number): { tire: number; fuel: number
 }
 
 // v3 (#148): the wear of `distance` cells walked in a move that spends `movePoints`; the move size scales it (a 9 burns
-// more per cell than an 8, a 7 less) and the cost is kept to 0.1.
+// more per cell than an 8, a 7 less) and the cost is kept to 0.1. `laneTrack` is set on v5 (laneTradeOff).
 function computeCosts(
   distance: number,
   movePoints: number,
   laneIndex: number,
   costs: MovementCostContext,
-  drafting = false
+  drafting = false,
+  laneTrack?: TrackIndex
 ): { tireCost: number; fuelCost: number } {
   const { aeroTire, aeroFuel } = setupFactors(costs.setup);
-  const { tire: tireLaneFactor, fuel: fuelLaneFactor } = laneWearFactors(laneIndex);
+  const { tire: tireLaneFactor, fuel: fuelLaneFactor } = laneWearFactors(laneIndex, laneTrack);
   const draftTire = drafting ? DRAFT_TIRE_FACTOR : 1;
   const draftFuel = drafting ? DRAFT_FUEL_FACTOR : 1;
   const size = moveFactor(movePoints);
@@ -400,7 +410,14 @@ export function computeValidTargets(
     if (moveSpend > maxSteps) continue;
     if (options.disallowPitBoxTargets && (cell.tags ?? []).includes('PIT_BOX')) continue;
 
-    const { tireCost, fuelCost } = computeCosts(steps, moveSpend, cell.laneIndex, costs, drafted);
+    const { tireCost, fuelCost } = computeCosts(
+      steps,
+      moveSpend,
+      cell.laneIndex,
+      costs,
+      drafted,
+      options.laneTradeOff ? trackIndex : undefined
+    );
     targets.set(cellId, {
       distance: steps,
       moveSpend,
@@ -448,15 +465,17 @@ export function computeSqueezeTargets(
   startCellId: string,
   occupied: Set<string>,
   maxSteps: number,
-  costs: MovementCostContext
+  costs: MovementCostContext,
+  laneTradeOff = false
 ): Map<string, TargetInfo> {
   const { cellMap } = trackIndex;
   const startCell = cellMap.get(startCellId);
   const targets = new Map<string, TargetInfo>();
   if (!startCell) return targets;
+  const laneTrack = laneTradeOff ? trackIndex : undefined;
   if (startCell.laneIndex === PIT_LANE) {
     return (startCell.tags ?? []).includes('PIT_EXIT')
-      ? computePitExitSqueezeTargets(trackIndex, startCell, occupied, maxSteps, costs)
+      ? computePitExitSqueezeTargets(trackIndex, startCell, occupied, maxSteps, costs, laneTrack)
       : targets;
   }
 
@@ -516,7 +535,14 @@ export function computeSqueezeTargets(
       must(diagonals.get(cellId), 'diagonals of a reached cell') +
       SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
-    const { tireCost, fuelCost } = computeCosts(d, moveSpend, cell.laneIndex, costs);
+    const { tireCost, fuelCost } = computeCosts(
+      d,
+      moveSpend,
+      cell.laneIndex,
+      costs,
+      false,
+      laneTrack
+    );
     targets.set(cellId, {
       distance: d,
       moveSpend,
@@ -538,7 +564,8 @@ function computePitExitSqueezeTargets(
   startCell: TrackCell,
   occupied: Set<string>,
   maxSteps: number,
-  costs: MovementCostContext
+  costs: MovementCostContext,
+  laneTrack?: TrackIndex
 ): Map<string, TargetInfo> {
   const { cellMap } = trackIndex;
   const targets = new Map<string, TargetInfo>();
@@ -566,7 +593,14 @@ function computePitExitSqueezeTargets(
     const moveSpend =
       computeMoveSpend(d, startCell.laneIndex, cell.laneIndex) + SQUEEZE_SURCHARGE_PER_CAR * passed;
     if (moveSpend > maxSteps) continue;
-    const { tireCost, fuelCost } = computeCosts(d, moveSpend, cell.laneIndex, costs);
+    const { tireCost, fuelCost } = computeCosts(
+      d,
+      moveSpend,
+      cell.laneIndex,
+      costs,
+      false,
+      laneTrack
+    );
     targets.set(cellId, {
       distance: d,
       moveSpend,

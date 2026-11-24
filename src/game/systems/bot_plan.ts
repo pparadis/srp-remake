@@ -5,6 +5,7 @@ import type { ResourceRules } from '../rules/resource_rules';
 import type { Car, CarSetup } from '../types/car';
 import type { TrackCell } from '../types/track';
 import { setupFactors } from './movement_system';
+import type { LaneTable } from './lane_trade_off';
 import type { Personality } from './bot_style';
 import { trackFwd, type TrackIndex } from './track_index';
 
@@ -99,13 +100,22 @@ export function buildPlanContext(
   };
 }
 
+/**
+ * Wear per cell of progress. From v5 (#268) the plan counts the middle lane's tire (a mixed race: the lane-1 cost the
+ * v4 plan ignored, less what the outside saves) and fuel at 1 (the tank's margin covers the longer outside laps); a
+ * `lane` asks for that lane's own tire and fuel, as the stint readout does.
+ */
 export function wearPerCell(
   setup: CarSetup,
-  resources: ResourceRules
+  resources: ResourceRules,
+  lane?: keyof LaneTable
 ): { tire: number; fuel: number } {
   const { aeroTire, aeroFuel } = setupFactors(setup);
   const { tireRate, fuelRate } = resources.wearRates(setup);
-  return { tire: tireRate * aeroTire, fuel: fuelRate * aeroFuel };
+  const wear = resources.laneWear;
+  const tireLane = wear ? wear.tire[lane ?? 'middle'] : 1;
+  const fuelLane = wear && lane ? wear.fuel[lane] : 1;
+  return { tire: tireRate * aeroTire * tireLane, fuel: fuelRate * aeroFuel * fuelLane };
 }
 
 export function progressOf(car: Car, cell: TrackCell, plan: BotPlanContext): number {
@@ -129,9 +139,10 @@ export function cycleSizes(budget: number): number[] {
 // wearPerCell where the size of a move changes nothing (v1 and v2).
 export function expectedWearPerCell(
   car: Wearing,
-  resources: ResourceRules
+  resources: ResourceRules,
+  lane?: keyof LaneTable
 ): { tire: number; fuel: number } {
-  const base = wearPerCell(car.setup, resources);
+  const base = wearPerCell(car.setup, resources, lane);
   const sizes = cycleSizes(resources.cycleBudget(car));
   const mean = (kind: 'tire' | 'fuel') =>
     sizes.reduce((sum, size) => sum + resources.sizeFactor(size)[kind], 0) / sizes.length;
@@ -144,13 +155,14 @@ export function cellsUntilEmpty(
   fuel: number,
   setup: CarSetup,
   resources: ResourceRules,
-  safety = SAFETY
+  safety = SAFETY,
+  lane?: keyof LaneTable
 ): number {
-  const wear = expectedWearPerCell({ tire, fuel, setup }, resources);
+  const wear = expectedWearPerCell({ tire, fuel, setup }, resources, lane);
   return Math.min(tire / wear.tire, fuel / wear.fuel) * safety;
 }
 
-// Wear of the lane factors and the 8 -> 7 steps of a lap is not modelled; the pace plan keeps this much in hand.
+// Wear of the 8 -> 7 steps of a lap is not modelled (nor, before v5, the lane factors); the pace plan keeps this much in hand.
 const PACE_MARGIN = 1.02;
 // Nothing below a 7 wears less per cell, so a car that cannot finish at 7 cannot finish by slowing down more.
 const SLOWEST_SIZE = 7;
